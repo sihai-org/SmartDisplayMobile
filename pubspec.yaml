@@ -34,8 +34,8 @@ dependencies:
   # Core dependencies
   cupertino_icons: ^1.0.2
   
-  # BLE Communication
-  flutter_reactive_ble: ^5.3.1
+  # BLE Communication (temporarily disabled for iOS testing)
+  # flutter_reactive_ble: ^5.3.1
   
   # QR Code Scanning
   mobile_scanner: ^3.5.6
@@ -43,8 +43,8 @@ dependencies:
   # Cryptography
   cryptography: ^2.5.0
   
-  # Secure Storage
-  flutter_secure_storage: ^9.0.0
+  # Secure Storage (temporarily disabled for iOS testing)
+  # flutter_secure_storage: ^9.0.0
   
   # State Management
   flutter_riverpod: ^2.4.9
@@ -59,7 +59,6 @@ dependencies:
   
   # Utilities
   equatable: ^2.0.5
-  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:

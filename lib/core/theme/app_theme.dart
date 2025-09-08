@@ -74,14 +74,6 @@ class AppTheme {
       ),
     ),
     
-    // Card Theme
-    cardTheme: CardTheme(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
-      ),
-      margin: const EdgeInsets.all(8),
-    ),
     
     // Input Decoration Theme
     inputDecorationTheme: InputDecorationTheme(
