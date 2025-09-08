@@ -45,5 +45,33 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Bluetooth permissions -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>此应用需要使用蓝牙来连接和配置智能显示器设备</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>此应用需要使用蓝牙来连接和配置智能显示器设备</string>
+	
+	<!-- Camera permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>此应用需要访问相机来扫描设备上的二维码</string>
+	
+	<!-- Location permissions (required for BLE on iOS) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>此应用需要位置权限来扫描蓝牙设备</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>此应用需要位置权限来扫描蓝牙设备</string>
+	
+	<!-- Restrict to portrait orientation only -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	
 </dict>
 </plist>
