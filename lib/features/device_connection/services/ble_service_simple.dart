@@ -4,6 +4,7 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/ble_device_data.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ble_constants.dart';
 
 /// 简化的BLE服务类，用于基本的蓝牙操作
 class BleServiceSimple {
@@ -12,6 +13,9 @@ class BleServiceSimple {
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
   static bool _isScanning = false;
   static StreamController<SimpleBLEScanResult>? _scanController;
+  
+  // 设备去重映射表 - 按设备ID去重
+  static final Map<String, SimpleBLEScanResult> _discoveredDevices = {};
 
   /// 检查BLE状态
   static Future<BleStatus> checkBleStatus() async {
@@ -176,9 +180,16 @@ class BleServiceSimple {
         }
       });
       
-      // 开始扫描 - 使用listen而不是await for来管理订阅
+      // 清空之前的扫描结果
+      _discoveredDevices.clear();
+      
+      // 开始扫描 - 使用Service UUID过滤  
+      final targetServiceUuids = [
+        Uuid.parse(BleConstants.serviceUuid) // 目标设备的主服务UUID
+      ];
+      
       _scanSubscription = _ble.scanForDevices(
-        withServices: [],
+        withServices: targetServiceUuids, // 只扫描我们的目标服务
         scanMode: ScanMode.balanced,
         requireLocationServicesEnabled: Platform.isAndroid, // 仅Android需要
       ).listen(
@@ -189,9 +200,25 @@ class BleServiceSimple {
           
           final result = SimpleBLEScanResult.fromDiscoveredDevice(device);
           
-          // 通过StreamController发送结果
-          if (_scanController != null && !_scanController!.isClosed) {
-            _scanController!.add(result);
+          // 设备去重：如果已存在该设备ID，更新RSSI和时间戳
+          final deviceId = result.deviceId;
+          final existingDevice = _discoveredDevices[deviceId];
+          
+          if (existingDevice != null) {
+            // 更新现有设备信息（保留更强的信号）
+            if (result.rssi > existingDevice.rssi) {
+              _discoveredDevices[deviceId] = result;
+              print('🔄 更新设备信息: ${device.name}, 新RSSI: ${result.rssi}');
+            }
+          } else {
+            // 新设备，添加到映射表
+            _discoveredDevices[deviceId] = result;
+            print('✅ 新发现设备: ${device.name}');
+            
+            // 通过StreamController发送新设备结果
+            if (_scanController != null && !_scanController!.isClosed) {
+              _scanController!.add(result);
+            }
           }
         },
         onError: (error) {
@@ -297,6 +324,9 @@ class BleServiceSimple {
     
     _scanController?.close();
     _scanController = null;
+    
+    // 清理设备去重映射表
+    _discoveredDevices.clear();
     
     _isScanning = false;
     print('🧹 BleServiceSimple资源已清理');

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/ble_constants.dart';
 import '../../../features/qr_scanner/models/device_qr_data.dart';
 import '../models/ble_device_data.dart';
 import '../services/ble_service_simple.dart';
@@ -164,12 +165,48 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 检查是否为目标设备
+  /// 检查是否为目标设备 - 优化匹配条件，避免过宽匹配
   bool _isTargetDevice(SimpleBLEScanResult scanResult, BleDeviceData deviceData) {
-    // 通过设备ID或名称匹配
-    return scanResult.deviceId.toLowerCase().contains(deviceData.deviceId.toLowerCase()) ||
-           scanResult.name.toLowerCase().contains(deviceData.deviceName.toLowerCase()) ||
-           scanResult.address.toLowerCase() == deviceData.bleAddress.toLowerCase();
+    // 优先级1: 精确的BLE地址匹配
+    if (deviceData.bleAddress.isNotEmpty && scanResult.address.isNotEmpty) {
+      if (scanResult.address.toLowerCase() == deviceData.bleAddress.toLowerCase()) {
+        print('✅ BLE地址精确匹配: ${scanResult.address}');
+        return true;
+      }
+    }
+    
+    // 优先级2: 设备ID精确匹配（忽略大小写）
+    if (deviceData.deviceId.isNotEmpty && scanResult.deviceId.isNotEmpty) {
+      if (scanResult.deviceId.toLowerCase() == deviceData.deviceId.toLowerCase()) {
+        print('✅ 设备ID精确匹配: ${scanResult.deviceId}');
+        return true;
+      }
+    }
+    
+    // 优先级3: 设备名称精确匹配（只有QR中有明确名称时才比较）
+    if (deviceData.deviceName.isNotEmpty && scanResult.name.isNotEmpty) {
+      // 只有名称长度 > 3 才进行精确匹配，避免太短的名称误匹配
+      if (deviceData.deviceName.length > 3) {
+        if (scanResult.name.toLowerCase() == deviceData.deviceName.toLowerCase()) {
+          print('✅ 设备名称精确匹配: ${scanResult.name}');
+          return true;
+        }
+      }
+    }
+    
+    // 优先级4: 服务UUID匹配（如果扫描结果包含目标服务）
+    if (scanResult.serviceUuids.isNotEmpty) {
+      final targetServiceUuid = BleConstants.serviceUuid.toLowerCase();
+      for (final serviceUuid in scanResult.serviceUuids) {
+        if (serviceUuid.toLowerCase() == targetServiceUuid) {
+          print('✅ 服务UUID匹配: $serviceUuid');
+          return true;
+        }
+      }
+    }
+    
+    print('❌ 设备不匹配: ${scanResult.name} (${scanResult.deviceId})');
+    return false;
   }
 
   /// 连接到设备
