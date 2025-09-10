@@ -51,5 +51,5 @@ app.*.map.json
 /debug/
 /profile/
 
-# Claude Code settings
-.claude/
+# Claude Code settings - commented out to track settings
+# .claude/
