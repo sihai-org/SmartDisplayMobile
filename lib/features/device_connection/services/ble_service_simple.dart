@@ -286,18 +286,20 @@ class BleServiceSimple {
     required Duration timeout,
   }) async {
     try {
-      print('🔗 尝试连接到设备: ${deviceData.deviceName}');
+      print('🔗 开始连接到设备: ${deviceData.deviceName} (${deviceData.deviceId})');
       
-      // 这里应该实现实际的连接逻辑
-      // 由于复杂性，暂时返回模拟连接结果
-      await Future.delayed(const Duration(seconds: 2));
+      // TODO: 实现真实的BLE GATT连接逻辑
+      // 目前使用模拟连接进行测试
+      print('⏳ 模拟BLE GATT连接中...');
+      await Future.delayed(const Duration(seconds: 3));
       
+      print('✅ 模拟连接成功！');
       return deviceData.copyWith(
         status: BleDeviceStatus.connected,
         connectedAt: DateTime.now(),
       );
     } catch (e) {
-      print('连接设备失败: $e');
+      print('❌ 连接设备失败: $e');
       return null;
     }
   }

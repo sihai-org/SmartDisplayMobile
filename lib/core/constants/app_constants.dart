@@ -39,6 +39,6 @@ class AppConstants {
   // Debug and Testing Configuration
   static const bool isDebugMode = true; // Set to false for production
   static const bool enableMockData = false; // Enable mock data for testing
-  static const bool skipBleScanning = false; // Skip real BLE scanning for debugging
+  static const bool skipBleScanning = true; // Skip real BLE scanning for debugging - 临时启用以便测试UI流程
   static const bool skipPermissionCheck = true; // Skip permission check for development
 }

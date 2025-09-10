@@ -178,4 +178,4 @@ flutter packages pub run build_runner build --delete-conflicting-outputs
 - **Test with real devices**: Always verify changes with actual BLE devices
 - **Run code generation**: After model changes, regenerate `.freezed.dart` and `.g.dart` files
 - **Chinese UI text**: App supports both Chinese and English (Chinese primary)
-- 每次任务结束都提交代码
+- 每次任务结束, 如果有代码修改，确认提交代码
