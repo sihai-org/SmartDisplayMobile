@@ -50,9 +50,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
+    print('🚀 ==> startConnection 被调用！QR数据: ${qrData.deviceId}');
     try {
       // 重置状态
       state = const DeviceConnectionState();
+      print('✅ 状态已重置');
       
       // 创建BLE设备数据
       final deviceData = BleDeviceData(
@@ -69,9 +71,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 0.1,
       );
 
-      // 检查蓝牙权限
+      // 检查蓝牙权限  
       print('🔄 开始检查蓝牙权限和状态...');
       final hasPermission = await BleServiceSimple.requestPermissions();
+      print('🔐 权限检查结果: $hasPermission');
       if (!hasPermission) {
         final bleStatus = await BleServiceSimple.checkBleStatus();
         String errorMessage = '蓝牙权限未授予或蓝牙未开启';
@@ -110,6 +113,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         print('🧪 调试模式：跳过真实BLE扫描，模拟设备连接');
         await _simulateDeviceConnection(deviceData);
       } else {
+        print('📡 开始真实BLE设备扫描...');
         await _scanForDevice(deviceData);
       }
 

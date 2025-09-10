@@ -20,10 +20,22 @@ class BleServiceSimple {
   /// 检查BLE状态
   static Future<BleStatus> checkBleStatus() async {
     try {
+      print('🔍 获取BLE状态流...');
       final statusStream = _ble.statusStream;
-      return await statusStream.first;
+      print('⏱️  等待BLE状态（最多10秒）...');
+      
+      final status = await statusStream.first.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⚠️  BLE状态获取超时，返回unknown');
+          return BleStatus.unknown;
+        },
+      );
+      
+      print('📡 BLE状态获取完成: $status');
+      return status;
     } catch (e) {
-      print('检查BLE状态失败: $e');
+      print('❌ 检查BLE状态失败: $e');
       return BleStatus.unknown;
     }
   }
