@@ -44,5 +44,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# APK files for testing (ignore generated APKs)
+*.apk
+*.aab
+/release/
+/debug/
+/profile/
+
 # Claude Code settings
 .claude/

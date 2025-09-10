@@ -35,4 +35,10 @@ class AppConstants {
   static const String keyDeviceList = 'configured_devices';
   static const String keyLastConnectedDevice = 'last_connected_device';
   static const String keyAppSettings = 'app_settings';
+  
+  // Debug and Testing Configuration
+  static const bool isDebugMode = true; // Set to false for production
+  static const bool enableMockData = false; // Enable mock data for testing
+  static const bool skipBleScanning = false; // Skip real BLE scanning for debugging
+  static const bool skipPermissionCheck = true; // Skip permission check for development
 }
