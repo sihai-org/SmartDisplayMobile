@@ -11,6 +11,7 @@ class BleServiceSimple {
   static final FlutterReactiveBle _ble = FlutterReactiveBle();
   static StreamSubscription<BleStatus>? _bleStatusSubscription;
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
+  static StreamSubscription<ConnectionStateUpdate>? _deviceConnectionSubscription;
   static bool _isScanning = false;
   static StreamController<SimpleBLEScanResult>? _scanController;
   
@@ -195,20 +196,22 @@ class BleServiceSimple {
       // 清空之前的扫描结果
       _discoveredDevices.clear();
       
-      // 开始扫描 - 使用Service UUID过滤  
-      final targetServiceUuids = [
-        Uuid.parse(BleConstants.serviceUuid) // 目标设备的主服务UUID
-      ];
-      
+      // 开始扫描 - 暂时不使用Service UUID过滤以便调试
+      print('🔍 开始BLE扫描，目标服务UUID: ${BleConstants.serviceUuid}');
+
+      // 按服务UUID过滤，提升匹配稳定性（iOS/Android均建议开启）
       _scanSubscription = _ble.scanForDevices(
-        withServices: targetServiceUuids, // 只扫描我们的目标服务
+        withServices: [Uuid.parse(BleConstants.serviceUuid)],
         scanMode: ScanMode.balanced,
         requireLocationServicesEnabled: Platform.isAndroid, // 仅Android需要
       ).listen(
         (device) {
           if (!_isScanning) return; // 如果已停止，忽略结果
           
-          print('发现设备: ${device.name} (${device.id}), RSSI: ${device.rssi}, 可连接: ${device.connectable}');
+          print('📱 发现BLE设备: "${device.name}" (${device.id})');
+          print('   RSSI: ${device.rssi}, 可连接: ${device.connectable}');
+          print('   服务UUID: ${device.serviceUuids.map((u) => u.toString()).join(', ')}');
+          print('   制造商数据: ${device.manufacturerData}');
           
           final result = SimpleBLEScanResult.fromDiscoveredDevice(device);
           
@@ -318,11 +321,11 @@ class BleServiceSimple {
       );
       
       // 监听连接状态
-      late StreamSubscription connectionSubscription;
       final completer = Completer<BleDeviceData?>();
-      
-      connectionSubscription = connectionStream.listen(
-        (connectionState) {
+      // 若已有连接订阅，先取消以避免多路订阅
+      await _deviceConnectionSubscription?.cancel();
+      _deviceConnectionSubscription = connectionStream.listen(
+        (connectionState) async {
           print('📶 连接状态更新: ${connectionState.connectionState}');
           
           switch (connectionState.connectionState) {
@@ -332,9 +335,18 @@ class BleServiceSimple {
               
             case DeviceConnectionState.connected:
               print('✅ BLE连接成功！');
-              connectionSubscription.cancel();
-              
-              // 连接成功，返回更新的设备数据
+              // 不要取消订阅！保持订阅以维持连接
+              // 首次连接成功时完成结果
+              // 请求更大的MTU（Android生效，iOS忽略），减少通知截断
+              try {
+                final negotiated = await _ble.requestMtu(
+                  deviceId: deviceId,
+                  mtu: BleConstants.preferredMtu,
+                );
+                print('📏 已请求MTU，协商结果: $negotiated');
+              } catch (e) {
+                print('⚠️ 请求MTU失败或不支持: $e');
+              }
               completer.complete(deviceData.copyWith(
                 status: BleDeviceStatus.connected,
                 connectedAt: DateTime.now(),
@@ -343,8 +355,7 @@ class BleServiceSimple {
               
             case DeviceConnectionState.disconnected:
               print('❌ BLE连接断开');
-              connectionSubscription.cancel();
-              
+              // 连接断开时，如未完成则返回null
               if (!completer.isCompleted) {
                 completer.complete(null);
               }
@@ -357,8 +368,7 @@ class BleServiceSimple {
         },
         onError: (error) {
           print('❌ BLE连接错误: $error');
-          connectionSubscription.cancel();
-          
+          // 出错时返回null
           if (!completer.isCompleted) {
             completer.complete(null);
           }
@@ -369,7 +379,7 @@ class BleServiceSimple {
       Timer(timeout, () {
         if (!completer.isCompleted) {
           print('⏰ BLE连接超时');
-          connectionSubscription.cancel();
+          _deviceConnectionSubscription?.cancel();
           completer.complete(null);
         }
       });
@@ -388,10 +398,72 @@ class BleServiceSimple {
       await stopScan(); // 先停止扫描
       _scanSubscription?.cancel();
       _scanSubscription = null;
-      print('✅ BLE连接已断开');
+      await _deviceConnectionSubscription?.cancel();
+      _deviceConnectionSubscription = null;
+    print('✅ BLE连接已断开');
     } catch (e) {
       print('断开连接时出错: $e');
     }
+  }
+
+  /// 读取特征值（返回原始字节；失败返回null）
+  static Future<List<int>?> readCharacteristic({
+    required String deviceId,
+    required String serviceUuid,
+    required String characteristicUuid,
+  }) async {
+    try {
+      final q = QualifiedCharacteristic(
+        deviceId: deviceId,
+        serviceId: Uuid.parse(serviceUuid),
+        characteristicId: Uuid.parse(characteristicUuid),
+      );
+      final data = await _ble.readCharacteristic(q);
+      return data;
+    } catch (e) {
+      print('❌ 读取特征值失败: $e');
+      return null;
+    }
+  }
+
+  /// 写入特征值（默认有响应）
+  static Future<bool> writeCharacteristic({
+    required String deviceId,
+    required String serviceUuid,
+    required String characteristicUuid,
+    required List<int> data,
+    bool withResponse = true,
+  }) async {
+    try {
+      final q = QualifiedCharacteristic(
+        deviceId: deviceId,
+        serviceId: Uuid.parse(serviceUuid),
+        characteristicId: Uuid.parse(characteristicUuid),
+      );
+      if (withResponse) {
+        await _ble.writeCharacteristicWithResponse(q, value: data);
+      } else {
+        await _ble.writeCharacteristicWithoutResponse(q, value: data);
+      }
+      return true;
+    } catch (e) {
+      print('❌ 写入特征值失败: $e');
+      return false;
+    }
+  }
+
+  /// 订阅特征值通知
+  static Stream<List<int>> subscribeToCharacteristic({
+    required String deviceId,
+    required String serviceUuid,
+    required String characteristicUuid,
+  }) {
+    final q = QualifiedCharacteristic(
+      deviceId: deviceId,
+      serviceId: Uuid.parse(serviceUuid),
+      characteristicId: Uuid.parse(characteristicUuid),
+    );
+    return _ble.subscribeToCharacteristic(q);
   }
 
   /// 释放资源 - 幂等清理
@@ -401,6 +473,8 @@ class BleServiceSimple {
     
     _scanSubscription?.cancel();
     _scanSubscription = null;
+    _deviceConnectionSubscription?.cancel();
+    _deviceConnectionSubscription = null;
     
     _scanController?.close();
     _scanController = null;

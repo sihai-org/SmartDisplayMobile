@@ -20,24 +20,15 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     super.initState();
     // 初始化扫描器
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        // 初始化扫描器 (不需要重置，因为provider会自动管理状态)
-        final notifier = ref.read(qrScannerProvider.notifier);
-        notifier.initializeController(); // 只创建控制器，不更新状态
-        // 延迟状态更新，确保widget完全挂载后再更新
-        Future.microtask(() {
-          if (mounted) {
-            notifier.startScanning();
-          }
-        });
-      }
+      if (!mounted) return;
+      final notifier = ref.read(qrScannerProvider.notifier);
+      notifier.initializeController();
+      notifier.startScanning();
     });
   }
 
   @override
   void dispose() {
-    // 停止扫描并清理资源
-    ref.read(qrScannerProvider.notifier).stopScanning();
     super.dispose();
   }
 
@@ -46,20 +37,24 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     final scannerState = ref.watch(qrScannerProvider);
     final scannerNotifier = ref.read(qrScannerProvider.notifier);
 
-    // 监听扫描成功状态，跳转到设备连接页面显示信息
+    // 监听扫描成功状态，跳转到设备连接页面显示信息（加 mounted 防护，并在帧回调中导航）
     ref.listen<QrScannerState>(qrScannerProvider, (previous, current) {
+      if (!mounted) return;
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
-        // 尝试解析QR码数据
-        try {
-          final deviceData = QrDataParser.fromQrContent(current.qrContent!);
-          // 保存扫描结果到全局状态
-          ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
-          // 跳转到设备连接页面（仅显示信息，不启动连接）
-          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
-        } catch (e) {
-          // 如果解析失败，继续显示二维码内容
-          print('QR码解析失败: $e');
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          try {
+            final deviceData = QrDataParser.fromQrContent(current.qrContent!);
+            // 停止扫描，避免在已销毁元素上继续更新
+            ref.read(qrScannerProvider.notifier).stopScanning();
+            // 保存扫描结果到全局状态
+            ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
+            // 跳转到设备连接页面（仅显示信息，不启动连接）
+            context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+          } catch (e) {
+            print('QR码解析失败: $e');
+          }
+        });
       }
     });
 
