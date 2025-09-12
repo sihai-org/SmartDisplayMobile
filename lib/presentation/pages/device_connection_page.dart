@@ -26,36 +26,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   void initState() {
     super.initState();
     print('[DeviceConnectionPage] initState');
-    
-    // 立即注册监听器，不等待postFrame
-    print('[DeviceConnectionPage] 注册状态监听器');
-    ref.listen<DeviceConnectionState>(deviceConnectionProvider,
-        (previous, current) async {
-      print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
-      if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
-        print('[DeviceConnectionPage] 🎉 认证完成，准备跳转首页');
-        final d = current.deviceData!;
-        final qr = DeviceQrData(
-            deviceId: d.deviceId,
-            deviceName: d.deviceName,
-            bleAddress: d.bleAddress,
-            publicKey: d.publicKey);
-        
-        print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
-        await ref
-            .read(savedDevicesProvider.notifier)
-            .upsertFromQr(qr, lastBleAddress: d.bleAddress);
-        
-        print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
-        await ref.read(savedDevicesProvider.notifier).select(d.deviceId);
-        
-        print('[DeviceConnectionPage] 跳转首页, mounted: $mounted');
-        if (mounted) {
-          context.go(AppRoutes.home);
-          print('[DeviceConnectionPage] ✅ 已执行跳转首页');
-        }
-      }
-    });
   }
 
   bool _autoStarted = false;
@@ -110,6 +80,35 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   @override
   Widget build(BuildContext context) {
     final connectionState = ref.watch(deviceConnectionProvider);
+    
+    // 注册状态监听器，在认证完成时跳转首页
+    ref.listen<DeviceConnectionState>(deviceConnectionProvider,
+        (previous, current) async {
+      print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
+      if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
+        print('[DeviceConnectionPage] 🎉 认证完成，准备跳转首页');
+        final d = current.deviceData!;
+        final qr = DeviceQrData(
+            deviceId: d.deviceId,
+            deviceName: d.deviceName,
+            bleAddress: d.bleAddress,
+            publicKey: d.publicKey);
+        
+        print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
+        await ref
+            .read(savedDevicesProvider.notifier)
+            .upsertFromQr(qr, lastBleAddress: d.bleAddress);
+        
+        print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
+        await ref.read(savedDevicesProvider.notifier).select(d.deviceId);
+        
+        print('[DeviceConnectionPage] 跳转首页, mounted: $mounted');
+        if (mounted) {
+          context.go(AppRoutes.home);
+          print('[DeviceConnectionPage] ✅ 已执行跳转首页');
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
