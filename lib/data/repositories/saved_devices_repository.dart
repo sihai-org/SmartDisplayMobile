@@ -100,5 +100,21 @@ class SavedDevicesRepository {
     await saveAll(all);
     await saveLastSelectedId(rec.deviceId);
   }
+
+  Future<void> removeDevice(String deviceId) async {
+    final all = await loadAll();
+    all.removeWhere((e) => e.deviceId == deviceId);
+    await saveAll(all);
+    
+    // 如果删除的是最后选中的设备，更新lastSelectedId
+    final currentLastSelected = await loadLastSelectedId();
+    if (currentLastSelected == deviceId) {
+      if (all.isNotEmpty) {
+        await saveLastSelectedId(all.last.deviceId);
+      } else {
+        await _storage.delete(key: _keyLastSelectedId);
+      }
+    }
+  }
 }
 

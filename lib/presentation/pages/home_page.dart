@@ -34,10 +34,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     
     // 如果已经尝试过连接，或者没有保存的设备，或者当前已经在连接/已连接状态，则不重试
     if (_autoTried || !saved.loaded || saved.lastSelectedId == null) return;
-    if (connState.status == conn.BleDeviceStatus.connecting || 
-        connState.status == conn.BleDeviceStatus.connected ||
-        connState.status == conn.BleDeviceStatus.authenticating ||
-        connState.status == conn.BleDeviceStatus.authenticated) return;
+    if (connState.status == BleDeviceStatus.connecting || 
+        connState.status == BleDeviceStatus.connected ||
+        connState.status == BleDeviceStatus.authenticating ||
+        connState.status == BleDeviceStatus.authenticated) return;
     
     SavedDeviceRecord? rec;
     try {
@@ -68,17 +68,22 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (!saved.loaded || saved.lastSelectedId == null) return;
     
     // 只在断开、错误或超时状态下触发重连
-    if (connState.status == conn.BleDeviceStatus.disconnected ||
-        connState.status == conn.BleDeviceStatus.error ||
-        connState.status == conn.BleDeviceStatus.timeout) {
+    if (connState.status == BleDeviceStatus.disconnected ||
+        connState.status == BleDeviceStatus.error ||
+        connState.status == BleDeviceStatus.timeout) {
       
       print('[HomePage] 检测到连接问题，5秒后尝试重连...');
       
-      // 延迟5秒后重试连接
+      // 延迟5秒后重试连接，避免在listener中直接修改provider
       Future.delayed(const Duration(seconds: 5), () {
         if (mounted) {
           _autoTried = false; // 重置标记允许重连
-          _tryAutoConnect();
+          // 再次延迟确保不在build周期中
+          Future.delayed(Duration.zero, () {
+            if (mounted) {
+              _tryAutoConnect();
+            }
+          });
         }
       });
     }
@@ -97,10 +102,18 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
     
-    // 尝试自动连接
-    if (saved.loaded && saved.lastSelectedId != null) {
-      _tryAutoConnect();
-    }
+    // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
+    ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
+      if (current.loaded && current.lastSelectedId != null && 
+          (previous == null || !previous.loaded)) {
+        // 延迟执行，避免在build期间修改provider
+        Future.delayed(Duration.zero, () {
+          if (mounted) {
+            _tryAutoConnect();
+          }
+        });
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         title: const Text('SmartDisplay'),
@@ -335,9 +348,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (connState.status == conn.BleDeviceStatus.disconnected ||
-            connState.status == conn.BleDeviceStatus.error ||
-            connState.status == conn.BleDeviceStatus.timeout)
+        if (connState.status == BleDeviceStatus.disconnected ||
+            connState.status == BleDeviceStatus.error ||
+            connState.status == BleDeviceStatus.timeout)
           IconButton(
             onPressed: () {
               _autoTried = false; // 重置标记

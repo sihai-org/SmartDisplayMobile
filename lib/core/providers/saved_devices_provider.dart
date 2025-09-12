@@ -32,6 +32,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = state.copyWith(lastSelectedId: deviceId);
   }
 
+  Future<void> removeDevice(String deviceId) async {
+    await _repo.removeDevice(deviceId);
+    await load(); // 重新加载状态
+  }
+
   SavedDeviceRecord? get selected => state.devices.firstWhere((e) => e.deviceId == state.lastSelectedId, orElse: () => const SavedDeviceRecord(deviceId: '', deviceName: '', publicKey: ''));
 
   bool contains(String deviceId) => state.devices.any((e) => e.deviceId == deviceId);
