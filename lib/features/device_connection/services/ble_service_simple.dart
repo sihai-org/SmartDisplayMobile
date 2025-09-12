@@ -298,20 +298,86 @@ class BleServiceSimple {
     required Duration timeout,
   }) async {
     try {
-      print('🔗 开始连接到设备: ${deviceData.deviceName} (${deviceData.deviceId})');
+      print('🔗 开始真实BLE GATT连接到设备: ${deviceData.deviceName}');
+      print('   设备地址: ${deviceData.bleAddress}');
       
-      // TODO: 实现真实的BLE GATT连接逻辑
-      // 目前使用模拟连接进行测试
-      print('⏳ 模拟BLE GATT连接中...');
-      await Future.delayed(const Duration(seconds: 3));
+      // 停止扫描（如果还在扫描）
+      await stopScan();
       
-      print('✅ 模拟连接成功！');
-      return deviceData.copyWith(
-        status: BleDeviceStatus.connected,
-        connectedAt: DateTime.now(),
+      // 使用设备的真实地址进行连接
+      final deviceId = deviceData.bleAddress.isNotEmpty 
+          ? deviceData.bleAddress 
+          : deviceData.deviceId;
+      
+      print('🔌 尝试连接设备ID: $deviceId');
+      
+      // 建立BLE连接
+      final connectionStream = _ble.connectToDevice(
+        id: deviceId,
+        connectionTimeout: timeout,
       );
+      
+      // 监听连接状态
+      late StreamSubscription connectionSubscription;
+      final completer = Completer<BleDeviceData?>();
+      
+      connectionSubscription = connectionStream.listen(
+        (connectionState) {
+          print('📶 连接状态更新: ${connectionState.connectionState}');
+          
+          switch (connectionState.connectionState) {
+            case DeviceConnectionState.connecting:
+              print('⏳ 正在连接中...');
+              break;
+              
+            case DeviceConnectionState.connected:
+              print('✅ BLE连接成功！');
+              connectionSubscription.cancel();
+              
+              // 连接成功，返回更新的设备数据
+              completer.complete(deviceData.copyWith(
+                status: BleDeviceStatus.connected,
+                connectedAt: DateTime.now(),
+              ));
+              break;
+              
+            case DeviceConnectionState.disconnected:
+              print('❌ BLE连接断开');
+              connectionSubscription.cancel();
+              
+              if (!completer.isCompleted) {
+                completer.complete(null);
+              }
+              break;
+              
+            case DeviceConnectionState.disconnecting:
+              print('⏸️ 正在断开连接...');
+              break;
+          }
+        },
+        onError: (error) {
+          print('❌ BLE连接错误: $error');
+          connectionSubscription.cancel();
+          
+          if (!completer.isCompleted) {
+            completer.complete(null);
+          }
+        },
+      );
+      
+      // 设置连接超时
+      Timer(timeout, () {
+        if (!completer.isCompleted) {
+          print('⏰ BLE连接超时');
+          connectionSubscription.cancel();
+          completer.complete(null);
+        }
+      });
+      
+      return await completer.future;
+      
     } catch (e) {
-      print('❌ 连接设备失败: $e');
+      print('❌ BLE连接过程出错: $e');
       return null;
     }
   }

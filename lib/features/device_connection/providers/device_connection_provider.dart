@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import '../../../core/constants/app_constants.dart';
@@ -153,8 +154,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           // 找到目标设备，开始连接
           if (_isTargetDevice(scanResult, deviceData)) {
             _timeoutTimer?.cancel();
+            // 在iOS上使用扫描到的设备ID作为连接地址
+            final connectionAddress = Platform.isIOS ? scanResult.deviceId : scanResult.address;
             _connectToDevice(deviceData.copyWith(
-              bleAddress: scanResult.address,
+              bleAddress: connectionAddress, // iOS上这是系统UUID，Android上是MAC地址
               rssi: scanResult.rssi,
             ));
           }
