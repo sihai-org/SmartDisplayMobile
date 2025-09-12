@@ -169,36 +169,13 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 检查是否为目标设备 - 优化匹配条件，避免过宽匹配
+  /// 检查是否为目标设备 - 适配iOS平台特点
   bool _isTargetDevice(SimpleBLEScanResult scanResult, BleDeviceData deviceData) {
-    // 优先级1: 精确的BLE地址匹配
-    if (deviceData.bleAddress.isNotEmpty && scanResult.address.isNotEmpty) {
-      if (scanResult.address.toLowerCase() == deviceData.bleAddress.toLowerCase()) {
-        print('✅ BLE地址精确匹配: ${scanResult.address}');
-        return true;
-      }
-    }
+    print('🔍 检查设备匹配:');
+    print('   扫描到: ${scanResult.name} (${scanResult.deviceId})');
+    print('   目标: ${deviceData.deviceName} (${deviceData.deviceId})');
     
-    // 优先级2: 设备ID精确匹配（忽略大小写）
-    if (deviceData.deviceId.isNotEmpty && scanResult.deviceId.isNotEmpty) {
-      if (scanResult.deviceId.toLowerCase() == deviceData.deviceId.toLowerCase()) {
-        print('✅ 设备ID精确匹配: ${scanResult.deviceId}');
-        return true;
-      }
-    }
-    
-    // 优先级3: 设备名称精确匹配（只有QR中有明确名称时才比较）
-    if (deviceData.deviceName.isNotEmpty && scanResult.name.isNotEmpty) {
-      // 只有名称长度 > 3 才进行精确匹配，避免太短的名称误匹配
-      if (deviceData.deviceName.length > 3) {
-        if (scanResult.name.toLowerCase() == deviceData.deviceName.toLowerCase()) {
-          print('✅ 设备名称精确匹配: ${scanResult.name}');
-          return true;
-        }
-      }
-    }
-    
-    // 优先级4: 服务UUID匹配（如果扫描结果包含目标服务）
+    // 优先级1: 服务UUID匹配（最可靠的匹配方式）
     if (scanResult.serviceUuids.isNotEmpty) {
       final targetServiceUuid = BleConstants.serviceUuid.toLowerCase();
       for (final serviceUuid in scanResult.serviceUuids) {
@@ -209,7 +186,36 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       }
     }
     
-    print('❌ 设备不匹配: ${scanResult.name} (${scanResult.deviceId})');
+    // 优先级2: 设备名称智能匹配（去除括号后缀，前缀匹配）
+    if (deviceData.deviceName.isNotEmpty && scanResult.name.isNotEmpty) {
+      // 清理名称：去除括号及其内容，去除多余空格
+      String cleanQrName = deviceData.deviceName
+          .replaceAll(RegExp(r'\s*\([^)]*\)\s*'), '') // 去除 (Allwinner) 等后缀
+          .trim()
+          .toLowerCase();
+      
+      String cleanScanName = scanResult.name
+          .replaceAll(RegExp(r'\s*\([^)]*\)\s*'), '')
+          .trim()
+          .toLowerCase();
+      
+      print('   清理后名称: "$cleanQrName" vs "$cleanScanName"');
+      
+      // 检查前缀匹配（至少8个字符以避免太短的误匹配）
+      if (cleanQrName.length >= 8 && cleanScanName.length >= 8) {
+        if (cleanQrName == cleanScanName || 
+            cleanScanName.startsWith(cleanQrName) ||
+            cleanQrName.startsWith(cleanScanName)) {
+          print('✅ 设备名称匹配: "$cleanScanName" ≈ "$cleanQrName"');
+          return true;
+        }
+      }
+    }
+    
+    // iOS平台特殊处理：由于无法获取真实MAC地址，跳过地址和设备ID的精确匹配
+    // 在iOS上主要依赖服务UUID和名称匹配
+    
+    print('❌ 设备不匹配');
     return false;
   }
 
