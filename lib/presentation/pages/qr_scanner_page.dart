@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
+import '../../core/providers/saved_devices_provider.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import '../../features/qr_scanner/utils/qr_data_parser.dart';
 
@@ -38,19 +39,27 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     final scannerNotifier = ref.read(qrScannerProvider.notifier);
 
     // 监听扫描成功状态，跳转到设备连接页面显示信息（加 mounted 防护，并在帧回调中导航）
-    ref.listen<QrScannerState>(qrScannerProvider, (previous, current) {
+    ref.listen<QrScannerState>(qrScannerProvider, (previous, current) async {
       if (!mounted) return;
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           try {
             final deviceData = QrDataParser.fromQrContent(current.qrContent!);
-            // 停止扫描，避免在已销毁元素上继续更新
+            // 停止扫描
             ref.read(qrScannerProvider.notifier).stopScanning();
-            // 保存扫描结果到全局状态
-            ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
-            // 跳转到设备连接页面（仅显示信息，不启动连接）
-            context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+            // 查看是否已保存过该TV
+            await ref.read(savedDevicesProvider.notifier).load();
+            final saved = ref.read(savedDevicesProvider);
+            if (saved.loaded && saved.devices.any((e) => e.deviceId == deviceData.deviceId)) {
+              // 已存在：选中并返回首页
+              ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
+              context.go(AppRoutes.home);
+            } else {
+              // 新设备：跳转到连接页面走首次连接流程
+              ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
+              context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+            }
           } catch (e) {
             print('QR码解析失败: $e');
           }

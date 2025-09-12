@@ -18,6 +18,7 @@ class DeviceConnectionState {
   final double progress; // 0.0 - 1.0
   final String? provisionStatus; // A107 最新状态文本
   final List<WifiAp> wifiNetworks; // A103 扫描结果
+  final List<String> connectionLogs; // 连接日志
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -27,6 +28,7 @@ class DeviceConnectionState {
     this.progress = 0.0,
     this.provisionStatus,
     this.wifiNetworks = const [],
+    this.connectionLogs = const [],
   });
 
   DeviceConnectionState copyWith({
@@ -37,6 +39,7 @@ class DeviceConnectionState {
     double? progress,
     String? provisionStatus,
     List<WifiAp>? wifiNetworks,
+    List<String>? connectionLogs,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -46,6 +49,7 @@ class DeviceConnectionState {
       progress: progress ?? this.progress,
       provisionStatus: provisionStatus ?? this.provisionStatus,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
+      connectionLogs: connectionLogs ?? this.connectionLogs,
     );
   }
 }
@@ -59,6 +63,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // Using static BLE service methods
   StreamSubscription? _scanSubscription;
   Timer? _timeoutTimer;
+  Timer? _periodicScanTimer; // 定期扫描定时器
   StreamSubscription<List<int>>? _provisionStatusSubscription;
   StreamSubscription<List<int>>? _wifiScanResultSubscription;
 
@@ -68,7 +73,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     try {
       // 重置状态
       state = const DeviceConnectionState();
-      print('✅ 状态已重置');
+      _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
       
       // 创建BLE设备数据
       final deviceData = BleDeviceData(
@@ -86,9 +91,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       );
 
       // 检查蓝牙权限  
-      print('🔄 开始检查蓝牙权限和状态...');
+      _log('检查权限与蓝牙状态...');
       final hasPermission = await BleServiceSimple.requestPermissions();
-      print('🔐 权限检查结果: $hasPermission');
+      _log('权限检查结果: $hasPermission');
       if (!hasPermission) {
         final bleStatus = await BleServiceSimple.checkBleStatus();
         String errorMessage = '蓝牙权限未授予或蓝牙未开启';
@@ -113,21 +118,21 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             errorMessage = '蓝牙权限未授予或蓝牙未开启，请检查设置';
         }
         
-        print('❌ 权限检查失败: $errorMessage (状态: $bleStatus)');
+        _log('权限检查失败: $errorMessage (状态: $bleStatus)');
         _setError(errorMessage);
         return;
       }
       
-      print('✅ 蓝牙权限检查通过，开始设备扫描');
+      _log('权限通过，开始扫描目标设备');
 
       state = state.copyWith(progress: 0.2);
 
       // 开始扫描设备 (或在调试模式下模拟)
       if (AppConstants.skipBleScanning && AppConstants.isDebugMode) {
-        print('🧪 调试模式：跳过真实BLE扫描，模拟设备连接');
+        _log('调试模式：跳过真实BLE扫描，模拟设备连接');
         await _simulateDeviceConnection(deviceData);
       } else {
-        print('📡 开始真实BLE设备扫描...');
+        _log('开始真实BLE设备扫描（30s超时）');
         await _scanForDevice(deviceData);
       }
 
@@ -136,53 +141,103 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 扫描目标设备
+  /// 扫描目标设备 - 每秒扫描一次直到找到匹配设备
   Future<void> _scanForDevice(BleDeviceData deviceData) async {
     try {
       state = state.copyWith(
         status: BleDeviceStatus.scanning,
         progress: 0.3,
       );
+      _log('开始定期扫描... 目标: ${deviceData.deviceName} (${deviceData.deviceId})');
 
-      // 设置扫描超时
+      // 设置总体超时（30秒）
       _timeoutTimer = Timer(const Duration(seconds: 30), () {
         if (state.status == BleDeviceStatus.scanning) {
+          _log('扫描超时：未找到目标设备');
+          _stopPeriodicScanning();
           _setError('扫描超时：未找到目标设备');
         }
       });
 
-      // 开始扫描
-      _scanSubscription = BleServiceSimple.scanForDevice(
-        targetDeviceId: deviceData.deviceId,
-        timeout: const Duration(seconds: 30),
-      ).listen(
-        (scanResult) {
-          // 更新扫描结果
-          final updatedResults = [...state.scanResults, scanResult];
-          state = state.copyWith(
-            scanResults: updatedResults,
-            progress: 0.5,
-          );
-
-          // 找到目标设备，开始连接
-          if (_isTargetDevice(scanResult, deviceData)) {
-            _timeoutTimer?.cancel();
-            // 在iOS上使用扫描到的设备ID作为连接地址
-            final connectionAddress = Platform.isIOS ? scanResult.deviceId : scanResult.address;
-            _connectToDevice(deviceData.copyWith(
-              bleAddress: connectionAddress, // iOS上这是系统UUID，Android上是MAC地址
-              rssi: scanResult.rssi,
-            ));
-          }
-        },
-        onError: (error) {
-          _setError('扫描错误: $error');
-        },
-      );
+      // 开始每秒扫描一次
+      _startPeriodicScanning(deviceData);
 
     } catch (e) {
-      _setError('扫描失败: $e');
+      _setError('开始扫描失败: $e');
     }
+  }
+
+  /// 开始每秒定期扫描
+  void _startPeriodicScanning(BleDeviceData deviceData) {
+    _log('启动每秒定期扫描');
+    
+    // 立即进行第一次扫描
+    _performSingleScan(deviceData);
+    
+    // 设置定期扫描定时器
+    _periodicScanTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (state.status == BleDeviceStatus.scanning) {
+        _performSingleScan(deviceData);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  /// 执行单次扫描（扫描2秒）
+  void _performSingleScan(BleDeviceData deviceData) {
+    _log('执行单次BLE扫描...');
+    
+    // 取消之前的扫描
+    _scanSubscription?.cancel();
+    
+    // 开始新的扫描
+    _scanSubscription = BleServiceSimple.scanForDevice(
+      targetDeviceId: deviceData.deviceId,
+      timeout: const Duration(seconds: 2), // 每次扫描2秒
+    ).listen(
+      (scanResult) {
+        _log('发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
+        
+        // 更新扫描结果（避免重复）
+        final existingResults = state.scanResults;
+        final isNewResult = !existingResults.any((r) => r.deviceId == scanResult.deviceId);
+        
+        if (isNewResult) {
+          final updatedResults = [...existingResults, scanResult];
+          state = state.copyWith(
+            scanResults: updatedResults,
+            progress: 0.4 + (updatedResults.length * 0.02), // 根据找到设备数量增加进度
+          );
+        }
+
+        // 检查是否匹配目标设备
+        if (_isTargetDevice(scanResult, deviceData)) {
+          _log('🎯 找到匹配设备！停止扫描，准备连接');
+          _stopPeriodicScanning();
+          _timeoutTimer?.cancel();
+          
+          // 在iOS上使用扫描到的设备ID作为连接地址
+          final connectionAddress = Platform.isIOS ? scanResult.deviceId : scanResult.address;
+          _connectToDevice(deviceData.copyWith(
+            bleAddress: connectionAddress, // iOS上这是系统UUID，Android上是MAC地址
+            rssi: scanResult.rssi,
+          ));
+        }
+      },
+      onError: (error) {
+        _log('单次扫描出错: $error');
+      },
+    );
+  }
+
+  /// 停止定期扫描
+  void _stopPeriodicScanning() {
+    _log('停止定期扫描');
+    _periodicScanTimer?.cancel();
+    _periodicScanTimer = null;
+    _scanSubscription?.cancel();
+    _scanSubscription = null;
   }
 
   /// 检查是否为目标设备 - 更宽松的匹配策略用于调试
@@ -263,6 +318,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 0.6,
         deviceData: deviceData.copyWith(status: BleDeviceStatus.connecting),
       );
+      _log('开始连接: addr=${deviceData.bleAddress}');
 
       // 连接设备
       final result = await BleServiceSimple.connectToDevice(
@@ -276,15 +332,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           progress: 0.8,
           deviceData: result,
         );
+        _log('BLE 连接成功，准备认证');
 
         // 初始化GATT会话（读取设备信息/订阅状态通知）并开始认证流程
         await _initGattSession(result);
-        _startAuthentication(result);
+        await _startAuthentication(result);
       } else {
+        _log('连接失败');
         _setError('连接失败');
       }
 
     } catch (e) {
+      _log('连接过程出错: $e');
       _setError('连接过程出错: $e');
     }
   }
@@ -475,6 +534,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 0.9,
         deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticating),
       );
+      _log('认证中...');
 
       // 模拟认证过程（实际实现需要加密握手）
       await Future.delayed(const Duration(seconds: 2));
@@ -485,14 +545,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 1.0,
         deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticated),
       );
+      _log('🎉 认证完成，设备状态已更新为 authenticated');
+      print('🎉 [DeviceConnectionNotifier] 认证完成！状态: ${state.status}, 设备数据: ${state.deviceData != null}');
 
     } catch (e) {
+      _log('设备认证失败: $e');
       _setError('设备认证失败: $e');
     }
   }
 
   /// 断开连接
   Future<void> disconnect() async {
+    _stopPeriodicScanning();
     await _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
     await _provisionStatusSubscription?.cancel();
@@ -568,12 +632,32 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     state = state.copyWith(
       status: BleDeviceStatus.error,
       errorMessage: message,
+      connectionLogs: [...state.connectionLogs, _ts() + ' ❌ ' + message],
     );
+  }
+
+  void _log(String msg) {
+    final now = DateTime.now();
+    final h = now.hour.toString().padLeft(2, '0');
+    final m = now.minute.toString().padLeft(2, '0');
+    final s = now.second.toString().padLeft(2, '0');
+    final line = '[$h:$m:$s] ' + msg;
+    print(line);
+    state = state.copyWith(connectionLogs: [...state.connectionLogs, line]);
+  }
+
+  String _ts() {
+    final now = DateTime.now();
+    final h = now.hour.toString().padLeft(2, '0');
+    final m = now.minute.toString().padLeft(2, '0');
+    final s = now.second.toString().padLeft(2, '0');
+    return '[$h:$m:$s]';
   }
 
   /// 重置状态到初始状态
   void reset() {
     _timeoutTimer?.cancel();
+    _periodicScanTimer?.cancel();
     _scanSubscription?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
@@ -585,6 +669,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   void dispose() {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
+    _periodicScanTimer?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     BleServiceSimple.dispose();
