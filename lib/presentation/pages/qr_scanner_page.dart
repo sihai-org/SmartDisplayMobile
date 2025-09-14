@@ -46,14 +46,17 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
           if (!mounted) return;
           try {
             final deviceData = QrDataParser.fromQrContent(current.qrContent!);
-            // 停止扫描
-            ref.read(qrScannerProvider.notifier).stopScanning();
+            // 停止扫描 - 延迟执行避免在构建期间修改Provider
+            Future(() {
+              ref.read(qrScannerProvider.notifier).stopScanning();
+            });
+
             // 查看是否已保存过该TV
             await ref.read(savedDevicesProvider.notifier).load();
             final saved = ref.read(savedDevicesProvider);
             if (saved.loaded && saved.devices.any((e) => e.deviceId == deviceData.deviceId)) {
               // 已存在：选中并返回首页
-              ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
+              await ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
               context.go(AppRoutes.home);
             } else {
               // 新设备：跳转到连接页面走首次连接流程
@@ -70,8 +73,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     return PopScope(
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
-          // 停止扫描并清理资源
-          ref.read(qrScannerProvider.notifier).stopScanning();
+          // 停止扫描并清理资源 - 延迟执行避免在构建期间修改Provider
+          Future(() {
+            ref.read(qrScannerProvider.notifier).stopScanning();
+          });
         }
       },
       child: Scaffold(
@@ -84,8 +89,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
-              // 停止扫描并清理资源
-              ref.read(qrScannerProvider.notifier).stopScanning();
+              // 停止扫描并清理资源 - 延迟执行避免在构建期间修改Provider
+              Future(() {
+                ref.read(qrScannerProvider.notifier).stopScanning();
+              });
               // 返回主页
               context.go(AppRoutes.home);
             },
