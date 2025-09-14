@@ -74,8 +74,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   StreamSubscription? _scanSubscription;
   Timer? _timeoutTimer;
   Timer? _periodicScanTimer; // 定期扫描定时器
-  // Wi‑Fi 扫描的周期定时器（每秒一次）
-  Timer? _wifiScanPeriodicTimer;
   StreamSubscription<List<int>>? _provisionStatusSubscription;
   StreamSubscription<List<int>>? _wifiScanResultSubscription;
   StreamSubscription<List<int>>? _handshakeSubscription;
@@ -86,8 +84,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // WiFi扫描notify接收标志
   bool _hasReceivedWifiScanNotify = false;
   bool _isWifiScanExpected = false; // 标志是否期望WiFi扫描结果
-  // Wi‑Fi 扫描请求节流时间戳（最多每秒一次）
-  DateTime? _lastWifiScanRequestedAt;
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
@@ -513,24 +509,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     try {
-      // 节流：最多每秒一次
-      final now = DateTime.now();
-      if (_lastWifiScanRequestedAt != null) {
-        final elapsed = now.difference(_lastWifiScanRequestedAt!).inMilliseconds;
-        if (elapsed < 1000) {
-          final remain = 1000 - elapsed;
-          print('⏳ Wi‑Fi 扫描请求过于频繁，节流${remain}ms');
-          return false;
-        }
-      }
-
-      // 记录时间戳（在请求成功时再更新也可，这里在发送前先占位以防抖）
-      _lastWifiScanRequestedAt = now;
-
       // 重置notify接收标志并设置期望标志
       _hasReceivedWifiScanNotify = false;
       _isWifiScanExpected = true;
-
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: state.deviceData!.bleAddress,
         serviceUuid: BleConstants.serviceUuid,
@@ -538,7 +519,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         data: '{}'.codeUnits,
         withResponse: true,
       );
-
       if (ok) {
         print('📤 已写入Wi‑Fi扫描请求');
         // 智能防御：只在未收到notify时进行防御性读取
@@ -566,11 +546,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             print('✅ 已收到WiFi扫描notify，跳过防御性读取');
           }
         });
-      } else {
-        // 写失败时，释放时间戳，允许重试
-        _lastWifiScanRequestedAt = null;
       }
-
       return ok;
     } catch (e) {
       print('❌ 写入Wi‑Fi扫描请求失败: $e');
@@ -669,17 +645,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       // 无法获取网络状态，回退到原有模式：直接扫描WiFi
       _log('无法获取网络状态，回退到WiFi扫描模式');
       await requestWifiScan();
-      _startPeriodicWifiScan();
     } else if (networkStatus.connected) {
       // 设备已连网，显示当前网络信息
       _log('设备已连网，显示当前网络状态');
       // UI会根据networkStatus自动显示网络信息
-      _stopPeriodicWifiScan();
     } else {
       // 设备未连网，自动获取WiFi列表
       _log('设备未连网，自动获取WiFi列表');
       await requestWifiScan();
-      _startPeriodicWifiScan();
     }
   }
 
@@ -790,7 +763,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   /// 断开连接
   Future<void> disconnect() async {
     _stopPeriodicScanning();
-    _stopPeriodicWifiScan();
     await _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
     await _provisionStatusSubscription?.cancel();
@@ -898,7 +870,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   void reset() {
     _timeoutTimer?.cancel();
     _periodicScanTimer?.cancel();
-    _wifiScanPeriodicTimer?.cancel();
     _scanSubscription?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
@@ -906,7 +877,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
     // 重置WiFi扫描notify标志
     _hasReceivedWifiScanNotify = false;
-    _lastWifiScanRequestedAt = null;
 
     // 清理加密服务
     _cryptoService?.cleanup();
@@ -921,14 +891,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
     _periodicScanTimer?.cancel();
-    _wifiScanPeriodicTimer?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     _handshakeSubscription?.cancel();
 
     // 重置WiFi扫描notify标志
     _hasReceivedWifiScanNotify = false;
-    _lastWifiScanRequestedAt = null;
 
     // 清理加密服务
     _cryptoService?.cleanup();
@@ -938,32 +906,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     super.dispose();
   }
 
-  // 启动每秒一次的Wi‑Fi扫描（若已运行则不重复启动）
-  void _startPeriodicWifiScan() {
-    if (_wifiScanPeriodicTimer?.isActive == true) return;
-    _log('启动每秒Wi‑Fi扫描');
-    // 立即触发一次（已在外部调用过requestWifiScan，此处可仅确保定时器存在）
-    _wifiScanPeriodicTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      // 仅在设备已连接且已认证、且未联网时进行周期扫描
-      if (state.status == BleDeviceStatus.authenticated) {
-        if (state.networkStatus == null || state.networkStatus?.connected == false) {
-          await requestWifiScan();
-        } else {
-          // 已联网则停止周期扫描
-          _stopPeriodicWifiScan();
-        }
-      }
-    });
-  }
-
-  // 停止周期Wi‑Fi扫描
-  void _stopPeriodicWifiScan() {
-    if (_wifiScanPeriodicTimer != null) {
-      _log('停止每秒Wi‑Fi扫描');
-      _wifiScanPeriodicTimer?.cancel();
-      _wifiScanPeriodicTimer = null;
-    }
-  }
+  
 
 }
 

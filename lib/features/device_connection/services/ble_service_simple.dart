@@ -435,19 +435,32 @@ class BleServiceSimple {
     bool withResponse = true,
   }) async {
     try {
+      // 添加详细的写入调试信息
+      print('🔍 准备写入BLE特征值:');
+      print('   设备ID: $deviceId');
+      print('   服务UUID: $serviceUuid');
+      print('   特征值UUID: $characteristicUuid');
+      print('   数据长度: ${data.length} 字节');
+      print('   需要响应: $withResponse');
+
       final q = QualifiedCharacteristic(
         deviceId: deviceId,
         serviceId: Uuid.parse(serviceUuid),
         characteristicId: Uuid.parse(characteristicUuid),
       );
+
       if (withResponse) {
         await _ble.writeCharacteristicWithResponse(q, value: data);
+        print('✅ 写入特征值成功 (with response)');
       } else {
         await _ble.writeCharacteristicWithoutResponse(q, value: data);
+        print('✅ 写入特征值成功 (without response)');
       }
       return true;
     } catch (e) {
       print('❌ 写入特征值失败: $e');
+      print('   目标设备: $deviceId');
+      print('   特征值: $serviceUuid/$characteristicUuid');
       return false;
     }
   }
