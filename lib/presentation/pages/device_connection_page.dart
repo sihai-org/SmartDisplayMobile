@@ -116,6 +116,16 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         title: const Text('连接设备'),
         elevation: 0,
         backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // 清理状态并返回扫描页面
+            ref.read(appStateProvider.notifier).clearScannedDeviceData();
+            ref.read(deviceConnectionProvider.notifier).reset();
+            ref.read(qrScannerProvider.notifier).reset();
+            context.go(AppRoutes.qrScanner);
+          },
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(

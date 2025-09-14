@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 
 class ProvisioningPage extends ConsumerWidget {
   const ProvisioningPage({super.key, required this.deviceId, required this.ssid});
@@ -12,6 +14,13 @@ class ProvisioningPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('网络配置'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // 返回WiFi选择页面
+            context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(deviceId)}');
+          },
+        ),
       ),
       body: Center(
         child: Column(

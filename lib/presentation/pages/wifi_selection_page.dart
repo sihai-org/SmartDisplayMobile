@@ -55,6 +55,13 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('选择Wi-Fi网络'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // 返回设备连接页面
+            context.go('${AppRoutes.deviceConnection}?deviceId=${Uri.encodeComponent(widget.deviceId)}');
+          },
+        ),
         actions: [
           IconButton(
             onPressed: () => context.go(AppRoutes.home),
