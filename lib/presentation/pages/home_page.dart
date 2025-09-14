@@ -638,8 +638,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               subtitle: Text('${wifi.rssi} dBm'),
               trailing: _buildSignalBars(_getSignalBars(wifi.rssi)),
               onTap: () {
-                // 跳转到WiFi配网页面
-                context.push('${AppRoutes.wifiSelection}?ssid=${Uri.encodeComponent(wifi.ssid)}');
+                // 弹窗输入WiFi密码
+                _showWifiPasswordDialog(context, wifi, ref);
               },
             );
             },
@@ -689,5 +689,157 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (rssi >= -60) return 3;
     if (rssi >= -70) return 2;
     return 1;
+  }
+
+  // 显示WiFi密码输入弹窗
+  void _showWifiPasswordDialog(BuildContext context, WifiNetwork wifi, WidgetRef ref) {
+    final TextEditingController passwordController = TextEditingController();
+    bool isObscured = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    wifi.secure ? Icons.wifi_lock : Icons.wifi,
+                    color: _getWifiSignalColor(wifi.rssi),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      wifi.ssid,
+                      style: const TextStyle(fontSize: 18),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (wifi.secure) ...[
+                    const Text(
+                      '请输入WiFi密码:',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: isObscured,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: '请输入密码',
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            isObscured ? Icons.visibility : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              isObscured = !isObscured;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const Text(
+                      '这是一个开放的WiFi网络，无需密码。',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Text(
+                    '信号强度: ${wifi.rssi} dBm',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+
+                    // 获取密码（开放网络为空字符串）
+                    final password = wifi.secure ? passwordController.text.trim() : '';
+
+                    // 验证密码（安全网络必须输入密码）
+                    if (wifi.secure && password.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('请输入WiFi密码'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    // 发送WiFi凭证到TV端
+                    await _connectToWifi(wifi.ssid, password, ref);
+                  },
+                  child: const Text('连接'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // 连接WiFi的方法
+  Future<void> _connectToWifi(String ssid, String password, WidgetRef ref) async {
+    try {
+      // 显示连接中状态
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('正在连接 $ssid...'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // 发送WiFi凭证到设备
+      final success = await ref
+          .read(conn.deviceConnectionProvider.notifier)
+          .sendWifiCredentials(ssid, password);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WiFi凭证已发送到TV: $ssid'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('发送WiFi凭证失败'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('连接失败: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

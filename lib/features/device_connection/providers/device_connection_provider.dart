@@ -451,6 +451,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
+  /// 发送WiFi凭证（简化接口）
+  Future<bool> sendWifiCredentials(String ssid, String password) async {
+    return await sendProvisionRequest(ssid: ssid, password: password);
+  }
+
   /// 发送配网请求（写入A106），供UI调用
   Future<bool> sendProvisionRequest({
     required String ssid,
