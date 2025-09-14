@@ -141,7 +141,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.defaultPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -275,8 +275,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             else
               const SizedBox(height: 16),
 
-            const Spacer(),
-            
+            // 添加更多间距，替代Spacer
+            const SizedBox(height: 48),
+
             // Help Section
             Card(
               color: Theme.of(context).colorScheme.surfaceVariant,
@@ -310,6 +311,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
               ),
             ),
+
+            // 底部安全区域
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
           ],
         ),
       ),
@@ -615,13 +619,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Column(
       children: [
-        // WiFi网络列表
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: connState.wifiNetworks.length,
-          separatorBuilder: (context, index) => const Divider(height: 1),
-          itemBuilder: (context, index) {
+        // WiFi网络列表 - 限制最大高度避免溢出
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 300), // 限制最大高度
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const AlwaysScrollableScrollPhysics(), // 如果内容超过300高度则允许滚动
+            itemCount: connState.wifiNetworks.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
             final wifi = connState.wifiNetworks[index];
             return ListTile(
               leading: Icon(
@@ -636,7 +642,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 context.push('${AppRoutes.wifiSelection}?ssid=${Uri.encodeComponent(wifi.ssid)}');
               },
             );
-          },
+            },
+          ),
         ),
         const SizedBox(height: 12),
         // 刷新按钮
