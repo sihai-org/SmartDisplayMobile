@@ -450,9 +450,14 @@ class BleServiceSimple {
         print('📋 发现 ${services.length} 个服务');
 
         // 检查目标服务是否存在
-        final targetService = services.firstWhereOrNull(
-          (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
-        );
+        DiscoveredService? targetService;
+        try {
+          targetService = services.firstWhere(
+            (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+          );
+        } catch (e) {
+          targetService = null;
+        }
 
         if (targetService == null) {
           throw Exception('目标服务 $serviceUuid 未找到，可用服务: ${services.map((s) => s.serviceId).join(', ')}');
@@ -461,9 +466,14 @@ class BleServiceSimple {
         print('✅ 找到目标服务: ${targetService.serviceId}');
 
         // 检查目标特征值是否存在
-        final targetChar = targetService.characteristics.firstWhereOrNull(
-          (c) => c.characteristicId.toString().toLowerCase() == characteristicUuid.toLowerCase(),
-        );
+        DiscoveredCharacteristic? targetChar;
+        try {
+          targetChar = targetService.characteristics.firstWhere(
+            (c) => c.characteristicId.toString().toLowerCase() == characteristicUuid.toLowerCase(),
+          );
+        } catch (e) {
+          targetChar = null;
+        }
 
         if (targetChar == null) {
           throw Exception('目标特征值 $characteristicUuid 未找到，可用特征值: ${targetService.characteristics.map((c) => c.characteristicId).join(', ')}');
