@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ble_constants.dart';
+import '../../../core/crypto/crypto_service.dart';
 import '../../../features/qr_scanner/models/device_qr_data.dart';
 import '../models/ble_device_data.dart';
 import '../services/ble_service_simple.dart';
@@ -66,6 +67,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Timer? _periodicScanTimer; // 定期扫描定时器
   StreamSubscription<List<int>>? _provisionStatusSubscription;
   StreamSubscription<List<int>>? _wifiScanResultSubscription;
+  StreamSubscription<List<int>>? _handshakeSubscription;
+  
+  // 加密服务
+  CryptoService? _cryptoService;
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
@@ -534,23 +539,96 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 0.9,
         deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticating),
       );
-      _log('认证中...');
+      _log('开始真实认证流程...');
 
-      // 模拟认证过程（实际实现需要加密握手）
-      await Future.delayed(const Duration(seconds: 2));
+      // 初始化加密服务
+      _cryptoService = CryptoService();
+      await _cryptoService!.generateEphemeralKeyPair();
+      _log('加密服务初始化完成');
 
-      // 认证成功
-      state = state.copyWith(
-        status: BleDeviceStatus.authenticated,
-        progress: 1.0,
-        deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticated),
-      );
-      _log('🎉 认证完成，设备状态已更新为 authenticated');
-      print('🎉 [DeviceConnectionNotifier] 认证完成！状态: ${state.status}, 设备数据: ${state.deviceData != null}');
+      // 订阅握手响应
+      await _subscribeToHandshakeResponse(deviceData);
+      
+      // 发起握手请求
+      await _initiateHandshake(deviceData);
 
     } catch (e) {
       _log('设备认证失败: $e');
       _setError('设备认证失败: $e');
+    }
+  }
+
+  /// 订阅握手响应
+  Future<void> _subscribeToHandshakeResponse(BleDeviceData deviceData) async {
+    try {
+      final deviceId = deviceData.bleAddress;
+      
+      _handshakeSubscription = BleServiceSimple
+          .subscribeToCharacteristic(
+            deviceId: deviceId,
+            serviceUuid: BleConstants.serviceUuid,
+            characteristicUuid: BleConstants.secureHandshakeCharUuid,
+          )
+          .listen((data) async {
+        try {
+          final responseJson = utf8.decode(data);
+          _log('收到握手响应: ${responseJson.length}字节');
+          
+          // 解析握手响应
+          final response = _cryptoService!.parseHandshakeResponse(responseJson);
+          
+          // 执行密钥交换
+          await _cryptoService!.performKeyExchange(
+            remotePublicKeyBytes: response.publicKey,
+            devicePublicKey: deviceData.publicKey,
+          );
+          
+          // 握手成功，标记为已认证
+          state = state.copyWith(
+            status: BleDeviceStatus.authenticated,
+            progress: 1.0,
+            deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticated),
+          );
+          _log('🎉 真实认证完成，安全会话已建立');
+          
+        } catch (e) {
+          _log('处理握手响应失败: $e');
+          _setError('认证失败: $e');
+        }
+      }, onError: (e) {
+        _log('握手订阅出错: $e');
+        _setError('认证通信失败: $e');
+      });
+      
+    } catch (e) {
+      _log('订阅握手响应失败: $e');
+      throw e;
+    }
+  }
+
+  /// 发起握手请求
+  Future<void> _initiateHandshake(BleDeviceData deviceData) async {
+    try {
+      final deviceId = deviceData.bleAddress;
+      final handshakeInit = await _cryptoService!.getHandshakeInitData();
+      
+      final success = await BleServiceSimple.writeCharacteristic(
+        deviceId: deviceId,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.secureHandshakeCharUuid,
+        data: handshakeInit.codeUnits,
+        withResponse: true,
+      );
+      
+      if (success) {
+        _log('握手请求已发送');
+      } else {
+        throw Exception('发送握手请求失败');
+      }
+      
+    } catch (e) {
+      _log('发起握手失败: $e');
+      throw e;
     }
   }
 
@@ -561,6 +639,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _timeoutTimer?.cancel();
     await _provisionStatusSubscription?.cancel();
     await _wifiScanResultSubscription?.cancel();
+    await _handshakeSubscription?.cancel();
+    
+    // 清理加密服务
+    _cryptoService?.cleanup();
+    _cryptoService = null;
+    
     await BleServiceSimple.disconnect();
     
     state = state.copyWith(
@@ -661,6 +745,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _scanSubscription?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
+    _handshakeSubscription?.cancel();
+    
+    // 清理加密服务
+    _cryptoService?.cleanup();
+    _cryptoService = null;
+    
     state = const DeviceConnectionState();
   }
 
@@ -672,6 +762,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _periodicScanTimer?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
+    _handshakeSubscription?.cancel();
+    
+    // 清理加密服务
+    _cryptoService?.cleanup();
+    _cryptoService = null;
+    
     BleServiceSimple.dispose();
     super.dispose();
   }
