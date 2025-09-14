@@ -83,6 +83,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   // WiFi扫描notify接收标志
   bool _hasReceivedWifiScanNotify = false;
+  bool _isWifiScanExpected = false; // 标志是否期望WiFi扫描结果
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
@@ -421,6 +422,13 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             characteristicUuid: BleConstants.wifiScanResultCharUuid,
           )
           .listen((_) async {
+        // 只在期望WiFi扫描结果时才处理通知
+        print('🔍 收到WiFi扫描通知，期望标志: $_isWifiScanExpected');
+        if (!_isWifiScanExpected) {
+          print('⚠️ 收到未期望的WiFi扫描结果通知，忽略');
+          return;
+        }
+
         // 标记已收到WiFi扫描结果notify
         _hasReceivedWifiScanNotify = true;
 
@@ -436,6 +444,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             print('📶 读取Wi‑Fi扫描结果(JSON ${json.length}B) [notify触发]');
             final parsed = _parseWifiScanJson(json);
             state = state.copyWith(wifiNetworks: parsed);
+            // 重置期望标志，表示已成功处理WiFi扫描结果
+            _isWifiScanExpected = false;
           }
         } catch (e) {
           print('❌ 读取Wi‑Fi扫描结果失败: $e');
@@ -471,7 +481,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         serviceUuid: BleConstants.serviceUuid,
         characteristicUuid: BleConstants.provisionRequestCharUuid,
         data: data,
-        withResponse: true,
+        withResponse: false,  // 不要求响应，避免认证失败导致连接断开
       );
       print(ok ? '📤 已写入Provision_Request: $payload' : '❌ 写入Provision_Request失败');
       return ok;
@@ -485,8 +495,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     try {
-      // 重置notify接收标志
+      // 重置notify接收标志并设置期望标志
       _hasReceivedWifiScanNotify = false;
+      _isWifiScanExpected = true;
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: state.deviceData!.bleAddress,
         serviceUuid: BleConstants.serviceUuid,
@@ -511,6 +522,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
                 final parsed = _parseWifiScanJson(json);
                 state = state.copyWith(wifiNetworks: parsed);
                 print('📶 防御性读取Wi‑F列表(${parsed.length}项) [notify丢失]');
+                // 重置期望标志，表示已成功处理WiFi扫描结果
+                _isWifiScanExpected = false;
               }
             } catch (e) {
               print('❌ 防御性读取A103失败: $e');
