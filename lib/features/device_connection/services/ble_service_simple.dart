@@ -453,7 +453,15 @@ class BleServiceSimple {
         DiscoveredService? targetService;
         try {
           targetService = services.firstWhere(
-            (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+            (s) {
+              final serviceIdStr = s.serviceId.toString().toLowerCase();
+              final targetUuidStr = serviceUuid.toLowerCase();
+              // 支持完整格式和简短格式的匹配
+              // a100 = 0000a100-0000-1000-8000-00805f9b34fb
+              return serviceIdStr == targetUuidStr ||
+                     serviceIdStr == targetUuidStr.substring(4, 8) ||
+                     targetUuidStr.contains(serviceIdStr);
+            },
           );
         } catch (e) {
           targetService = null;
@@ -469,7 +477,15 @@ class BleServiceSimple {
         DiscoveredCharacteristic? targetChar;
         try {
           targetChar = targetService.characteristics.firstWhere(
-            (c) => c.characteristicId.toString().toLowerCase() == characteristicUuid.toLowerCase(),
+            (c) {
+              final charIdStr = c.characteristicId.toString().toLowerCase();
+              final targetCharUuidStr = characteristicUuid.toLowerCase();
+              // 支持完整格式和简短格式的匹配
+              // a105 = 0000a105-0000-1000-8000-00805f9b34fb
+              return charIdStr == targetCharUuidStr ||
+                     charIdStr == targetCharUuidStr.substring(4, 8) ||
+                     targetCharUuidStr.contains(charIdStr);
+            },
           );
         } catch (e) {
           targetChar = null;
