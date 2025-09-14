@@ -84,6 +84,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // WiFi扫描notify接收标志
   bool _hasReceivedWifiScanNotify = false;
   bool _isWifiScanExpected = false; // 标志是否期望WiFi扫描结果
+  // Wi‑Fi 扫描请求节流时间戳（最多每秒一次）
+  DateTime? _lastWifiScanRequestedAt;
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
@@ -472,6 +474,17 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     required String password,
   }) async {
     if (state.deviceData == null) return false;
+
+    // 检查认证状态
+    if (_cryptoService == null || !_cryptoService!.hasSecureSession) {
+      print('❌ 设备未完成认证，无法发送WiFi凭证');
+      print('   认证服务状态: ${_cryptoService != null ? '已初始化' : '未初始化'}');
+      if (_cryptoService != null) {
+        print('   安全会话状态: ${_cryptoService!.hasSecureSession}');
+      }
+      return false;
+    }
+
     try {
       final deviceId = state.deviceData!.bleAddress;
       final payload = '{"ssid":"${_escapeJson(ssid)}","password":"${_escapeJson(password)}"}';
@@ -495,9 +508,24 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     try {
+      // 节流：最多每秒一次
+      final now = DateTime.now();
+      if (_lastWifiScanRequestedAt != null) {
+        final elapsed = now.difference(_lastWifiScanRequestedAt!).inMilliseconds;
+        if (elapsed < 1000) {
+          final remain = 1000 - elapsed;
+          print('⏳ Wi‑Fi 扫描请求过于频繁，节流${remain}ms');
+          return false;
+        }
+      }
+
+      // 记录时间戳（在请求成功时再更新也可，这里在发送前先占位以防抖）
+      _lastWifiScanRequestedAt = now;
+
       // 重置notify接收标志并设置期望标志
       _hasReceivedWifiScanNotify = false;
       _isWifiScanExpected = true;
+
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: state.deviceData!.bleAddress,
         serviceUuid: BleConstants.serviceUuid,
@@ -505,6 +533,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         data: '{}'.codeUnits,
         withResponse: true,
       );
+
       if (ok) {
         print('📤 已写入Wi‑Fi扫描请求');
         // 智能防御：只在未收到notify时进行防御性读取
@@ -532,7 +561,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             print('✅ 已收到WiFi扫描notify，跳过防御性读取');
           }
         });
+      } else {
+        // 写失败时，释放时间戳，允许重试
+        _lastWifiScanRequestedAt = null;
       }
+
       return ok;
     } catch (e) {
       print('❌ 写入Wi‑Fi扫描请求失败: $e');
@@ -701,6 +734,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticated),
           );
           _log('🎉 真实认证完成，安全会话已建立');
+
+          // 认证完成后自动处理网络状态
+          await handleWifiSmartly();
           
         } catch (e) {
           _log('处理握手响应失败: $e');
@@ -860,6 +896,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
     // 重置WiFi扫描notify标志
     _hasReceivedWifiScanNotify = false;
+    _lastWifiScanRequestedAt = null;
 
     // 清理加密服务
     _cryptoService?.cleanup();
@@ -880,6 +917,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
     // 重置WiFi扫描notify标志
     _hasReceivedWifiScanNotify = false;
+    _lastWifiScanRequestedAt = null;
 
     // 清理加密服务
     _cryptoService?.cleanup();
