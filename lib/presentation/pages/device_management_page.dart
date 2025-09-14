@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
+import '../../core/router/app_router.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
@@ -29,10 +31,22 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       appBar: AppBar(
         title: const Text('设备管理'),
         elevation: 1,
+        actions: [
+          IconButton(
+            onPressed: () => _addNewDevice(),
+            icon: const Icon(Icons.add),
+            tooltip: '添加新设备',
+          ),
+        ],
       ),
       body: savedDevicesState.loaded
           ? _buildDeviceList(context, savedDevicesState)
           : const Center(child: CircularProgressIndicator()),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _addNewDevice(),
+        icon: const Icon(Icons.qr_code_scanner),
+        label: const Text('添加设备'),
+      ),
     );
   }
 
@@ -144,31 +158,48 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.devices_other,
-            size: 80,
-            color: Theme.of(context).colorScheme.surfaceVariant,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '暂无保存的设备',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.defaultPadding),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.devices_other,
+              size: 80,
+              color: Theme.of(context).colorScheme.surfaceVariant,
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '扫描二维码添加新设备',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            const SizedBox(height: 24),
+            Text(
+              '暂无保存的设备',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              '扫描设备上的二维码来添加新的智能电视',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: () => _addNewDevice(),
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('扫描二维码添加设备'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _addNewDevice() {
+    context.go(AppRoutes.qrScanner);
   }
 
   void _selectDevice(String deviceId) async {

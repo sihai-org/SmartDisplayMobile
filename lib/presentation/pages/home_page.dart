@@ -225,65 +225,37 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
             
             const SizedBox(height: 32),
-            
-            // Primary Action - Start Provisioning / Scan Again
-            ElevatedButton(
-              onPressed: () => context.push(AppRoutes.qrScanner),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.qr_code_scanner, size: 24),
-                  const SizedBox(width: 12),
-                  Text(
-                    saved.devices.isEmpty ? '扫描二维码配网' : '扫描新的设备',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Secondary Actions
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => context.push(AppRoutes.deviceManagement),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.devices),
-                        SizedBox(height: 8),
-                        Text('设备管理'),
-                      ],
-                    ),
-                  ),
+
+            // 只在没有保存设备时显示主扫描按钮
+            if (!saved.loaded || saved.devices.isEmpty)
+              ElevatedButton(
+                onPressed: () => context.push(AppRoutes.qrScanner),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => context.push(AppRoutes.settings),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.settings),
-                        SizedBox(height: 8),
-                        Text('设置'),
-                      ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.qr_code_scanner, size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      '扫描二维码配网',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
             
+            // 动态间距：有设备时减少间距，无设备时增加间距
+            if (!saved.loaded || saved.devices.isEmpty)
+              const SizedBox(height: 32)
+            else
+              const SizedBox(height: 16),
+
             const Spacer(),
             
             // Help Section
@@ -362,7 +334,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         IconButton(
           onPressed: () => context.push(AppRoutes.qrScanner),
           icon: const Icon(Icons.qr_code_scanner),
-          tooltip: '扫描新设备',
+          tooltip: '添加设备',
         ),
       ],
     );
