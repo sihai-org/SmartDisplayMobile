@@ -443,6 +443,46 @@ class BleServiceSimple {
       print('   数据长度: ${data.length} 字节');
       print('   需要响应: $withResponse');
 
+      // 首先尝试发现服务来验证连接和特征值是否可用
+      print('🔍 验证特征值可用性...');
+      try {
+        final services = await _ble.discoverServices(deviceId);
+        print('📋 发现 ${services.length} 个服务');
+
+        // 检查目标服务是否存在
+        final targetService = services.firstWhereOrNull(
+          (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+        );
+
+        if (targetService == null) {
+          throw Exception('目标服务 $serviceUuid 未找到，可用服务: ${services.map((s) => s.serviceId).join(', ')}');
+        }
+
+        print('✅ 找到目标服务: ${targetService.serviceId}');
+
+        // 检查目标特征值是否存在
+        final targetChar = targetService.characteristics.firstWhereOrNull(
+          (c) => c.characteristicId.toString().toLowerCase() == characteristicUuid.toLowerCase(),
+        );
+
+        if (targetChar == null) {
+          throw Exception('目标特征值 $characteristicUuid 未找到，可用特征值: ${targetService.characteristics.map((c) => c.characteristicId).join(', ')}');
+        }
+
+        print('✅ 找到目标特征值: ${targetChar.characteristicId}');
+        print('   特征值属性: 可读=${targetChar.isReadable}, 可写响应=${targetChar.isWritableWithResponse}, 可写无响应=${targetChar.isWritableWithoutResponse}, 可通知=${targetChar.isNotifiable}');
+
+        // 检查写入权限
+        final canWrite = targetChar.isWritableWithResponse || targetChar.isWritableWithoutResponse;
+        if (!canWrite) {
+          throw Exception('特征值 $characteristicUuid 不支持写入操作');
+        }
+
+      } catch (serviceError) {
+        print('⚠️ 服务发现或验证失败: $serviceError');
+        throw Exception('服务验证失败: $serviceError');
+      }
+
       final q = QualifiedCharacteristic(
         deviceId: deviceId,
         serviceId: Uuid.parse(serviceUuid),
