@@ -42,11 +42,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       body: savedDevicesState.loaded
           ? _buildDeviceList(context, savedDevicesState)
           : const Center(child: CircularProgressIndicator()),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addNewDevice(),
-        icon: const Icon(Icons.qr_code_scanner),
-        label: const Text('添加设备'),
-      ),
     );
   }
 
