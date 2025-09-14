@@ -55,6 +55,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('选择Wi-Fi网络'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

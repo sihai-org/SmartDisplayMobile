@@ -115,7 +115,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       appBar: AppBar(
         title: const Text('连接设备'),
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

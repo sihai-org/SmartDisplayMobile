@@ -14,6 +14,8 @@ class ProvisioningPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('网络配置'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
