@@ -1,3 +1,5 @@
+import 'dart:ui' show Rect;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/qr_scanner_service.dart';
@@ -17,12 +19,21 @@ class QrScannerState {
   final String? qrContent; // 简化：只存储二维码内容
   final String? errorMessage;
   final bool isTorchOn;
+  // 候选框（用于绘制实时引导）
+  final Rect? candidateRect;
+  // ROI（扫描窗口）
+  final Rect? scanWindow;
+  // 提示：是否建议开启闪光灯
+  final bool suggestTorch;
 
   const QrScannerState({
     this.status = QrScannerStatus.idle,
     this.qrContent,
     this.errorMessage,
     this.isTorchOn = false,
+    this.candidateRect,
+    this.scanWindow,
+    this.suggestTorch = false,
   });
 
   QrScannerState copyWith({
@@ -30,12 +41,18 @@ class QrScannerState {
     String? qrContent,
     String? errorMessage,
     bool? isTorchOn,
+    Rect? candidateRect,
+    Rect? scanWindow,
+    bool? suggestTorch,
   }) {
     return QrScannerState(
       status: status ?? this.status,
       qrContent: qrContent ?? this.qrContent,
       errorMessage: errorMessage ?? this.errorMessage,
       isTorchOn: isTorchOn ?? this.isTorchOn,
+      candidateRect: candidateRect ?? this.candidateRect,
+      scanWindow: scanWindow ?? this.scanWindow,
+      suggestTorch: suggestTorch ?? this.suggestTorch,
     );
   }
 }
@@ -45,13 +62,17 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   QrScannerNotifier() : super(const QrScannerState());
 
   MobileScannerController? _controller;
+  Rect? _scanWindow;
+  final _tracker = _CandidateTracker();
+  DateTime? _lastAnyDetectAt;
 
   /// 初始化控制器 (不更新状态)
   void initializeController() {
     _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
+      detectionSpeed: DetectionSpeed.unrestricted,
       facing: CameraFacing.back,
       torchEnabled: false,
+      formats: const [BarcodeFormat.qrCode],
     );
   }
 
@@ -68,19 +89,36 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     if (state.status != QrScannerStatus.scanning) return;
 
     final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    if (barcodes.isEmpty) {
+      _updateSuggestTorch();
+      return;
+    }
 
-    final String? code = barcodes.first.rawValue;
-    if (code == null || code.isEmpty) return;
+    _lastAnyDetectAt = DateTime.now();
 
-    // 振动反馈
+    // 仅考虑包含内容的 QR
+    final candidates = barcodes
+        .where((b) => b.format == BarcodeFormat.qrCode && (b.rawValue?.isNotEmpty ?? false))
+        .toList();
+    if (candidates.isEmpty) return;
+
+    // 选择首个候选（ROI 已在控件层限定）
+    final best = candidates.first;
+
+    // 更新候选可视化（此版本不依赖 boundingBox，置空即可）
+    if (mounted && state.candidateRect != null) {
+      state = state.copyWith(candidateRect: null);
+    }
+
+    final stable = _tracker.update(best.rawValue!);
+    if (!stable.isStable) return;
+
+    // 达到稳定阈值，判定成功
     QrScannerService.vibrate();
-
-    // 简化：直接显示二维码内容
     if (mounted) {
       state = state.copyWith(
         status: QrScannerStatus.success,
-        qrContent: code,
+        qrContent: best.rawValue,
         errorMessage: null,
       );
     }
@@ -93,14 +131,18 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
         status: QrScannerStatus.scanning,
         errorMessage: null,
         qrContent: null,
+        suggestTorch: false,
+        candidateRect: null,
       );
     }
+    _tracker.reset();
+    _lastAnyDetectAt = null;
   }
 
   /// 停止扫描
   void stopScanning() {
     if (mounted) {
-      state = state.copyWith(status: QrScannerStatus.idle);
+      state = state.copyWith(status: QrScannerStatus.idle, candidateRect: null);
     }
   }
 
@@ -110,7 +152,30 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     // 获取实际的闪光灯状态
     final currentTorchState = _controller?.torchState.value == TorchState.on;
     if (mounted) {
-      state = state.copyWith(isTorchOn: !currentTorchState);
+      state = state.copyWith(isTorchOn: !currentTorchState, suggestTorch: false);
+    }
+  }
+
+  /// 更新扫描窗口（ROI），用于限定解码区域与引导绘制
+  void updateScanWindow(Rect rect) {
+    _scanWindow = rect;
+    if (mounted) {
+      state = state.copyWith(scanWindow: rect);
+    }
+  }
+
+  /// 当前控制器（供页面访问）
+  MobileScannerController? get controller => _controller;
+
+  /// 自动亮度提示（简单：长时间未识别且未开灯）
+  void _updateSuggestTorch() {
+    if (!mounted) return;
+    if (state.isTorchOn) return;
+    final last = _lastAnyDetectAt;
+    final now = DateTime.now();
+    if (last == null || now.difference(last).inSeconds > 2) {
+      // 2 秒内无稳定候选时提示
+      state = state.copyWith(suggestTorch: true);
     }
   }
 
@@ -176,8 +241,47 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     super.dispose();
   }
 
-  /// 获取控制器
-  MobileScannerController? get controller => _controller;
+  /// 获取控制器（保持接口不变）
+  @override
+  String toString() => 'QrScannerNotifier(status: ${state.status}, torch: ${state.isTorchOn})';
+}
+
+class _CandidateUpdateResult {
+  final bool isStable;
+  const _CandidateUpdateResult(this.isStable);
+}
+
+/// 候选追踪：多帧一致性与位置稳定
+class _CandidateTracker {
+  String? _lastValue;
+  int _hits = 0;
+  DateTime? _firstAt;
+
+  static const int _minHits = 1;
+  static const Duration _window = Duration(milliseconds: 700);
+
+  _CandidateUpdateResult update(String value) {
+    final now = DateTime.now();
+    if (_firstAt == null) _firstAt = now;
+
+    if (_lastValue == value) {
+      _hits += 1;
+    } else {
+      _hits = 1;
+      _firstAt = now;
+    }
+
+    _lastValue = value;
+    final inWindow = now.difference(_firstAt!) <= _window;
+    final ok = _hits >= _minHits && inWindow;
+    return _CandidateUpdateResult(ok);
+  }
+
+  void reset() {
+    _lastValue = null;
+    _hits = 0;
+    _firstAt = null;
+  }
 }
 
 /// QR扫描器Provider

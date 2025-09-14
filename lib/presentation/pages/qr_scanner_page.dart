@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui' show Rect, Size;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
@@ -118,79 +119,111 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             ),
           ],
         ),
-        body: Stack(
-          children: [
-            // 相机预览
-            if (scannerNotifier.controller != null)
-              MobileScanner(
-                controller: scannerNotifier.controller!,
-                onDetect: scannerNotifier.onDetect,
-              ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final double boxSize = 250;
+            final double left = (constraints.maxWidth - boxSize) / 2;
+            final double top = (constraints.maxHeight - boxSize) / 2;
+            final Rect scanRect = Rect.fromLTWH(left, top, boxSize, boxSize);
 
-            // 扫描框覆盖层
-            _buildScannerOverlay(),
+            // 直接将 ROI 传给 MobileScanner，避免在 build 周期修改 Provider
 
-            // 状态指示器
-            _buildStatusIndicator(scannerState),
+            return Stack(
+              children: [
+                // 相机预览
+                if (scannerNotifier.controller != null)
+                  MobileScanner(
+                    controller: scannerNotifier.controller!,
+                    onDetect: scannerNotifier.onDetect,
+                    scanWindow: scanRect,
+                  ),
 
-            // 底部提示信息
-            _buildBottomInfo(),
-          ],
+                // 扫描框覆盖层（ROI 镂空 + 候选框）
+                _buildScannerOverlay(scanRect: scanRect, candidate: scannerState.candidateRect),
+
+                // 提示开启闪光灯
+                if (scannerState.suggestTorch && !scannerState.isTorchOn)
+                  Positioned(
+                    bottom: 130,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.light_mode, color: Colors.yellow, size: 16),
+                            const SizedBox(width: 6),
+                            const Text('环境较暗，建议打开闪光灯', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => scannerNotifier.toggleTorch(),
+                              child: const Text('开启', style: TextStyle(color: Colors.yellow)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 状态指示器
+                _buildStatusIndicator(scannerState),
+
+                // 底部提示信息
+                _buildBottomInfo(),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  /// 构建扫描框覆盖层
-  Widget _buildScannerOverlay() {
-    return Stack(
-      children: [
-        // 半透明遮罩
-        Container(
-          decoration: const BoxDecoration(
-            color: Colors.black54,
-          ),
-        ),
-
-        // 扫描框
-        Center(
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.white,
-                width: 2,
-              ),
-              borderRadius: BorderRadius.circular(16),
+  /// 构建扫描框覆盖层（含 ROI 镂空与候选框）
+  Widget _buildScannerOverlay({required Rect scanRect, Rect? candidate}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            // 半透明遮罩 + ROI 镂空
+            CustomPaint(
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+              painter: _OverlayPainter(scanRect: scanRect),
             ),
-            child: Stack(
-              children: [
-                // 四个角的装饰
-                ..._buildCornerDecorations(),
 
-                // 中间透明区域
-                Container(
-                  margin: const EdgeInsets.all(2),
+            // 扫描框四角装饰
+            Positioned(
+              left: scanRect.left,
+              top: scanRect.top,
+              child: SizedBox(
+                width: scanRect.width,
+                height: scanRect.height,
+                child: Stack(children: _buildCornerDecorations()),
+              ),
+            ),
+
+            // 候选框
+            if (candidate != null)
+              Positioned(
+                left: candidate.left,
+                top: candidate.top,
+                child: Container(
+                  width: candidate.width,
+                  height: candidate.height,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.transparent,
-                      width: 0,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      color: Colors.transparent,
-                    ),
+                    border: Border.all(color: Colors.greenAccent, width: 2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -446,4 +479,22 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     }
   }
 
+}
+
+/// 遮罩绘制：全屏半透明 + ROI 镂空
+class _OverlayPainter extends CustomPainter {
+  final Rect scanRect;
+  _OverlayPainter({required this.scanRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0x88000000);
+    final bg = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final hole = Path()..addRRect(RRect.fromRectAndRadius(scanRect, const Radius.circular(16)));
+    final overlay = Path.combine(PathOperation.difference, bg, hole);
+    canvas.drawPath(overlay, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OverlayPainter oldDelegate) => oldDelegate.scanRect != scanRect;
 }
