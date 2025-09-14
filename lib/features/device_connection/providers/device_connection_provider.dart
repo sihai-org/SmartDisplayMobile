@@ -81,6 +81,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // 加密服务
   CryptoService? _cryptoService;
 
+  // WiFi扫描notify接收标志
+  bool _hasReceivedWifiScanNotify = false;
+
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
     print('🚀 ==> startConnection 被调用！QR数据: ${qrData.deviceId}');
@@ -418,6 +421,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             characteristicUuid: BleConstants.wifiScanResultCharUuid,
           )
           .listen((_) async {
+        // 标记已收到WiFi扫描结果notify
+        _hasReceivedWifiScanNotify = true;
+
         // 为避免通知被MTU截断，收到任意通知后改为主动读取完整值
         try {
           final full = await BleServiceSimple.readCharacteristic(
@@ -427,7 +433,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           );
           if (full != null) {
             final json = utf8.decode(full);
-            print('📶 读取Wi‑Fi扫描结果(JSON ${json.length}B)');
+            print('📶 读取Wi‑Fi扫描结果(JSON ${json.length}B) [notify触发]');
             final parsed = _parseWifiScanJson(json);
             state = state.copyWith(wifiNetworks: parsed);
           }
@@ -470,10 +476,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 触发Wi‑Fi扫描（写入A102）
+  /// 触发Wi‑F扫描（写入A102）
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     try {
+      // 重置notify接收标志
+      _hasReceivedWifiScanNotify = false;
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: state.deviceData!.bleAddress,
         serviceUuid: BleConstants.serviceUuid,
@@ -483,22 +491,27 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       );
       if (ok) {
         print('📤 已写入Wi‑Fi扫描请求');
-        // 防御：即使通知丢失，也在短暂延迟后主动读取一次A103
+        // 智能防御：只在未收到notify时进行防御性读取
         Future.delayed(const Duration(milliseconds: 800), () async {
-          try {
-            final full = await BleServiceSimple.readCharacteristic(
-              deviceId: state.deviceData!.bleAddress,
-              serviceUuid: BleConstants.serviceUuid,
-              characteristicUuid: BleConstants.wifiScanResultCharUuid,
-            );
-            if (full != null && full.isNotEmpty) {
-              final json = utf8.decode(full);
-              final parsed = _parseWifiScanJson(json);
-              state = state.copyWith(wifiNetworks: parsed);
-              print('📶 扫描后主动读取Wi‑Fi列表(${parsed.length}项)');
+          if (!_hasReceivedWifiScanNotify) {
+            print('⚠️ 未收到WiFi扫描notify，执行防御性读取');
+            try {
+              final full = await BleServiceSimple.readCharacteristic(
+                deviceId: state.deviceData!.bleAddress,
+                serviceUuid: BleConstants.serviceUuid,
+                characteristicUuid: BleConstants.wifiScanResultCharUuid,
+              );
+              if (full != null && full.isNotEmpty) {
+                final json = utf8.decode(full);
+                final parsed = _parseWifiScanJson(json);
+                state = state.copyWith(wifiNetworks: parsed);
+                print('📶 防御性读取Wi‑F列表(${parsed.length}项) [notify丢失]');
+              }
+            } catch (e) {
+              print('❌ 防御性读取A103失败: $e');
             }
-          } catch (e) {
-            print('⚠️ 扫描后读取A103失败: $e');
+          } else {
+            print('✅ 已收到WiFi扫描notify，跳过防御性读取');
           }
         });
       }
@@ -826,11 +839,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     _handshakeSubscription?.cancel();
-    
+
+    // 重置WiFi扫描notify标志
+    _hasReceivedWifiScanNotify = false;
+
     // 清理加密服务
     _cryptoService?.cleanup();
     _cryptoService = null;
-    
+
     state = const DeviceConnectionState();
   }
 
@@ -843,11 +859,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     _handshakeSubscription?.cancel();
-    
+
+    // 重置WiFi扫描notify标志
+    _hasReceivedWifiScanNotify = false;
+
     // 清理加密服务
     _cryptoService?.cleanup();
     _cryptoService = null;
-    
+
     BleServiceSimple.dispose();
     super.dispose();
   }
