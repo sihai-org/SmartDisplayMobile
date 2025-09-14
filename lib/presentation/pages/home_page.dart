@@ -723,37 +723,40 @@ class _HomePageState extends ConsumerState<HomePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (wifi.secure) ...[
-                    const Text(
-                      '请输入WiFi密码:',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: isObscured,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: '请输入密码',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isObscured ? Icons.visibility : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              isObscured = !isObscured;
-                            });
-                          },
+                  Text(
+                    wifi.secure ? '请输入WiFi密码:' : 'WiFi密码 (如果是开放网络请留空):',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: isObscured,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: wifi.secure ? '请输入密码' : '如果是开放网络请留空',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          isObscured ? Icons.visibility : Icons.visibility_off,
                         ),
+                        onPressed: () {
+                          setState(() {
+                            isObscured = !isObscured;
+                          });
+                        },
                       ),
                     ),
-                  ] else ...[
-                    const Text(
-                      '这是一个开放的WiFi网络，无需密码。',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    wifi.secure
+                        ? '检测到这是安全网络，需要密码'
+                        : '检测到这是开放网络，但如果实际需要密码请输入',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: wifi.secure ? Colors.green[700] : Colors.orange[700],
                     ),
-                  ],
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     '信号强度: ${wifi.rssi} dBm',
@@ -775,19 +778,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   onPressed: () async {
                     Navigator.of(context).pop();
 
-                    // 获取密码（开放网络为空字符串）
-                    final password = wifi.secure ? passwordController.text.trim() : '';
-
-                    // 验证密码（安全网络必须输入密码）
-                    if (wifi.secure && password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('请输入WiFi密码'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
+                    // 获取用户输入的密码（允许为空）
+                    final password = passwordController.text.trim();
 
                     // 发送WiFi凭证到TV端
                     await _connectToWifi(wifi.ssid, password, ref);
