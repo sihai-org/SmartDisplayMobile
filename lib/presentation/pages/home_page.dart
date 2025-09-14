@@ -7,6 +7,7 @@ import '../../core/providers/saved_devices_provider.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
 import '../../features/device_connection/models/ble_device_data.dart';
+import '../../features/device_connection/models/network_status.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -94,10 +95,22 @@ class _HomePageState extends ConsumerState<HomePage> {
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
     
-    // 监听连接状态变化，实现智能重连
+    // 监听连接状态变化，实现智能重连和智能WiFi处理
     ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
       if (previous != null && previous.status != current.status) {
         print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
+
+        // 当设备认证完成时，自动进行智能WiFi处理
+        if (current.status == BleDeviceStatus.authenticated &&
+            previous.status != BleDeviceStatus.authenticated) {
+          print('[HomePage] 设备认证完成，开始智能WiFi处理');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
+            }
+          });
+        }
+
         _handleSmartReconnect();
       }
     });
@@ -222,8 +235,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ),
               ),
+
+              // 显示网络状态或WiFi列表
+              if (connState.status == BleDeviceStatus.authenticated) ...[
+                const SizedBox(height: 16),
+                _buildNetworkSection(context, connState),
+              ],
             ],
-            
+
             const SizedBox(height: 32),
 
             // 只在没有保存设备时显示主扫描按钮
@@ -426,5 +445,242 @@ class _HomePageState extends ConsumerState<HomePage> {
       case BleDeviceStatus.disconnected:
         return Theme.of(context).colorScheme.onSurfaceVariant;
     }
+  }
+
+  // 构建网络状态或WiFi列表部分
+  Widget _buildNetworkSection(BuildContext context, conn.DeviceConnectionState connState) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.defaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '网络状态',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+
+            // 检查网络状态中
+            if (connState.isCheckingNetwork) ...[
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '正在检查网络状态...',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ]
+            // 显示当前网络状态 (已连网)
+            else if (connState.networkStatus?.connected == true) ...[
+              _buildCurrentNetworkInfo(context, connState.networkStatus!),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => context.push(AppRoutes.wifiSelection),
+                    icon: const Icon(Icons.settings, size: 16),
+                    label: const Text('管理网络'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    onPressed: () {
+                      ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
+                    },
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('刷新'),
+                  ),
+                ],
+              ),
+            ]
+            // 显示WiFi列表 (未连网或检查失败)
+            else ...[
+              if (connState.networkStatus?.connected == false)
+                Text(
+                  '设备未连接网络，请选择WiFi网络进行配网：',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                Text(
+                  '无法获取网络状态，显示可用WiFi网络：',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              const SizedBox(height: 12),
+              _buildWifiList(context, connState),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 构建当前网络信息
+  Widget _buildCurrentNetworkInfo(BuildContext context, NetworkStatus networkStatus) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.wifi, color: Colors.green, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '已连接: ${networkStatus.displaySsid ?? '未知网络'}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              _buildSignalBars(networkStatus.signalBars),
+            ],
+          ),
+          if (networkStatus.ip != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.language, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  'IP: ${networkStatus.ip}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ],
+          if (networkStatus.frequency != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.router, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  '频段: ${networkStatus.is5GHz ? '5GHz' : '2.4GHz'}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // 构建WiFi列表
+  Widget _buildWifiList(BuildContext context, conn.DeviceConnectionState connState) {
+    if (connState.wifiNetworks.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(Icons.wifi_off, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(height: 8),
+            Text(
+              '未找到WiFi网络',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+              },
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('扫描网络'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // WiFi网络列表
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: connState.wifiNetworks.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final wifi = connState.wifiNetworks[index];
+            return ListTile(
+              leading: Icon(
+                wifi.secure ? Icons.wifi_lock : Icons.wifi,
+                color: _getWifiSignalColor(wifi.rssi),
+              ),
+              title: Text(wifi.ssid),
+              subtitle: Text('${wifi.rssi} dBm'),
+              trailing: _buildSignalBars(_getSignalBars(wifi.rssi)),
+              onTap: () {
+                // 跳转到WiFi配网页面
+                context.push('${AppRoutes.wifiSelection}?ssid=${Uri.encodeComponent(wifi.ssid)}');
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        // 刷新按钮
+        TextButton.icon(
+          onPressed: () {
+            ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+          },
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('刷新网络列表'),
+        ),
+      ],
+    );
+  }
+
+  // 构建信号强度指示器
+  Widget _buildSignalBars(int bars) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(4, (index) {
+        return Container(
+          width: 3,
+          height: 4 + (index * 2),
+          margin: const EdgeInsets.only(right: 1),
+          decoration: BoxDecoration(
+            color: index < bars ? Colors.green : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        );
+      }),
+    );
+  }
+
+  // 获取WiFi信号颜色
+  Color _getWifiSignalColor(int rssi) {
+    if (rssi >= -50) return Colors.green;
+    if (rssi >= -60) return Colors.orange;
+    return Colors.red;
+  }
+
+  // 获取信号强度条数
+  int _getSignalBars(int rssi) {
+    if (rssi >= -50) return 4;
+    if (rssi >= -60) return 3;
+    if (rssi >= -70) return 2;
+    return 1;
   }
 }

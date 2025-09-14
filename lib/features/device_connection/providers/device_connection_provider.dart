@@ -8,6 +8,7 @@ import '../../../core/constants/ble_constants.dart';
 import '../../../core/crypto/crypto_service.dart';
 import '../../../features/qr_scanner/models/device_qr_data.dart';
 import '../models/ble_device_data.dart';
+import '../models/network_status.dart';
 import '../services/ble_service_simple.dart';
 
 /// 设备连接状态数据
@@ -20,6 +21,8 @@ class DeviceConnectionState {
   final String? provisionStatus; // A107 最新状态文本
   final List<WifiAp> wifiNetworks; // A103 扫描结果
   final List<String> connectionLogs; // 连接日志
+  final NetworkStatus? networkStatus; // A109 网络状态
+  final bool isCheckingNetwork; // 是否正在检查网络状态
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -30,6 +33,8 @@ class DeviceConnectionState {
     this.provisionStatus,
     this.wifiNetworks = const [],
     this.connectionLogs = const [],
+    this.networkStatus,
+    this.isCheckingNetwork = false,
   });
 
   DeviceConnectionState copyWith({
@@ -41,6 +46,8 @@ class DeviceConnectionState {
     String? provisionStatus,
     List<WifiAp>? wifiNetworks,
     List<String>? connectionLogs,
+    NetworkStatus? networkStatus,
+    bool? isCheckingNetwork,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -51,6 +58,8 @@ class DeviceConnectionState {
       provisionStatus: provisionStatus ?? this.provisionStatus,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       connectionLogs: connectionLogs ?? this.connectionLogs,
+      networkStatus: networkStatus ?? this.networkStatus,
+      isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
     );
   }
 }
@@ -429,8 +438,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         print('❌ 订阅Wi‑Fi扫描结果出错: $e');
       });
 
-      // 订阅完成后，主动触发一次扫描，确保首次进入页面能拿到列表
-      await requestWifiScan();
+      // 移除自动WiFi扫描 - 改为在首页根据网络状态按需触发
+      // await requestWifiScan();
     } catch (e) {
       print('❌ 初始化GATT会话失败: $e');
     }
@@ -530,6 +539,77 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       .replaceAll('"', r'\"')
       .replaceAll('\n', r'\n')
       .replaceAll('\r', r'\r');
+
+  /// 检查设备当前网络连接状态 (读取A109特征)
+  Future<NetworkStatus?> checkNetworkStatus() async {
+    if (state.deviceData == null) {
+      _log('检查网络状态失败：设备未连接');
+      return null;
+    }
+
+    try {
+      state = state.copyWith(isCheckingNetwork: true);
+      _log('正在检查设备网络状态...');
+
+      final deviceId = state.deviceData!.bleAddress;
+      final data = await BleServiceSimple.readCharacteristic(
+        deviceId: deviceId,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.networkStatusCharUuid,
+      );
+
+      if (data != null && data.isNotEmpty) {
+        final networkStatus = NetworkStatusParser.fromBleData(data);
+        if (networkStatus != null) {
+          state = state.copyWith(
+            networkStatus: networkStatus,
+            isCheckingNetwork: false,
+          );
+
+          final statusText = networkStatus.connected
+            ? '已连网: ${networkStatus.displaySsid} (${networkStatus.signalDescription})'
+            : '未连网';
+          _log('网络状态检查完成: $statusText');
+
+          return networkStatus;
+        } else {
+          _log('解析网络状态数据失败');
+        }
+      } else {
+        _log('读取网络状态特征失败 - 可能TV端不支持A109特征');
+      }
+
+      state = state.copyWith(isCheckingNetwork: false);
+      return null;
+
+    } catch (e) {
+      _log('检查网络状态异常: $e');
+      state = state.copyWith(isCheckingNetwork: false);
+      return null;
+    }
+  }
+
+  /// 智能WiFi处理：根据网络状态决定是否扫描WiFi
+  Future<void> handleWifiSmartly() async {
+    _log('开始智能WiFi处理...');
+
+    // 首先检查网络状态
+    final networkStatus = await checkNetworkStatus();
+
+    if (networkStatus == null) {
+      // 无法获取网络状态，回退到原有模式：直接扫描WiFi
+      _log('无法获取网络状态，回退到WiFi扫描模式');
+      await requestWifiScan();
+    } else if (networkStatus.connected) {
+      // 设备已连网，显示当前网络信息
+      _log('设备已连网，显示当前网络状态');
+      // UI会根据networkStatus自动显示网络信息
+    } else {
+      // 设备未连网，自动获取WiFi列表
+      _log('设备未连网，自动获取WiFi列表');
+      await requestWifiScan();
+    }
+  }
 
   /// 开始设备认证
   Future<void> _startAuthentication(BleDeviceData deviceData) async {
