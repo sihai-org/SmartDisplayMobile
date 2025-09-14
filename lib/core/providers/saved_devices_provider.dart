@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../features/device_connection/providers/device_connection_provider.dart';
 
 class SavedDevicesState {
   final List<SavedDeviceRecord> devices;
@@ -13,8 +14,9 @@ class SavedDevicesState {
 }
 
 class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
-  SavedDevicesNotifier(this._repo) : super(const SavedDevicesState());
+  SavedDevicesNotifier(this._repo, this._ref) : super(const SavedDevicesState());
   final SavedDevicesRepository _repo;
+  final Ref _ref;
 
   Future<void> load() async {
     final list = await _repo.loadAll();
@@ -33,6 +35,17 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   }
 
   Future<void> removeDevice(String deviceId) async {
+    // 检查是否是当前连接的设备，如果是则先断开连接
+    final deviceConnectionNotifier = _ref.read(deviceConnectionProvider.notifier);
+    final currentConnectionState = _ref.read(deviceConnectionProvider);
+
+    // 如果当前有连接的设备且设备ID匹配，先断开连接
+    if (currentConnectionState.deviceData?.deviceId == deviceId) {
+      print('🔌 删除设备前先断开BLE连接: $deviceId');
+      await deviceConnectionNotifier.disconnect();
+      print('✅ BLE连接已断开');
+    }
+
     await _repo.removeDevice(deviceId);
     await load(); // 重新加载状态
   }
@@ -43,6 +56,6 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 }
 
 final savedDevicesProvider = StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {
-  return SavedDevicesNotifier(SavedDevicesRepository());
+  return SavedDevicesNotifier(SavedDevicesRepository(), ref);
 });
 
