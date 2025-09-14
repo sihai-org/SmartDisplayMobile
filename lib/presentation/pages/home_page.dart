@@ -692,7 +692,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   // 显示WiFi密码输入弹窗
-  void _showWifiPasswordDialog(BuildContext context, WifiNetwork wifi, WidgetRef ref) {
+  void _showWifiPasswordDialog(BuildContext context, WifiAp wifi, WidgetRef ref) {
     final TextEditingController passwordController = TextEditingController();
     bool isObscured = true;
 
