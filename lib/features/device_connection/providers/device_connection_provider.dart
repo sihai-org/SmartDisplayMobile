@@ -495,7 +495,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         serviceUuid: BleConstants.serviceUuid,
         characteristicUuid: BleConstants.provisionRequestCharUuid,
         data: data,
-        withResponse: false,  // 不要求响应，避免认证失败导致连接断开
+        withResponse: true,  // A106特征值需要响应写入
       );
       print(ok ? '📤 已写入Provision_Request: $payload' : '❌ 写入Provision_Request失败');
       return ok;
