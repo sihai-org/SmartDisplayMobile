@@ -19,24 +19,36 @@ class BleServiceSimple {
   static final Map<String, SimpleBLEScanResult> _discoveredDevices = {};
 
   /// 检查BLE状态
+  // static Future<BleStatus> checkBleStatus() async {
+  //   try {
+  //     print('🔍 获取BLE状态流...');
+  //     final statusStream = _ble.statusStream;
+  //     print('⏱️  等待BLE状态（最多10秒）...');
+  //
+  //     final status = await statusStream.first.timeout(
+  //       const Duration(seconds: 10),
+  //       onTimeout: () {
+  //         print('⚠️  BLE状态获取超时，返回unknown');
+  //         return BleStatus.unknown;
+  //       },
+  //     );
+  //
+  //     print('📡 BLE状态获取完成: $status');
+  //     return status;
+  //   } catch (e) {
+  //     print('❌ 检查BLE状态失败: $e');
+  //     return BleStatus.unknown;
+  //   }
+  // }
+
   static Future<BleStatus> checkBleStatus() async {
     try {
-      print('🔍 获取BLE状态流...');
-      final statusStream = _ble.statusStream;
-      print('⏱️  等待BLE状态（最多10秒）...');
-      
-      final status = await statusStream.first.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          print('⚠️  BLE状态获取超时，返回unknown');
-          return BleStatus.unknown;
-        },
-      );
-      
-      print('📡 BLE状态获取完成: $status');
+      final status = await _ble.statusStream
+          .firstWhere((s) => s != BleStatus.unknown,
+          orElse: () => BleStatus.unknown)
+          .timeout(const Duration(seconds: 5));
       return status;
-    } catch (e) {
-      print('❌ 检查BLE状态失败: $e');
+    } catch (_) {
       return BleStatus.unknown;
     }
   }
