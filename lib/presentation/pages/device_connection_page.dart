@@ -10,6 +10,7 @@ import '../../features/device_connection/providers/device_connection_provider.da
 import '../../features/device_connection/services/ble_service_simple.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
+import 'package:flutter/services.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.deviceId});
@@ -466,6 +467,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     final lines = state.connectionLogs.length > 10
         ? state.connectionLogs.sublist(state.connectionLogs.length - 10)
         : state.connectionLogs;
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -474,14 +476,32 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('连接日志',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('连接日志',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 18, color: Colors.blue),
+                  tooltip: "复制全部日志",
+                  onPressed: () {
+                    final allLogs = state.connectionLogs.join("\n");
+                    Clipboard.setData(ClipboardData(text: allLogs));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('日志已复制到剪贴板')),
+                    );
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             for (final l in lines)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Text(l,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                child: SelectableText(
+                  l,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                ),
               ),
           ],
         ),
