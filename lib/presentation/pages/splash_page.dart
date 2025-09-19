@@ -114,7 +114,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     
                     // App Description
                     Text(
-                      '智能显示器配网助手',
+                      '大头智显',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white.withOpacity(0.9),
                       ),

@@ -1,5 +1,5 @@
 name: smart_display_mobile
-description: "SmartDisplay Mobile App - BLE配网手机应用"
+description: "Datou SmartDisplay App - 大头智显手机应用"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

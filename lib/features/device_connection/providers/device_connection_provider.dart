@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'package:collection/collection.dart'; // 用于 ListEquality
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ble_constants.dart';
 import '../../../core/crypto/crypto_service.dart';
 import '../../../features/qr_scanner/models/device_qr_data.dart';
+import '../../qr_scanner/utils/device_fingerprint.dart';
 import '../models/ble_device_data.dart';
 import '../models/network_status.dart';
 import '../services/ble_service_simple.dart';
@@ -259,11 +261,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _scanSubscription = null;
   }
 
-  /// 检查是否为目标设备 - 更宽松的匹配策略用于调试
-  bool _isTargetDevice(
-      SimpleBLEScanResult scanResult, BleDeviceData deviceData) {
+  bool _isTargetDevice(SimpleBLEScanResult scanResult, BleDeviceData deviceData) {
     final scanDeviceName =
-        scanResult.name.isNotEmpty ? scanResult.name : '[无名称]';
+    scanResult.name.isNotEmpty ? scanResult.name : '[无名称]';
+
     print('🔍 检查设备匹配:');
     print('   扫描到: $scanDeviceName (${scanResult.deviceId})');
     print('   目标: ${deviceData.deviceName} (${deviceData.deviceId})');
@@ -271,65 +272,48 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     print('   扫描设备RSSI: ${scanResult.rssi}');
     print('   扫描设备可连接: ${scanResult.connectable}');
 
-    // 优先级1: 服务UUID匹配（最可靠的匹配方式）
-    if (scanResult.serviceUuids.isNotEmpty) {
-      final targetServiceUuid = BleConstants.serviceUuid.toLowerCase();
-      for (final serviceUuid in scanResult.serviceUuids) {
-        if (serviceUuid.toLowerCase() == targetServiceUuid) {
-          print('✅ 服务UUID匹配: $serviceUuid -> 这是我们的目标设备!');
-          return true;
-        }
-      }
-      print('⚠️  服务UUID不匹配，期望: $targetServiceUuid');
-      print('   实际UUID列表: ${scanResult.serviceUuids}');
-    } else {
-      print('⚠️  扫描结果中没有服务UUID');
+    // Step 1: 服务 UUID 必须匹配
+    final targetServiceUuid = BleConstants.serviceUuid.toLowerCase();
+    final hasService = scanResult.serviceUuids.any(
+          (uuid) => uuid.toLowerCase() == targetServiceUuid,
+    );
+    if (!hasService) {
+      print('❌ 服务UUID不匹配');
+      return false;
+    }
+    print('✅ 服务UUID匹配');
+
+    // Step 2: 校验 ManufacturerData
+    if (scanResult.manufacturerData == null || scanResult.manufacturerData!.isEmpty) {
+      print('❌ 没有 ManufacturerData');
+      return false;
     }
 
-    // 优先级2: 设备名称精确匹配（现在TV端已恢复广播统一格式的设备名称 AI-TV-XXXX）
-    if (deviceData.deviceName.isNotEmpty && scanResult.name.isNotEmpty) {
-      final qrDeviceName = deviceData.deviceName.trim();
-      final scanDeviceName = scanResult.name.trim();
-
-      print('   精确名称比较: "$qrDeviceName" vs "$scanDeviceName"');
-
-      // 由于现在使用统一的 AI-TV-XXXX 格式，可以直接精确匹配
-      if (qrDeviceName == scanDeviceName) {
-        print('✅ 设备名称精确匹配: "$scanDeviceName"');
-        return true;
-      } else {
-        // 如果名称格式都是 AI-TV-XXXX，但后缀不匹配，说明是不同设备
-        if (qrDeviceName.startsWith('AI-TV-') &&
-            scanDeviceName.startsWith('AI-TV-')) {
-          print('⚠️  AI-TV设备但ID不匹配: "$scanDeviceName" != "$qrDeviceName"');
-        } else {
-          print('⚠️  设备名称不匹配: "$scanDeviceName" != "$qrDeviceName"');
-        }
-      }
-    } else if (scanResult.name.isEmpty) {
-      print('⚠️  扫描到的设备无名称');
+    // 取出 TV 端设置的厂商 ID 数据（TV 端固定 MANUFACTURER_ID = 0x1234）
+    const manufacturerId = 0x1234;
+    final mfgData = scanResult.manufacturerData![manufacturerId];
+    if (mfgData == null || mfgData.isEmpty) {
+      print('❌ 找不到厂商ID=$manufacturerId 的 ManufacturerData');
+      return false;
     }
 
-    // 优先级3: 临时调试 - 匹配所有AI-TV开头的设备
-    if (scanResult.name.isNotEmpty && scanResult.name.startsWith('AI-TV')) {
-      print('🧪 调试模式: 发现AI-TV设备 "${scanResult.name}" - 暂时匹配以便测试');
+    // 生成期望指纹（Flutter 端的 createDeviceFingerprint，要用 SHA-256 版）
+    final expectedFingerprint = createDeviceFingerprint(deviceData.deviceId);
+
+    // 只比对前7字节 (版本 + 设备哈希)，忽略时间戳和校验和
+    final equality = const ListEquality<int>();
+    final isMatch = equality.equals(
+      mfgData.sublist(0, 7),
+      expectedFingerprint.sublist(0, 7),
+    );
+
+    if (isMatch) {
+      print('✅ ManufacturerData 指纹匹配成功');
       return true;
+    } else {
+      print('❌ ManufacturerData 指纹不匹配');
+      return false;
     }
-
-    // 优先级4: 临时调试 - 如果QR码设备名称也是AI-TV格式，尝试宽松匹配
-    if (deviceData.deviceName.startsWith('AI-TV') &&
-        scanResult.name.isNotEmpty) {
-      print(
-          '🧪 调试模式: QR设备名称是 "${deviceData.deviceName}"，扫描到 "${scanResult.name}" - 检查是否相似');
-      if (scanResult.name.toLowerCase().contains('ai') ||
-          scanResult.name.toLowerCase().contains('tv')) {
-        print('🧪 调试匹配: 设备名称包含相关关键词，暂时匹配');
-        return true;
-      }
-    }
-
-    print('❌ 设备不匹配');
-    return false;
   }
 
   /// 连接到设备

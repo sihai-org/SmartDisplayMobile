@@ -1,7 +1,7 @@
 /// Application-wide constants
 class AppConstants {
   // App Info
-  static const String appName = 'SmartDisplay Mobile';
+  static const String appName = 'Datou SmartDisplay';
   static const String appVersion = '1.0.0';
   
   // BLE Configuration

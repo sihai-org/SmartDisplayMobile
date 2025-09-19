@@ -154,9 +154,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     children: [
                       Icon(Icons.wifi_protected_setup, size: 64, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(height: 16),
-                      Text('欢迎使用智能显示器配网助手', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+                      Text('欢迎使用大头智显', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
                       const SizedBox(height: 8),
-                      Text('通过扫描显示器上的二维码来开始配网', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+                      Text('请扫描显示器上的二维码为显示器配置网络', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
                     ],
                   ),
                 ),
