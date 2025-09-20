@@ -10,6 +10,7 @@ class CryptoService {
   SimpleKeyPair? _ephemeralKeyPair; // 临时密钥对
   List<int>? _sharedSecret; // 共享密钥
   List<int>? _sessionKey; // 会话密钥
+  int? _lastClientTimestamp;
 
   // AES-GCM加密器
   late final AesGcm _aesGcm;
@@ -34,61 +35,81 @@ class CryptoService {
     return publicKey.bytes;
   }
 
-  /// 执行ECDH密钥交换并派生会话密钥
+  /// 执行ECDH密钥交换 + 设备长期公钥认证
   Future<void> performKeyExchange({
-    required List<int> remotePublicKeyBytes,
-    required String devicePublicKey, // QR码中的设备公钥，用于验证
+    required List<int> remoteEphemeralPubKey,   // 握手响应里的设备临时公钥
+    required List<int>? signature,              // 握手响应里的签名
+    required String devicePublicKeyHex,         // 二维码里的设备长期公钥（hex）
+    required List<int> clientEphemeralPubKey,   // 手机端发出的临时公钥
+    required int timestamp,                     // 握手响应里的时间戳
+    required int clientTimestamp,   // 👈 改成客户端时间戳
   }) async {
     if (_ephemeralKeyPair == null) {
       throw Exception('必须先生成临时密钥对');
     }
 
     try {
-      // 验证远程公钥是否与QR码中的公钥匹配
-      final remotePublicKeyHex = _bytesToHex(remotePublicKeyBytes);
-      print('🔍 公钥验证调试:');
-      print('   QR码公钥: ${devicePublicKey.toLowerCase()}');
-      print('   远程公钥: ${remotePublicKeyHex.toLowerCase()}');
-      print('   长度对比: ${devicePublicKey.length} vs ${remotePublicKeyHex.length}');
+      print('🔑 开始执行密钥交换 + 公钥认证');
 
-      if (remotePublicKeyHex.toLowerCase() != devicePublicKey.toLowerCase()) {
-        // 显示详细差异信息
-        int diffCount = 0;
-        for (int i = 0; i < devicePublicKey.length && i < remotePublicKeyHex.length; i++) {
-          if (devicePublicKey[i].toLowerCase() != remotePublicKeyHex[i].toLowerCase()) {
-            if (diffCount < 5) { // 只显示前5个差异
-              print('   差异位置$i: "${devicePublicKey[i]}" vs "${remotePublicKeyHex[i]}"');
-            }
-            diffCount++;
-          }
-        }
-        print('   总计${diffCount}个字符不匹配');
-        throw Exception('设备公钥验证失败: 远程公钥与QR码不匹配');
+      // 1. 验证设备长期公钥签名
+      final deviceLongtermPk = SimplePublicKey(
+        _hexToBytes(devicePublicKeyHex),
+        type: KeyPairType.ed25519,
+      );
+
+      final verifier = Ed25519();
+      final message = Uint8List.fromList(
+          clientEphemeralPubKey + _longToBytes(clientTimestamp)  // 👈 用自己发出去的时间戳
+      );
+
+      if (signature == null) {
+        throw Exception('❌ 缺少公钥签名');
       }
-      print('✅ 设备公钥验证通过');
 
-      // 构建远程公钥对象
-      final remotePublicKey = SimplePublicKey(
-        remotePublicKeyBytes,
+      final ok = await verifier.verify(
+        message,
+        signature: Signature(signature, publicKey: deviceLongtermPk),
+      );
+
+      if (!ok) {
+        throw Exception('❌ 设备公钥签名验证失败');
+      }
+      print('✅ 设备公钥签名验证通过');
+
+      // 2. 构建远程 ephemeral 公钥
+      final remoteEphemeralKey = SimplePublicKey(
+        remoteEphemeralPubKey,
         type: KeyPairType.x25519,
       );
 
-      // 执行ECDH计算共享密钥
+      // 3. 执行 ECDH
       final sharedSecretKey = await _x25519.sharedSecretKey(
         keyPair: _ephemeralKeyPair!,
-        remotePublicKey: remotePublicKey,
+        remotePublicKey: remoteEphemeralKey,
       );
-      
       _sharedSecret = await sharedSecretKey.extractBytes();
       print('🤝 ECDH密钥交换完成，共享密钥长度: ${_sharedSecret!.length}');
 
-      // 使用HKDF派生会话密钥
+      // 4. 派生会话密钥
       await _deriveSessionKey();
-      
     } catch (e) {
-      print('❌ 密钥交换失败: $e');
+      print('❌ performKeyExchange 失败: $e');
       rethrow;
     }
+  }
+
+  /// 辅助：int → 8字节数组 (big endian)
+  List<int> _longToBytes(int value) {
+    final bytes = Uint8List(8);
+    bytes[0] = (value >> 56) & 0xFF;
+    bytes[1] = (value >> 48) & 0xFF;
+    bytes[2] = (value >> 40) & 0xFF;
+    bytes[3] = (value >> 32) & 0xFF;
+    bytes[4] = (value >> 24) & 0xFF;
+    bytes[5] = (value >> 16) & 0xFF;
+    bytes[6] = (value >> 8) & 0xFF;
+    bytes[7] = value & 0xFF;
+    return bytes;
   }
 
   /// 使用HKDF派生会话密钥
@@ -102,14 +123,13 @@ class CryptoService {
       outputLength: 32, // 256位密钥
     );
 
-    // 使用固定的信息字符串来派生会话密钥
     final info = utf8.encode('BLE_SESSION_KEY_V1');
-    final salt = List<int>.filled(32, 0); // 零盐值（简化实现）
+    final salt = List<int>.filled(32, 0); // 零盐值
 
     final sessionKeyObject = await hkdf.deriveKey(
       secretKey: SecretKey(_sharedSecret!),
       info: info,
-      nonce: salt, // cryptography包使用nonce而不是salt参数
+      nonce: salt,
     );
 
     _sessionKey = await sessionKeyObject.extractBytes();
@@ -122,28 +142,22 @@ class CryptoService {
       throw Exception('会话密钥未生成，无法加密');
     }
 
-    try {
-      final plaintextBytes = utf8.encode(plaintext);
-      final secretKey = SecretKey(_sessionKey!);
-      
-      // 生成随机nonce (96位/12字节 for GCM)
-      final nonce = _aesGcm.newNonce();
-      
-      final secretBox = await _aesGcm.encrypt(
-        plaintextBytes,
-        secretKey: secretKey,
-        nonce: nonce,
-      );
+    final plaintextBytes = utf8.encode(plaintext);
+    final secretKey = SecretKey(_sessionKey!);
 
-      return EncryptedData(
-        ciphertext: secretBox.cipherText,
-        nonce: secretBox.nonce,
-        mac: secretBox.mac.bytes,
-      );
-    } catch (e) {
-      print('❌ 加密失败: $e');
-      rethrow;
-    }
+    final nonce = _aesGcm.newNonce();
+
+    final secretBox = await _aesGcm.encrypt(
+      plaintextBytes,
+      secretKey: secretKey,
+      nonce: nonce,
+    );
+
+    return EncryptedData(
+      ciphertext: secretBox.cipherText,
+      nonce: secretBox.nonce,
+      mac: secretBox.mac.bytes,
+    );
   }
 
   /// 解密数据 (AES-256-GCM)
@@ -152,31 +166,25 @@ class CryptoService {
       throw Exception('会话密钥未生成，无法解密');
     }
 
-    try {
-      final secretKey = SecretKey(_sessionKey!);
-      
-      final secretBox = SecretBox(
-        encryptedData.ciphertext,
-        nonce: encryptedData.nonce,
-        mac: Mac(encryptedData.mac),
-      );
+    final secretKey = SecretKey(_sessionKey!);
 
-      final decryptedBytes = await _aesGcm.decrypt(
-        secretBox,
-        secretKey: secretKey,
-      );
+    final secretBox = SecretBox(
+      encryptedData.ciphertext,
+      nonce: encryptedData.nonce,
+      mac: Mac(encryptedData.mac),
+    );
 
-      return utf8.decode(decryptedBytes);
-    } catch (e) {
-      print('❌ 解密失败: $e');
-      rethrow;
-    }
+    final decryptedBytes = await _aesGcm.decrypt(
+      secretBox,
+      secretKey: secretKey,
+    );
+
+    return utf8.decode(decryptedBytes);
   }
 
   /// 清理密钥材料
   void cleanup() {
     _ephemeralKeyPair = null;
-    // 不需要手动清理SensitiveBytes，框架会自动处理
     _sharedSecret = null;
     _sessionKey = null;
     print('🧹 密钥材料已清理');
@@ -186,40 +194,37 @@ class CryptoService {
   Future<String> getHandshakeInitData() async {
     final publicKey = await getLocalPublicKey();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    
+
+    _lastClientTimestamp = timestamp;
+
     final handshakeData = {
       'type': 'handshake_init',
       'public_key': _bytesToHex(publicKey),
       'timestamp': timestamp,
       'version': '1.0',
     };
-    
+
     return jsonEncode(handshakeData);
   }
 
+  int? get clientTimestamp => _lastClientTimestamp;
+
   /// 解析握手响应数据
   HandshakeResponse parseHandshakeResponse(String jsonData) {
-    try {
-      final data = jsonDecode(jsonData) as Map<String, dynamic>;
-      
-      if (data['type'] != 'handshake_response') {
-        throw Exception('无效的握手响应类型');
-      }
-      
-      return HandshakeResponse(
-        publicKey: _hexToBytes(data['public_key']),
-        timestamp: data['timestamp'] ?? 0,
-        signature: data['signature'] != null ? _hexToBytes(data['signature']) : null,
-      );
-    } catch (e) {
-      throw Exception('解析握手响应失败: $e');
+    final data = jsonDecode(jsonData) as Map<String, dynamic>;
+    if (data['type'] != 'handshake_response') {
+      throw Exception('无效的握手响应类型');
     }
+    return HandshakeResponse(
+      publicKey: _hexToBytes(data['public_key']),
+      timestamp: data['timestamp'] ?? 0,
+      signature: data['signature'] != null ? _hexToBytes(data['signature']) : null,
+    );
   }
 
   // 工具方法
-  String _bytesToHex(List<int> bytes) {
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
+  String _bytesToHex(List<int> bytes) =>
+      bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 
   List<int> _hexToBytes(String hex) {
     final result = <int>[];
@@ -245,9 +250,7 @@ class EncryptedData {
     required this.mac,
   });
 
-  /// 序列化为字节数组 (用于BLE传输)
   List<int> toBytes() {
-    // 格式: [nonce_len(1)] + [mac_len(1)] + [nonce] + [mac] + [ciphertext]
     final result = <int>[];
     result.add(nonce.length);
     result.add(mac.length);
@@ -257,28 +260,13 @@ class EncryptedData {
     return result;
   }
 
-  /// 从字节数组反序列化
   static EncryptedData fromBytes(List<int> bytes) {
-    if (bytes.length < 2) {
-      throw Exception('数据太短，无法解析');
-    }
-    
     final nonceLen = bytes[0];
     final macLen = bytes[1];
-    
-    if (bytes.length < 2 + nonceLen + macLen) {
-      throw Exception('数据长度不足');
-    }
-    
     final nonce = bytes.sublist(2, 2 + nonceLen);
     final mac = bytes.sublist(2 + nonceLen, 2 + nonceLen + macLen);
     final ciphertext = bytes.sublist(2 + nonceLen + macLen);
-    
-    return EncryptedData(
-      nonce: nonce,
-      mac: mac,
-      ciphertext: ciphertext,
-    );
+    return EncryptedData(nonce: nonce, mac: mac, ciphertext: ciphertext);
   }
 }
 

@@ -46,6 +46,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           try {
+            print("✅ 进入导航逻辑，准备解析 QR 内容");
             final deviceData = QrDataParser.fromQrContent(current.qrContent!);
             // 停止扫描 - 延迟执行避免在构建期间修改Provider
             Future(() {
@@ -55,11 +56,14 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             // 查看是否已保存过该TV
             await ref.read(savedDevicesProvider.notifier).load();
             final saved = ref.read(savedDevicesProvider);
+            print("📦 Saved devices loaded: ${saved.devices.map((d) => d.deviceId).toList()}");
             if (saved.loaded && saved.devices.any((e) => e.deviceId == deviceData.deviceId)) {
+              print("📌 已存在设备 ${deviceData.deviceId} → 跳转首页");
               // 已存在：选中并返回首页
               await ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
               context.go(AppRoutes.home);
             } else {
+              print("🆕 新设备 ${deviceData.deviceId} → 跳转连接页面");
               // 新设备：跳转到连接页面走首次连接流程
               ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
               context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');

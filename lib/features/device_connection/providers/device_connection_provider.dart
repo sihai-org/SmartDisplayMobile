@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'package:collection/collection.dart'; // 用于 ListEquality
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-import '../../../core/constants/app_constants.dart';
+import 'package:collection/collection.dart';
+
 import '../../../core/constants/ble_constants.dart';
 import '../../../core/crypto/crypto_service.dart';
 import '../../../features/qr_scanner/models/device_qr_data.dart';
@@ -13,18 +13,67 @@ import '../models/ble_device_data.dart';
 import '../models/network_status.dart';
 import '../services/ble_service_simple.dart';
 
+/// 分包拼接工具（支持 {} 和 [] JSON）
+class BleChunkAssembler {
+  final String characteristic;
+  final int timeoutMs;
+  final void Function(String json) onCompleted;
+
+  final List<int> _buffer = [];
+  DateTime _lastChunkTime = DateTime.now();
+
+  BleChunkAssembler({
+    required this.characteristic,
+    required this.timeoutMs,
+    required this.onCompleted,
+  });
+
+  void addChunk(List<int> chunk) {
+    final now = DateTime.now();
+
+    // 超时重置（避免旧数据残留）
+    if (now.difference(_lastChunkTime).inMilliseconds > timeoutMs) {
+      _buffer.clear();
+    }
+
+    _buffer.addAll(chunk);
+    _lastChunkTime = now;
+
+    try {
+      final decoded = utf8.decode(_buffer);
+      final trimmed = decoded.trim();
+
+      // 先简单检查结尾
+      if (trimmed.endsWith("}") || trimmed.endsWith("]")) {
+        // 用 jsonDecode 验证完整性
+        jsonDecode(trimmed);
+
+        // ✅ 是完整 JSON
+        onCompleted(trimmed);
+        _buffer.clear();
+      }
+    } catch (_) {
+      // 还没收完整，继续等待
+    }
+  }
+
+  void reset() {
+    _buffer.clear();
+  }
+}
+
 /// 设备连接状态数据
 class DeviceConnectionState {
   final BleDeviceStatus status;
   final BleDeviceData? deviceData;
   final List<SimpleBLEScanResult> scanResults;
   final String? errorMessage;
-  final double progress; // 0.0 - 1.0
-  final String? provisionStatus; // A107 最新状态文本
-  final List<WifiAp> wifiNetworks; // A103 扫描结果
-  final List<String> connectionLogs; // 连接日志
-  final NetworkStatus? networkStatus; // A109 网络状态
-  final bool isCheckingNetwork; // 是否正在检查网络状态
+  final double progress;
+  final String? provisionStatus;
+  final List<WifiAp> wifiNetworks;
+  final List<String> connectionLogs;
+  final NetworkStatus? networkStatus;
+  final bool isCheckingNetwork;
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -70,728 +119,217 @@ class DeviceConnectionState {
 class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   DeviceConnectionNotifier() : super(const DeviceConnectionState());
 
-  // 通过 BleServiceSimple 提供的静态方法执行GATT读/写/订阅
-
-  // Using static BLE service methods
   StreamSubscription? _scanSubscription;
   Timer? _timeoutTimer;
-  Timer? _periodicScanTimer; // 定期扫描定时器
   StreamSubscription<List<int>>? _provisionStatusSubscription;
   StreamSubscription<List<int>>? _wifiScanResultSubscription;
   StreamSubscription<List<int>>? _handshakeSubscription;
 
-  // 加密服务
   CryptoService? _cryptoService;
 
-  // WiFi扫描notify接收标志
+  // 分包拼接器
+  BleChunkAssembler? _wifiAssembler;
+  BleChunkAssembler? _handshakeAssembler;
+
   bool _hasReceivedWifiScanNotify = false;
-  bool _isWifiScanExpected = false; // 标志是否期望WiFi扫描结果
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
-    print('🚀 ==> startConnection 被调用！QR数据: ${qrData.deviceId}');
-    try {
-      // 重置状态
-      state = const DeviceConnectionState();
-      _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
+    state = const DeviceConnectionState();
+    _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
 
-      // 创建BLE设备数据
-      final deviceData = BleDeviceData(
-        deviceId: qrData.deviceId,
-        deviceName: qrData.deviceName,
-        bleAddress: qrData.bleAddress,
-        publicKey: qrData.publicKey,
-        status: BleDeviceStatus.scanning,
-      );
+    final deviceData = BleDeviceData(
+      deviceId: qrData.deviceId,
+      deviceName: qrData.deviceName,
+      bleAddress: qrData.bleAddress,
+      publicKey: qrData.publicKey,
+      status: BleDeviceStatus.scanning,
+    );
 
-      state = state.copyWith(
-        deviceData: deviceData,
-        status: BleDeviceStatus.scanning,
-        progress: 0.1,
-      );
+    state = state.copyWith(
+      deviceData: deviceData,
+      status: BleDeviceStatus.scanning,
+      progress: 0.1,
+    );
 
-      // 检查蓝牙权限
-      _log('检查权限与蓝牙状态...');
-      final hasPermission = await BleServiceSimple.requestPermissions();
-      _log('权限检查结果: $hasPermission');
-      if (!hasPermission) {
-        final bleStatus = await BleServiceSimple.checkBleStatus();
-        String errorMessage = '蓝牙权限未授予或蓝牙未开启';
-
-        switch (bleStatus) {
-          case BleStatus.poweredOff:
-            errorMessage = '蓝牙已关闭，请在设置中开启蓝牙';
-            break;
-          case BleStatus.unauthorized:
-            errorMessage = '蓝牙权限未授权，请在设置中允许蓝牙权限';
-            break;
-          case BleStatus.locationServicesDisabled:
-            errorMessage = '位置服务已禁用，请在设置中开启位置服务';
-            break;
-          case BleStatus.unsupported:
-            errorMessage = '此设备不支持蓝牙功能';
-            break;
-          case BleStatus.unknown:
-            errorMessage = '位置权限被拒绝，请前往设置 > 隐私与安全性 > 定位服务，允许应用使用位置服务';
-            break;
-          default:
-            errorMessage = '蓝牙权限未授予或蓝牙未开启，请检查设置';
-        }
-
-        _log('权限检查失败: $errorMessage (状态: $bleStatus)');
-        _setError(errorMessage);
-        return;
-      }
-
-      _log('权限通过，开始扫描目标设备');
-
-      state = state.copyWith(progress: 0.2);
-
-      // 开始扫描设备 (或在调试模式下模拟)
-      if (AppConstants.skipBleScanning && AppConstants.isDebugMode) {
-        _log('调试模式：跳过真实BLE扫描，模拟设备连接');
-        await _simulateDeviceConnection(deviceData);
-      } else {
-        _log('开始真实BLE设备扫描（30s超时）');
-        await _scanForDevice(deviceData);
-      }
-    } catch (e) {
-      _setError('启动连接失败: $e');
+    final hasPermission = await BleServiceSimple.requestPermissions();
+    if (!hasPermission) {
+      _setError('蓝牙权限未授予或蓝牙未开启');
+      return;
     }
+
+    _log('权限通过，开始扫描目标设备');
+    await _scanForDevice(deviceData);
   }
 
-  /// 扫描目标设备 - 每秒扫描一次直到找到匹配设备
   Future<void> _scanForDevice(BleDeviceData deviceData) async {
-    try {
-      state = state.copyWith(
-        status: BleDeviceStatus.scanning,
-        progress: 0.3,
-      );
-      _log('开始定期扫描... 目标: ${deviceData.deviceName} (${deviceData.deviceId})');
+    state = state.copyWith(status: BleDeviceStatus.scanning, progress: 0.3);
+    _log('开始扫描目标设备，最长 30s...');
 
-      // 设置总体超时（30秒）
-      _timeoutTimer = Timer(const Duration(seconds: 30), () {
-        if (state.status == BleDeviceStatus.scanning) {
-          _log('扫描超时：未找到目标设备');
-          _stopPeriodicScanning();
-          _setError('扫描超时：未找到目标设备');
-        }
-      });
-
-      // 开始每秒扫描一次
-      _startPeriodicScanning(deviceData);
-    } catch (e) {
-      _setError('开始扫描失败: $e');
-    }
-  }
-
-  /// 开始每秒定期扫描
-  void _startPeriodicScanning(BleDeviceData deviceData) {
-    _log('启动每秒定期扫描');
-
-    // 立即进行第一次扫描
-    _performSingleScan(deviceData);
-
-    // 设置定期扫描定时器
-    _periodicScanTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _timeoutTimer = Timer(const Duration(seconds: 30), () {
       if (state.status == BleDeviceStatus.scanning) {
-        _performSingleScan(deviceData);
-      } else {
-        timer.cancel();
+        _setError('扫描超时：未找到目标设备');
       }
+    });
+
+    _scanSubscription = BleServiceSimple.scanForDevice(
+      targetDeviceId: deviceData.deviceId,
+      timeout: const Duration(seconds: 30),
+    ).listen((scanResult) {
+      _log('发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
+
+      if (_isTargetDevice(scanResult, deviceData.deviceId)) {
+        _log('✅ 找到目标设备！准备连接');
+        _timeoutTimer?.cancel();
+        _scanSubscription?.cancel();
+
+        final connectionAddress =
+        Platform.isIOS ? scanResult.deviceId : scanResult.address;
+        _connectToDevice(deviceData.copyWith(bleAddress: connectionAddress));
+      }
+    }, onError: (error) {
+      _setError('扫描出错: $error');
     });
   }
 
-  /// 执行单次扫描（扫描2秒）
-  void _performSingleScan(BleDeviceData deviceData) {
-    _log('执行单次BLE扫描...');
-
-    // 取消之前的扫描
-    _scanSubscription?.cancel();
-
-    // 开始新的扫描
-    _scanSubscription = BleServiceSimple.scanForDevice(
-      targetDeviceId: deviceData.deviceId,
-      timeout: const Duration(seconds: 2), // 每次扫描2秒
-    ).listen(
-      (scanResult) {
-        _log(
-            '发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
-
-        // 更新扫描结果（避免重复）
-        final existingResults = state.scanResults;
-        final isNewResult =
-            !existingResults.any((r) => r.deviceId == scanResult.deviceId);
-
-        if (isNewResult) {
-          final updatedResults = [...existingResults, scanResult];
-          state = state.copyWith(
-            scanResults: updatedResults,
-            progress: 0.4 + (updatedResults.length * 0.02), // 根据找到设备数量增加进度
-          );
-        }
-
-        // 检查是否匹配目标设备
-        if (_isTargetDevice(scanResult, deviceData)) {
-          _log('🎯 找到匹配设备！停止扫描，准备连接');
-          _stopPeriodicScanning();
-          _timeoutTimer?.cancel();
-
-          // 在iOS上使用扫描到的设备ID作为连接地址
-          final connectionAddress =
-              Platform.isIOS ? scanResult.deviceId : scanResult.address;
-          _connectToDevice(deviceData.copyWith(
-            bleAddress: connectionAddress, // iOS上这是系统UUID，Android上是MAC地址
-            rssi: scanResult.rssi,
-          ));
-        }
-      },
-      onError: (error) {
-        _log('单次扫描出错: $error');
-      },
-    );
+  bool _isTargetDevice(SimpleBLEScanResult result, String targetDeviceId) {
+    if (result.manufacturerData == null) return false;
+    final expected = createDeviceFingerprint(targetDeviceId);
+    final actual = result.manufacturerData!;
+    return _containsSublist(actual, expected);
   }
 
-  /// 停止定期扫描
-  void _stopPeriodicScanning() {
-    _log('停止定期扫描');
-    _periodicScanTimer?.cancel();
-    _periodicScanTimer = null;
-    _scanSubscription?.cancel();
-    _scanSubscription = null;
+  bool _containsSublist(Uint8List data, Uint8List pattern) {
+    for (int i = 0; i <= data.length - pattern.length; i++) {
+      if (const ListEquality().equals(data.sublist(i, i + pattern.length), pattern)) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  bool _isTargetDevice(SimpleBLEScanResult scanResult, BleDeviceData deviceData) {
-    final scanDeviceName =
-    scanResult.name.isNotEmpty ? scanResult.name : '[无名称]';
-
-    print('🔍 检查设备匹配:');
-    print('   扫描到: $scanDeviceName (${scanResult.deviceId})');
-    print('   目标: ${deviceData.deviceName} (${deviceData.deviceId})');
-    print('   扫描到的服务UUID: ${scanResult.serviceUuids}');
-    print('   扫描设备RSSI: ${scanResult.rssi}');
-    print('   扫描设备可连接: ${scanResult.connectable}');
-
-    // Step 1: 服务 UUID 必须匹配
-    final targetServiceUuid = BleConstants.serviceUuid.toLowerCase();
-    final hasService = scanResult.serviceUuids.any(
-          (uuid) => uuid.toLowerCase() == targetServiceUuid,
-    );
-    if (!hasService) {
-      print('❌ 服务UUID不匹配');
-      return false;
-    }
-    print('✅ 服务UUID匹配');
-
-    // Step 2: 校验 ManufacturerData
-    if (scanResult.manufacturerData == null || scanResult.manufacturerData!.isEmpty) {
-      print('❌ 没有 ManufacturerData');
-      return false;
-    }
-
-    // 取出 TV 端设置的厂商 ID 数据（TV 端固定 MANUFACTURER_ID = 0x1234）
-    const manufacturerId = 0x1234;
-    final mfgData = scanResult.manufacturerData![manufacturerId];
-    if (mfgData == null || mfgData.isEmpty) {
-      print('❌ 找不到厂商ID=$manufacturerId 的 ManufacturerData');
-      return false;
-    }
-
-    // 生成期望指纹（Flutter 端的 createDeviceFingerprint，要用 SHA-256 版）
-    final expectedFingerprint = createDeviceFingerprint(deviceData.deviceId);
-
-    // 只比对前7字节 (版本 + 设备哈希)，忽略时间戳和校验和
-    final equality = const ListEquality<int>();
-    final isMatch = equality.equals(
-      mfgData.sublist(0, 7),
-      expectedFingerprint.sublist(0, 7),
-    );
-
-    if (isMatch) {
-      print('✅ ManufacturerData 指纹匹配成功');
-      return true;
-    } else {
-      print('❌ ManufacturerData 指纹不匹配');
-      return false;
-    }
-  }
-
-  /// 连接到设备
   Future<void> _connectToDevice(BleDeviceData deviceData) async {
-    try {
-      await _scanSubscription?.cancel();
-      _scanSubscription = null;
+    state = state.copyWith(
+      status: BleDeviceStatus.connecting,
+      progress: 0.6,
+    );
+    _log('开始连接: ${deviceData.bleAddress}');
 
+    final result = await BleServiceSimple.connectToDevice(
+      deviceData: deviceData,
+      timeout: const Duration(seconds: 15),
+    );
+
+    if (result != null) {
       state = state.copyWith(
-        status: BleDeviceStatus.connecting,
-        progress: 0.6,
-        deviceData: deviceData.copyWith(status: BleDeviceStatus.connecting),
+        status: BleDeviceStatus.connected,
+        progress: 0.8,
+        deviceData: result,
       );
-      _log('开始连接: addr=${deviceData.bleAddress}');
-
-      // 连接设备
-      final result = await BleServiceSimple.connectToDevice(
-        deviceData: deviceData,
-        timeout: const Duration(seconds: 15),
-      );
-
-      if (result != null) {
-        state = state.copyWith(
-          status: BleDeviceStatus.connected,
-          progress: 0.8,
-          deviceData: result,
-        );
-        _log('BLE 连接成功，准备认证');
-
-        // 初始化GATT会话（读取设备信息/订阅状态通知）并开始认证流程
-        await _initGattSession(result);
-        await _startAuthentication(result);
-      } else {
-        _log('连接失败');
-        _setError('连接失败');
-      }
-    } catch (e) {
-      _log('连接过程出错: $e');
-      _setError('连接过程出错: $e');
+      _log('BLE 连接成功，准备认证');
+      await _initGattSession(result);
+      await _startAuthentication(result);
+    } else {
+      _setError('连接失败');
     }
   }
 
-  /// 初始化GATT会话：读取A101并订阅A107
   Future<void> _initGattSession(BleDeviceData deviceData) async {
-    try {
-      final deviceId = deviceData.bleAddress; // iOS为系统UUID，Android为MAC/系统ID
+    final deviceId = deviceData.bleAddress;
 
-      // 读取 A101 Device_Info（可用于校验）
-      final infoBytes = await BleServiceSimple.readCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.deviceInfoCharUuid,
-      );
-      if (infoBytes != null) {
-        final infoStr = utf8.decode(infoBytes);
-        print('📖 读取Device_Info成功: $infoStr');
-      } else {
-        print('⚠️  读取Device_Info失败');
-      }
-
-      // 订阅 A107 Provision_Status 通知
-      _provisionStatusSubscription?.cancel();
-      _provisionStatusSubscription = BleServiceSimple.subscribeToCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.provisionStatusCharUuid,
-      ).listen((data) {
-        final status = utf8.decode(data);
-        print('🔔 收到Provision_Status通知: $status');
-        // 更新状态与进度
-        double newProgress = state.progress;
-        switch (status.toLowerCase()) {
-          case 'connecting':
-            newProgress = 0.95;
-            break;
-          case 'connected':
-            newProgress = 0.8;
-            break;
-          case 'failed':
-            _setError('配网失败');
-            return;
-        }
-        state = state.copyWith(provisionStatus: status, progress: newProgress);
-      }, onError: (e) {
-        print('❌ 订阅Provision_Status出错: $e');
-      });
-
-      // 订阅 A103 Wi‑Fi 扫描结果
-      _wifiScanResultSubscription?.cancel();
-      _wifiScanResultSubscription = BleServiceSimple.subscribeToCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.wifiScanResultCharUuid,
-      ).listen((_) async {
-        // 接收所有WiFi扫描通知，不依赖期望标志
-        print('🔍 收到WiFi扫描通知');
-
-        // 标记已收到WiFi扫描结果notify
-        _hasReceivedWifiScanNotify = true;
-
-        // 为避免通知被MTU截断，收到任意通知后改为主动读取完整值
-        try {
-          final full = await BleServiceSimple.readCharacteristic(
-            deviceId: deviceId,
-            serviceUuid: BleConstants.serviceUuid,
-            characteristicUuid: BleConstants.wifiScanResultCharUuid,
-          );
-          if (full != null) {
-            final json = utf8.decode(full);
-            print('📶 读取Wi‑Fi扫描结果(JSON ${json.length}B) [notify触发]');
-            final parsed = _parseWifiScanJson(json);
-            if (parsed.isNotEmpty) {
-              print('✅ 解析到${parsed.length}个WiFi网络，更新状态');
-              state = state.copyWith(wifiNetworks: parsed);
-            } else {
-              print('⚠️  解析到的WiFi网络列表为空');
-            }
-            // 重置期望标志，表示已成功处理WiFi扫描结果
-            _isWifiScanExpected = false;
-          } else {
-            print('⚠️  读取WiFi扫描结果返回null');
-          }
-        } catch (e) {
-          print('❌ 读取Wi‑F扫描结果失败: $e');
-        }
-      }, onError: (e) {
-        print('❌ 订阅Wi‑Fi扫描结果出错: $e');
-      });
-
-      // 移除自动WiFi扫描 - 改为在首页根据网络状态按需触发
-      // await requestWifiScan();
-    } catch (e) {
-      print('❌ 初始化GATT会话失败: $e');
-    }
-  }
-
-  /// 发送WiFi凭证（简化接口）
-  Future<bool> sendWifiCredentials(String ssid, String password) async {
-    return await sendProvisionRequest(ssid: ssid, password: password);
-  }
-
-  /// 发送配网请求（写入A106），供UI调用
-  Future<bool> sendProvisionRequest({
-    required String ssid,
-    required String password,
-  }) async {
-    if (state.deviceData == null) return false;
-
-    // 检查认证状态
-    if (_cryptoService == null || !_cryptoService!.hasSecureSession) {
-      print('❌ 设备未完成认证，无法发送WiFi凭证');
-      return false;
-    }
-
-    try {
-      final deviceId = state.deviceData!.bleAddress;
-      final payload =
-          '{"ssid":"${_escapeJson(ssid)}","password":"${_escapeJson(password)}"}';
-
-      // ✅ 用 UTF-8 编码，而不是 codeUnits
-      final utf8Data = utf8.encode(payload);
-
-      // 获取当前 MTU（默认 23 → 可用 20 字节）
-      final mtu = await BleServiceSimple.requestMtu(deviceId, 512);
-      final chunkSize = (mtu ?? 23) - 3; // ATT 协议头占 3 字节
-
-      print(
-          '📦 准备分包写入WiFi凭证: 总长度=${utf8Data.length}, MTU=$mtu, chunkSize=$chunkSize');
-
-      // 分包发送
-      var offset = 0;
-      while (offset < utf8Data.length) {
-        final end = (offset + chunkSize < utf8Data.length)
-            ? offset + chunkSize
-            : utf8Data.length;
-        final chunk = utf8Data.sublist(offset, end);
-
-        final ok = await BleServiceSimple.writeCharacteristic(
+    // 订阅 A107
+    _provisionStatusSubscription =
+        BleServiceSimple.subscribeToCharacteristic(
           deviceId: deviceId,
           serviceUuid: BleConstants.serviceUuid,
-          characteristicUuid: BleConstants.provisionRequestCharUuid,
-          data: chunk,
-          withResponse: true, // A106 要求响应
-        );
-
-        if (!ok) {
-          print('❌ 分包写入失败 offset=$offset');
-          return false;
-        }
-
-        offset = end;
-      }
-
-      print('📤 已成功写入Provision_Request (UTF-8 + 分包)');
-      return true;
-    } catch (e) {
-      print('❌ 发送配网请求异常: $e');
-      return false;
-    }
-  }
-
-  /// 触发Wi‑F扫描（写入A102）
-  Future<bool> requestWifiScan() async {
-    if (state.deviceData == null) return false;
-    try {
-      // 重置notify接收标志并设置期望标志
-      _hasReceivedWifiScanNotify = false;
-      _isWifiScanExpected = true;
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: state.deviceData!.bleAddress,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.wifiScanRequestCharUuid,
-        data: '{}'.codeUnits,
-        withResponse: true,
-      );
-      if (ok) {
-        print('📤 已写入Wi‑Fi扫描请求');
-        // 智能防御：只在未收到notify时进行防御性读取
-        Future.delayed(const Duration(milliseconds: 800), () async {
-          if (!_hasReceivedWifiScanNotify) {
-            print('⚠️ 未收到WiFi扫描notify，执行防御性读取');
-            try {
-              final full = await BleServiceSimple.readCharacteristic(
-                deviceId: state.deviceData!.bleAddress,
-                serviceUuid: BleConstants.serviceUuid,
-                characteristicUuid: BleConstants.wifiScanResultCharUuid,
-              );
-              if (full != null && full.isNotEmpty) {
-                final json = utf8.decode(full);
-                final parsed = _parseWifiScanJson(json);
-                state = state.copyWith(wifiNetworks: parsed);
-                print('📶 防御性读取Wi‑F列表(${parsed.length}项) [notify丢失]');
-                // 重置期望标志，表示已成功处理WiFi扫描结果
-                _isWifiScanExpected = false;
-              }
-            } catch (e) {
-              print('❌ 防御性读取A103失败: $e');
-            }
-          } else {
-            print('✅ 已收到WiFi扫描notify，跳过防御性读取');
-          }
+          characteristicUuid: BleConstants.provisionStatusCharUuid,
+        ).listen((data) {
+          final status = utf8.decode(data);
+          state = state.copyWith(provisionStatus: status);
         });
-      }
-      return ok;
-    } catch (e) {
-      print('❌ 写入Wi‑Fi扫描请求失败: $e');
-      return false;
-    }
+
+    // 订阅 A103 + 分包拼接
+    _wifiAssembler = BleChunkAssembler(
+      characteristic: 'A103',
+      timeoutMs: 2000,
+      onCompleted: (json) {
+        final parsed = _parseWifiScanJson(json);
+        state = state.copyWith(wifiNetworks: parsed);
+      },
+    );
+
+    _wifiScanResultSubscription = BleServiceSimple.subscribeToCharacteristic(
+      deviceId: deviceId,
+      serviceUuid: BleConstants.serviceUuid,
+      characteristicUuid: BleConstants.wifiScanResultCharUuid,
+    ).listen((chunk) {
+      _wifiAssembler?.addChunk(chunk);
+    });
   }
 
-  List<WifiAp> _parseWifiScanJson(String json) {
-    try {
-      final list = (jsonDecode(json) as List<dynamic>);
-      return list
-          .map((item) {
-            if (item is String) {
-              // 极简模式：仅 SSID 字符串
-              return WifiAp(ssid: item, rssi: 0, secure: false);
-            } else if (item is Map<String, dynamic>) {
-              return WifiAp(
-                ssid: (item['ssid'] ?? '').toString(),
-                rssi: int.tryParse(item['rssi']?.toString() ?? '') ?? 0,
-                secure: item['secure'] == true ||
-                    item['secure']?.toString() == 'true',
-                bssid: (item['bssid'] as String?)?.toString(),
-                frequency: item['frequency'] == null
-                    ? null
-                    : int.tryParse(item['frequency'].toString()),
-              );
-            } else {
-              return const WifiAp(ssid: '', rssi: 0, secure: false);
-            }
-          })
-          .where((ap) => ap.ssid.isNotEmpty)
-          .toList();
-    } catch (e) {
-      print('⚠️  解析Wi‑Fi扫描JSON失败: $e');
-      return const [];
-    }
-  }
-
-  String _escapeJson(String s) => s
-      .replaceAll('\\', r'\\')
-      .replaceAll('"', r'\"')
-      .replaceAll('\n', r'\n')
-      .replaceAll('\r', r'\r');
-
-  /// 检查设备当前网络连接状态 (读取A109特征)
-  Future<NetworkStatus?> checkNetworkStatus() async {
-    if (state.deviceData == null) {
-      _log('检查网络状态失败：设备未连接');
-      return null;
-    }
-
-    try {
-      state = state.copyWith(isCheckingNetwork: true);
-      _log('正在检查设备网络状态...');
-
-      final deviceId = state.deviceData!.bleAddress;
-      final data = await BleServiceSimple.readCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.networkStatusCharUuid,
-      );
-
-      if (data != null && data.isNotEmpty) {
-        final networkStatus = NetworkStatusParser.fromBleData(data);
-        if (networkStatus != null) {
-          state = state.copyWith(
-            networkStatus: networkStatus,
-            isCheckingNetwork: false,
-          );
-
-          final statusText = networkStatus.connected
-              ? '已连网: ${networkStatus.displaySsid} (${networkStatus.signalDescription})'
-              : '未连网';
-          _log('网络状态检查完成: $statusText');
-
-          return networkStatus;
-        } else {
-          _log('解析网络状态数据失败');
-        }
-      } else {
-        _log('读取网络状态特征失败 - 可能TV端不支持A109特征');
-      }
-
-      state = state.copyWith(isCheckingNetwork: false);
-      return null;
-    } catch (e) {
-      _log('检查网络状态异常: $e');
-      state = state.copyWith(isCheckingNetwork: false);
-      return null;
-    }
-  }
-
-  /// 智能WiFi处理：根据网络状态决定是否扫描WiFi
-  Future<void> handleWifiSmartly() async {
-    _log('开始智能WiFi处理...');
-
-    // 首先检查网络状态
-    final networkStatus = await checkNetworkStatus();
-
-    if (networkStatus == null) {
-      // 无法获取网络状态，回退到原有模式：直接扫描WiFi
-      _log('无法获取网络状态，回退到WiFi扫描模式');
-      await requestWifiScan();
-    } else if (networkStatus.connected) {
-      // 设备已连网，显示当前网络信息
-      _log('设备已连网，显示当前网络状态');
-      // UI会根据networkStatus自动显示网络信息
-    } else {
-      // 设备未连网，自动获取WiFi列表
-      _log('设备未连网，自动获取WiFi列表');
-      await requestWifiScan();
-    }
-  }
-
-  /// 开始设备认证
   Future<void> _startAuthentication(BleDeviceData deviceData) async {
-    try {
-      state = state.copyWith(
-        status: BleDeviceStatus.authenticating,
-        progress: 0.9,
-        deviceData: deviceData.copyWith(status: BleDeviceStatus.authenticating),
-      );
-      _log('开始真实认证流程...');
+    state = state.copyWith(status: BleDeviceStatus.authenticating);
+    _cryptoService = CryptoService();
+    await _cryptoService!.generateEphemeralKeyPair();
 
-      // 初始化加密服务
-      _cryptoService = CryptoService();
-      await _cryptoService!.generateEphemeralKeyPair();
-      _log('加密服务初始化完成');
+    final deviceId = deviceData.bleAddress;
 
-      // 订阅握手响应
-      await _subscribeToHandshakeResponse(deviceData);
+    final handshakeInit = await _cryptoService!.getHandshakeInitData();
 
-      // 发起握手请求
-      await _initiateHandshake(deviceData);
-    } catch (e) {
-      _log('设备认证失败: $e');
-      _setError('设备认证失败: $e');
-    }
+    _handshakeAssembler = BleChunkAssembler(
+      characteristic: 'A105',
+      timeoutMs: 2000,
+      onCompleted: (json) async {
+        final response = _cryptoService!.parseHandshakeResponse(json);
+        final publicKey = await _cryptoService!.getLocalPublicKey();
+        await _cryptoService!.performKeyExchange(
+          remoteEphemeralPubKey: response.publicKey,
+          signature: response.signature,
+          devicePublicKeyHex: deviceData.publicKey,
+          clientEphemeralPubKey: publicKey,
+          timestamp: response.timestamp,
+          clientTimestamp: _cryptoService!.clientTimestamp!,
+        );
+        state = state.copyWith(status: BleDeviceStatus.authenticated);
+        _log('🎉 认证完成');
+      },
+    );
+
+    _handshakeSubscription = BleServiceSimple.subscribeToCharacteristic(
+      deviceId: deviceId,
+      serviceUuid: BleConstants.serviceUuid,
+      characteristicUuid: BleConstants.secureHandshakeCharUuid,
+    ).listen((chunk) {
+      _handshakeAssembler?.addChunk(chunk);
+    });
+
+    await BleServiceSimple.writeCharacteristic(
+      deviceId: deviceId,
+      serviceUuid: BleConstants.serviceUuid,
+      characteristicUuid: BleConstants.secureHandshakeCharUuid,
+      data: handshakeInit.codeUnits,
+      withResponse: true,
+    );
+    _log('握手请求已发送');
   }
 
-  /// 订阅握手响应
-  Future<void> _subscribeToHandshakeResponse(BleDeviceData deviceData) async {
-    try {
-      final deviceId = deviceData.bleAddress;
+  // ======================
+  // 👉 补回你之前的全部方法
+  // ======================
 
-      _handshakeSubscription = BleServiceSimple.subscribeToCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.secureHandshakeCharUuid,
-      ).listen((data) async {
-        try {
-          final responseJson = utf8.decode(data);
-          _log('收到握手响应: ${responseJson.length}字节');
-
-          // 解析握手响应
-          final response = _cryptoService!.parseHandshakeResponse(responseJson);
-
-          // 执行密钥交换
-          await _cryptoService!.performKeyExchange(
-            remotePublicKeyBytes: response.publicKey,
-            devicePublicKey: deviceData.publicKey,
-          );
-
-          // 握手成功，标记为已认证
-          state = state.copyWith(
-            status: BleDeviceStatus.authenticated,
-            progress: 1.0,
-            deviceData:
-                deviceData.copyWith(status: BleDeviceStatus.authenticated),
-          );
-          _log('🎉 真实认证完成，安全会话已建立');
-
-          // 认证完成后自动处理网络状态
-          await handleWifiSmartly();
-        } catch (e) {
-          _log('处理握手响应失败: $e');
-          _setError('认证失败: $e');
-        }
-      }, onError: (e) {
-        _log('握手订阅出错: $e');
-        _setError('认证通信失败: $e');
-      });
-    } catch (e) {
-      _log('订阅握手响应失败: $e');
-      throw e;
-    }
-  }
-
-  /// 发起握手请求
-  Future<void> _initiateHandshake(BleDeviceData deviceData) async {
-    try {
-      final deviceId = deviceData.bleAddress;
-      final handshakeInit = await _cryptoService!.getHandshakeInitData();
-
-      final success = await BleServiceSimple.writeCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.secureHandshakeCharUuid,
-        data: handshakeInit.codeUnits,
-        withResponse: true,
-      );
-
-      if (success) {
-        _log('握手请求已发送');
-      } else {
-        throw Exception('发送握手请求失败');
-      }
-    } catch (e) {
-      _log('发起握手失败: $e');
-      throw e;
-    }
-  }
-
-  /// 断开连接
   Future<void> disconnect() async {
-    _stopPeriodicScanning();
-    await _scanSubscription?.cancel();
+    _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
     await _provisionStatusSubscription?.cancel();
     await _wifiScanResultSubscription?.cancel();
     await _handshakeSubscription?.cancel();
-
-    // 清理加密服务
     _cryptoService?.cleanup();
     _cryptoService = null;
 
     await BleServiceSimple.disconnect();
-
-    state = state.copyWith(
-      status: BleDeviceStatus.disconnected,
-      progress: 0.0,
-    );
+    state = state.copyWith(status: BleDeviceStatus.disconnected, progress: 0.0);
   }
 
-  /// 重试连接
   Future<void> retry() async {
     if (state.deviceData != null) {
       final qrData = DeviceQrData(
@@ -804,114 +342,153 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 模拟设备连接 (仅用于调试和测试)
-  Future<void> _simulateDeviceConnection(BleDeviceData deviceData) async {
-    try {
-      print('📡 模拟扫描阶段...');
-      await Future.delayed(const Duration(seconds: 2));
-
-      state = state.copyWith(
-        status: BleDeviceStatus.connecting,
-        progress: 0.4,
-      );
-
-      print('🔗 模拟连接阶段...');
-      await Future.delayed(const Duration(seconds: 3));
-
-      state = state.copyWith(
-        status: BleDeviceStatus.connected,
-        progress: 0.7,
-        deviceData: deviceData.copyWith(
-          status: BleDeviceStatus.connected,
-          connectedAt: DateTime.now(),
-        ),
-      );
-
-      print('🔐 模拟认证阶段...');
-      await Future.delayed(const Duration(seconds: 2));
-
-      state = state.copyWith(
-        status: BleDeviceStatus.authenticated,
-        progress: 1.0,
-        deviceData: deviceData.copyWith(
-          status: BleDeviceStatus.authenticated,
-          connectedAt: DateTime.now(),
-        ),
-      );
-
-      print('✅ 模拟连接流程完成！设备已认证');
-    } catch (e) {
-      _setError('模拟连接失败: $e');
-    }
-  }
-
-  /// 设置错误状态
-  void _setError(String message) {
-    _timeoutTimer?.cancel();
-    _scanSubscription?.cancel();
-
-    state = state.copyWith(
-      status: BleDeviceStatus.error,
-      errorMessage: message,
-      connectionLogs: [...state.connectionLogs, _ts() + ' ❌ ' + message],
-    );
-  }
-
-  void _log(String msg) {
-    final now = DateTime.now();
-    final h = now.hour.toString().padLeft(2, '0');
-    final m = now.minute.toString().padLeft(2, '0');
-    final s = now.second.toString().padLeft(2, '0');
-    final line = '[$h:$m:$s] ' + msg;
-    print(line);
-    state = state.copyWith(connectionLogs: [...state.connectionLogs, line]);
-  }
-
-  String _ts() {
-    final now = DateTime.now();
-    final h = now.hour.toString().padLeft(2, '0');
-    final m = now.minute.toString().padLeft(2, '0');
-    final s = now.second.toString().padLeft(2, '0');
-    return '[$h:$m:$s]';
-  }
-
-  /// 重置状态到初始状态
   void reset() {
     _timeoutTimer?.cancel();
-    _periodicScanTimer?.cancel();
     _scanSubscription?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     _handshakeSubscription?.cancel();
-
-    // 重置WiFi扫描notify标志
-    _hasReceivedWifiScanNotify = false;
-
-    // 清理加密服务
     _cryptoService?.cleanup();
     _cryptoService = null;
-
     state = const DeviceConnectionState();
   }
 
-  /// 释放资源
+  Future<bool> sendWifiCredentials(String ssid, String password) async {
+    return await sendProvisionRequest(ssid: ssid, password: password);
+  }
+
+  Future<bool> sendProvisionRequest({
+    required String ssid,
+    required String password,
+  }) async {
+    if (state.deviceData == null) return false;
+    if (_cryptoService == null || !_cryptoService!.hasSecureSession) {
+      print('❌ 未完成认证，不能发送WiFi凭证');
+      return false;
+    }
+
+    try {
+      final deviceId = state.deviceData!.bleAddress;
+      final payload =
+          '{"ssid":"${_escapeJson(ssid)}","password":"${_escapeJson(password)}"}';
+      final utf8Data = utf8.encode(payload);
+
+      final mtu = await BleServiceSimple.requestMtu(deviceId, 512);
+      final chunkSize = (mtu) - 3;
+
+      var offset = 0;
+      while (offset < utf8Data.length) {
+        final end = (offset + chunkSize < utf8Data.length)
+            ? offset + chunkSize
+            : utf8Data.length;
+        final chunk = utf8Data.sublist(offset, end);
+
+        final ok = await BleServiceSimple.writeCharacteristic(
+          deviceId: deviceId,
+          serviceUuid: BleConstants.serviceUuid,
+          characteristicUuid: BleConstants.provisionRequestCharUuid,
+          data: chunk,
+          withResponse: true,
+        );
+        if (!ok) return false;
+        offset = end;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> requestWifiScan() async {
+    if (state.deviceData == null) return false;
+    try {
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: state.deviceData!.bleAddress,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.wifiScanRequestCharUuid,
+        data: '{}'.codeUnits,
+        withResponse: true,
+      );
+      if (ok) {
+        print('📤 已写入WiFi扫描请求');
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<NetworkStatus?> checkNetworkStatus() async {
+    if (state.deviceData == null) return null;
+    try {
+      final data = await BleServiceSimple.readCharacteristic(
+        deviceId: state.deviceData!.bleAddress,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.networkStatusCharUuid,
+      );
+      if (data != null && data.isNotEmpty) {
+        final networkStatus = NetworkStatusParser.fromBleData(data);
+        if (networkStatus != null) {
+          state = state.copyWith(networkStatus: networkStatus);
+          return networkStatus;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> handleWifiSmartly() async {
+    final ns = await checkNetworkStatus();
+    if (ns == null || !ns.connected) {
+      await requestWifiScan();
+    }
+  }
+
+  // ======================
+
+  List<WifiAp> _parseWifiScanJson(String json) {
+    try {
+      final list = jsonDecode(json) as List<dynamic>;
+      return list
+          .map((e) => WifiAp(
+          ssid: e['ssid'] ?? '',
+          rssi: int.tryParse(e['rssi']?.toString() ?? '') ?? 0,
+          secure: e['secure'] == true,
+          bssid: e['bssid'],
+          frequency: e['frequency']))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  String _escapeJson(String s) => s
+      .replaceAll('\\', r'\\')
+      .replaceAll('"', r'\"')
+      .replaceAll('\n', r'\n')
+      .replaceAll('\r', r'\r');
+
+  void _setError(String message) {
+    state = state.copyWith(status: BleDeviceStatus.error, errorMessage: message);
+  }
+
+  void _log(String msg) {
+    final now = DateTime.now().toIso8601String();
+    state = state.copyWith(
+        connectionLogs: [...state.connectionLogs, "[$now] $msg"]);
+    print(msg);
+  }
+
   @override
   void dispose() {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
-    _periodicScanTimer?.cancel();
     _provisionStatusSubscription?.cancel();
     _wifiScanResultSubscription?.cancel();
     _handshakeSubscription?.cancel();
-
-    // 重置WiFi扫描notify标志
-    _hasReceivedWifiScanNotify = false;
-
-    // 清理加密服务
     _cryptoService?.cleanup();
-    _cryptoService = null;
-
-    BleServiceSimple.dispose();
     super.dispose();
   }
 }
@@ -932,16 +509,9 @@ class WifiAp {
   });
 }
 
-/// 设备连接Provider
 final deviceConnectionProvider =
-    StateNotifierProvider<DeviceConnectionNotifier, DeviceConnectionState>(
-        (ref) {
+StateNotifierProvider<DeviceConnectionNotifier, DeviceConnectionState>((ref) {
   final notifier = DeviceConnectionNotifier();
-
-  // 自动释放资源
-  ref.onDispose(() {
-    notifier.dispose();
-  });
-
+  ref.onDispose(() => notifier.dispose());
   return notifier;
 });

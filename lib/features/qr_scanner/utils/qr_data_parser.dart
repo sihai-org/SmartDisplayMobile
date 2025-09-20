@@ -3,29 +3,26 @@ import '../models/device_qr_data.dart';
 
 /// QR码数据解析工具
 class QrDataParser {
-  /// 从QR码内容创建设备数据
+  /// 从 QR 码内容创建设备数据
   static DeviceQrData fromQrContent(String qrContent) {
-    try {
-      // 尝试解析JSON格式
-      final jsonData = jsonDecode(qrContent);
-      return DeviceQrData.fromJson(jsonData);
-    } catch (e) {
-      // 如果不是JSON格式，创建一个简单的设备数据
-      return DeviceQrData(
-        deviceId: _extractDeviceIdFromContent(qrContent),
-        deviceName: '扫描到的设备',
-        bleAddress: '00:00:00:00:00:00',
-        publicKey: qrContent, // 将整个内容作为publicKey存储
-      );
-    }
-  }
+    final trimmed = qrContent.trim();
+    print("📷 QrDataParser 收到内容(${trimmed.length}): $trimmed");
 
-  /// 从内容中提取设备ID（简化版本）
-  static String _extractDeviceIdFromContent(String content) {
-    if (content.length <= 20) {
-      return content; // 如果内容较短，直接作为设备ID
+    // 明显是 JSON 格式
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        final Map<String, dynamic> json = jsonDecode(trimmed);
+        final deviceData = DeviceQrData.fromJson(json);
+
+        print("✅ 解析成功: deviceId=${deviceData.deviceId}, "
+            "deviceName=${deviceData.deviceName}");
+        return deviceData;
+      } catch (e) {
+        throw FormatException("❌ 无法解析二维码 JSON: $e, 内容=$trimmed");
+      }
     }
-    // 如果内容较长，取前20个字符作为设备ID
-    return content.substring(0, 20);
+
+    // 非 JSON，判定为非法
+    throw FormatException("❌ 非法二维码内容（不是 JSON）: $trimmed");
   }
 }

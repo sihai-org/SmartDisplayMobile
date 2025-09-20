@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/ble_device_data.dart';
@@ -91,42 +92,55 @@ class BleServiceSimple {
     required String targetDeviceId,
     required Duration timeout,
   }) {
-    if (_isScanning) return Stream.empty();
     _scanController?.close();
     _scanController = StreamController<SimpleBLEScanResult>.broadcast();
-    _startScanningProcess(targetDeviceId, timeout);
+    _startScanningProcess(timeout);
     return _scanController!.stream;
   }
 
-  static void _startScanningProcess(String targetDeviceId, Duration timeout) async {
+  static void _startScanningProcess(Duration timeout) async {
     try {
+      // 确保先停止旧的扫描
+      await stopScan();
+
       _isScanning = true;
-      await _stopScanSubscription();
+      print("🔄 开始扫描，超时时间=${timeout.inSeconds}s");
+
+      // 设置超时
       Timer(timeout, () async {
-        if (_isScanning) await stopScan();
+        if (_isScanning) {
+          print("⏰ 扫描超时，自动停止");
+          await stopScan();
+        }
       });
-      _discoveredDevices.clear();
 
       _scanSubscription = _ble.scanForDevices(
-        withServices: [Uuid.parse(BleConstants.serviceUuid)],
-        scanMode: ScanMode.balanced,
-        requireLocationServicesEnabled: Platform.isAndroid,
+        withServices: [],
+        scanMode: ScanMode.lowLatency,
+        // ⚠️ 这里改为 false，避免 ROM 强制拦截
+        requireLocationServicesEnabled: false,
       ).listen((device) {
         if (!_isScanning) return;
+
         final result = SimpleBLEScanResult.fromDiscoveredDevice(device);
-        final existing = _discoveredDevices[result.deviceId];
-        if (existing == null || result.rssi > existing.rssi) {
-          _discoveredDevices[result.deviceId] = result;
-          _scanController?.add(result);
-        }
+        _discoveredDevices[result.deviceId] = result;
+        _scanController?.add(result);
+
+        print('🔍 发现设备: ${result.name}');
+        print('  id=${result.deviceId}, rssi=${result.rssi}');
+        print('  serviceUuids=${result.serviceUuids}');
+        print('  manufacturerData=${result.manufacturerData}');
       }, onError: (error) {
+        print("❌ 扫描出错: $error");
         _scanController?.addError(error);
         _isScanning = false;
       }, onDone: () {
+        print("🛑 扫描完成");
         _isScanning = false;
         _scanController?.close();
       });
     } catch (e) {
+      print("❌ 扫描启动失败: $e");
       _isScanning = false;
       _scanController?.addError(e);
       _scanController?.close();
@@ -143,9 +157,12 @@ class BleServiceSimple {
 
   static Future<void> stopScan() async {
     if (!_isScanning && _scanSubscription == null) return;
+    print("🛑 手动停止扫描");
     _isScanning = false;
     await _stopScanSubscription();
-    await _scanController?.close();
+    if (_scanController != null && !_scanController!.isClosed) {
+      await _scanController?.close();
+    }
     _scanController = null;
   }
 
@@ -170,7 +187,8 @@ class BleServiceSimple {
           switch (update.connectionState) {
             case DeviceConnectionState.connected:
               try {
-                await _ble.requestMtu(deviceId: deviceId, mtu: BleConstants.preferredMtu);
+                await _ble.requestMtu(
+                    deviceId: deviceId, mtu: BleConstants.preferredMtu);
               } catch (_) {}
               completer.complete(deviceData.copyWith(
                 status: BleDeviceStatus.connected,
@@ -287,7 +305,7 @@ class SimpleBLEScanResult {
   final DateTime timestamp;
   final List<String> serviceUuids;
   final Map<String, List<int>>? serviceData;
-  final Map<String, dynamic>? manufacturerData;
+  final Uint8List? manufacturerData;
   final List<int>? rawAdvertisementData;
   final bool connectable;
 
@@ -314,7 +332,7 @@ class SimpleBLEScanResult {
       serviceUuids: device.serviceUuids.map((u) => u.toString()).toList(),
       serviceData: device.serviceData.map((k, v) => MapEntry(k.toString(), v)),
       manufacturerData:
-      device.manufacturerData.isNotEmpty ? {'data': device.manufacturerData} : null,
+      device.manufacturerData.isNotEmpty ? device.manufacturerData : null,
       connectable: device.connectable == Connectable.available,
     );
   }
