@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/constants/ble_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../data/repositories/saved_devices_repository.dart';
+import '../../features/device_connection/services/ble_service_simple.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
   const DeviceManagementPage({super.key});
 
   @override
-  ConsumerState<DeviceManagementPage> createState() => _DeviceManagementPageState();
+  ConsumerState<DeviceManagementPage> createState() =>
+      _DeviceManagementPageState();
 }
 
 class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
@@ -56,19 +59,19 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       itemBuilder: (context, index) {
         final device = state.devices[index];
         final isSelected = device.deviceId == state.lastSelectedId;
-        
+
         return Card(
           elevation: isSelected ? 4 : 2,
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
             leading: CircleAvatar(
-              backgroundColor: isSelected 
+              backgroundColor: isSelected
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.surfaceVariant,
               child: Icon(
                 Icons.tv,
-                color: isSelected 
+                color: isSelected
                     ? Theme.of(context).colorScheme.onPrimary
                     : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -79,13 +82,15 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                   child: Text(
                     device.deviceName.isNotEmpty ? device.deviceName : '未知设备',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
                   ),
                 ),
                 if (isSelected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primary,
                       borderRadius: BorderRadius.circular(12),
@@ -93,8 +98,8 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                     child: Text(
                       '当前选中',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
                     ),
                   ),
               ],
@@ -106,23 +111,23 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                 Text(
                   'ID: ${device.deviceId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
+                        fontFamily: 'monospace',
+                      ),
                 ),
                 if (device.lastBleAddress != null)
                   Text(
                     'BLE: ${device.lastBleAddress}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
+                          fontFamily: 'monospace',
+                        ),
                   ),
                 if (device.lastConnectedAt != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     '上次连接: ${_formatDateTime(device.lastConnectedAt!)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
                 ],
               ],
@@ -136,6 +141,12 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                     icon: const Icon(Icons.radio_button_unchecked),
                     tooltip: '设为当前设备',
                   ),
+                IconButton(
+                  onPressed: () => _sendCheckUpdate(device),
+                  icon: const Icon(Icons.system_update),
+                  tooltip: '检查更新',
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 IconButton(
                   onPressed: () => _showDeleteDialog(context, device),
                   icon: const Icon(Icons.delete_outline),
@@ -167,15 +178,15 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
             Text(
               '暂无保存的设备',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(height: 16),
             Text(
               '扫描设备上的二维码来添加新的智能电视',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -184,7 +195,8 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               icon: const Icon(Icons.qr_code_scanner),
               label: const Text('扫描二维码添加设备'),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               ),
             ),
           ],
@@ -220,6 +232,38 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     }
   }
 
+  void _sendCheckUpdate(SavedDeviceRecord device) async {
+    try {
+      // 示例 JSON 指令
+      final command = '{"action":"update_version"}';
+      print("准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.updateVersionCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+      print("device_management_page: " + "writeCharacteristic ok=$ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送检查更新指令')),
+        );
+      }
+    } catch (e, st) {
+      print("❌ _sendCheckUpdate 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送更新请求失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _showDeleteDialog(BuildContext context, SavedDeviceRecord device) {
     showDialog(
       context: context,
@@ -243,15 +287,15 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                   Text(
                     '设备名称: ${device.deviceName}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'ID: ${device.deviceId}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
+                          fontFamily: 'monospace',
+                        ),
                   ),
                 ],
               ),
@@ -260,8 +304,8 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
             Text(
               '删除后将无法自动连接到此设备，需要重新扫描二维码添加。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
+                    color: Theme.of(context).colorScheme.error,
+                  ),
             ),
           ],
         ),
@@ -287,7 +331,9 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
   void _deleteDevice(SavedDeviceRecord device) async {
     try {
-      await ref.read(savedDevicesProvider.notifier).removeDevice(device.deviceId);
+      await ref
+          .read(savedDevicesProvider.notifier)
+          .removeDevice(device.deviceId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -314,7 +360,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inMinutes < 1) {
       return '刚刚';
     } else if (difference.inHours < 1) {

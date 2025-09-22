@@ -251,6 +251,8 @@ class BleServiceSimple {
     bool withResponse = true,
   }) async {
     try {
+      print("ble_service_simple: " + "writeCharacteristic withResponse=$withResponse");
+
       final q = QualifiedCharacteristic(
         deviceId: deviceId,
         serviceId: Uuid.parse(serviceUuid),
