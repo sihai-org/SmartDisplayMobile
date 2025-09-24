@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,12 +22,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
   void initState() {
     super.initState();
     _initializeAnimations();
-    _navigateToHome();
+    // _navigateToHome();
+    _navigateNext();
   }
 
   void _initializeAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
 
@@ -49,9 +51,25 @@ class _SplashPageState extends ConsumerState<SplashPage>
     _animationController.forward();
   }
 
-  Future<void> _navigateToHome() async {
+  // Future<void> _navigateToHome() async {
+  //   await Future.delayed(const Duration(seconds: 3));
+  //   if (mounted) {
+  //     context.go(AppRoutes.home);
+  //   }
+  // }
+
+  Future<void> _navigateNext() async {
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
+
+    if (!mounted) return;
+
+    final session = Supabase.instance.client.auth.currentSession;
+
+    if (session == null) {
+      // 没有登录态，跳转到登录页
+      context.go(AppRoutes.login);
+    } else {
+      // 有登录态，跳转首页
       context.go(AppRoutes.home);
     }
   }

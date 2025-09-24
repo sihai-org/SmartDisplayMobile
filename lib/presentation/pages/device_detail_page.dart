@@ -10,14 +10,14 @@ import '../../features/device_connection/models/ble_device_data.dart';
 import '../../features/device_connection/models/network_status.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 
-class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+class DeviceDetailPage extends ConsumerStatefulWidget {
+  const DeviceDetailPage({super.key});
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
+  ConsumerState<DeviceDetailPage> createState() => _DeviceDetailState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _autoTried = false;
 
   @override

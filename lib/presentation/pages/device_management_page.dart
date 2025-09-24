@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/ble_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
@@ -108,6 +110,37 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isSelected)
+                      IconButton(
+                        onPressed: () => _selectDevice(device.deviceId),
+                        icon: const Icon(Icons.radio_button_unchecked),
+                        tooltip: '设为当前设备',
+                      ),
+                    // TODO: 判断是否已经登录
+                    IconButton(
+                      onPressed: () => _deviceLogin(device),
+                      icon: const Icon(Icons.login),
+                      tooltip: '登录',
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    IconButton(
+                      onPressed: () => _sendCheckUpdate(device),
+                      icon: const Icon(Icons.system_update),
+                      tooltip: '检查更新',
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    IconButton(
+                      onPressed: () => _showDeleteDialog(context, device),
+                      icon: const Icon(Icons.delete_outline),
+                      iconSize: 20,
+                      tooltip: '删除设备',
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ],
+                ),
                 Text(
                   'ID: ${device.deviceId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -130,30 +163,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                         ),
                   ),
                 ],
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isSelected)
-                  IconButton(
-                    onPressed: () => _selectDevice(device.deviceId),
-                    icon: const Icon(Icons.radio_button_unchecked),
-                    tooltip: '设为当前设备',
-                  ),
-                IconButton(
-                  onPressed: () => _sendCheckUpdate(device),
-                  icon: const Icon(Icons.system_update),
-                  tooltip: '检查更新',
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                IconButton(
-                  onPressed: () => _showDeleteDialog(context, device),
-                  icon: const Icon(Icons.delete_outline),
-                  iconSize: 20,
-                  tooltip: '删除设备',
-                  color: Theme.of(context).colorScheme.error,
-                ),
               ],
             ),
           ),
@@ -232,11 +241,72 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     }
   }
 
+  void _deviceLogin(SavedDeviceRecord device) async {
+    try {
+      // 1. 调用 Supabase Edge Function 获取授权码
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke(
+        'generate-auth-code',
+        body: {
+          'device_id': device.deviceId,
+        },
+      );
+
+      if (response.status != 200) {
+        throw Exception('获取授权码失败: ${response.data}');
+      }
+
+      final code = response.data['code'] as String;
+      if (code == null || code == "") {
+        throw Exception('返回的授权码为空');
+      }
+
+      print("~~~~~~~~~~~~code=$code");
+
+      // // 2. 构造蓝牙登录指令 JSON
+      // final command = jsonEncode({
+      //   "action": "login",
+      //   "authCode": authCode,
+      // });
+      //
+      // // 3. 通过 BLE 推送授权码
+      // final ok = await BleServiceSimple.writeCharacteristic(
+      //   deviceId: device.lastBleAddress!,
+      //   serviceUuid: BleConstants.serviceUuid,
+      //   characteristicUuid: BleConstants.loginCharUuid,
+      //   // 确认有对应的 UUID
+      //   data: utf8.encode(command),
+      //   withResponse: true,
+      // );
+      //
+      // if (!ok) {
+      //   throw Exception('写入蓝牙特征失败');
+      // }
+      //
+      // if (mounted) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     const SnackBar(content: Text('登录请求已发送')),
+      //   );
+      // }
+    } catch (e, st) {
+      print("❌ _loginDevice 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('登录失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _sendCheckUpdate(SavedDeviceRecord device) async {
     try {
       // 示例 JSON 指令
       final command = '{"action":"update_version"}';
-      print("准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
+      print(
+          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: device.lastBleAddress!,
         serviceUuid: BleConstants.serviceUuid,
