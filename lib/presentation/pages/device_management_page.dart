@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -126,6 +127,13 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                       tooltip: '登录',
                       color: Theme.of(context).colorScheme.primary,
                     ),
+                    // TODO: 判断是否已经登录
+                    IconButton(
+                      onPressed: () => _deviceLogout(device),
+                      icon: const Icon(Icons.logout),
+                      tooltip: '退出登录',
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     IconButton(
                       onPressed: () => _sendCheckUpdate(device),
                       icon: const Icon(Icons.system_update),
@@ -242,11 +250,12 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   }
 
   void _deviceLogin(SavedDeviceRecord device) async {
+    Fluttertoast.showToast(msg: "click device login");
     try {
       // 1. 调用 Supabase Edge Function 获取授权码
       final supabase = Supabase.instance.client;
       final response = await supabase.functions.invoke(
-        'generate-auth-code',
+        'pairing-otp',
         body: {
           'device_id': device.deviceId,
         },
@@ -256,44 +265,75 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
         throw Exception('获取授权码失败: ${response.data}');
       }
 
-      final code = response.data['code'] as String;
-      if (code == null || code == "") {
+      final email = response.data['email'] as String;
+      final otpToken = response.data['token'] as String;
+      if (email == null || email == "" || otpToken == null || otpToken == "") {
         throw Exception('返回的授权码为空');
       }
 
-      print("~~~~~~~~~~~~code=$code");
+      final command = '{"email":"$email", "otpToken":"$otpToken"}';
 
-      // // 2. 构造蓝牙登录指令 JSON
-      // final command = jsonEncode({
-      //   "action": "login",
-      //   "authCode": authCode,
-      // });
-      //
-      // // 3. 通过 BLE 推送授权码
-      // final ok = await BleServiceSimple.writeCharacteristic(
-      //   deviceId: device.lastBleAddress!,
-      //   serviceUuid: BleConstants.serviceUuid,
-      //   characteristicUuid: BleConstants.loginCharUuid,
-      //   // 确认有对应的 UUID
-      //   data: utf8.encode(command),
-      //   withResponse: true,
-      // );
-      //
-      // if (!ok) {
-      //   throw Exception('写入蓝牙特征失败');
-      // }
-      //
-      // if (mounted) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     const SnackBar(content: Text('登录请求已发送')),
-      //   );
-      // }
+      Fluttertoast.showToast(msg: "pairing-otp返回值：$command");
+
+      // 2. 通过 BLE 推送授权码
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.loginAuthCodeCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+
+      if (!ok) {
+        throw Exception('写入蓝牙特征失败');
+      }
+
+      Fluttertoast.showToast(msg: "写入蓝牙特征ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('登录请求已发送')),
+        );
+      }
     } catch (e, st) {
       print("❌ _loginDevice 出错: $e\n$st");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('登录失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _deviceLogout(SavedDeviceRecord device) async {
+    try {
+      // 示例 JSON 指令
+      final command = '{"action":"logout"}';
+      print(
+          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.logoutCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+      print("device_management_page: " + "writeCharacteristic ok=$ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送退出登录指令')),
+        );
+      }
+    } catch (e, st) {
+      print("❌ _deviceLogout 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送退出登录请求失败: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

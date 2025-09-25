@@ -14,7 +14,9 @@ class BleConstants {
   static const String oobQrInfoCharUuid = '0000A108-0000-1000-8000-00805F9B34FB';
   static const String networkStatusCharUuid = '0000A109-0000-1000-8000-00805F9B34FB';
   static const String updateVersionCharUuid = '0000A10A-0000-1000-8000-00805F9B34FB';
-  
+  static const String loginAuthCodeCharUuid =  '0000A10B-0000-1000-8000-00805F9B34FB';
+  static const String logoutCharUuid =  '0000A10C-0000-1000-8000-00805F9B34FB';
+
   // Device Advertisement
   static const String deviceNamePrefix = 'AI-TV-';
   static const int advertisementTimeoutMs = 30000; // 30 seconds
