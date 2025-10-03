@@ -25,6 +25,13 @@ class BleConstants {
   static const int preferredMtu = 247;
   static const int minMtu = 23;
   static const int maxMtu = 517;
+  // Stabilization and retries
+  static const int postConnectStabilizeDelayMs = 200;
+  static const int writeRetryDelayMs = 200;
+  // Proximity & backoff
+  static const int rssiProximityThreshold = -75;
+  static const int reconnectBackoffStartMs = 1000;
+  static const int reconnectBackoffMaxMs = 10000;
   
   // Connection Parameters
   static const int connectionIntervalMs = 100;

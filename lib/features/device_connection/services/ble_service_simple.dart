@@ -187,9 +187,12 @@ class BleServiceSimple {
           switch (update.connectionState) {
             case DeviceConnectionState.connected:
               try {
+                await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
                 await _ble.requestMtu(
                     deviceId: deviceId, mtu: BleConstants.preferredMtu);
-              } catch (_) {}
+              } catch (e) {
+                print('❌ requestMtu 失败: $e');
+              }
               completer.complete(deviceData.copyWith(
                 status: BleDeviceStatus.connected,
                 connectedAt: DateTime.now(),
@@ -242,6 +245,31 @@ class BleServiceSimple {
     }
   }
 
+  /// 主动触发服务发现，确保 GATT 就绪（尤其 Android）
+  static Future<bool> discoverServices(String deviceId) async {
+    try {
+      final services = await _ble.discoverServices(deviceId);
+      print('🧭 已发现服务数量: ${services.length}');
+      return services.isNotEmpty;
+    } catch (e) {
+      print('❌ discoverServices 失败: $e');
+      return false;
+    }
+  }
+
+  /// 确保 GATT 就绪：稳定延时 -> 服务发现 -> MTU 协商 -> 再次稳定
+  static Future<bool> ensureGattReady(String deviceId) async {
+    await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
+    final ok = await discoverServices(deviceId);
+    try {
+      await _ble.requestMtu(deviceId: deviceId, mtu: BleConstants.preferredMtu);
+    } catch (e) {
+      print('❌ ensureGattReady.requestMtu 失败: $e');
+    }
+    await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
+    return ok;
+  }
+
   /// 写特征
   static Future<bool> writeCharacteristic({
     required String deviceId,
@@ -250,14 +278,13 @@ class BleServiceSimple {
     required List<int> data,
     bool withResponse = true,
   }) async {
+    final q = QualifiedCharacteristic(
+      deviceId: deviceId,
+      serviceId: Uuid.parse(serviceUuid),
+      characteristicId: Uuid.parse(characteristicUuid),
+    );
     try {
-      print("ble_service_simple: " + "writeCharacteristic withResponse=$withResponse");
-
-      final q = QualifiedCharacteristic(
-        deviceId: deviceId,
-        serviceId: Uuid.parse(serviceUuid),
-        characteristicId: Uuid.parse(characteristicUuid),
-      );
+      print("ble_service_simple: writeCharacteristic withResponse=$withResponse, len=${data.length}");
       if (withResponse) {
         await _ble.writeCharacteristicWithResponse(q, value: data);
       } else {
@@ -265,7 +292,20 @@ class BleServiceSimple {
       }
       return true;
     } catch (e) {
-      return false;
+      print('❌ 写入失败，准备重试: $e');
+      try {
+        await Future.delayed(Duration(milliseconds: BleConstants.writeRetryDelayMs));
+        if (withResponse) {
+          await _ble.writeCharacteristicWithResponse(q, value: data);
+        } else {
+          await _ble.writeCharacteristicWithoutResponse(q, value: data);
+        }
+        print('✅ 重试写入成功');
+        return true;
+      } catch (e2) {
+        print('❌ 写入失败，已放弃: $e2');
+        return false;
+      }
     }
   }
 
