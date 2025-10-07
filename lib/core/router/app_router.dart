@@ -9,6 +9,7 @@ import '../../presentation/pages/wifi_selection_page.dart';
 import '../../presentation/pages/provisioning_page.dart';
 import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/settings_page.dart';
+import '../l10n/l10n_extensions.dart';
 
 /// App routes
 class AppRoutes {
@@ -103,37 +104,40 @@ final GoRouter appRouter = GoRouter(
   ],
 
   // Error handling
-  errorBuilder: (context, state) => Scaffold(
-    appBar: AppBar(
-      title: const Text('页面未找到'),
-    ),
-    body: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '页面未找到',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '请求的页面不存在: ${state.uri}',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.go(AppRoutes.home),
-            child: const Text('返回首页'),
-          ),
-        ],
+  errorBuilder: (context, state) {
+    final l10n = context.l10n;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.page_not_found),
       ),
-    ),
-  ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.page_not_found,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.page_not_exist(state.uri.toString()),
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go(AppRoutes.home),
+              child: Text(l10n.back_to_home),
+            ),
+          ],
+        ),
+      ),
+    );
+  },
 );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/presentation/pages/device_detail_page.dart';
 import 'package:smart_display_mobile/presentation/pages/profile_page.dart';
+import '../../l10n/app_localizations.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -13,12 +15,15 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    DeviceDetailPage(),   // 设备
-    ProfilePage() // 我的
+    // Temporarily disable other home entries for step-by-step debugging
+    DeviceDetailPage(),
+    ProfilePage(),
+    SizedBox.shrink(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -31,14 +36,14 @@ class _MainPageState extends State<MainPage> {
             _currentIndex = index;
           });
         },
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.devices),
-            label: '设备',
+            icon: const Icon(Icons.devices),
+            label: l10n.devices_title,
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.block),
+            label: 'Disabled',
           ),
         ],
       ),

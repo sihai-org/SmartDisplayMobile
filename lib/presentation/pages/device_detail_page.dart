@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
@@ -9,6 +10,7 @@ import '../../features/device_connection/providers/device_connection_provider.da
 import '../../features/device_connection/models/ble_device_data.dart';
 import '../../features/device_connection/models/network_status.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../l10n/app_localizations.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   const DeviceDetailPage({super.key});
@@ -92,6 +94,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
     
@@ -154,9 +157,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     children: [
                       Icon(Icons.wifi_protected_setup, size: 64, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(height: 16),
-                      Text('欢迎使用大头智显', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+                      Text(l10n?.welcome_title ?? 'Welcome to SmartDisplay', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
                       const SizedBox(height: 8),
-                      Text('请扫描显示器上的二维码为显示器配置网络', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+                      Text(l10n?.welcome_hint ?? 'Scan the QR code on the display to provision Wi‑Fi', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -260,7 +263,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     const Icon(Icons.qr_code_scanner, size: 24),
                     const SizedBox(width: 12),
                     Text(
-                      '扫描二维码配网',
+                      l10n?.scan_qr ?? 'Scan QR',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onPrimary,
                       ),
@@ -291,17 +294,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '使用帮助',
+                      l10n?.help ?? 'Help',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '1. 确保显示器已开机并显示二维码\n'
-                      '2. 点击"扫描二维码配网"按钮\n'
-                      '3. 对准显示器屏幕上的二维码扫描\n'
-                      '4. 按照提示完成网络配置',
+                      (l10n?.help_desc ?? '1. Ensure the display is on and shows a QR code\n2. Tap "Scan QR"\n3. Aim the camera at the QR code\n4. Follow prompts to finish setup'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -340,6 +340,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 构建操作按钮
   Widget _buildActionButtons(conn.DeviceConnectionState connState) {
+    final l10n = context.l10n;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -352,12 +353,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               _tryAutoConnect();
             },
             icon: const Icon(Icons.refresh),
-            tooltip: '重新连接',
+            tooltip: l10n?.reconnect ?? 'Reconnect',
           ),
         IconButton(
           onPressed: () => context.push(AppRoutes.qrScanner),
           icon: const Icon(Icons.qr_code_scanner),
-          tooltip: '添加设备',
+          tooltip: l10n?.add_device ?? 'Add Device',
         ),
       ],
     );
@@ -453,6 +454,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 构建网络状态或WiFi列表部分
   Widget _buildNetworkSection(BuildContext context, conn.DeviceConnectionState connState) {
+    final l10n = context.l10n;
     return Card(
       elevation: 1,
       child: Padding(
@@ -512,14 +514,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             else ...[
               if (connState.networkStatus?.connected == false)
                 Text(
-                  '设备未连接网络，请选择WiFi网络进行配网：',
+                  l10n?.wifi_not_connected ?? 'Device not connected to network. Select a Wi‑Fi to provision:',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 )
               else
                 Text(
-                  '无法获取网络状态，显示可用WiFi网络：',
+                  l10n?.wifi_status_unknown ?? 'Unable to get network status. Showing available Wi‑Fi networks:',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -535,6 +537,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 构建当前网络信息
   Widget _buildCurrentNetworkInfo(BuildContext context, NetworkStatus networkStatus) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -550,7 +553,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               Icon(Icons.wifi, color: Colors.green, size: 20),
               const SizedBox(width: 8),
               Text(
-                '已连接: ${networkStatus.displaySsid ?? '未知网络'}',
+                '${l10n?.connected ?? 'Connected'}: ${networkStatus.displaySsid ?? (l10n?.unknown_network ?? 'Unknown')}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.green.shade700,
                   fontWeight: FontWeight.w600,
@@ -580,7 +583,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 Icon(Icons.router, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Text(
-                  '频段: ${networkStatus.is5GHz ? '5GHz' : '2.4GHz'}',
+                  '${l10n?.band ?? 'Band'}: ${networkStatus.is5GHz ? '5GHz' : '2.4GHz'}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -593,6 +596,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 构建WiFi列表
   Widget _buildWifiList(BuildContext context, conn.DeviceConnectionState connState) {
+    final l10n = context.l10n;
     if (connState.wifiNetworks.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -601,7 +605,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             Icon(Icons.wifi_off, size: 48, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(height: 8),
             Text(
-              '未找到WiFi网络',
+              l10n?.no_wifi_found ?? 'No Wi‑Fi networks found',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
@@ -610,7 +614,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
               },
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('扫描网络'),
+              label: Text(l10n?.scan_networks ?? 'Scan Networks'),
             ),
           ],
         ),
@@ -652,7 +656,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
           },
           icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('刷新网络列表'),
+          label: Text(l10n?.refresh_networks ?? 'Refresh Networks'),
         ),
       ],
     );
@@ -693,6 +697,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 显示WiFi密码输入弹窗
   void _showWifiPasswordDialog(BuildContext context, conn.WifiAp wifi, WidgetRef ref) {
+    final l10n = context.l10n;
     final TextEditingController passwordController = TextEditingController();
     bool isObscured = true;
 
@@ -724,7 +729,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    wifi.secure ? '请输入WiFi密码:' : 'WiFi密码 (如果是开放网络请留空):',
+                    wifi.secure ? (l10n?.enter_wifi_password ?? 'Enter Wi‑Fi password:') : (l10n?.wifi_password_optional ?? 'Wi‑Fi password (leave empty for open network):'),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 12),
@@ -733,7 +738,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     obscureText: isObscured,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: wifi.secure ? '请输入密码' : '如果是开放网络请留空',
+                      hintText: wifi.secure ? (l10n?.enter_password ?? 'Enter password') : (l10n?.leave_empty_if_open ?? 'Leave empty if open'),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -750,8 +755,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   const SizedBox(height: 8),
                   Text(
                     wifi.secure
-                        ? '检测到这是安全网络，需要密码'
-                        : '检测到这是开放网络，但如果实际需要密码请输入',
+                        ? (l10n?.secure_network_need_password ?? 'Secure network detected; password required')
+                        : (l10n?.open_network_may_need_password ?? 'Open network detected; enter password if required'),
                     style: TextStyle(
                       fontSize: 12,
                       color: wifi.secure ? Colors.green[700] : Colors.orange[700],
@@ -759,7 +764,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '信号强度: ${wifi.rssi} dBm',
+                    '${l10n?.signal_strength ?? 'Signal strength'}: ${wifi.rssi} dBm',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -772,7 +777,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
-                  child: const Text('取消'),
+                  child: Text(l10n?.cancel ?? 'Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -784,7 +789,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     // 发送WiFi凭证到TV端
                     await _connectToWifi(wifi.ssid, password, ref);
                   },
-                  child: const Text('连接'),
+                  child: Text(l10n?.connect ?? 'Connect'),
                 ),
               ],
             );
@@ -800,7 +805,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       // 显示连接中状态
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('正在连接 $ssid...'),
+          content: Text(context.l10n.connecting_to(ssid)),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -813,14 +818,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('WiFi凭证已发送到TV: $ssid'),
+            content: Text(context.l10n.wifi_credentials_sent(ssid)),
             backgroundColor: Colors.green,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('发送WiFi凭证失败'),
+          SnackBar(
+            content: Text(context.l10n.wifi_credentials_failed),
             backgroundColor: Colors.red,
           ),
         );
@@ -828,7 +833,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('连接失败: $e'),
+          content: Text(context.l10n.connect_failed(e.toString())),
           backgroundColor: Colors.red,
         ),
       );

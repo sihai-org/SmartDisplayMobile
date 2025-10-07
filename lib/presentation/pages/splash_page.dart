@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/l10n/l10n_extensions.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -22,8 +24,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
   void initState() {
     super.initState();
     _initializeAnimations();
-    // _navigateToHome();
-    _navigateNext();
+    // Schedule navigation after first frame to ensure context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _navigateNext());
   }
 
   void _initializeAnimations() {
@@ -59,18 +61,24 @@ class _SplashPageState extends ConsumerState<SplashPage>
   // }
 
   Future<void> _navigateNext() async {
-    await Future.delayed(const Duration(seconds: 3));
+    // Keep splash visible a bit for UX
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
 
-    final session = Supabase.instance.client.auth.currentSession;
-
-    if (session == null) {
-      // 没有登录态，跳转到登录页
-      context.go(AppRoutes.login);
-    } else {
-      // 有登录态，跳转首页
-      context.go(AppRoutes.home);
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (!mounted) return;
+      if (session == null) {
+        context.go(AppRoutes.login);
+      } else {
+        context.go(AppRoutes.home);
+      }
+    } catch (_) {
+      if (mounted) {
+        // Fallback to login if anything unexpected happens
+        context.go(AppRoutes.login);
+      }
     }
   }
 
@@ -132,7 +140,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     
                     // App Description
                     Text(
-                      '大头智显',
+                      context.l10n.appTitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white.withOpacity(0.9),
                       ),
@@ -150,6 +158,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
                         ),
                         strokeWidth: 3,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.l10n.splash_loading,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withOpacity(0.9),
+                          ),
                     ),
                   ],
                 ),

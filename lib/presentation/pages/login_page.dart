@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
+import '../../l10n/app_localizations.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -69,6 +71,7 @@ class _LoginPageState extends State<LoginPage> {
 
   /// 发送验证码
   Future<void> _sendOtp() async {
+    final l10n = context.l10n;
     FocusScope.of(context).unfocus(); // 收起键盘
 
     if (_secondsRemaining > 0 || !_isEmailValid) return;
@@ -76,12 +79,12 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
 
     setState(() => _isSendingOtp = true);
-    Fluttertoast.showToast(msg: "正在发送验证码...");
+    Fluttertoast.showToast(msg: l10n!.sending_otp);
 
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
 
-      Fluttertoast.showToast(msg: "验证码已发送到 $email");
+      Fluttertoast.showToast(msg: l10n.otp_sent_to(email));
 
       setState(() {
         _otpSent = true;
@@ -90,7 +93,7 @@ class _LoginPageState extends State<LoginPage> {
 
       _startCountdown();
     } catch (e) {
-      Fluttertoast.showToast(msg: "发送失败: $e");
+      Fluttertoast.showToast(msg: l10n.send_failed(e.toString()));
       setState(() => _error = e.toString());
     } finally {
       setState(() => _isSendingOtp = false);
@@ -99,13 +102,14 @@ class _LoginPageState extends State<LoginPage> {
 
   /// 验证验证码（登录）
   Future<void> _verifyOtp() async {
+    final l10n = context.l10n;
     FocusScope.of(context).unfocus(); // 收起键盘
 
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
 
     setState(() => _isLoading = true);
-    Fluttertoast.showToast(msg: "正在登录，请稍候...");
+    Fluttertoast.showToast(msg: l10n!.signing_in);
 
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
@@ -115,14 +119,14 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.session != null) {
-        Fluttertoast.showToast(msg: "登录成功");
+        Fluttertoast.showToast(msg: l10n.login_success);
         context.go(AppRoutes.home);
       } else {
-        Fluttertoast.showToast(msg: "验证码无效，请重试");
+        Fluttertoast.showToast(msg: l10n.otp_invalid);
       }
     } catch (e) {
       setState(() => _error = e.toString());
-      Fluttertoast.showToast(msg: "登录失败: $e");
+      Fluttertoast.showToast(msg: l10n.login_failed(e.toString()));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -130,15 +134,19 @@ class _LoginPageState extends State<LoginPage> {
 
   /// Google 登录占位
   Future<void> _signInWithGoogle() async {
-    Fluttertoast.showToast(msg: "Google 登录入口（暂未实现）");
+    final l10n = context.l10n;
+    Fluttertoast.showToast(msg: l10n!.google_signin_placeholder);
   }
 
   @override
   Widget build(BuildContext context) {
     final isCountingDown = _secondsRemaining > 0;
-
+    final l10n = context.l10n;
+    if (l10n == null) {
+      return const Scaffold(body: SizedBox());
+    }
     return Scaffold(
-      appBar: AppBar(title: const Text('登录')),
+      appBar: AppBar(title: Text(l10n.login_title)),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(), // 点击空白收起键盘
         behavior: HitTestBehavior.translucent,
@@ -155,7 +163,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text("邮箱登录",
+                    Text(l10n.email_signin,
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center),
                     const SizedBox(height: 20),
@@ -163,20 +171,18 @@ class _LoginPageState extends State<LoginPage> {
                     // 邮箱输入
                     TextField(
                       controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: '邮箱',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l10n.login_email,
+                        border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       onChanged: (_) => setState(() {}),
                     ),
                     if (!_isEmailValid && _emailController.text.isNotEmpty)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          '请输入正确的邮箱地址',
-                          style: TextStyle(color: Colors.red, fontSize: 12),
-                        ),
+                        child: Text(l10n.email_invalid,
+                          style: const TextStyle(color: Colors.red, fontSize: 12),),
                       ),
 
                     const SizedBox(height: 16),
@@ -185,20 +191,18 @@ class _LoginPageState extends State<LoginPage> {
                     if (_otpSent) ...[
                       TextField(
                         controller: _otpController,
-                        decoration: const InputDecoration(
-                          labelText: '验证码',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l10n.otp_code,
+                          border: const OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.number,
                         onChanged: (_) => setState(() {}),
                       ),
                       if (!_isOtpValid && _otpController.text.isNotEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            '验证码必须是6位数字',
-                            style: TextStyle(color: Colors.red, fontSize: 12),
-                          ),
+                          child: Text(l10n.otp_invalid,
+                            style: const TextStyle(color: Colors.red, fontSize: 12),),
                         ),
                       const SizedBox(height: 16),
                     ],
@@ -228,11 +232,9 @@ class _LoginPageState extends State<LoginPage> {
                           AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                          : Text(
-                        isCountingDown
-                            ? '重新发送 (${_secondsRemaining}s)'
-                            : '发送验证码',
-                      ),
+                          : Text(isCountingDown
+                              ? (l10n?.resend_in(_secondsRemaining)) ?? 'Resend in ${_secondsRemaining}s'
+                              : (l10n?.send_otp ?? 'Send Code')),
                     ),
 
                     const SizedBox(height: 12),
@@ -256,7 +258,7 @@ class _LoginPageState extends State<LoginPage> {
                             AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                            : const Text('登录'),
+                            : Text(l10n?.login_button ?? 'Log in'),
                       ),
 
                     const SizedBox(height: 20),
@@ -267,7 +269,7 @@ class _LoginPageState extends State<LoginPage> {
                     ElevatedButton.icon(
                       onPressed: _signInWithGoogle,
                       icon: const Icon(Icons.login),
-                      label: const Text('使用 Google 登录'),
+                      label: Text(l10n?.signin_with_google ?? 'Sign in with Google'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,

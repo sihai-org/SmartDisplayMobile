@@ -155,3 +155,15 @@ graph TD
 **开发团队**: Sihai Organization  
 **最后更新**: 2025-01-08  
 **版本**: 1.0.0
+
+## 🌐 本地化使用约定（重要）
+
+- 在 `MaterialApp.router` 注册生成的本地化委托与语言：
+  - `localizationsDelegates: AppLocalizations.localizationsDelegates`
+  - `supportedLocales: AppLocalizations.supportedLocales`
+- UI 页面统一通过 `context.l10n` 获取文案（见 `lib/core/l10n/l10n_extensions.dart`）。
+  - 若框架在极端时序下未就绪，会自动回退到英文，并且仅在首次回退时打印一条 SEVERE 日志：
+    - name: `l10n`，level: `1000`，message: `AppLocalizations not ready in this BuildContext; using English fallback.`
+  - 禁止对 `AppLocalizations.of(context)` 使用 `!` 非空断言。
+- 依赖 `context` 的跳转放到 `WidgetsBinding.instance.addPostFrameCallback`，避免 `initState` 时序问题。
+- 避免以循环“忙等”框架或本地化就绪；如需占位，使用安全兜底。
