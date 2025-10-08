@@ -1,4 +1,4 @@
-package com.example.smart_display_mobile
+package com.datou.smart_display_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

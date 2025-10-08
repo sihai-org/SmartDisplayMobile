@@ -217,6 +217,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<void> _scanForDevice(BleDeviceData deviceData) async {
     state = state.copyWith(status: BleDeviceStatus.scanning, progress: 0.3);
     _log('开始扫描目标设备，最长 30s...');
+    // 重置目标首次出现时间与弱信号提示时间
+    _targetFirstSeenAt = null;
+    _lastWeakSignalNoteAt = null;
 
     _timeoutTimer = Timer(const Duration(seconds: 30), () {
       if (state.status == BleDeviceStatus.scanning) {
@@ -227,32 +230,91 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _scanSubscription = BleServiceSimple.scanForDevice(
       targetDeviceId: deviceData.deviceId,
       timeout: const Duration(seconds: 30),
-    ).listen((scanResult) {
-      _log('发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
+    ).listen((scanResult) async {
+      // 节流发现日志，避免刷屏（同一设备3秒内只打一条，除非RSSI变化>5）。
+      // 注意：这里仅使用 print 而不更新 state，避免频繁重建影响连接时序。
+      _maybePrintScanResult(scanResult);
 
       if (_isTargetDevice(scanResult, deviceData.deviceId)) {
-        if (scanResult.rssi < BleConstants.rssiProximityThreshold) {
-          _log('⚠️ 信号强度不足，等待靠近后再连接 (rssi=${scanResult.rssi})');
+        final now = DateTime.now();
+        _targetFirstSeenAt ??= now;
+
+        if (scanResult.rssi >= BleConstants.rssiProximityThreshold) {
+          _log('✅ 找到目标设备且距离合适！准备连接');
+          _timeoutTimer?.cancel();
+          _scanSubscription?.cancel();
+          await BleServiceSimple.stopScan();
+          final connectionAddress = Platform.isIOS ? scanResult.deviceId : scanResult.address;
+          _connectToDevice(deviceData.copyWith(bleAddress: connectionAddress));
           return;
         }
-        _log('✅ 找到目标设备且距离合适！准备连接');
-        _timeoutTimer?.cancel();
-        _scanSubscription?.cancel();
 
-        final connectionAddress =
-        Platform.isIOS ? scanResult.deviceId : scanResult.address;
-        _connectToDevice(deviceData.copyWith(bleAddress: connectionAddress));
+        // 如果持续找到目标设备超过宽限期，放宽RSSI限制以便尝试连接（可能用户设备远一点）
+        const grace = Duration(seconds: 6);
+        if (now.difference(_targetFirstSeenAt!) >= grace) {
+          _log('⚠️ 信号偏弱(rssi=${scanResult.rssi})，已超过${grace.inSeconds}s，尝试连接');
+          _timeoutTimer?.cancel();
+          _scanSubscription?.cancel();
+          await BleServiceSimple.stopScan();
+          final connectionAddress = Platform.isIOS ? scanResult.deviceId : scanResult.address;
+          _connectToDevice(deviceData.copyWith(bleAddress: connectionAddress));
+          return;
+        }
+
+        // 节流提醒，避免每次都刷屏
+        _maybePrintWeakSignal(scanResult.rssi);
       }
     }, onError: (error) {
       _setError('扫描出错: $error');
     });
   }
 
+  // 用于节流的最近日志时间与RSSI
+  final Map<String, DateTime> _lastScanLogAt = {};
+  final Map<String, int> _lastScanLogRssi = {};
+  static const Duration _scanLogInterval = Duration(seconds: 3);
+  DateTime? _targetFirstSeenAt;
+  DateTime? _lastWeakSignalNoteAt;
+  static const Duration _weakNoteInterval = Duration(seconds: 5);
+
+  void _maybePrintScanResult(SimpleBLEScanResult scanResult) {
+    final id = scanResult.deviceId;
+    final now = DateTime.now();
+    final lastAt = _lastScanLogAt[id];
+    final lastRssi = _lastScanLogRssi[id];
+    final rssiChanged = lastRssi == null || (scanResult.rssi - lastRssi).abs() >= 5;
+    final timeOk = lastAt == null || now.difference(lastAt) >= _scanLogInterval;
+    if (timeOk || rssiChanged) {
+      _lastScanLogAt[id] = now;
+      _lastScanLogRssi[id] = scanResult.rssi;
+      // ignore: avoid_print
+      print('发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
+    }
+  }
+
+  void _maybePrintWeakSignal(int rssi) {
+    final now = DateTime.now();
+    if (_lastWeakSignalNoteAt == null || now.difference(_lastWeakSignalNoteAt!) >= _weakNoteInterval) {
+      _lastWeakSignalNoteAt = now;
+      // ignore: avoid_print
+      print('⚠️ 信号强度不足，等待靠近后再连接 (rssi=$rssi)');
+    }
+  }
+
   bool _isTargetDevice(SimpleBLEScanResult result, String targetDeviceId) {
-    if (result.manufacturerData == null) return false;
-    final expected = createDeviceFingerprint(targetDeviceId);
-    final actual = result.manufacturerData!;
-    return _containsSublist(actual, expected);
+    // 优先使用厂商数据中的指纹匹配
+    if (result.manufacturerData != null) {
+      final expected = createDeviceFingerprint(targetDeviceId);
+      final actual = result.manufacturerData!;
+      if (_containsSublist(actual, expected)) return true;
+    }
+    // 兼容方案：部分设备固件未携带指纹时，回退到名称精确匹配
+    // 仅当扫描得到的名称与二维码中的名称一致时视为目标设备
+    final d = state.deviceData;
+    if (d != null && result.name == d.deviceName) {
+      return true;
+    }
+    return false;
   }
 
   bool _containsSublist(Uint8List data, Uint8List pattern) {
@@ -615,10 +677,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     state = state.copyWith(status: BleDeviceStatus.error, errorMessage: message);
   }
 
+  static const int _maxConnectionLogs = 200; // 限制保留的连接日志条数，避免内存与重建压力
   void _log(String msg) {
     final now = DateTime.now().toIso8601String();
-    state = state.copyWith(
-        connectionLogs: [...state.connectionLogs, "[$now] $msg"]);
+    final nextLogs = [...state.connectionLogs, "[$now] $msg"];
+    final trimmedLogs = nextLogs.length > _maxConnectionLogs
+        ? nextLogs.sublist(nextLogs.length - _maxConnectionLogs)
+        : nextLogs;
+    state = state.copyWith(connectionLogs: trimmedLogs);
     print(msg);
   }
 

@@ -5,7 +5,8 @@ import 'package:crypto/crypto.dart';
 /// 创建设备指纹 (稳定版，不带时间戳)
 /// 格式: [版本(1字节)] + [设备ID哈希前6字节] + [校验和(1字节)]
 Uint8List createDeviceFingerprint(String deviceId) {
-  print("createDeviceFingerprint $deviceId");
+  // Avoid noisy logs in production
+  // print("createDeviceFingerprint $deviceId");
   const int version = 1;
 
   // 1. 用 SHA-256 生成稳定哈希，取前6字节

@@ -18,6 +18,10 @@ class BleServiceSimple {
 
   // 设备去重映射表 - 按设备ID去重
   static final Map<String, SimpleBLEScanResult> _discoveredDevices = {};
+  // 每个设备的最近一次打印时间与RSSI，用于节流日志
+  static final Map<String, DateTime> _lastLogAt = {};
+  static final Map<String, int> _lastLogRssi = {};
+  static const Duration _perDeviceLogInterval = Duration(seconds: 3);
 
   /// ✅ 新增：申请更大的 MTU
   static Future<int> requestMtu(String deviceId, int mtu) async {
@@ -126,10 +130,27 @@ class BleServiceSimple {
         _discoveredDevices[result.deviceId] = result;
         _scanController?.add(result);
 
-        print('🔍 发现设备: ${result.name}');
-        print('  id=${result.deviceId}, rssi=${result.rssi}');
-        print('  serviceUuids=${result.serviceUuids}');
-        print('  manufacturerData=${result.manufacturerData}');
+        // 节流打印，避免日志刷屏：
+        // - 同一设备至少间隔 _perDeviceLogInterval 才打印
+        // - 或者RSSI变化超过5dBm
+        final now = DateTime.now();
+        final lastAt = _lastLogAt[result.deviceId];
+        final lastRssi = _lastLogRssi[result.deviceId];
+        final rssiChanged = lastRssi == null || (result.rssi - lastRssi).abs() >= 5;
+        final timeOk = lastAt == null || now.difference(lastAt) >= _perDeviceLogInterval;
+        if (timeOk || rssiChanged) {
+          _lastLogAt[result.deviceId] = now;
+          _lastLogRssi[result.deviceId] = result.rssi;
+          // 仅在开发时打印详细发现日志
+          // ignore: avoid_print
+          print('🔍 发现设备: ${result.name}');
+          // ignore: avoid_print
+          print('  id=${result.deviceId}, rssi=${result.rssi}');
+          // ignore: avoid_print
+          print('  serviceUuids=${result.serviceUuids}');
+          // ignore: avoid_print
+          print('  manufacturerData=${result.manufacturerData}');
+        }
       }, onError: (error) {
         print("❌ 扫描出错: $error");
         _scanController?.addError(error);

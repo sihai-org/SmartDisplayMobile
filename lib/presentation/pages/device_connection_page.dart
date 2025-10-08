@@ -85,7 +85,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     // 注册状态监听器，在认证完成时跳转首页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider,
         (previous, current) async {
-      print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
+      if (previous?.status != current.status) {
+        // ignore: avoid_print
+        print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
+      }
       if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
         print('[DeviceConnectionPage] 🎉 认证完成，准备跳转首页');
         final d = current.deviceData!;
