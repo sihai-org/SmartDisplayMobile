@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../presentation/pages/splash_page.dart';
 import '../../presentation/pages/login_page.dart';
 import '../../presentation/pages/main_page.dart';
 import '../../presentation/pages/qr_scanner_page.dart';
+import '../../presentation/pages/qrcode_result_page.dart';
 import '../../presentation/pages/device_connection_page.dart';
 import '../../presentation/pages/wifi_selection_page.dart';
 import '../../presentation/pages/provisioning_page.dart';
@@ -22,12 +24,35 @@ class AppRoutes {
   static const String provisioning = '/provisioning';
   static const String deviceManagement = '/device-management';
   static const String settings = '/settings';
+  static const String qrCodeResult = '/qrcode_res';
 }
 
 /// Router configuration
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
+  redirect: (context, state) {
+    final session = Supabase.instance.client.auth.currentSession;
+    final loggedIn = session != null;
+    final loggingIn = state.uri.path == AppRoutes.login;
+    final isSplash = state.uri.path == AppRoutes.splash;
+
+    // Allow splash without redirect to avoid loops
+    if (isSplash) return null;
+
+    // If not logged in, redirect any protected route to login
+    if (!loggedIn && !loggingIn) {
+      return AppRoutes.login;
+    }
+
+    // If logged in and trying to go to login, send to home
+    if (loggedIn && loggingIn) {
+      return AppRoutes.home;
+    }
+
+    // Otherwise no redirect
+    return null;
+  },
   routes: [
     // Splash Page
     GoRoute(
@@ -50,11 +75,22 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const MainPage(),
     ),
 
+
     // QR Scanner Page
     GoRoute(
       path: AppRoutes.qrScanner,
       name: 'qr-scanner',
       builder: (context, state) => const QrScannerPage(),
+    ),
+
+    // QR 原文展示（不可解析时）
+    GoRoute(
+      path: AppRoutes.qrCodeResult,
+      name: 'qrcode-res',
+      builder: (context, state) {
+        final text = state.uri.queryParameters['text'] ?? '';
+        return QrCodeResultPage(text: text);
+      },
     ),
 
     // Device Connection Page

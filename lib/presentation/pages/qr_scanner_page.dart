@@ -69,7 +69,15 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
               context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
             }
           } catch (e) {
+            // 解析失败：跳转到结果展示页，直接显示原始文本以便复制
             print('QR码解析失败: $e');
+            final raw = Uri.encodeComponent(current.qrContent!);
+            Future(() {
+              ref.read(qrScannerProvider.notifier).stopScanning();
+            });
+            if (mounted) {
+              context.go('${AppRoutes.qrCodeResult}?text=$raw');
+            }
           }
         });
       }

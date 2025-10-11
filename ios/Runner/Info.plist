@@ -57,5 +57,20 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
+    
+    <!-- URL Schemes: smartdisplaymobile:// or smartdisplaymobile:/home -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>smartdisplaymobile</string>
+                <string>smart_display_mobile</string>
+                <string>smartdisplay</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

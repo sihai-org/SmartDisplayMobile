@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/providers/app_state_provider.dart';
+import '../../features/qr_scanner/utils/qr_data_parser.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 
@@ -23,23 +25,17 @@ class _SplashPageState extends ConsumerState<SplashPage>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  // StreamSubscription? _sub;
-  // String? _deepLinkPath;
+  StreamSubscription<Uri>? _linkSub;
+  Uri? _incomingUri;
+  AppLinks? _appLinks;
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
 
-    // 监听深度链接（已禁用）
-    // _handleInitialUri();
-    // _sub = uriLinkStream.listen((Uri? uri) {
-    //   if (uri != null) {
-    //     setState(() {
-    //       _deepLinkPath = _canonicalPathFromUri(uri); // e.g., /home
-    //     });
-    //   }
-    // });
+    // 监听深度链接
+    _initAppLinks();
 
     // 延迟导航，确保动画可见
     WidgetsBinding.instance.addPostFrameCallback((_) => _navigateNext());
@@ -70,34 +66,45 @@ class _SplashPageState extends ConsumerState<SplashPage>
     _animationController.forward();
   }
 
-  // Future<void> _handleInitialUri() async {
-  //   try {
-  //     final initialUri = await getInitialUri();
-  //     if (initialUri != null) {
-  //       setState(() {
-  //         _deepLinkPath = _canonicalPathFromUri(initialUri);
-  //       });
-  //     }
-  //   } catch (e) {
-  //     print('Failed to get initial uri: $e');
-  //   }
-  // }
+  Future<void> _initAppLinks() async {
+    try {
+      _appLinks = AppLinks();
 
-  // Map incoming URI to a canonical internal path like '/home'.
-  // Supports:
-  //  - App Links:  https://datou.com/home  (path: /home)
-  //  - Legacy scheme: smartdisplaymobile://home (host=home, path='')
-  //  - Legacy scheme: smartdisplaymobile:/home  (path: /home)
-  // String? _canonicalPathFromUri(Uri uri) {
-  //   if (uri.path.isNotEmpty) {
-  //     return uri.path; // e.g., /home, /device/123
-  //   }
-  //   // Handle legacy scheme form where host encodes the target.
-  //   if (uri.host.isNotEmpty && uri.scheme != 'http' && uri.scheme != 'https') {
-  //     return '/${uri.host}';
-  //   }
-  //   return null;
-  // }
+      // Initial link
+      final initialUri = await _appLinks!.getInitialLink();
+      if (initialUri != null) {
+        setState(() {
+          _incomingUri = initialUri;
+        });
+      }
+
+      // Stream subscription
+      _linkSub = _appLinks!.uriLinkStream.listen((uri) {
+        setState(() {
+          _incomingUri = uri;
+        });
+        // If already authenticated and received a link while running, process immediately
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null && mounted) {
+          _processDeepLink(uri);
+        }
+      });
+    } catch (e) {
+      // Ignore link errors; proceed normally
+    }
+  }
+
+  void _processDeepLink(Uri uri) {
+    // 统一解析 URL（与扫码一致）。成功则自动连接，失败跳结果页。
+    try {
+      final deviceData = QrDataParser.fromQrContent(uri.toString());
+      ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
+      context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+    } catch (e) {
+      final raw = Uri.encodeComponent(uri.toString());
+      context.go('${AppRoutes.qrCodeResult}?text=$raw');
+    }
+  }
 
   Future<void> _navigateNext() async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -113,20 +120,12 @@ class _SplashPageState extends ConsumerState<SplashPage>
         return;
       }
 
-      // 已登录 → 默认跳主页
-      String targetRoute = AppRoutes.home;
-
-      // 如果存在深度链接路径，则覆盖默认主页（已禁用）
-      // if (_deepLinkPath != null) {
-      //   switch (_deepLinkPath) {
-      //     case '/home':
-      //       targetRoute = AppRoutes.home;
-      //       break;
-      //     // 其他路径可继续扩展
-      //   }
-      // }
-
-      context.go(targetRoute);
+      // 已登录 → 若存在深链则处理，否则默认首页
+      if (_incomingUri != null) {
+        _processDeepLink(_incomingUri!);
+      } else {
+        context.go(AppRoutes.home);
+      }
     } catch (_) {
       if (mounted) context.go(AppRoutes.login);
     }
@@ -134,7 +133,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
   @override
   void dispose() {
-    // _sub?.cancel();
+    _linkSub?.cancel();
     _animationController.dispose();
     super.dispose();
   }

@@ -60,32 +60,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Deep links disabled: legacy custom scheme -->
-            <!--
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="smartdisplaymobile" />
-            </intent-filter>
-            -->
-
-            <!-- Deep links disabled: Android App Links -->
-            <!--
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
+                <!-- 支持 smart_display_mobile:// 任意路径 -->
                 <data
-                    android:scheme="https"
-                    android:host="datou.com"
-                    android:pathPrefix="/" />
+                    android:host="*"
+                    android:pathPrefix="/"
+                    android:scheme="smart_display_mobile" />
             </intent-filter>
-            -->
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
