@@ -7,6 +7,7 @@ import '../router/app_router.dart';
 class DeepLinkHandler {
   static const MethodChannel _channel = MethodChannel('smart_display/deep_link');
   static bool _initialized = false;
+  static String? _initialUrl; // 缓存原生传来的初始链接（iOS 自定义 scheme）
 
   static Future<void> init() async {
     if (_initialized) return;
@@ -27,6 +28,7 @@ class DeepLinkHandler {
     try {
       final initial = await _channel.invokeMethod<String>('getInitialLink');
       if (initial != null) {
+        _initialUrl = initial;
         _handleUrl(initial);
       }
     } catch (_) {
@@ -38,9 +40,18 @@ class DeepLinkHandler {
     // 已统一在 SplashPage 中处理（可解析为设备信息则自动连接，否则到结果页）。
     // 这里避免重复导航，直接交给 AppLinks 流程。
     // 为确保不丢失链接，仍然将链接推到当前路由（Splash 会读取 initialLink）。
+    _initialUrl = url; // 记录最新链接，便于 Splash 消费（包括前台/后台唤起场景）
     final uri = Uri.tryParse(url);
     if (uri == null) return;
     // 导航到当前路径等价触发，实际逻辑在 Splash 中执行
     appRouter.go('/');
+  }
+
+  /// 提供给 Splash 读取（当 AppLinks.getInitialLink 为 null 时）
+  static Uri? consumeInitialUri() {
+    if (_initialUrl == null) return null;
+    final uri = Uri.tryParse(_initialUrl!);
+    _initialUrl = null;
+    return uri;
   }
 }

@@ -7,6 +7,7 @@ import 'package:app_links/app_links.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/deeplink/deep_link_handler.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../features/qr_scanner/utils/qr_data_parser.dart';
 import '../../core/constants/app_constants.dart';
@@ -71,7 +72,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
       _appLinks = AppLinks();
 
       // Initial link
-      final initialUri = await _appLinks!.getInitialLink();
+      Uri? initialUri = await _appLinks!.getInitialLink();
+      // 若 AppLinks 未拿到（iOS 自定义 scheme 场景），尝试从原生通道缓存读取
+      initialUri ??= DeepLinkHandler.consumeInitialUri();
       if (initialUri != null) {
         setState(() {
           _incomingUri = initialUri;
@@ -121,6 +124,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
       }
 
       // 已登录 → 若存在深链则处理，否则默认首页
+      // 再次兜底读取 DeepLinkHandler（避免竞态导致先跳 home）
+      _incomingUri ??= DeepLinkHandler.consumeInitialUri();
       if (_incomingUri != null) {
         _processDeepLink(_incomingUri!);
       } else {
