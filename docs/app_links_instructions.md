@@ -1,6 +1,6 @@
 Android Digital Asset Links (assetlinks.json)
 
-- File URL: https://smartdisplay.mareo.ai/.well-known/assetlinks.json
+- File URL: https://m.smartdisplay.mareo.ai/.well-known/assetlinks.json
 - Example content (replace placeholders):
 
 [
@@ -8,7 +8,7 @@ Android Digital Asset Links (assetlinks.json)
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "REPLACE_WITH_ANDROID_PACKAGE",
+      "package_name": "com.datou.smart_display_mobile",
       "sha256_cert_fingerprints": [
         "REPLACE_WITH_RELEASE_KEY_SHA256"
       ]
@@ -21,7 +21,7 @@ Android Digital Asset Links (assetlinks.json)
 
 iOS Apple App Site Association (AASA)
 
-- File URL: https://smartdisplay.mareo.ai/apple-app-site-association
+- File URL: https://m.smartdisplay.mareo.ai/apple-app-site-association
 - Content-Type: application/json (no .json extension)
 - Example content (replace placeholders):
 
@@ -32,9 +32,8 @@ iOS Apple App Site Association (AASA)
       {
         "appID": "TEAMID.BUNDLE_ID",
         "paths": [
-          "/ios-launch",
-          "/android-launch",
-          "*"
+          "/connect",
+          "/launch.html"
         ]
       }
     ]
@@ -45,6 +44,10 @@ iOS Apple App Site Association (AASA)
 
 Notes
 
-- The actual link the user taps must match the host/path above to trigger app opening.
-- After deploying files, reinstall the app to refresh associations.
-
+- Unified custom scheme: `smartdisplay`.
+  - iOS/Android both handle: `smartdisplay://connect?...`
+- Universal/App Links host: `m.smartdisplay.mareo.ai` (ensure DNS/HTTPS ready).
+- Android Intent example (from web):
+  - `intent://connect?{QUERY}#Intent;scheme=smartdisplay;package=com.datou.smart_display_mobile;end`
+- The actual link must match the host/path above to trigger opening.
+- After deploying AASA/assetlinks, reinstall the app to refresh associations.

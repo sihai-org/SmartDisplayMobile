@@ -60,17 +60,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 统一：仅保留 smartdisplay 自定义 Scheme -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <!-- 支持 smart_display_mobile:// 任意路径 -->
-                <data
-                    android:host="*"
-                    android:pathPrefix="/"
-                    android:scheme="smart_display_mobile" />
+                <!-- 注意：smartdisplay://connect?xxx 的形式 host=connect, 无 path。
+                     为避免匹配失败，不限制 host/path，仅指定 scheme。 -->
+                <data android:scheme="smartdisplay" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

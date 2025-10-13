@@ -60,8 +60,10 @@ class QrDataParser {
           }
         }
       } else if (uri.scheme == 'smartdisplay') {
-        // 自定义 Scheme: smartdisplay://connect?...
-        final target = uri.host.isNotEmpty ? uri.host : (uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '');
+        // 自定义 Scheme：仅支持 smartdisplay://connect?...
+        final target = uri.host.isNotEmpty
+            ? uri.host
+            : (uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '');
         if (target == 'connect') {
           String? id = uri.queryParameters['id'];
           String? name = uri.queryParameters['n'];
