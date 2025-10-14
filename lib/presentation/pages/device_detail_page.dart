@@ -147,12 +147,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             tooltip: context.l10n.scan_qr,
           ),
           IconButton(
-            onPressed: () => context.push(AppRoutes.settings),
-            icon: const Icon(Icons.settings),
-          ),
-          IconButton(
             onPressed: () => context.push(AppRoutes.deviceManagement),
-            icon: const Icon(Icons.devices),
+            icon: const Icon(Icons.list),
           ),
         ],
       ),
@@ -292,37 +288,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
             // 添加更多间距，替代Spacer
             const SizedBox(height: 48),
-
-            // Help Section
-            Card(
-              color: Theme.of(context).colorScheme.surfaceVariant,
-              child: Padding(
-                padding: const EdgeInsets.all(AppConstants.defaultPadding),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.help_outline,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n?.help ?? 'Help',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      (l10n?.help_desc ?? '1. Ensure the display is on and shows a QR code\n2. Tap "Scan QR"\n3. Aim the camera at the QR code\n4. Follow prompts to finish setup'),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.left,
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
             // 底部安全区域
             SizedBox(height: MediaQuery.of(context).padding.bottom + 16),

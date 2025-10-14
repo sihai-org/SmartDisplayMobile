@@ -3,7 +3,6 @@ import '../../core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/presentation/pages/device_detail_page.dart';
 import 'package:smart_display_mobile/presentation/pages/profile_page.dart';
 import 'package:smart_display_mobile/presentation/pages/device_management_page.dart';
-import '../../l10n/app_localizations.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -14,7 +13,8 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
-  bool _showingDeviceDetail = false;
+  // 默认显示设备详情页
+  bool _showingDeviceDetail = true;
 
   void _openDeviceDetail([String? deviceId]) {
     setState(() {
@@ -34,9 +34,9 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final pages = <Widget>[
-      // Tab 0: 设备（列表 或 详情）
+      // Tab 0: 设备（默认显示详情；列表通过右上角按钮进入专页）
       _showingDeviceDetail
-          ? DeviceDetailPage(onBackToList: _openDeviceList)
+          ? const DeviceDetailPage()
           : DeviceManagementPage(
               onDeviceTapped: (_) => _openDeviceDetail(_),
             ),
