@@ -146,21 +146,15 @@ class _LoginPageState extends State<LoginPage> {
       return const Scaffold(body: SizedBox());
     }
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.login_title)),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(), // 点击空白收起键盘
         behavior: HitTestBehavior.translucent,
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // App Logo
@@ -289,7 +283,6 @@ class _LoginPageState extends State<LoginPage> {
                     // ),
                   ],
                 ),
-              ),
             ),
           ),
         ),
