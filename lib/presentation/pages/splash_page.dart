@@ -145,8 +145,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Center(
         child: AnimatedBuilder(
           animation: _animationController,
@@ -158,65 +159,33 @@ class _SplashPageState extends ConsumerState<SplashPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // App Icon
-                    Container(
+                    // App Logo
+                    SizedBox(
                       width: 120,
                       height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.wifi_protected_setup,
-                        size: 64,
-                        color: Color(0xFF2196F3),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // App Name
-                    Text(
-                      AppConstants.appName,
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // App Description
-                    Text(
-                      context.l10n.appTitle,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Loading Indicator
-                    SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withOpacity(0.8),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
                         ),
-                        strokeWidth: 3,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
                     Text(
-                      context.l10n.splash_loading,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                      context.l10n.splash_title,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.l10n.splash_subtitle,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.7)
+                                : Colors.black.withOpacity(0.6),
                           ),
                     ),
                   ],

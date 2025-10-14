@@ -269,6 +269,18 @@ abstract class AppLocalizations {
   /// **'Loading...'**
   String get splash_loading;
 
+  /// No description provided for @splash_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello'**
+  String get splash_title;
+
+  /// No description provided for @splash_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Datou SmartDisplay'**
+  String get splash_subtitle;
+
   /// No description provided for @login_email.
   ///
   /// In en, this message translates to:
@@ -446,7 +458,7 @@ abstract class AppLocalizations {
   /// No description provided for @google_signin_placeholder.
   ///
   /// In en, this message translates to:
-  /// **'Google sign-in (not implemented)'**
+  /// **'Coming soon'**
   String get google_signin_placeholder;
 
   /// No description provided for @welcome_title.

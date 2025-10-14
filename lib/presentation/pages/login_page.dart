@@ -163,6 +163,21 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // App Logo
+                    Center(
+                      child: SizedBox(
+                        width: 96,
+                        height: 96,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Text(l10n.email_signin,
                         style: Theme.of(context).textTheme.titleLarge,
                         textAlign: TextAlign.center),

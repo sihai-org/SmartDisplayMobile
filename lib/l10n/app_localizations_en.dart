@@ -98,6 +98,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get splash_loading => 'Loading...';
 
   @override
+  String get splash_title => 'Hello';
+
+  @override
+  String get splash_subtitle => 'Datou SmartDisplay';
+
+  @override
   String get login_email => 'Email';
 
   @override
@@ -195,7 +201,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get google_signin_placeholder => 'Google sign-in (not implemented)';
+  String get google_signin_placeholder => 'Coming soon';
 
   @override
   String get welcome_title => 'Welcome to SmartDisplay';

@@ -32,6 +32,8 @@
   "page_not_exist": "请求的页面不存在: {path}",
   "back_to_home": "返回首页",
   "splash_loading": "加载中...",
+  "splash_title": "你好",
+  "splash_subtitle": "大头智显",
   "login_title": "登录",
   "login_button": "登录",
   "login_email": "邮箱",
@@ -65,7 +67,7 @@
   "signin_with_google": "使用 Google 登录",
   "signout_failed": "退出失败: {error}"
   ,
-  "google_signin_placeholder": "Google 登录入口（暂未实现）"
+  "google_signin_placeholder": "敬请期待"
   ,
   "welcome_title": "欢迎使用大头智显",
   "welcome_hint": "请扫描显示器上的二维码为显示器配置网络",

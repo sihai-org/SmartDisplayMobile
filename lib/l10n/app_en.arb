@@ -32,6 +32,8 @@
   "page_not_exist": "Requested page does not exist: {path}",
   "back_to_home": "Back to Home",
   "splash_loading": "Loading...",
+  "splash_title": "Hello",
+  "splash_subtitle": "Datou SmartDisplay",
   "login_title": "Sign In",
   "login_button": "Log in",
   "login_email": "Email",
@@ -65,7 +67,7 @@
   "signin_with_google": "Sign in with Google",
   "signout_failed": "Sign out failed: {error}"
   ,
-  "google_signin_placeholder": "Google sign-in (not implemented)"
+  "google_signin_placeholder": "Coming soon"
   ,
   "welcome_title": "Welcome to SmartDisplay",
   "welcome_hint": "Scan the QR code on the display to provision Wi‑Fi",

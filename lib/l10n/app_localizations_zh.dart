@@ -98,6 +98,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get splash_loading => '加载中...';
 
   @override
+  String get splash_title => '你好';
+
+  @override
+  String get splash_subtitle => '大头智显';
+
+  @override
   String get login_email => '邮箱';
 
   @override
@@ -195,7 +201,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get google_signin_placeholder => 'Google 登录入口（暂未实现）';
+  String get google_signin_placeholder => '敬请期待';
 
   @override
   String get welcome_title => '欢迎使用大头智显';
