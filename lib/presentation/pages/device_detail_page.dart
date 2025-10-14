@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
+import '../../core/providers/app_state_provider.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
 import '../../features/device_connection/models/ble_device_data.dart';
@@ -22,6 +23,18 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _autoTried = false;
+
+  String _formatDateTime(DateTime? dt) {
+    if (dt == null) return '-';
+    // Simple human-readable format: yyyy-MM-dd HH:mm
+    String two(int n) => n.toString().padLeft(2, '0');
+    final y = dt.year.toString();
+    final m = two(dt.month);
+    final d = two(dt.day);
+    final hh = two(dt.hour);
+    final mm = two(dt.minute);
+    return '$y-$m-$d $hh:$mm';
+  }
 
   @override
   void initState() {
@@ -98,39 +111,39 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
-    
-    // 监听连接状态变化，实现智能重连和智能WiFi处理
-    ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
-      if (previous != null && previous.status != current.status) {
-        print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
 
-        // 当设备认证完成时，自动进行智能WiFi处理
-        if (current.status == BleDeviceStatus.authenticated &&
-            previous.status != BleDeviceStatus.authenticated) {
-          print('[HomePage] 设备认证完成，开始智能WiFi处理');
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
-            }
-          });
-        }
-
-        _handleSmartReconnect();
-      }
-    });
-    
-    // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
-    ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
-      if (current.loaded && current.lastSelectedId != null && 
-          (previous == null || !previous.loaded)) {
-        // 延迟执行，避免在build期间修改provider
-        Future.delayed(Duration.zero, () {
-          if (mounted) {
-            _tryAutoConnect();
-          }
-        });
-      }
-    });
+    // // 监听连接状态变化，实现智能重连和智能WiFi处理
+    // ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
+    //   if (previous != null && previous.status != current.status) {
+    //     print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
+    //
+    //     // 当设备认证完成时，自动进行智能WiFi处理
+    //     if (current.status == BleDeviceStatus.authenticated &&
+    //         previous.status != BleDeviceStatus.authenticated) {
+    //       print('[HomePage] 设备认证完成，开始智能WiFi处理');
+    //       Future.delayed(const Duration(milliseconds: 500), () {
+    //         if (mounted) {
+    //           ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
+    //         }
+    //       });
+    //     }
+    //
+    //     _handleSmartReconnect();
+    //   }
+    // });
+    //
+    // // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
+    // ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
+    //   if (current.loaded && current.lastSelectedId != null &&
+    //       (previous == null || !previous.loaded)) {
+    //     // 延迟执行，避免在build期间修改provider
+    //     Future.delayed(Duration.zero, () {
+    //       if (mounted) {
+    //         _tryAutoConnect();
+    //       }
+    //     });
+    //   }
+    // });
     return Scaffold(
       appBar: AppBar(
         leading: widget.onBackToList != null
@@ -226,79 +239,175 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 ),
               ),
             ] else ...[
-              // 显示最近设备卡片
-              Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConstants.defaultPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _buildStatusIcon(connState.status),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(
-                                saved.devices.firstWhere((e)=> e.deviceId==saved.lastSelectedId).deviceName, 
-                                style: Theme.of(context).textTheme.titleMedium
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _statusText(connState.status), 
-                                style: TextStyle(color: _statusColor(context, connState.status))
-                              ),
-                            ]),
-                          ),
-                          _buildActionButtons(connState),
-                        ],
-                      ),
-                      // 显示详细状态信息
-                      if (_shouldShowDetailedStatus(connState.status)) ...[
-                        const SizedBox(height: 12),
+              // 选择要展示的设备及其扩展信息
+              Builder(builder: (context) {
+                final rec = saved.devices.firstWhere(
+                  (e) => e.deviceId == saved.lastSelectedId,
+                  orElse: () => saved.devices.first,
+                );
+                final qrDeviceData = ref
+                    .read(appStateProvider.notifier)
+                    .getDeviceDataById(rec.deviceId);
+                final String? firmwareVersion = qrDeviceData?.firmwareVersion;
+                return Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppConstants.defaultPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
+                          child: Column(
                             children: [
-                              if (_isConnecting(connState.status))
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      _statusColor(context, connState.status),
+                              Row(
+                                children: [
+                                  Image.asset(
+                                    'assets/images/device.png',
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Builder(builder: (context) {
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            rec.deviceName,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          // 显示设备ID（替换原来的状态展示）
+                                          Text(
+                                            'ID: ${rec.deviceId}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                        ],
+                                      );
+                                    }),
+                                  ),
+                                  // _buildActionButtons(connState),
+                                ],
+                              ),
+                              const Divider(height: 20),
+                              const SizedBox(height: 4),
+                              // 扩展信息：固件版本与添加时间
+                              Row(
+                                children: [
+                                  Text(
+                                    '固件版本: ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      firmwareVersion == null ||
+                                              firmwareVersion.isEmpty
+                                          ? '-'
+                                          : firmwareVersion,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                )
-                              else
-                                Icon(
-                                  _getDetailedStatusIcon(connState.status),
-                                  size: 16,
-                                  color: _statusColor(context, connState.status),
-                                ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _getDetailedStatusText(connState.status),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _statusColor(context, connState.status),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    '添加时间: ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
                                   ),
-                                ),
+                                  Text(
+                                    _formatDateTime(rec.lastConnectedAt),
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
+                        // 显示详细状态信息
+                        if (_shouldShowDetailedStatus(connState.status)) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceVariant
+                                  .withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                if (_isConnecting(connState.status))
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        _statusColor(context, connState.status),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    _getDetailedStatusIcon(connState.status),
+                                    size: 16,
+                                    color:
+                                        _statusColor(context, connState.status),
+                                  ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _getDetailedStatusText(connState.status),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: _statusColor(
+                                              context, connState.status),
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              }),
 
               // 显示网络状态或WiFi列表
               if (connState.status == BleDeviceStatus.authenticated) ...[
@@ -317,49 +426,49 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     );
   }
 
-  // 构建状态图标
-  Widget _buildStatusIcon(BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.disconnected:
-        return Icon(Icons.tv_off, size: 40, color: Colors.grey);
-      case BleDeviceStatus.scanning:
-      case BleDeviceStatus.connecting:
-      case BleDeviceStatus.authenticating:
-        return Icon(Icons.tv, size: 40, color: Colors.orange);
-      case BleDeviceStatus.connected:
-      case BleDeviceStatus.authenticated:
-        return Icon(Icons.tv, size: 40, color: Colors.green);
-      case BleDeviceStatus.error:
-      case BleDeviceStatus.timeout:
-        return Icon(Icons.tv_off, size: 40, color: Colors.red);
-    }
-  }
-
-  // 构建操作按钮
-  Widget _buildActionButtons(conn.DeviceConnectionState connState) {
-    final l10n = context.l10n;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (connState.status == BleDeviceStatus.disconnected ||
-            connState.status == BleDeviceStatus.error ||
-            connState.status == BleDeviceStatus.timeout)
-          IconButton(
-            onPressed: () {
-              _autoTried = false; // 重置标记
-              _tryAutoConnect();
-            },
-            icon: const Icon(Icons.refresh),
-            tooltip: l10n?.reconnect ?? 'Reconnect',
-          ),
-        IconButton(
-          onPressed: () => context.push(AppRoutes.qrScanner),
-          icon: const Icon(Icons.qr_code_scanner),
-          tooltip: l10n?.add_device ?? 'Add Device',
-        ),
-      ],
-    );
-  }
+  // // 构建状态图标
+  // Widget _buildStatusIcon(BleDeviceStatus status) {
+  //   switch (status) {
+  //     case BleDeviceStatus.disconnected:
+  //       return Icon(Icons.tv_off, size: 40, color: Colors.grey);
+  //     case BleDeviceStatus.scanning:
+  //     case BleDeviceStatus.connecting:
+  //     case BleDeviceStatus.authenticating:
+  //       return Icon(Icons.tv, size: 40, color: Colors.orange);
+  //     case BleDeviceStatus.connected:
+  //     case BleDeviceStatus.authenticated:
+  //       return Icon(Icons.tv, size: 40, color: Colors.green);
+  //     case BleDeviceStatus.error:
+  //     case BleDeviceStatus.timeout:
+  //       return Icon(Icons.tv_off, size: 40, color: Colors.red);
+  //   }
+  // }
+  //
+  // // 构建操作按钮
+  // Widget _buildActionButtons(conn.DeviceConnectionState connState) {
+  //   final l10n = context.l10n;
+  //   return Row(
+  //     mainAxisSize: MainAxisSize.min,
+  //     children: [
+  //       if (connState.status == BleDeviceStatus.disconnected ||
+  //           connState.status == BleDeviceStatus.error ||
+  //           connState.status == BleDeviceStatus.timeout)
+  //         IconButton(
+  //           onPressed: () {
+  //             _autoTried = false; // 重置标记
+  //             _tryAutoConnect();
+  //           },
+  //           icon: const Icon(Icons.refresh),
+  //           tooltip: l10n?.reconnect ?? 'Reconnect',
+  //         ),
+  //       IconButton(
+  //         onPressed: () => context.push(AppRoutes.qrScanner),
+  //         icon: const Icon(Icons.qr_code_scanner),
+  //         tooltip: l10n?.add_device ?? 'Add Device',
+  //       ),
+  //     ],
+  //   );
+  // }
 
   // 是否显示详细状态
   bool _shouldShowDetailedStatus(BleDeviceStatus status) {
