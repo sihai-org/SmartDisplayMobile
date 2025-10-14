@@ -250,7 +250,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     .getDeviceDataById(rec.deviceId);
                 final String? firmwareVersion = qrDeviceData?.firmwareVersion;
                 return Card(
-                  elevation: 2,
+                  elevation: 0,
                   child: Padding(
                     padding: const EdgeInsets.all(AppConstants.defaultPadding),
                     child: Column(
@@ -301,7 +301,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                   // _buildActionButtons(connState),
                                 ],
                               ),
-                              const Divider(height: 20),
+                              const Divider(height: 20, color: Colors.grey),
                               const SizedBox(height: 4),
                               // 扩展信息：固件版本与添加时间
                               Row(
@@ -354,66 +354,91 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                             ],
                           ),
                         ),
-                        // 显示详细状态信息
-                        if (_shouldShowDetailedStatus(connState.status)) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceVariant
-                                  .withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                if (_isConnecting(connState.status))
-                                  SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        _statusColor(context, connState.status),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Icon(
-                                    _getDetailedStatusIcon(connState.status),
-                                    size: 16,
-                                    color:
-                                        _statusColor(context, connState.status),
-                                  ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _getDetailedStatusText(connState.status),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: _statusColor(
-                                              context, connState.status),
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        // // 显示详细状态信息
+                        // if (_shouldShowDetailedStatus(connState.status)) ...[
+                        //   const SizedBox(height: 12),
+                        //   Container(
+                        //     padding: const EdgeInsets.all(12),
+                        //     decoration: BoxDecoration(
+                        //       color: Theme.of(context)
+                        //           .colorScheme
+                        //           .surfaceVariant
+                        //           .withOpacity(0.5),
+                        //       borderRadius: BorderRadius.circular(8),
+                        //     ),
+                        //     child: Row(
+                        //       children: [
+                        //         if (_isConnecting(connState.status))
+                        //           SizedBox(
+                        //             width: 16,
+                        //             height: 16,
+                        //             child: CircularProgressIndicator(
+                        //               strokeWidth: 2,
+                        //               valueColor: AlwaysStoppedAnimation<Color>(
+                        //                 _statusColor(context, connState.status),
+                        //               ),
+                        //             ),
+                        //           )
+                        //         else
+                        //           Icon(
+                        //             _getDetailedStatusIcon(connState.status),
+                        //             size: 16,
+                        //             color:
+                        //                 _statusColor(context, connState.status),
+                        //           ),
+                        //         // const SizedBox(width: 8),
+                        //         // Expanded(
+                        //         //   child: Text(
+                        //         //     _getDetailedStatusText(connState.status),
+                        //         //     style: Theme.of(context)
+                        //         //         .textTheme
+                        //         //         .bodySmall
+                        //         //         ?.copyWith(
+                        //         //           color: _statusColor(
+                        //         //               context, connState.status),
+                        //         //         ),
+                        //         //   ),
+                        //         // ),
+                        //       ],
+                        //     ),
+                        //   ),
+                        // ],
                       ],
                     ),
                   ),
                 );
               }),
 
+              const SizedBox(height: 16),
+              _buildBLESection(context),
+
               // 显示网络状态或WiFi列表
               if (connState.status == BleDeviceStatus.authenticated) ...[
                 const SizedBox(height: 16),
                 _buildNetworkSection(context, connState),
               ],
+
+              // 删除设备按钮
+              const SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme
+                      .of(context)
+                      .cardColor, // 背景颜色
+                  foregroundColor: Theme
+                      .of(context)
+                      .colorScheme
+                      .error, // 文字颜色
+                  elevation: 0, // 阴影高度
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), // 圆角
+                  ),
+                ),
+                onPressed: () {
+                  // TODO: 删除设备
+                },
+                child: const Text("删除设备"),
+              ),
             ],
 
             const SizedBox(height: 32),
@@ -558,11 +583,33 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }
   }
 
+  // 蓝牙卡片
+  Widget _buildBLESection(BuildContext context) {
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.defaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '蓝牙连接状态',
+              style: Theme
+                  .of(context)
+                  .textTheme
+                  .titleMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // 构建网络状态或WiFi列表部分
   Widget _buildNetworkSection(BuildContext context, conn.DeviceConnectionState connState) {
     final l10n = context.l10n;
     return Card(
-      elevation: 1,
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(AppConstants.defaultPadding),
         child: Column(
