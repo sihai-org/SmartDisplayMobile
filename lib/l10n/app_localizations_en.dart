@@ -354,4 +354,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get status_failed => 'Scan failed';
+
+  @override
+  String get user_fallback => 'User';
+
+  @override
+  String devices_count(Object count) {
+    return '$count devices';
+  }
+
+  @override
+  String get logout_confirm_title => 'Sign out of current account?';
+
+  @override
+  String get logout_confirm_ok => 'Sign out';
 }

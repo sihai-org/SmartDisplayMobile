@@ -354,4 +354,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get status_failed => '扫描失败';
+
+  @override
+  String get user_fallback => '用户';
+
+  @override
+  String devices_count(Object count) {
+    return '$count 台设备';
+  }
+
+  @override
+  String get logout_confirm_title => '退出当前账号？';
+
+  @override
+  String get logout_confirm_ok => '退出';
 }

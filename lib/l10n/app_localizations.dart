@@ -627,6 +627,12 @@ abstract class AppLocalizations {
   String get status_scanning;
   String get status_processing;
   String get status_failed;
+
+  // Profile/My page additions
+  String get user_fallback;
+  String devices_count(Object count);
+  String get logout_confirm_title;
+  String get logout_confirm_ok;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
