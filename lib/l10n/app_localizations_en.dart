@@ -368,4 +368,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logout_confirm_ok => 'Sign out';
+
+  @override
+  String get no_device_title => 'No device added yet';
+
+  @override
+  String get no_device_subtitle => 'Power on the display, then scan the QR code shown to add a device';
 }

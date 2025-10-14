@@ -368,4 +368,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get logout_confirm_ok => '退出';
+
+  @override
+  String get no_device_title => '暂未添加设备';
+
+  @override
+  String get no_device_subtitle => '显示器开机后，扫描显示器屏幕上的二维码可添加设备';
 }

@@ -106,4 +106,7 @@
   "scan_qr_add_device": "扫描二维码添加设备",
   "device_switched": "已切换为当前设备",
   "switch_device_failed": "切换设备失败: {error}"
+  ,
+  "no_device_title": "暂未添加设备",
+  "no_device_subtitle": "显示器开机后，扫描显示器屏幕上的二维码可添加设备"
 }

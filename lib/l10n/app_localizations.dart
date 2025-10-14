@@ -633,6 +633,10 @@ abstract class AppLocalizations {
   String devices_count(Object count);
   String get logout_confirm_title;
   String get logout_confirm_ok;
+
+  // Empty state on device detail
+  String get no_device_title;
+  String get no_device_subtitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

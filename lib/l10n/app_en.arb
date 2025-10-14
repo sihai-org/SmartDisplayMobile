@@ -106,4 +106,7 @@
   "scan_qr_add_device": "Scan QR to add device",
   "device_switched": "Switched to current device",
   "switch_device_failed": "Failed to switch device: {error}"
+  ,
+  "no_device_title": "No device added yet",
+  "no_device_subtitle": "Power on the display, then scan the QR code shown to add a device"
 }

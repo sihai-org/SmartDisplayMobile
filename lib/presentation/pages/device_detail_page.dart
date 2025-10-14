@@ -146,10 +146,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             icon: const Icon(Icons.add),
             tooltip: context.l10n.scan_qr,
           ),
-          IconButton(
-            onPressed: () => context.push(AppRoutes.deviceManagement),
-            icon: const Icon(Icons.list),
-          ),
+          if (saved.loaded && saved.devices.isNotEmpty)
+            IconButton(
+              onPressed: () => context.push(AppRoutes.deviceManagement),
+              icon: const Icon(Icons.list),
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -158,16 +159,68 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!saved.loaded || saved.devices.isEmpty) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConstants.defaultPadding),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      kToolbarHeight -
+                      AppConstants.defaultPadding * 2 -
+                      MediaQuery.of(context).padding.bottom,
+                ),
+                child: Align(
+                  alignment: Alignment(0, -0.3), // 0 是中间，-1 顶部，+1 底部。-0.3 稍微上移,
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.wifi_protected_setup, size: 64, color: Theme.of(context).colorScheme.primary),
-                      const SizedBox(height: 16),
-                      Text(l10n?.welcome_title ?? 'Welcome to SmartDisplay', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                      Text(l10n?.welcome_hint ?? 'Scan the QR code on the display to provision Wi‑Fi', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+                      Image.asset(
+                        'assets/images/no_device.png',
+                        width: 160,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
+                        l10n?.no_device_title ?? '暂未添加设备',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width *
+                            0.6, // 宽度占屏幕 3/5
+                        child: Text(
+                          l10n?.no_device_subtitle ??
+                              '显示器开机后，扫描显示器屏幕上的二维码可添加设备',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // 👇 扫码按钮
+                      ElevatedButton.icon(
+                        onPressed: () => context.push(AppRoutes.qrScanner),
+                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                        label: const Text('扫码添加设备'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          textStyle:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -255,39 +308,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ],
 
             const SizedBox(height: 32),
-
-            // 只在没有保存设备时显示主扫描按钮
-            if (!saved.loaded || saved.devices.isEmpty)
-              ElevatedButton(
-                onPressed: () => context.push(AppRoutes.qrScanner),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.qr_code_scanner, size: 24),
-                    const SizedBox(width: 12),
-                    Text(
-                      l10n?.scan_qr ?? 'Scan QR',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            
-            // 动态间距：有设备时减少间距，无设备时增加间距
-            if (!saved.loaded || saved.devices.isEmpty)
-              const SizedBox(height: 32)
-            else
-              const SizedBox(height: 16),
-
-            // 添加更多间距，替代Spacer
-            const SizedBox(height: 48),
 
             // 底部安全区域
             SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
