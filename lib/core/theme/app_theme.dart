@@ -8,7 +8,8 @@ class AppTheme {
   static const Color primaryVariantColor = Color(0xFF1976D2);
   static const Color secondaryColor = Color(0xFF03DAC6);
   static const Color secondaryVariantColor = Color(0xFF018786);
-  static const Color backgroundColor = Color(0xFFFAFAFA);
+  // App background (light)
+  static const Color backgroundColor = Color(0xFFF8F8F8);
   static const Color surfaceColor = Color(0xFFFFFFFF);
   static const Color errorColor = Color(0xFFB00020);
   static const Color onPrimaryColor = Color(0xFFFFFFFF);
@@ -31,6 +32,7 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
+    scaffoldBackgroundColor: backgroundColor,
     colorScheme: const ColorScheme.light(
       primary: primaryColor,
       onPrimary: onPrimaryColor,
@@ -173,11 +175,13 @@ class AppTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    // Match Scaffold background to a dark neutral
+    scaffoldBackgroundColor: const Color(0xFF121212),
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
       secondary: secondaryColor,
       surface: Color(0xFF121212),
-      background: Color(0xFF000000),
+      background: Color(0xFF121212),
       error: errorColor,
     ),
     // App Bar Theme - dark: dark background, light content

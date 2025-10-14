@@ -146,6 +146,7 @@ class _LoginPageState extends State<LoginPage> {
       return const Scaffold(body: SizedBox());
     }
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(), // 点击空白收起键盘
         behavior: HitTestBehavior.translucent,
