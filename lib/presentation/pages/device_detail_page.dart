@@ -13,7 +13,8 @@ import '../../features/qr_scanner/models/device_qr_data.dart';
 import '../../l10n/app_localizations.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
-  const DeviceDetailPage({super.key});
+  final VoidCallback? onBackToList;
+  const DeviceDetailPage({super.key, this.onBackToList});
 
   @override
   ConsumerState<DeviceDetailPage> createState() => _DeviceDetailState();
@@ -132,8 +133,19 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     });
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SmartDisplay'),
+        leading: widget.onBackToList != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: widget.onBackToList,
+              )
+            : null,
+        title: Text(context.l10n.appTitle),
         actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoutes.qrScanner),
+            icon: const Icon(Icons.add),
+            tooltip: context.l10n.scan_qr,
+          ),
           IconButton(
             onPressed: () => context.push(AppRoutes.settings),
             icon: const Icon(Icons.settings),

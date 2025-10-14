@@ -25,7 +25,16 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profile_title)),
+      appBar: AppBar(
+        title: Text(l10n.profile_title),
+        actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoutes.qrScanner),
+            icon: const Icon(Icons.add),
+            tooltip: l10n.scan_qr,
+          ),
+        ],
+      ),
       body: ListView(
         children: [
           ListTile(

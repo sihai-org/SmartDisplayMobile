@@ -598,6 +598,35 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connect failed: {error}'**
   String connect_failed(Object error);
+
+  // New strings for device list and detail
+  String get unknown_device;
+  String get current_selected;
+  String get set_current_device;
+  String get check_update;
+  String get delete_device;
+  String get device_id_label;
+  String get ble_label;
+  String get last_connected_at;
+  String get empty_saved_devices;
+  String get empty_hint_add_by_scan;
+  String get scan_qr_add_device;
+  String get device_switched;
+  String switch_device_failed(Object error);
+
+  // QR scanner localized strings
+  String get gallery_picker;
+  String get torch;
+  String get dark_env_hint;
+  String get turn_on;
+  String get scan_success;
+  String get rescan;
+  String get aim_qr;
+  String get scan_success_will_show;
+  String get status_ready;
+  String get status_scanning;
+  String get status_processing;
+  String get status_failed;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

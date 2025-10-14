@@ -92,4 +92,18 @@
   "wifi_credentials_sent": "Wi‑Fi 凭证已发送到 TV：{ssid}",
   "wifi_credentials_failed": "发送 Wi‑Fi 凭证失败",
   "connect_failed": "连接失败：{error}"
+  ,
+  "unknown_device": "未知设备",
+  "current_selected": "当前选中",
+  "set_current_device": "设为当前设备",
+  "check_update": "检查更新",
+  "delete_device": "删除设备",
+  "device_id_label": "ID",
+  "ble_label": "BLE",
+  "last_connected_at": "上次连接",
+  "empty_saved_devices": "暂无保存的设备",
+  "empty_hint_add_by_scan": "扫描设备上的二维码来添加新的智能显示器",
+  "scan_qr_add_device": "扫描二维码添加设备",
+  "device_switched": "已切换为当前设备",
+  "switch_device_failed": "切换设备失败: {error}"
 }

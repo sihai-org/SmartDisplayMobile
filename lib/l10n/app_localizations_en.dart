@@ -277,4 +277,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String connect_failed(Object error) {
     return 'Connect failed: $error';
   }
+
+  @override
+  String get unknown_device => 'Unknown Device';
+
+  @override
+  String get current_selected => 'Selected';
+
+  @override
+  String get set_current_device => 'Set as current';
+
+  @override
+  String get check_update => 'Check Update';
+
+  @override
+  String get delete_device => 'Delete Device';
+
+  @override
+  String get device_id_label => 'ID';
+
+  @override
+  String get ble_label => 'BLE';
+
+  @override
+  String get last_connected_at => 'Last connected';
+
+  @override
+  String get empty_saved_devices => 'No saved devices';
+
+  @override
+  String get empty_hint_add_by_scan => 'Scan the QR on your device to add a new SmartDisplay';
+
+  @override
+  String get scan_qr_add_device => 'Scan QR to add device';
+
+  @override
+  String get device_switched => 'Switched to current device';
+
+  @override
+  String switch_device_failed(Object error) {
+    return 'Failed to switch device: $error';
+  }
+
+  @override
+  String get gallery_picker => 'Choose from gallery';
+
+  @override
+  String get torch => 'Torch';
+
+  @override
+  String get dark_env_hint => "It's dark, turn on torch";
+
+  @override
+  String get turn_on => 'Turn on';
+
+  @override
+  String get scan_success => 'Scan succeeded!';
+
+  @override
+  String get rescan => 'Rescan';
+
+  @override
+  String get aim_qr => 'Aim the QR at the frame';
+
+  @override
+  String get scan_success_will_show => 'QR content will show after success';
+
+  @override
+  String get status_ready => 'Ready to scan';
+
+  @override
+  String get status_scanning => 'Scanning...';
+
+  @override
+  String get status_processing => 'Parsing...';
+
+  @override
+  String get status_failed => 'Scan failed';
 }

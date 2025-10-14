@@ -6,13 +6,15 @@ import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/ble_constants.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../features/device_connection/services/ble_service_simple.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
-  const DeviceManagementPage({super.key});
+  final void Function(String deviceId)? onDeviceTapped;
+  const DeviceManagementPage({super.key, this.onDeviceTapped});
 
   @override
   ConsumerState<DeviceManagementPage> createState() =>
@@ -35,13 +37,13 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设备管理'),
+        title: Text(context.l10n.device_management),
         elevation: 1,
         actions: [
           IconButton(
             onPressed: () => _addNewDevice(),
             icon: const Icon(Icons.add),
-            tooltip: '添加新设备',
+            tooltip: context.l10n.scan_qr,
           ),
         ],
       ),
@@ -83,7 +85,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               children: [
                 Expanded(
                   child: Text(
-                    device.deviceName.isNotEmpty ? device.deviceName : '未知设备',
+                    device.deviceName.isNotEmpty ? device.deviceName : context.l10n.unknown_device,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.normal,
@@ -99,7 +101,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '当前选中',
+                      context.l10n.current_selected,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onPrimary,
                           ),
@@ -107,6 +109,14 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                   ),
               ],
             ),
+            onTap: () async {
+              await ref
+                  .read(savedDevicesProvider.notifier)
+                  .select(device.deviceId);
+              if (mounted) {
+                widget.onDeviceTapped?.call(device.deviceId);
+              }
+            },
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -118,46 +128,46 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                       IconButton(
                         onPressed: () => _selectDevice(device.deviceId),
                         icon: const Icon(Icons.radio_button_unchecked),
-                        tooltip: '设为当前设备',
+                        tooltip: context.l10n.set_current_device,
                       ),
                     // TODO: 判断是否已经登录
                     IconButton(
                       onPressed: () => _deviceLogin(device),
                       icon: const Icon(Icons.login),
-                      tooltip: '登录',
+                      tooltip: context.l10n.login_button,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     // TODO: 判断是否已经登录
                     IconButton(
                       onPressed: () => _deviceLogout(device),
                       icon: const Icon(Icons.logout),
-                      tooltip: '退出登录',
+                      tooltip: context.l10n.logout,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     IconButton(
                       onPressed: () => _sendCheckUpdate(device),
                       icon: const Icon(Icons.system_update),
-                      tooltip: '检查更新',
+                      tooltip: context.l10n.check_update,
                       color: Theme.of(context).colorScheme.secondary,
                     ),
                     IconButton(
                       onPressed: () => _showDeleteDialog(context, device),
                       icon: const Icon(Icons.delete_outline),
                       iconSize: 20,
-                      tooltip: '删除设备',
+                      tooltip: context.l10n.delete_device,
                       color: Theme.of(context).colorScheme.error,
                     ),
                   ],
                 ),
                 Text(
-                  'ID: ${device.deviceId}',
+                  '${context.l10n.device_id_label}: ${device.deviceId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
                       ),
                 ),
                 if (device.lastBleAddress != null)
                   Text(
-                    'BLE: ${device.lastBleAddress}',
+                    '${context.l10n.ble_label}: ${device.lastBleAddress}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontFamily: 'monospace',
                         ),
@@ -165,7 +175,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                 if (device.lastConnectedAt != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '上次连接: ${_formatDateTime(device.lastConnectedAt!)}',
+                    '${context.l10n.last_connected_at}: ${_formatDateTime(device.lastConnectedAt!)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -193,14 +203,14 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              '暂无保存的设备',
+              context.l10n.empty_saved_devices,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: 16),
             Text(
-              '扫描设备上的二维码来添加新的智能电视',
+              context.l10n.empty_hint_add_by_scan,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -210,7 +220,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
             FilledButton.icon(
               onPressed: () => _addNewDevice(),
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('扫描二维码添加设备'),
+              label: Text(context.l10n.scan_qr_add_device),
               style: FilledButton.styleFrom(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -231,9 +241,9 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       await ref.read(savedDevicesProvider.notifier).select(deviceId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已切换为当前设备'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(context.l10n.device_switched),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -241,7 +251,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('切换设备失败: $e'),
+            content: Text(context.l10n.switch_device_failed(e.toString())),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

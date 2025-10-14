@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import 'dart:ui' show Rect, Size;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/router/app_router.dart';
@@ -95,9 +96,9 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       child: Scaffold(
         backgroundColor: Colors.black,
       appBar: AppBar(
-          title: const Text('扫描设备二维码'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+          title: Text(context.l10n.qr_scanner_title),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -118,7 +119,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                 Icons.photo_library,
                 color: Colors.white,
               ),
-              tooltip: '从相册选择',
+              tooltip: context.l10n.gallery_picker,
             ),
             // 闪光灯按钮
             IconButton(
@@ -127,7 +128,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                 scannerState.isTorchOn ? Icons.flash_on : Icons.flash_off,
                 color: scannerState.isTorchOn ? Colors.yellow : Colors.white,
               ),
-              tooltip: '闪光灯',
+              tooltip: context.l10n.torch,
             ),
           ],
         ),
@@ -171,11 +172,11 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                           children: [
                             const Icon(Icons.light_mode, color: Colors.yellow, size: 16),
                             const SizedBox(width: 6),
-                            const Text('环境较暗，建议打开闪光灯', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            Text(context.l10n.dark_env_hint, style: const TextStyle(color: Colors.white, fontSize: 12)),
                             const SizedBox(width: 8),
                             TextButton(
                               onPressed: () => scannerNotifier.toggleTorch(),
-                              child: const Text('开启', style: TextStyle(color: Colors.yellow)),
+                              child: Text(context.l10n.turn_on, style: const TextStyle(color: Colors.yellow)),
                             ),
                           ],
                         ),
@@ -333,7 +334,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                         _getStatusIcon(state.status),
                         const SizedBox(width: 8),
                         Text(
-                          '扫描成功！',
+                          context.l10n.scan_success,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -366,7 +367,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
-                      child: Text('重新扫描'),
+                      child: Text(context.l10n.rescan),
                     ),
                   ],
                 )
@@ -403,28 +404,28 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
           color: Colors.black54,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.qr_code_2,
               color: Colors.white70,
               size: 32,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              '将二维码对准扫描框',
-              style: TextStyle(
+              context.l10n.aim_qr,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
-              '扫描成功后会显示二维码内容',
-              style: TextStyle(
+              context.l10n.scan_success_will_show,
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
               ),
@@ -479,15 +480,15 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   String _getStatusText(QrScannerState state) {
     switch (state.status) {
       case QrScannerStatus.idle:
-        return '准备扫描';
+        return context.l10n.status_ready;
       case QrScannerStatus.scanning:
-        return '扫描中...';
+        return context.l10n.status_scanning;
       case QrScannerStatus.processing:
-        return '解析数据...';
+        return context.l10n.status_processing;
       case QrScannerStatus.success:
-        return '扫描成功！';
+        return context.l10n.scan_success;
       case QrScannerStatus.error:
-        return state.errorMessage ?? '扫描失败';
+        return state.errorMessage ?? context.l10n.status_failed;
     }
   }
 

@@ -92,4 +92,18 @@
   "wifi_credentials_sent": "Wi‑Fi credentials sent to TV: {ssid}",
   "wifi_credentials_failed": "Failed to send Wi‑Fi credentials",
   "connect_failed": "Connect failed: {error}"
+  ,
+  "unknown_device": "Unknown Device",
+  "current_selected": "Selected",
+  "set_current_device": "Set as current",
+  "check_update": "Check Update",
+  "delete_device": "Delete Device",
+  "device_id_label": "ID",
+  "ble_label": "BLE",
+  "last_connected_at": "Last connected",
+  "empty_saved_devices": "No saved devices",
+  "empty_hint_add_by_scan": "Scan the QR on your device to add a new SmartDisplay",
+  "scan_qr_add_device": "Scan QR to add device",
+  "device_switched": "Switched to current device",
+  "switch_device_failed": "Failed to switch device: {error}"
 }
