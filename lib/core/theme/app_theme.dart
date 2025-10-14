@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/app_constants.dart';
 
 class AppTheme {
@@ -43,16 +44,21 @@ class AppTheme {
       onError: onErrorColor,
     ),
     
-    // App Bar Theme
+    // App Bar Theme - light: white background, dark content
     appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: true,
-      backgroundColor: primaryColor,
-      foregroundColor: onPrimaryColor,
+      backgroundColor: surfaceColor,
+      foregroundColor: textPrimaryColor,
       titleTextStyle: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w600,
-        color: onPrimaryColor,
+        color: textPrimaryColor,
+      ),
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
     ),
     
@@ -173,6 +179,23 @@ class AppTheme {
       surface: Color(0xFF121212),
       background: Color(0xFF000000),
       error: errorColor,
+    ),
+    // App Bar Theme - dark: dark background, light content
+    appBarTheme: const AppBarTheme(
+      elevation: 0,
+      centerTitle: true,
+      backgroundColor: Color(0xFF121212),
+      foregroundColor: Colors.white,
+      titleTextStyle: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
     ),
   );
 }

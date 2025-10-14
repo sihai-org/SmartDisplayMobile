@@ -276,21 +276,17 @@ class _LoginPageState extends State<LoginPage> {
                             : Text(l10n?.login_button ?? 'Log in'),
                       ),
 
-                    const SizedBox(height: 20),
-                    const Divider(),
-                    const SizedBox(height: 10),
-
                     // Google 登录按钮
-                    ElevatedButton.icon(
-                      onPressed: _signInWithGoogle,
-                      icon: const Icon(Icons.login),
-                      label: Text(l10n?.signin_with_google ?? 'Sign in with Google'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
-                    ),
+                    // ElevatedButton.icon(
+                    //   onPressed: _signInWithGoogle,
+                    //   icon: const Icon(Icons.login),
+                    //   label: Text(l10n?.signin_with_google ?? 'Sign in with Google'),
+                    //   style: ElevatedButton.styleFrom(
+                    //     backgroundColor: Colors.redAccent,
+                    //     foregroundColor: Colors.white,
+                    //     minimumSize: const Size(double.infinity, 48),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
