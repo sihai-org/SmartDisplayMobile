@@ -560,6 +560,74 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
+  Future<bool> sendDeviceLoginCode(String code) async {
+    if (state.deviceData == null) return false;
+    final okChannel = await ensureTrustedChannel();
+    if (!okChannel) {
+      _log('❌ 未建立可信通道，取消发送登录验证码');
+      return false;
+    }
+    try {
+      final deviceId = state.deviceData!.bleAddress;
+      final payload = '{"code":"${_escapeJson(code)}"}';
+      final utf8Data = utf8.encode(payload);
+      final mtu = await BleServiceSimple.requestMtu(deviceId, 512);
+      final chunkSize = (mtu) - 3;
+      var offset = 0;
+      while (offset < utf8Data.length) {
+        final end = (offset + chunkSize < utf8Data.length) ? offset + chunkSize : utf8Data.length;
+        final chunk = utf8Data.sublist(offset, end);
+        final ok = await BleServiceSimple.writeCharacteristic(
+          deviceId: deviceId,
+          serviceUuid: BleConstants.serviceUuid,
+          characteristicUuid: BleConstants.loginAuthCodeCharUuid,
+          data: chunk,
+          withResponse: true,
+        );
+        if (!ok) {
+          _log('写入登录验证码失败，触发断开以自愈');
+          await BleServiceSimple.disconnect();
+          _setError('连接失败');
+          _nextRetryMs = (_nextRetryMs * 2).clamp(
+              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+          return false;
+        }
+        offset = end;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> sendDeviceLogout() async {
+    if (state.deviceData == null) return false;
+    final okChannel = await ensureTrustedChannel();
+    if (!okChannel) {
+      _log('❌ 未建立可信通道，取消发送退出登录');
+      return false;
+    }
+    try {
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: state.deviceData!.bleAddress,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.logoutCharUuid,
+        data: '{}'.codeUnits,
+        withResponse: true,
+      );
+      if (!ok) {
+        _log('退出登录写入失败，触发断开以自愈');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     // 确保可信通道

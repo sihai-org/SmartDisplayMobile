@@ -130,33 +130,33 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                         icon: const Icon(Icons.radio_button_unchecked),
                         tooltip: context.l10n.set_current_device,
                       ),
-                    // TODO: 判断是否已经登录
-                    IconButton(
-                      onPressed: () => _deviceLogin(device),
-                      icon: const Icon(Icons.login),
-                      tooltip: context.l10n.login_button,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    // TODO: 判断是否已经登录
-                    IconButton(
-                      onPressed: () => _deviceLogout(device),
-                      icon: const Icon(Icons.logout),
-                      tooltip: context.l10n.logout,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    IconButton(
-                      onPressed: () => _sendCheckUpdate(device),
-                      icon: const Icon(Icons.system_update),
-                      tooltip: context.l10n.check_update,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                    IconButton(
-                      onPressed: () => _showDeleteDialog(context, device),
-                      icon: const Icon(Icons.delete_outline),
-                      iconSize: 20,
-                      tooltip: context.l10n.delete_device,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    // // TODO: 判断是否已经登录
+                    // IconButton(
+                    //   onPressed: () => _deviceLogin(device),
+                    //   icon: const Icon(Icons.login),
+                    //   tooltip: context.l10n.login_button,
+                    //   color: Theme.of(context).colorScheme.primary,
+                    // ),
+                    // // TODO: 判断是否已经登录
+                    // IconButton(
+                    //   onPressed: () => _deviceLogout(device),
+                    //   icon: const Icon(Icons.logout),
+                    //   tooltip: context.l10n.logout,
+                    //   color: Theme.of(context).colorScheme.primary,
+                    // ),
+                    // IconButton(
+                    //   onPressed: () => _sendCheckUpdate(device),
+                    //   icon: const Icon(Icons.system_update),
+                    //   tooltip: context.l10n.check_update,
+                    //   color: Theme.of(context).colorScheme.secondary,
+                    // ),
+                    // IconButton(
+                    //   onPressed: () => _showDeleteDialog(context, device),
+                    //   icon: const Icon(Icons.delete_outline),
+                    //   iconSize: 20,
+                    //   tooltip: context.l10n.delete_device,
+                    //   color: Theme.of(context).colorScheme.error,
+                    // ),
                   ],
                 ),
                 Text(

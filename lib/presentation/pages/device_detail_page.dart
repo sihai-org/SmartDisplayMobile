@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,8 +11,11 @@ import '../../data/repositories/saved_devices_repository.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
 import '../../features/device_connection/models/ble_device_data.dart';
 import '../../features/device_connection/models/network_status.dart';
+import '../../features/device_connection/services/ble_service_simple.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import '../../l10n/app_localizations.dart';
+import '../../core/constants/ble_constants.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   final VoidCallback? onBackToList;
@@ -328,6 +332,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: _handleCheckUpdate,
+                                    child: Text(context.l10n.check_update),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -354,55 +363,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                             ],
                           ),
                         ),
-                        // // 显示详细状态信息
-                        // if (_shouldShowDetailedStatus(connState.status)) ...[
-                        //   const SizedBox(height: 12),
-                        //   Container(
-                        //     padding: const EdgeInsets.all(12),
-                        //     decoration: BoxDecoration(
-                        //       color: Theme.of(context)
-                        //           .colorScheme
-                        //           .surfaceVariant
-                        //           .withOpacity(0.5),
-                        //       borderRadius: BorderRadius.circular(8),
-                        //     ),
-                        //     child: Row(
-                        //       children: [
-                        //         if (_isConnecting(connState.status))
-                        //           SizedBox(
-                        //             width: 16,
-                        //             height: 16,
-                        //             child: CircularProgressIndicator(
-                        //               strokeWidth: 2,
-                        //               valueColor: AlwaysStoppedAnimation<Color>(
-                        //                 _statusColor(context, connState.status),
-                        //               ),
-                        //             ),
-                        //           )
-                        //         else
-                        //           Icon(
-                        //             _getDetailedStatusIcon(connState.status),
-                        //             size: 16,
-                        //             color:
-                        //                 _statusColor(context, connState.status),
-                        //           ),
-                        //         // const SizedBox(width: 8),
-                        //         // Expanded(
-                        //         //   child: Text(
-                        //         //     _getDetailedStatusText(connState.status),
-                        //         //     style: Theme.of(context)
-                        //         //         .textTheme
-                        //         //         .bodySmall
-                        //         //         ?.copyWith(
-                        //         //           color: _statusColor(
-                        //         //               context, connState.status),
-                        //         //         ),
-                        //         //   ),
-                        //         // ),
-                        //       ],
-                        //     ),
-                        //   ),
-                        // ],
                       ],
                     ),
                   ),
@@ -418,6 +378,47 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 _buildNetworkSection(context, connState),
               ],
 
+              // 设备登录
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).cardColor, // 背景颜色
+                  foregroundColor:
+                      Theme.of(context).colorScheme.primary, // 文字颜色
+                  elevation: 0, // 阴影高度
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), // 圆角
+                  ),
+                ),
+                onPressed: () {
+                  final rec = saved.devices.firstWhere(
+                    (e) => e.deviceId == saved.lastSelectedId,
+                    orElse: () => saved.devices.first,
+                  );
+                  _deviceLogin(rec);
+                },
+                child: const Text("登录设备"),
+              ),
+
+              // 设备登出
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).cardColor, // 背景颜色
+                  foregroundColor:
+                      Theme.of(context).colorScheme.primary, // 文字颜色
+                  elevation: 0, // 阴影高度
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), // 圆角
+                  ),
+                ),
+                onPressed: () {
+                  final rec = saved.devices.firstWhere(
+                    (e) => e.deviceId == saved.lastSelectedId,
+                    orElse: () => saved.devices.first,
+                  );
+                  _deviceLogout(rec);
+                },
+                child: const Text("退出设备"),
+              ),
               // 删除设备按钮
               const SizedBox(height: 16),
               ElevatedButton(
@@ -435,7 +436,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                 ),
                 onPressed: () {
-                  // TODO: 删除设备
+                  final rec = saved.devices.firstWhere(
+                    (e) => e.deviceId == saved.lastSelectedId,
+                    orElse: () => saved.devices.first,
+                  );
+                  _showDeleteDialog(context, rec);
                 },
                 child: const Text("删除设备"),
               ),
@@ -495,6 +500,131 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   //   );
   // }
 
+  void _deviceLogin(SavedDeviceRecord device) async {
+    Fluttertoast.showToast(msg: "click device login");
+    try {
+      // 1. 调用 Supabase Edge Function 获取授权码
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke(
+        'pairing-otp',
+        body: {
+          'device_id': device.deviceId,
+        },
+      );
+
+      if (response.status != 200) {
+        throw Exception('获取授权码失败: ${response.data}');
+      }
+
+      final email = response.data['email'] as String;
+      final otpToken = response.data['token'] as String;
+      if (email == null || email == "" || otpToken == null || otpToken == "") {
+        throw Exception('返回的授权码为空');
+      }
+
+      final command = '{"email":"$email", "otpToken":"$otpToken"}';
+
+      Fluttertoast.showToast(msg: "pairing-otp返回值：$command");
+
+      // 2. 通过 BLE 推送授权码
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.loginAuthCodeCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+
+      if (!ok) {
+        throw Exception('写入蓝牙特征失败');
+      }
+
+      Fluttertoast.showToast(msg: "写入蓝牙特征ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('登录请求已发送')),
+        );
+      }
+    } catch (e, st) {
+      print("❌ _loginDevice 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('登录失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _deviceLogout(SavedDeviceRecord device) async {
+    try {
+      // 示例 JSON 指令
+      final command = '{"action":"logout"}';
+      print(
+          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.logoutCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+      print("device_management_page: " + "writeCharacteristic ok=$ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送退出登录指令')),
+        );
+      }
+    } catch (e, st) {
+      print("❌ _deviceLogout 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送退出登录请求失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _sendCheckUpdate(SavedDeviceRecord device) async {
+    try {
+      // 示例 JSON 指令
+      final command = '{"action":"update_version"}';
+      print(
+          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: device.lastBleAddress!,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.updateVersionCharUuid,
+        data: command.codeUnits,
+        withResponse: true,
+      );
+      print("device_management_page: " + "writeCharacteristic ok=$ok");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已发送检查更新指令')),
+        );
+      }
+    } catch (e, st) {
+      print("❌ _sendCheckUpdate 出错: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('发送更新请求失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   // 是否显示详细状态
   bool _shouldShowDetailedStatus(BleDeviceStatus status) {
     return status != BleDeviceStatus.authenticated;
@@ -542,6 +672,29 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         return '连接超时，5秒后将自动重试';
       case BleDeviceStatus.authenticated:
         return '设备已就绪';
+    }
+  }
+
+  Future<void> _handleCheckUpdate() async {
+    try {
+      final ok = await ref
+          .read(conn.deviceConnectionProvider.notifier)
+          .writeWithTrustedChannel(
+            serviceUuid: BleConstants.serviceUuid,
+            characteristicUuid: BleConstants.updateVersionCharUuid,
+            data: '{}'.codeUnits,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? (context.l10n.check_update) : '检查更新指令发送失败'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('检查更新失败: $e')),
+      );
     }
   }
 
@@ -990,6 +1143,99 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  void _showDeleteDialog(BuildContext context, SavedDeviceRecord device) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除设备'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('确定要删除以下设备吗？'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '设备名称: ${device.deviceName}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'ID: ${device.deviceId}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '删除后将无法自动连接到此设备，需要重新扫描二维码添加。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteDevice(device);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteDevice(SavedDeviceRecord device) async {
+    try {
+      await ref
+          .read(savedDevicesProvider.notifier)
+          .removeDevice(device.deviceId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已删除设备 "${device.deviceName}"'),
+            action: SnackBarAction(
+              label: '知道了',
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('删除设备失败: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 }
