@@ -26,6 +26,7 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _autoTried = false;
+  // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
 
   String _formatDateTime(DateTime? dt) {
     if (dt == null) return '-';
@@ -46,6 +47,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(savedDevicesProvider.notifier).load();
     });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   void _tryAutoConnect() {
@@ -114,6 +120,25 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
+
+    // 监听 BLE 配置状态通知：当 TV 端登录成功（accountBindDevice 完成）时弹出提示
+    ref.listen<conn.DeviceConnectionState>(
+      conn.deviceConnectionProvider,
+      (previous, current) {
+        final prevStatus = previous?.provisionStatus;
+        final currStatus = current.provisionStatus;
+        if (prevStatus != currStatus) {
+          if (currStatus == 'login_success') {
+            final msg = context.l10n?.login_success ?? 'Login success';
+            Fluttertoast.showToast(msg: msg);
+          } else if (currStatus == 'failed') {
+            final l10n = context.l10n;
+            final msg = l10n != null ? l10n.login_failed('') : 'Login failed';
+            Fluttertoast.showToast(msg: msg);
+          }
+        }
+      },
+    );
 
     // // 监听连接状态变化，实现智能重连和智能WiFi处理
     // ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
