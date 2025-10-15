@@ -1192,12 +1192,20 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
       Fluttertoast.showToast(msg: "设备删除成功");
 
-      // TODO: 2. 重新请求设备列表
-      await ref
-          .read(savedDevicesProvider.notifier)
-          .removeDevice(device.deviceId);
+      // 2. 若正在连接该设备，优先通过 BLE 通知 TV 执行本地登出
+      final connState = ref.read(conn.deviceConnectionProvider);
+      if (connState.deviceData?.deviceId == device.deviceId) {
+        final notifier = ref.read(conn.deviceConnectionProvider.notifier);
+        final ok = await notifier.sendDeviceLogout();
+        if (!ok) {
+          // 不中断后续流程，仅记录日志
+          // ignore: avoid_print
+          print('⚠️ BLE 登出指令发送失败，继续删除本地记录');
+        }
+      }
 
-      // TODO: 3. 通过 BLE 推送设备解绑消息
+      // 3. 更新本地保存的设备列表（内部会在命中当前连接时断开BLE）
+      await ref.read(savedDevicesProvider.notifier).removeDevice(device.deviceId);
     } catch (e, st) {
       print("❌ _deleteDevice 出错: $e\n$st");
       Fluttertoast.showToast(msg: "设备删除失败");
