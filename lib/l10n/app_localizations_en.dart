@@ -373,6 +373,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout_confirm_ok => 'Sign out';
 
   @override
+  String get logout_confirm_desc => 'After signing out, all devices bound to this account will be unbound automatically.';
+
+  @override
   String get no_device_title => 'No device added yet';
 
   @override

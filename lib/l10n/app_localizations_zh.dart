@@ -373,6 +373,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout_confirm_ok => '退出';
 
   @override
+  String get logout_confirm_desc => '退出后，当前账号所有绑定设备将自动解除绑定';
+
+  @override
   String get no_device_title => '暂未添加设备';
 
   @override

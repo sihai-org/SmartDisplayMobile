@@ -298,6 +298,7 @@ class ProfilePage extends ConsumerWidget {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: Text(l10n.logout_confirm_title),
+                      content: Text(l10n.logout_confirm_desc),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),

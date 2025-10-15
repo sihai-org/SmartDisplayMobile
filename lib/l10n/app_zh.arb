@@ -28,6 +28,8 @@
   "profile_title": "我的",
   "logout": "退出登录"
   ,
+  "logout_confirm_desc": "退出后，当前账号所有绑定设备将自动解除绑定",
+  
   "page_not_found": "页面未找到",
   "page_not_exist": "请求的页面不存在: {path}",
   "back_to_home": "返回首页",
