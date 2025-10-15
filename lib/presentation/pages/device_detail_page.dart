@@ -182,16 +182,16 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             : null,
         title: Text(context.l10n.current_device),
         actions: [
-          IconButton(
-            onPressed: () => context.push(AppRoutes.qrScanner),
-            icon: const Icon(Icons.add),
-            tooltip: context.l10n.scan_qr,
-          ),
           if (saved.loaded && saved.devices.isNotEmpty)
             IconButton(
               onPressed: () => context.push(AppRoutes.deviceManagement),
               icon: const Icon(Icons.list),
             ),
+          IconButton(
+            onPressed: () => context.push(AppRoutes.qrScanner),
+            icon: const Icon(Icons.add),
+            tooltip: context.l10n.scan_qr,
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -409,6 +409,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ],
 
               // 设备登录
+              const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).cardColor, // 背景颜色
@@ -426,7 +427,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   );
                   _deviceLogin(rec);
                 },
-                child: const Text("登录设备"),
+                child: const Text("手动绑定设备"),
               ),
 
               // 删除设备按钮

@@ -180,12 +180,76 @@ class AppTheme {
     brightness: Brightness.dark,
     // Match Scaffold background to a dark neutral
     scaffoldBackgroundColor: const Color(0xFF121212),
+    // Provide a full, contrasted dark color scheme so cards/surfaces
+    // don’t visually merge with the background.
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
+      onPrimary: Colors.white,
       secondary: secondaryColor,
-      surface: Color(0xFF121212),
+      onSecondary: Colors.black,
       background: Color(0xFF121212),
+      onBackground: Color(0xFFE0E0E0),
+      // Use a slightly lighter tone for surfaces and cards
+      surface: Color(0xFF1E1E1E),
+      onSurface: Color(0xFFE0E0E0),
+      surfaceVariant: Color(0xFF2A2A2A),
+      onSurfaceVariant: Color(0xFF9E9E9E),
       error: errorColor,
+      onError: Colors.white,
+    ),
+    // Ensure cards and containers have visible separation
+    cardColor: const Color(0xFF1E1E1E),
+    cardTheme: CardThemeData(
+      color: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
+      ),
+      elevation: 0,
+      margin: EdgeInsets.zero,
+    ),
+    dividerTheme: const DividerThemeData(color: Color(0xFF2F2F2F)),
+    
+    // Inputs and buttons tuned for dark contrast
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 2,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
+        borderSide: const BorderSide(color: Color(0xFF3D3D3D)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
+        borderSide: const BorderSide(color: primaryColor, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppConstants.defaultBorderRadius),
+        borderSide: const BorderSide(color: errorColor),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppConstants.defaultPadding,
+        vertical: 12,
+      ),
+    ),
+    textTheme: const TextTheme(
+      headlineLarge: TextStyle(color: Colors.white),
+      headlineMedium: TextStyle(color: Colors.white),
+      headlineSmall: TextStyle(color: Colors.white),
+      titleLarge: TextStyle(color: Colors.white),
+      titleMedium: TextStyle(color: Colors.white),
+      titleSmall: TextStyle(color: Colors.white70),
+      bodyLarge: TextStyle(color: Colors.white),
+      bodyMedium: TextStyle(color: Colors.white70),
+      bodySmall: TextStyle(color: Color(0xFFBDBDBD)),
+      labelLarge: TextStyle(color: Colors.white),
+      labelMedium: TextStyle(color: Color(0xFFBDBDBD)),
+      labelSmall: TextStyle(color: Color(0xFF9E9E9E)),
     ),
     // App Bar Theme - dark: dark background, light content
     appBarTheme: const AppBarTheme(

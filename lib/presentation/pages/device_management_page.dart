@@ -60,7 +60,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
         final isSelected = device.deviceId == state.lastSelectedId;
 
         return Card(
-          elevation: isSelected ? 4 : 2,
+          elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
