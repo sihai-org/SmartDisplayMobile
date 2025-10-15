@@ -121,10 +121,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devices_title => 'Devices';
 
   @override
-  String get device_management => 'Device Management';
+  String get device_management => 'Switch Device';
 
   @override
   String get device_details => 'Device Details';
+
+  @override
+  String get current_device => 'Current Device';
 
   @override
   String get connect => 'Connect';

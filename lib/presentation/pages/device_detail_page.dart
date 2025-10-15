@@ -156,7 +156,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 onPressed: widget.onBackToList,
               )
             : null,
-        title: Text(context.l10n.appTitle),
+        title: Text(context.l10n.current_device),
         actions: [
           IconButton(
             onPressed: () => context.push(AppRoutes.qrScanner),

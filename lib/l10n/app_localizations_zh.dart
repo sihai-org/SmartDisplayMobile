@@ -121,10 +121,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get devices_title => '设备';
 
   @override
-  String get device_management => '设备管理';
+  String get device_management => '切换设备';
 
   @override
   String get device_details => '设备详情';
+
+  @override
+  String get current_device => '当前设备';
 
   @override
   String get connect => '连接';

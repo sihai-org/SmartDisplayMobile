@@ -323,6 +323,12 @@ abstract class AppLocalizations {
   /// **'Device Details'**
   String get device_details;
 
+  /// No description provided for @current_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Device'**
+  String get current_device;
+
   /// No description provided for @connect.
   ///
   /// In en, this message translates to:
