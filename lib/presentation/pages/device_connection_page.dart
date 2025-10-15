@@ -119,8 +119,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       appBar: AppBar(
         title: const Text('连接设备'),
         elevation: 0,
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        // 使用主题默认的 AppBar 配色，去掉硬编码的蓝色
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

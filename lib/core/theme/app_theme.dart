@@ -44,6 +44,9 @@ class AppTheme {
       onBackground: onBackgroundColor,
       error: errorColor,
       onError: onErrorColor,
+      // Add variant colors to avoid unexpected defaults
+      surfaceVariant: Color(0xFFF0F0F0),
+      onSurfaceVariant: Color(0xFF616161),
     ),
     
     // App Bar Theme - light: white background, dark content

@@ -70,16 +70,11 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             contentPadding: const EdgeInsets.all(16),
-            leading: CircleAvatar(
-              backgroundColor: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.surfaceVariant,
-              child: Icon(
-                Icons.tv,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            leading: Image.asset(
+              'assets/images/device.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
             ),
             title: Row(
               children: [
@@ -92,21 +87,15 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                         ),
                   ),
                 ),
-                if (isSelected)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      context.l10n.current_selected,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                    ),
+                IconButton(
+                  onPressed: () =>
+                      {if (!isSelected) _selectDevice(device.deviceId)},
+                  icon: Icon(
+                    isSelected ? Icons.task_alt : Icons.radio_button_unchecked,
                   ),
+                  color: isSelected ? Colors.green : Colors.grey,
+                  tooltip: isSelected ? null : context.l10n.set_current_device,
+                ),
               ],
             ),
             onTap: () async {
@@ -121,44 +110,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!isSelected)
-                      IconButton(
-                        onPressed: () => _selectDevice(device.deviceId),
-                        icon: const Icon(Icons.radio_button_unchecked),
-                        tooltip: context.l10n.set_current_device,
-                      ),
-                    // // TODO: 判断是否已经登录
-                    // IconButton(
-                    //   onPressed: () => _deviceLogin(device),
-                    //   icon: const Icon(Icons.login),
-                    //   tooltip: context.l10n.login_button,
-                    //   color: Theme.of(context).colorScheme.primary,
-                    // ),
-                    // // TODO: 判断是否已经登录
-                    // IconButton(
-                    //   onPressed: () => _deviceLogout(device),
-                    //   icon: const Icon(Icons.logout),
-                    //   tooltip: context.l10n.logout,
-                    //   color: Theme.of(context).colorScheme.primary,
-                    // ),
-                    // IconButton(
-                    //   onPressed: () => _sendCheckUpdate(device),
-                    //   icon: const Icon(Icons.system_update),
-                    //   tooltip: context.l10n.check_update,
-                    //   color: Theme.of(context).colorScheme.secondary,
-                    // ),
-                    // IconButton(
-                    //   onPressed: () => _showDeleteDialog(context, device),
-                    //   icon: const Icon(Icons.delete_outline),
-                    //   iconSize: 20,
-                    //   tooltip: context.l10n.delete_device,
-                    //   color: Theme.of(context).colorScheme.error,
-                    // ),
-                  ],
-                ),
                 Text(
                   '${context.l10n.device_id_label}: ${device.deviceId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
