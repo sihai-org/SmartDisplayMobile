@@ -1150,30 +1150,32 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   Future<void> _deleteDevice(SavedDeviceRecord device) async {
+    Fluttertoast.showToast(msg: "click device delete");
     try {
+      // 1. 调用 Supabase Edge Function 解绑
+      final supabase = Supabase.instance.client;
+      final response = await supabase.functions.invoke(
+        'account_unbind_device',
+        body: {
+          'device_id': device.deviceId,
+        },
+      );
+
+      if (response.status != 200) {
+        throw Exception('设备删除失败: ${response.data}');
+      }
+
+      Fluttertoast.showToast(msg: "设备删除成功");
+
+      // TODO: 2. 重新请求设备列表
       await ref
           .read(savedDevicesProvider.notifier)
           .removeDevice(device.deviceId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已删除设备 "${device.deviceName}"'),
-            action: SnackBarAction(
-              label: '知道了',
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('删除设备失败: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+
+      // TODO: 3. 通过 BLE 推送设备解绑消息
+    } catch (e, st) {
+      print("❌ _deleteDevice 出错: $e\n$st");
+      Fluttertoast.showToast(msg: "设备删除失败");
     }
   }
 }
