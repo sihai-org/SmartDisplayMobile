@@ -55,21 +55,23 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('选择Wi-Fi网络'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        // 使用全局主题的默认配色，去掉蓝色背景
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            // 返回设备连接页面
-            context.go('${AppRoutes.deviceConnection}?deviceId=${Uri.encodeComponent(widget.deviceId)}');
+            // 优先返回上一页；若无返回栈则根据上下文回退到合理页面
+            if (context.canPop()) {
+              context.pop();
+              return;
+            }
+            if (widget.deviceId.isNotEmpty) {
+              context.go('${AppRoutes.deviceConnection}?deviceId=${Uri.encodeComponent(widget.deviceId)}');
+            } else {
+              context.go(AppRoutes.home);
+            }
           },
         ),
-        actions: [
-          IconButton(
-            onPressed: () => context.go(AppRoutes.home),
-            icon: const Icon(Icons.close),
-          )
-        ],
+        // 移除右侧关闭按钮，统一使用左侧返回
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
