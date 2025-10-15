@@ -13,7 +13,6 @@ import '../../features/device_connection/models/ble_device_data.dart';
 import '../../features/device_connection/models/network_status.dart';
 import '../../features/device_connection/services/ble_service_simple.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
-import '../../l10n/app_localizations.dart';
 import '../../core/constants/ble_constants.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -334,7 +333,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   TextButton(
-                                    onPressed: _handleCheckUpdate,
+                                    onPressed: () {
+                                      final rec = saved.devices.firstWhere(
+                                            (e) => e.deviceId == saved.lastSelectedId,
+                                        orElse: () => saved.devices.first,
+                                      );
+                                      _sendCheckUpdate(rec);
+                                    },
                                     child: Text(context.l10n.check_update),
                                   ),
                                 ],
@@ -455,50 +460,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       ),
     );
   }
-
-  // // 构建状态图标
-  // Widget _buildStatusIcon(BleDeviceStatus status) {
-  //   switch (status) {
-  //     case BleDeviceStatus.disconnected:
-  //       return Icon(Icons.tv_off, size: 40, color: Colors.grey);
-  //     case BleDeviceStatus.scanning:
-  //     case BleDeviceStatus.connecting:
-  //     case BleDeviceStatus.authenticating:
-  //       return Icon(Icons.tv, size: 40, color: Colors.orange);
-  //     case BleDeviceStatus.connected:
-  //     case BleDeviceStatus.authenticated:
-  //       return Icon(Icons.tv, size: 40, color: Colors.green);
-  //     case BleDeviceStatus.error:
-  //     case BleDeviceStatus.timeout:
-  //       return Icon(Icons.tv_off, size: 40, color: Colors.red);
-  //   }
-  // }
-  //
-  // // 构建操作按钮
-  // Widget _buildActionButtons(conn.DeviceConnectionState connState) {
-  //   final l10n = context.l10n;
-  //   return Row(
-  //     mainAxisSize: MainAxisSize.min,
-  //     children: [
-  //       if (connState.status == BleDeviceStatus.disconnected ||
-  //           connState.status == BleDeviceStatus.error ||
-  //           connState.status == BleDeviceStatus.timeout)
-  //         IconButton(
-  //           onPressed: () {
-  //             _autoTried = false; // 重置标记
-  //             _tryAutoConnect();
-  //           },
-  //           icon: const Icon(Icons.refresh),
-  //           tooltip: l10n?.reconnect ?? 'Reconnect',
-  //         ),
-  //       IconButton(
-  //         onPressed: () => context.push(AppRoutes.qrScanner),
-  //         icon: const Icon(Icons.qr_code_scanner),
-  //         tooltip: l10n?.add_device ?? 'Add Device',
-  //       ),
-  //     ],
-  //   );
-  // }
 
   void _deviceLogin(SavedDeviceRecord device) async {
     Fluttertoast.showToast(msg: "click device login");
@@ -672,29 +633,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         return '连接超时，5秒后将自动重试';
       case BleDeviceStatus.authenticated:
         return '设备已就绪';
-    }
-  }
-
-  Future<void> _handleCheckUpdate() async {
-    try {
-      final ok = await ref
-          .read(conn.deviceConnectionProvider.notifier)
-          .writeWithTrustedChannel(
-            serviceUuid: BleConstants.serviceUuid,
-            characteristicUuid: BleConstants.updateVersionCharUuid,
-            data: '{}'.codeUnits,
-          );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? (context.l10n.check_update) : '检查更新指令发送失败'),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('检查更新失败: $e')),
-      );
     }
   }
 
