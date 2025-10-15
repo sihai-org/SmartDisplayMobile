@@ -145,7 +145,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wifi_selection => 'Wi‑Fi 选择';
 
   @override
-  String get qr_scanner_title => '二维码扫描';
+  String get qr_scanner_title => '扫描二维码';
 
   @override
   String get no_data => '暂无数据';
