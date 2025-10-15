@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+// TODO: 这个解析很奇怪
+/// 扫码无法解析时跳转使用（qr_scanner_page.dart）
+/// 启动页兜底也会用到（splash_page.dart）
 class QrCodeResultPage extends StatelessWidget {
   final String text;
   const QrCodeResultPage({super.key, required this.text});

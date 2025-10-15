@@ -167,10 +167,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     _buildConnectionLogs(connectionState),
 
                     const SizedBox(height: 32),
-
-                    // 移除手动操作按钮，仅自动流程
-                    
-                    const SizedBox(height: 24), // 底部留白
                   ],
                 ),
               ),
@@ -465,6 +461,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
   /// 连接日志
   Widget _buildConnectionLogs(DeviceConnectionState state) {
+    return const SizedBox.shrink(); // 占位但大小为0，不渲染内容
     if (state.connectionLogs.isEmpty) return const SizedBox.shrink();
     final lines = state.connectionLogs.length > 10
         ? state.connectionLogs.sublist(state.connectionLogs.length - 10)
@@ -507,140 +504,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 构建操作按钮
-  Widget _buildActionButtons(DeviceConnectionState state) {
-    // 检查是否有QR扫描数据
-    final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.deviceId);
-    
-    // 如果有QR数据且未开始连接，显示"开始连接"按钮
-    if (qrDeviceData != null && state.status == BleDeviceStatus.disconnected) {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                // 使用QR数据开始连接
-                ref.read(deviceConnectionProvider.notifier).startConnection(qrDeviceData);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('开始连接'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: TextButton(
-              onPressed: () {
-                // 清理全局状态
-                ref.read(appStateProvider.notifier).clearScannedDeviceData();
-                ref.read(deviceConnectionProvider.notifier).reset();
-                ref.read(qrScannerProvider.notifier).reset();
-                // 返回扫描页面
-                context.go(AppRoutes.qrScanner);
-              },
-              child: const Text('返回扫描'),
-            ),
-          ),
-        ],
-      );
-    }
-    
-    if (state.status == BleDeviceStatus.error) {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () => ref.read(deviceConnectionProvider.notifier).retry(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('重试连接'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: TextButton(
-              onPressed: () {
-                // 清理全局状态和设备连接状态
-                ref.read(appStateProvider.notifier).clearScannedDeviceData();
-                ref.read(deviceConnectionProvider.notifier).reset();
-                // 清理QR扫描器状态 (为了重新开始扫描)
-                ref.read(qrScannerProvider.notifier).reset();
-                // 返回扫描页面
-                context.go(AppRoutes.qrScanner);
-              },
-              child: const Text('返回扫描'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: TextButton(
-              onPressed: () {
-                // 临时跳过权限检查，直接跳转到Wi-Fi选择页面进行测试
-                context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(widget.deviceId)}');
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange.withOpacity(0.1),
-              ),
-              child: const Text('跳过权限检查（测试用）', style: TextStyle(color: Colors.orange)),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (state.status == BleDeviceStatus.authenticated) {
-      return SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: ElevatedButton(
-          onPressed: () {
-            context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(state.deviceData!.deviceId)}');
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: const Text('继续配网'),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: TextButton(
-        onPressed: () async {
-          await ref.read(deviceConnectionProvider.notifier).disconnect();
-          if (mounted) context.go(AppRoutes.qrScanner);
-        },
-        child: const Text('取消连接'),
       ),
     );
   }
@@ -719,28 +582,4 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         return '连接超时';
     }
   }
-
-  /// 构建蓝牙扫描结果列表（已简化为空，避免干扰自动流程）
-  Widget _buildBleScanResults(DeviceConnectionState state) {
-    return const SizedBox.shrink();
-  }
-  
-
-  /// 检查扫描结果是否与目标设备匹配
-  bool _isMatchingDevice(SimpleBLEScanResult scanResult, DeviceQrData qrDeviceData) {
-    // 检查设备ID匹配
-    if (scanResult.deviceId == qrDeviceData.deviceId) return true;
-    
-    // 检查BLE地址匹配
-    if (scanResult.address == qrDeviceData.bleAddress) return true;
-    
-    // 检查设备名称匹配
-    if (scanResult.name.contains(qrDeviceData.deviceName) || 
-        qrDeviceData.deviceName.contains(scanResult.name)) {
-      return true;
-    }
-    
-    return false;
-  }
-
 }

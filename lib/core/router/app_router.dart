@@ -8,8 +8,6 @@ import '../../presentation/pages/qr_scanner_page.dart';
 import '../../presentation/pages/qrcode_result_page.dart';
 import '../../presentation/pages/device_connection_page.dart';
 import '../../presentation/pages/wifi_selection_page.dart';
-import '../../presentation/pages/provisioning_page.dart';
-import '../../presentation/pages/settings_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 
@@ -21,8 +19,6 @@ class AppRoutes {
   static const String qrScanner = '/qr-scanner';
   static const String deviceConnection = '/device-connection';
   static const String wifiSelection = '/wifi-selection';
-  static const String provisioning = '/provisioning';
-  static const String settings = '/settings';
   static const String qrCodeResult = '/qrcode_res';
   static const String deviceManagement = '/device-management';
 }
@@ -118,25 +114,6 @@ final GoRouter appRouter = GoRouter(
         final deviceId = state.uri.queryParameters['deviceId'] ?? '';
         return WiFiSelectionPage(deviceId: deviceId);
       },
-    ),
-
-    // Provisioning Page
-    GoRoute(
-      path: AppRoutes.provisioning,
-      name: 'provisioning',
-      builder: (context, state) {
-        final deviceId = state.uri.queryParameters['deviceId'] ?? '';
-        final ssid = state.uri.queryParameters['ssid'] ?? '';
-        return ProvisioningPage(deviceId: deviceId, ssid: ssid);
-      },
-    ),
-
-
-    // Settings Page
-    GoRoute(
-      path: AppRoutes.settings,
-      name: 'settings',
-      builder: (context, state) => const SettingsPage(),
     ),
   ],
 

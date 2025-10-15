@@ -140,38 +140,38 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       },
     );
 
-    // // 监听连接状态变化，实现智能重连和智能WiFi处理
-    // ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
-    //   if (previous != null && previous.status != current.status) {
-    //     print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
-    //
-    //     // 当设备认证完成时，自动进行智能WiFi处理
-    //     if (current.status == BleDeviceStatus.authenticated &&
-    //         previous.status != BleDeviceStatus.authenticated) {
-    //       print('[HomePage] 设备认证完成，开始智能WiFi处理');
-    //       Future.delayed(const Duration(milliseconds: 500), () {
-    //         if (mounted) {
-    //           ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
-    //         }
-    //       });
-    //     }
-    //
-    //     _handleSmartReconnect();
-    //   }
-    // });
-    //
-    // // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
-    // ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
-    //   if (current.loaded && current.lastSelectedId != null &&
-    //       (previous == null || !previous.loaded)) {
-    //     // 延迟执行，避免在build期间修改provider
-    //     Future.delayed(Duration.zero, () {
-    //       if (mounted) {
-    //         _tryAutoConnect();
-    //       }
-    //     });
-    //   }
-    // });
+    // 监听连接状态变化，实现智能重连和智能WiFi处理
+    ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
+      if (previous != null && previous.status != current.status) {
+        print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
+
+        // 当设备认证完成时，自动进行智能WiFi处理
+        if (current.status == BleDeviceStatus.authenticated &&
+            previous.status != BleDeviceStatus.authenticated) {
+          print('[HomePage] 设备认证完成，开始智能WiFi处理');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
+            }
+          });
+        }
+
+        _handleSmartReconnect();
+      }
+    });
+
+    // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
+    ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
+      if (current.loaded && current.lastSelectedId != null &&
+          (previous == null || !previous.loaded)) {
+        // 延迟执行，避免在build期间修改provider
+        Future.delayed(Duration.zero, () {
+          if (mounted) {
+            _tryAutoConnect();
+          }
+        });
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         leading: widget.onBackToList != null
