@@ -7,6 +7,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
+import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -34,9 +35,25 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context) async {
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     try {
-      await Supabase.instance.client.auth.signOut();
+      final supabase = Supabase.instance.client;
+      await supabase.functions.invoke(
+        'account_signout',
+        body: {},
+      );
+      await supabase.auth.signOut();
+      // 若当前与设备已建立连接，则通过 BLE 通知 TV 执行本地登出
+      final connState = ref.read(conn.deviceConnectionProvider);
+      if (connState.deviceData != null) {
+        final notifier = ref.read(conn.deviceConnectionProvider.notifier);
+        final ok = await notifier.sendDeviceLogout();
+        if (!ok) {
+          // 不中断后续流程，仅记录日志
+          // ignore: avoid_print
+          print('⚠️ BLE 登出指令发送失败，继续登出流程');
+        }
+      }
       context.go(AppRoutes.login);
     } catch (e) {
       final l10n = context.l10n;
@@ -294,7 +311,7 @@ class ProfilePage extends ConsumerWidget {
                     ),
                   );
                   if (confirm == true && context.mounted) {
-                    await _signOut(context);
+                    await _signOut(context, ref);
                   }
                 },
                 child: Text(l10n.logout),

@@ -429,26 +429,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 child: const Text("登录设备"),
               ),
 
-              // 设备登出
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).cardColor, // 背景颜色
-                  foregroundColor:
-                      Theme.of(context).colorScheme.primary, // 文字颜色
-                  elevation: 0, // 阴影高度
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12), // 圆角
-                  ),
-                ),
-                onPressed: () {
-                  final rec = saved.devices.firstWhere(
-                    (e) => e.deviceId == saved.lastSelectedId,
-                    orElse: () => saved.devices.first,
-                  );
-                  _deviceLogout(rec);
-                },
-                child: const Text("退出设备"),
-              ),
               // 删除设备按钮
               const SizedBox(height: 16),
               ElevatedButton(
@@ -545,39 +525,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }
   }
 
-  void _deviceLogout(SavedDeviceRecord device) async {
-    try {
-      // 示例 JSON 指令
-      final command = '{"action":"logout"}';
-      print(
-          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: device.lastBleAddress!,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.logoutCharUuid,
-        data: command.codeUnits,
-        withResponse: true,
-      );
-      print("device_management_page: " + "writeCharacteristic ok=$ok");
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已发送退出登录指令')),
-        );
-      }
-    } catch (e, st) {
-      print("❌ _deviceLogout 出错: $e\n$st");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('发送退出登录请求失败: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
   void _sendCheckUpdate(SavedDeviceRecord device) async {
     try {
       // 示例 JSON 指令
@@ -608,94 +555,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           ),
         );
       }
-    }
-  }
-
-  // 是否显示详细状态
-  bool _shouldShowDetailedStatus(BleDeviceStatus status) {
-    return status != BleDeviceStatus.authenticated;
-  }
-
-  // 是否正在连接
-  bool _isConnecting(BleDeviceStatus status) {
-    return status == BleDeviceStatus.scanning ||
-           status == BleDeviceStatus.connecting ||
-           status == BleDeviceStatus.authenticating;
-  }
-
-  // 获取详细状态图标
-  IconData _getDetailedStatusIcon(BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.disconnected:
-        return Icons.info_outline;
-      case BleDeviceStatus.connected:
-        return Icons.check_circle_outline;
-      case BleDeviceStatus.error:
-        return Icons.error_outline;
-      case BleDeviceStatus.timeout:
-        return Icons.timer_off;
-      default:
-        return Icons.info_outline;
-    }
-  }
-
-  // 获取详细状态文本
-  String _getDetailedStatusText(BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.disconnected:
-        return '设备未连接，正在自动重连中...';
-      case BleDeviceStatus.scanning:
-        return '正在搜索设备...';
-      case BleDeviceStatus.connecting:
-        return '正在建立连接...';
-      case BleDeviceStatus.connected:
-        return '连接成功，正在进行认证...';
-      case BleDeviceStatus.authenticating:
-        return '正在验证设备身份...';
-      case BleDeviceStatus.error:
-        return '连接失败，5秒后将自动重试';
-      case BleDeviceStatus.timeout:
-        return '连接超时，5秒后将自动重试';
-      case BleDeviceStatus.authenticated:
-        return '设备已就绪';
-    }
-  }
-
-  String _statusText(BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.disconnected:
-        return '未连接';
-      case BleDeviceStatus.scanning:
-        return '扫描中...';
-      case BleDeviceStatus.connecting:
-        return '连接中...';
-      case BleDeviceStatus.connected:
-        return '已连接';
-      case BleDeviceStatus.authenticating:
-        return '认证中...';
-      case BleDeviceStatus.authenticated:
-        return '已就绪';
-      case BleDeviceStatus.error:
-        return '连接失败';
-      case BleDeviceStatus.timeout:
-        return '连接超时';
-    }
-  }
-
-  Color _statusColor(BuildContext context, BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.connected:
-      case BleDeviceStatus.authenticated:
-        return Colors.green;
-      case BleDeviceStatus.connecting:
-      case BleDeviceStatus.scanning:
-      case BleDeviceStatus.authenticating:
-        return Colors.orange;
-      case BleDeviceStatus.error:
-      case BleDeviceStatus.timeout:
-        return Colors.red;
-      case BleDeviceStatus.disconnected:
-        return Theme.of(context).colorScheme.onSurfaceVariant;
     }
   }
 
