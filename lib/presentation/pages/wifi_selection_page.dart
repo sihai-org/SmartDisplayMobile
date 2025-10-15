@@ -73,9 +73,17 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         ),
         // 移除右侧关闭按钮，统一使用左侧返回
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      // 让内容可滚动，并在键盘弹出时自动上移，避免溢出
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+                child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -235,6 +243,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
               ],
             ),
           ],
+        ),
+              ),
+            );
+          },
         ),
       ),
       // 附近网络列表已放入正文区域，移除底部栏
