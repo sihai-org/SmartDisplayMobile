@@ -72,6 +72,8 @@
   ,
   "google_signin_placeholder": "Coming soon"
   ,
+  "login_expired": "Login session expired",
+  
   "welcome_title": "Welcome to SmartDisplay",
   "welcome_hint": "Scan the QR code on the display to provision Wi‑Fi",
   "reconnect": "Reconnect",

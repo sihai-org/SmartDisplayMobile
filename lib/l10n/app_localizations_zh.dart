@@ -207,6 +207,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get google_signin_placeholder => '敬请期待';
 
   @override
+  String get login_expired => '登录已过期';
+
+  @override
   String get welcome_title => '欢迎使用大头智显';
 
   @override

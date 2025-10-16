@@ -207,6 +207,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get google_signin_placeholder => 'Coming soon';
 
   @override
+  String get login_expired => 'Login session expired';
+
+  @override
   String get welcome_title => 'Welcome to SmartDisplay';
 
   @override

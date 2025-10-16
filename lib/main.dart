@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/providers/locale_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'core/deeplink/deep_link_handler.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'core/l10n/l10n_extensions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,11 +43,39 @@ void main() async {
   runApp(const ProviderScope(child: SmartDisplayApp()));
 }
 
-class SmartDisplayApp extends ConsumerWidget {
+class SmartDisplayApp extends ConsumerStatefulWidget {
   const SmartDisplayApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SmartDisplayApp> createState() => _SmartDisplayAppState();
+}
+
+class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
+  StreamSubscription<AuthState>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to Supabase auth state changes
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedOut) {
+        if (!mounted) return;
+        // Show localized toast and navigate to login
+        Fluttertoast.showToast(msg: context.l10n.login_expired);
+        appRouter.go(AppRoutes.login);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final locale = ref.watch(localeProvider);
     return MaterialApp.router(
       // Title may be localized by platform; keep constant for now

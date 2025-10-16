@@ -72,6 +72,8 @@
   ,
   "google_signin_placeholder": "敬请期待"
   ,
+  "login_expired": "登录已过期",
+  
   "welcome_title": "欢迎使用大头智显",
   "welcome_hint": "请扫描显示器上的二维码为显示器配置网络",
   "reconnect": "重新连接",

@@ -467,6 +467,12 @@ abstract class AppLocalizations {
   /// **'Coming soon'**
   String get google_signin_placeholder;
 
+  /// No description provided for @login_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'Login session expired'**
+  String get login_expired;
+
   /// No description provided for @welcome_title.
   ///
   /// In en, this message translates to:
