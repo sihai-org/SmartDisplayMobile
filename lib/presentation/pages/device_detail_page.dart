@@ -121,7 +121,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
 
-    // 监听 BLE 配置状态通知：当 TV 端登录成功（accountBindDevice 完成）时弹出提示
+    // 监听 BLE 配置状态通知：当 TV 端登录成功（accountBindDevice 完成）时弹出提示并刷新设备列表
     ref.listen<conn.DeviceConnectionState>(
       conn.deviceConnectionProvider,
       (previous, current) {
@@ -131,6 +131,16 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           if (currStatus == 'login_success') {
             final msg = context.l10n?.login_success ?? 'Login success';
             Fluttertoast.showToast(msg: msg);
+            // 登录成功后刷新本地设备列表，并将当前设备设为选中
+            Future.microtask(() async {
+              if (!mounted) return;
+              await ref.read(savedDevicesProvider.notifier).load();
+              final id = current.deviceData?.deviceId;
+              if (id != null && id.isNotEmpty) {
+                // 选中当前设备，便于后续展示与自动连接
+                await ref.read(savedDevicesProvider.notifier).select(id);
+              }
+            });
           } else if (currStatus == 'failed') {
             final l10n = context.l10n;
             final msg = l10n != null ? l10n.login_failed('') : 'Login failed';
@@ -419,28 +429,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 _buildNetworkSection(context, connState),
               ],
 
-              // 设备登录
-              const SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).cardColor, // 背景颜色
-                  foregroundColor:
-                      Theme.of(context).colorScheme.primary, // 文字颜色
-                  elevation: 0, // 阴影高度
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12), // 圆角
-                  ),
-                ),
-                onPressed: () {
-                  final rec = saved.devices.firstWhere(
-                    (e) => e.deviceId == saved.lastSelectedId,
-                    orElse: () => saved.devices.first,
-                  );
-                  _deviceLogin(rec);
-                },
-                child: const Text("手动绑定设备"),
-              ),
-
               // 删除设备按钮
               const SizedBox(height: 16),
               ElevatedButton(
@@ -476,67 +464,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         ),
       ),
     );
-  }
-
-  void _deviceLogin(SavedDeviceRecord device) async {
-    Fluttertoast.showToast(msg: "click device login");
-    try {
-      // 1. 调用 Supabase Edge Function 获取授权码
-      final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke(
-        'pairing-otp',
-        body: {
-          'device_id': device.deviceId,
-        },
-      );
-
-      if (response.status != 200) {
-        throw Exception('获取授权码失败: ${response.data}');
-      }
-
-      final email = response.data['email'] as String;
-      final otpToken = response.data['token'] as String;
-      if (email == null || email == "" || otpToken == null || otpToken == "") {
-        throw Exception('返回的授权码为空');
-      }
-
-      final command = '{"email":"$email", "otpToken":"$otpToken"}';
-
-      Fluttertoast.showToast(msg: "pairing-otp返回值：$command");
-
-      // 2. 通过 BLE 推送授权码
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: device.lastBleAddress!,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.loginAuthCodeCharUuid,
-        data: command.codeUnits,
-        withResponse: true,
-      );
-
-      if (!ok) {
-        throw Exception('写入蓝牙特征失败');
-      }
-
-      Fluttertoast.showToast(msg: "写入蓝牙特征ok");
-
-      // 等待设备端通过BLE通知登录成功后，再由连接管理器刷新与选中设备
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('登录请求已发送')),
-        );
-      }
-    } catch (e, st) {
-      print("❌ _loginDevice 出错: $e\n$st");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('登录失败: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
   }
 
   void _sendCheckUpdate(SavedDeviceRecord device) async {
