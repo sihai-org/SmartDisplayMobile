@@ -199,7 +199,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!saved.loaded || saved.devices.isEmpty) ...[
+            if (!saved.loaded) ...[
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top -
+                      kToolbarHeight -
+                      AppConstants.defaultPadding * 2 -
+                      MediaQuery.of(context).padding.bottom,
+                ),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ] else if (saved.devices.isEmpty) ...[
               ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: MediaQuery.of(context).size.height -

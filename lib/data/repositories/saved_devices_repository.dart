@@ -1,5 +1,6 @@
-import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 
 class SavedDeviceRecord {
@@ -58,19 +59,40 @@ class SavedDevicesRepository {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   Future<List<SavedDeviceRecord>> loadAll() async {
-    final raw = await _storage.read(key: _keyDevices);
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-      return list.map(SavedDeviceRecord.fromJson).toList();
-    } catch (_) {
+    // Fetch device list from Supabase instead of local storage.
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) {
       return [];
     }
-  }
 
-  Future<void> saveAll(List<SavedDeviceRecord> devices) async {
-    final raw = jsonEncode(devices.map((e) => e.toJson()).toList());
-    await _storage.write(key: _keyDevices, value: raw);
+    try {
+      final List<dynamic> rows = await client
+          .from('account_device_binding_log')
+          .select('device_id, device_name, device_public_key, bind_time')
+          .eq('user_id', user.id)
+          .eq('bind_status', 1)
+          .order('bind_time');
+
+      return rows.map((row) {
+        final map = row as Map<String, dynamic>;
+        final deviceId = (map['device_id'] ?? '').toString();
+        final deviceName = (map['device_name'] ?? '').toString();
+        final publicKey = (map['device_public_key'] ?? '').toString();
+        final bindTime = map['bind_time'] as String?;
+        return SavedDeviceRecord(
+          deviceId: deviceId,
+          deviceName: deviceName,
+          publicKey: publicKey,
+          lastBleAddress: null,
+          lastConnectedAt: bindTime != null ? DateTime.tryParse(bindTime) : null,
+        );
+      }).toList();
+    } catch (e) {
+      // On failure, show toast and return empty list; no local cache fallback.
+      Fluttertoast.showToast(msg: '获取设备列表失败');
+      return [];
+    }
   }
 
   Future<String?> loadLastSelectedId() async {
@@ -82,39 +104,15 @@ class SavedDevicesRepository {
   }
 
   Future<void> upsertFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
-    final all = await loadAll();
-    final idx = all.indexWhere((e) => e.deviceId == qr.deviceId);
-    final rec = SavedDeviceRecord(
-      deviceId: qr.deviceId,
-      deviceName: qr.deviceName,
-      publicKey: qr.publicKey,
-      lastBleAddress: lastBleAddress,
-      lastConnectedAt: DateTime.now(),
-    );
-    if (idx >= 0) {
-      all[idx] = all[idx]
-          .copyWith(deviceName: rec.deviceName, publicKey: rec.publicKey, lastBleAddress: lastBleAddress, lastConnectedAt: DateTime.now());
-    } else {
-      all.add(rec);
-    }
-    await saveAll(all);
-    await saveLastSelectedId(rec.deviceId);
+    // No longer cache devices locally. Only remember last selected id.
+    await saveLastSelectedId(qr.deviceId);
   }
 
   Future<void> removeDevice(String deviceId) async {
-    final all = await loadAll();
-    all.removeWhere((e) => e.deviceId == deviceId);
-    await saveAll(all);
-    
-    // 如果删除的是最后选中的设备，更新lastSelectedId
+    // Do not modify remote data here. Just clear last selected if it matches.
     final currentLastSelected = await loadLastSelectedId();
     if (currentLastSelected == deviceId) {
-      if (all.isNotEmpty) {
-        await saveLastSelectedId(all.last.deviceId);
-      } else {
-        await _storage.delete(key: _keyLastSelectedId);
-      }
+      await _storage.delete(key: _keyLastSelectedId);
     }
   }
 }
-
