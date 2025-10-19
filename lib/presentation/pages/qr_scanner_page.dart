@@ -9,6 +9,8 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import '../../features/qr_scanner/utils/qr_data_parser.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class QrScannerPage extends ConsumerStatefulWidget {
   const QrScannerPage({super.key});
@@ -64,10 +66,51 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
               await ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
               context.go(AppRoutes.home);
             } else {
-              print("🆕 新设备 ${deviceData.deviceId} → 跳转连接页面");
-              // 新设备：跳转到连接页面走首次连接流程
+              // 先记录扫描数据
               ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
-              context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+
+              // 调用 Edge Function 检查是否已绑定
+              print("🌐 调用 device_check_binding 检查绑定状态");
+              final supabase = Supabase.instance.client;
+              try {
+                final resp = await supabase.functions.invoke(
+                  'device_check_binding',
+                  body: { 'device_id': deviceData.deviceId },
+                );
+                if (resp.status != 200) {
+                  throw Exception('device_check_binding 调用失败: ${resp.data}');
+                }
+                final data = resp.data as Map;
+                final isBound = (data['is_bound'] == true);
+                final isOwner = (data['is_owner'] == true);
+                ref.read(appStateProvider.notifier)
+                   .setScannedBindingStatus(isBound: isBound, isOwner: isOwner);
+
+                if (isBound && isOwner) {
+                  print('✅ 该设备已被自己绑定，设为当前并进入详情');
+                  await ref.read(savedDevicesProvider.notifier)
+                      .upsertFromQr(deviceData, lastBleAddress: deviceData.bleAddress);
+                  await ref.read(savedDevicesProvider.notifier)
+                      .select(deviceData.deviceId);
+                  context.go(AppRoutes.home);
+                  return;
+                }
+
+                if (isBound && !isOwner) {
+                  print('⛔ 已被他人绑定，提示不可操作');
+                  Fluttertoast.showToast(msg: '该设备已被他人绑定，如需操作请先解绑');
+                  // 回到扫码页，允许继续扫码
+                  return;
+                }
+
+                // 未绑定：进入连接流程（后续在连接页判断是否联网并引导配网或绑定）
+                print("🆕 未绑定设备 ${deviceData.deviceId} → 跳转连接页");
+                context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+              } catch (e) {
+                print('❌ 检查绑定状态失败: $e');
+                // 回退到原先流程：进入连接页
+                context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+              }
             }
           } catch (e) {
             // 解析失败：跳转到结果展示页，直接显示原始文本以便复制
@@ -221,20 +264,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
               ),
             ),
 
-            // 候选框
-            if (candidate != null)
-              Positioned(
-                left: candidate.left,
-                top: candidate.top,
-                child: Container(
-                  width: candidate.width,
-                  height: candidate.height,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.greenAccent, width: 2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+            // 关闭候选框高亮，避免扫描时绿色闪烁
           ],
         );
       },

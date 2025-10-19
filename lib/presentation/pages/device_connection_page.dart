@@ -8,9 +8,12 @@ import '../../core/providers/saved_devices_provider.dart';
 import '../../features/device_connection/models/ble_device_data.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../features/device_connection/services/ble_service_simple.dart';
+import '../../core/constants/ble_constants.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.deviceId});
@@ -90,23 +93,46 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
       }
       if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
-        print('[DeviceConnectionPage] 🎉 认证完成，准备跳转首页');
         final d = current.deviceData!;
+        print('[DeviceConnectionPage] 🎉 认证完成');
+
+        // 判断是否为“未绑定扫描”场景
+        final app = ref.read(appStateProvider);
+        final scanned = app.scannedDeviceData;
+        final isSame = scanned?.deviceId == d.deviceId;
+        final isUnboundScan = isSame && (app.scannedIsBound == false);
+
+        if (isUnboundScan) {
+          // 未绑定流程：优先检查设备是否联网
+          print('[DeviceConnectionPage] 未绑定 → 检查设备网络状态');
+          final ns = await ref.read(deviceConnectionProvider.notifier).checkNetworkStatus();
+          if (ns == null || ns.connected != true) {
+            print('[DeviceConnectionPage] 📶 设备离线 → 跳转Wi‑Fi配网页面');
+            if (mounted) {
+              context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+            }
+            return;
+          }
+
+          // 已联网：跳转到绑定确认页面
+          if (mounted) {
+            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+          }
+          return;
+        }
+
+        // 常规流程：保存并进入首页（设备详情页）
         final qr = DeviceQrData(
             deviceId: d.deviceId,
             deviceName: d.deviceName,
             bleAddress: d.bleAddress,
             publicKey: d.publicKey);
-        
         print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
         await ref
             .read(savedDevicesProvider.notifier)
             .upsertFromQr(qr, lastBleAddress: d.bleAddress);
-        
         print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
         await ref.read(savedDevicesProvider.notifier).select(d.deviceId);
-        
-        print('[DeviceConnectionPage] 跳转首页, mounted: $mounted');
         if (mounted) {
           context.go(AppRoutes.home);
           print('[DeviceConnectionPage] ✅ 已执行跳转首页');
@@ -176,6 +202,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       ),
     );
   }
+
+  // 绑定流程改为独立页面处理
 
   /// 构建设备信息卡片
   Widget _buildDeviceInfoCard(DeviceConnectionState state) {

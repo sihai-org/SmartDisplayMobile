@@ -519,6 +519,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
       Fluttertoast.showToast(msg: "写入蓝牙特征ok");
 
+      // 等待设备端通过BLE通知登录成功后，再由连接管理器刷新与选中设备
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('登录请求已发送')),

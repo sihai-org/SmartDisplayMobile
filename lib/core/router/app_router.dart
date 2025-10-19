@@ -8,6 +8,7 @@ import '../../presentation/pages/qr_scanner_page.dart';
 import '../../presentation/pages/qrcode_result_page.dart';
 import '../../presentation/pages/device_connection_page.dart';
 import '../../presentation/pages/wifi_selection_page.dart';
+import '../../presentation/pages/bind_confirm_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 
@@ -19,6 +20,7 @@ class AppRoutes {
   static const String qrScanner = '/qr-scanner';
   static const String deviceConnection = '/device-connection';
   static const String wifiSelection = '/wifi-selection';
+  static const String bindConfirm = '/bind-confirm';
   static const String qrCodeResult = '/qrcode_res';
   static const String deviceManagement = '/device-management';
 }
@@ -113,6 +115,16 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final deviceId = state.uri.queryParameters['deviceId'] ?? '';
         return WiFiSelectionPage(deviceId: deviceId);
+      },
+    ),
+
+    // Bind Confirm Page
+    GoRoute(
+      path: AppRoutes.bindConfirm,
+      name: 'bind-confirm',
+      builder: (context, state) {
+        final deviceId = state.uri.queryParameters['deviceId'] ?? '';
+        return BindConfirmPage(deviceId: deviceId);
       },
     ),
   ],
