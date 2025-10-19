@@ -275,7 +275,8 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   List<Widget> _buildCornerDecorations() {
     const cornerSize = 20.0;
     const cornerWidth = 3.0;
-    const color = Colors.green;
+    // Use neutral color to avoid green flicker perception
+    const color = Colors.white;
 
     return [
       // 左上角
@@ -343,6 +344,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
   /// 构建状态指示器
   Widget _buildStatusIndicator(QrScannerState state) {
+    // 当成功时我们马上导航，不再显示任何状态条，避免绿色弹窗瞬闪
+    if (state.status == QrScannerStatus.success) {
+      return const SizedBox.shrink();
+    }
     return Positioned(
       top: 120,
       left: 0,
@@ -355,54 +360,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             color: _getStatusColor(state.status).withOpacity(0.8),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: state.status == QrScannerStatus.success && state.qrContent != null
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _getStatusIcon(state.status),
-                        const SizedBox(width: 8),
-                        Text(
-                          context.l10n.scan_success,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: SelectableText(
-                        state.qrContent!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () => ref.read(qrScannerProvider.notifier).startScanning(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      child: Text(context.l10n.rescan),
-                    ),
-                  ],
-                )
-              : Row(
+          child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _getStatusIcon(state.status),
@@ -478,7 +436,8 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       case QrScannerStatus.processing:
         return Colors.orange;
       case QrScannerStatus.success:
-        return Colors.green;
+        // success 时不显示状态条，此颜色不会被用到
+        return Colors.transparent;
       case QrScannerStatus.error:
         return Colors.red;
     }

@@ -69,7 +69,8 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   /// 初始化控制器 (不更新状态)
   void initializeController() {
     _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.unrestricted,
+      // Use normal detection speed to reduce rapid UI updates
+      detectionSpeed: DetectionSpeed.normal,
       facing: CameraFacing.back,
       torchEnabled: false,
       formats: const [BarcodeFormat.qrCode],
