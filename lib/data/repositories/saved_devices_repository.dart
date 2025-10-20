@@ -128,7 +128,7 @@ class SavedDevicesRepository {
     await _storage.write(key: _keyLastSelectedId, value: deviceId);
   }
 
-  Future<void> upsertFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
+  Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
     // No longer cache devices locally. Only remember last selected id.
     await saveLastSelectedId(qr.deviceId);
   }

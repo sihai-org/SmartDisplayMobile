@@ -89,9 +89,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                 if (isBound && isOwner) {
                   print('✅ 该设备已被自己绑定，设为当前并进入详情');
                   await ref.read(savedDevicesProvider.notifier)
-                      .upsertFromQr(deviceData, lastBleAddress: deviceData.bleAddress);
-                  await ref.read(savedDevicesProvider.notifier)
-                      .select(deviceData.deviceId);
+                      .selectFromQr(deviceData, lastBleAddress: deviceData.bleAddress);
                   context.go(AppRoutes.home);
                   return;
                 }

@@ -174,9 +174,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
         await ref
             .read(savedDevicesProvider.notifier)
-            .upsertFromQr(qr, lastBleAddress: d.bleAddress);
+            .selectFromQr(qr, lastBleAddress: d.bleAddress);
         print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
-        await ref.read(savedDevicesProvider.notifier).select(d.deviceId);
         if (mounted) {
           context.go(AppRoutes.home);
           print('[DeviceConnectionPage] ✅ 已执行跳转首页');

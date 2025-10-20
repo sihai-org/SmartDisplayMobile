@@ -45,9 +45,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     }
   }
 
-  Future<void> upsertFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
-    await _repo.upsertFromQr(qr, lastBleAddress: lastBleAddress);
+  Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
+    await _repo.selectFromQr(qr, lastBleAddress: lastBleAddress);
+    // Keep behavior consistent: refresh local state and mark selection
     await load();
+    await select(qr.deviceId);
   }
 
   Future<void> select(String deviceId) async {
