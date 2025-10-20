@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/ble_constants.dart';
 import '../../../core/crypto/crypto_service.dart';
@@ -381,14 +382,24 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _wifiAssembler?.reset();
     _handshakeAssembler?.reset();
 
-    // 订阅 A107
+    // 订阅 A107（Wifi_Config_Status）
     _provisionStatusSubscription =
         BleServiceSimple.subscribeToCharacteristic(
           deviceId: deviceId,
           serviceUuid: BleConstants.serviceUuid,
-          characteristicUuid: BleConstants.provisionStatusCharUuid,
-        ).listen((data) {
-          final status = utf8.decode(data);
+          characteristicUuid: BleConstants.wifiConfigStatusCharUuid,
+        ).listen((data) async {
+          // 若已建立会话，则尝试按密文解密，否则回退到明文
+          String? status;
+          try {
+            if (_cryptoService != null && _cryptoService!.hasSecureSession) {
+              final ed = EncryptedData.fromBytes(data);
+              status = await _cryptoService!.decrypt(ed);
+            }
+          } catch (_) {
+            // ignore and fallback
+          }
+          status ??= utf8.decode(data, allowMalformed: true);
           state = state.copyWith(provisionStatus: status);
         });
 
@@ -418,24 +429,50 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
     final deviceId = deviceData.bleAddress;
 
-    final handshakeInit = await _cryptoService!.getHandshakeInitData();
+    var handshakeInit = await _cryptoService!.getHandshakeInitData();
+    try {
+      final supaUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (supaUserId != null && supaUserId.isNotEmpty) {
+        final obj = jsonDecode(handshakeInit) as Map<String, dynamic>;
+        obj['userId'] = supaUserId;
+        handshakeInit = jsonEncode(obj);
+      }
+    } catch (_) {}
 
     _handshakeAssembler = BleChunkAssembler(
       characteristic: 'A105',
       timeoutMs: 2000,
       onCompleted: (json) async {
-        final response = _cryptoService!.parseHandshakeResponse(json);
-        final publicKey = await _cryptoService!.getLocalPublicKey();
-        await _cryptoService!.performKeyExchange(
-          remoteEphemeralPubKey: response.publicKey,
-          signature: response.signature,
-          devicePublicKeyHex: deviceData.publicKey,
-          clientEphemeralPubKey: publicKey,
-          timestamp: response.timestamp,
-          clientTimestamp: _cryptoService!.clientTimestamp!,
-        );
-        state = state.copyWith(status: BleDeviceStatus.authenticated);
-        _log('🎉 认证完成');
+        // 兼容 A105 的后续简短通知，例如 {"type":"authenticated"}
+        try {
+          final response = _cryptoService!.parseHandshakeResponse(json);
+          final publicKey = await _cryptoService!.getLocalPublicKey();
+          await _cryptoService!.performKeyExchange(
+            remoteEphemeralPubKey: response.publicKey,
+            signature: response.signature,
+            devicePublicKeyHex: deviceData.publicKey,
+            clientEphemeralPubKey: publicKey,
+            timestamp: response.timestamp,
+            clientTimestamp: _cryptoService!.clientTimestamp!,
+          );
+          state = state.copyWith(status: BleDeviceStatus.authenticated);
+          _log('🎉 认证完成');
+        } catch (_) {
+          // 非握手响应，尝试解析通用 JSON 并根据 type 处理
+          try {
+            final map = jsonDecode(json) as Map<String, dynamic>;
+            final type = map['type']?.toString();
+            if (type == 'authenticated') {
+              // 如果先收到 authenticated 快速通知，也标记为已认证
+              if (state.status != BleDeviceStatus.authenticated) {
+                state = state.copyWith(status: BleDeviceStatus.authenticated);
+                _log('📣 收到 A105 authenticated 通知，标记为已认证');
+              }
+            }
+          } catch (_) {
+            // 忽略无法解析的负载
+          }
+        }
       },
     );
 
@@ -522,39 +559,28 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
 
     try {
-      final deviceId = state.deviceData!.bleAddress;
-      final payload =
-          '{"ssid":"${_escapeJson(ssid)}","password":"${_escapeJson(password)}"}';
-      final utf8Data = utf8.encode(payload);
-
-      final mtu = await BleServiceSimple.requestMtu(deviceId, 512);
-      final chunkSize = (mtu) - 3;
-
-      var offset = 0;
-      while (offset < utf8Data.length) {
-        final end = (offset + chunkSize < utf8Data.length)
-            ? offset + chunkSize
-            : utf8Data.length;
-        final chunk = utf8Data.sublist(offset, end);
-
-        final ok = await BleServiceSimple.writeCharacteristic(
-          deviceId: deviceId,
-          serviceUuid: BleConstants.serviceUuid,
-          characteristicUuid: BleConstants.provisionRequestCharUuid,
-          data: chunk,
-          withResponse: true,
-        );
-        if (!ok) {
-          _log('写入分包失败，触发断开以自愈');
-          await BleServiceSimple.disconnect();
-          _setError('连接失败');
-          _nextRetryMs = (_nextRetryMs * 2).clamp(
-              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-          return false;
-        }
-        offset = end;
+      final deviceAddr = state.deviceData!.bleAddress;
+      final json = jsonEncode({
+        'deviceId': state.deviceData!.deviceId,
+        'ssid': _escapeJson(ssid),
+        'password': _escapeJson(password),
+      });
+      final ed = await _cryptoService!.encrypt(json);
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: deviceAddr,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.wifiConfigRequestCharUuid,
+        data: ed.toBytes(),
+        withResponse: true,
+      );
+      if (!ok) {
+        _log('写入加密WiFi凭证失败，触发断开以自愈');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
       }
-      return true;
+      return ok;
     } catch (_) {
       return false;
     }
@@ -568,33 +594,28 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       return false;
     }
     try {
-      final deviceId = state.deviceData!.bleAddress;
-      final payload = '{"code":"${_escapeJson(code)}"}';
-      final utf8Data = utf8.encode(payload);
-      final mtu = await BleServiceSimple.requestMtu(deviceId, 512);
-      final chunkSize = (mtu) - 3;
-      var offset = 0;
-      while (offset < utf8Data.length) {
-        final end = (offset + chunkSize < utf8Data.length) ? offset + chunkSize : utf8Data.length;
-        final chunk = utf8Data.sublist(offset, end);
-        final ok = await BleServiceSimple.writeCharacteristic(
-          deviceId: deviceId,
-          serviceUuid: BleConstants.serviceUuid,
-          characteristicUuid: BleConstants.loginAuthCodeCharUuid,
-          data: chunk,
-          withResponse: true,
-        );
-        if (!ok) {
-          _log('写入登录验证码失败，触发断开以自愈');
-          await BleServiceSimple.disconnect();
-          _setError('连接失败');
-          _nextRetryMs = (_nextRetryMs * 2).clamp(
-              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-          return false;
-        }
-        offset = end;
+      final deviceAddr = state.deviceData!.bleAddress;
+      final json = jsonEncode({
+        'deviceId': state.deviceData!.deviceId,
+        'code': _escapeJson(code),
+      });
+      final ed = await _cryptoService!.encrypt(json);
+      final data = ed.toBytes();
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: deviceAddr,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.loginAuthCodeCharUuid,
+        data: data,
+        withResponse: true,
+      );
+      if (!ok) {
+        _log('写入登录验证码失败，触发断开以自愈');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
       }
-      return true;
+      return ok;
     } catch (_) {
       return false;
     }
@@ -608,11 +629,17 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       return false;
     }
     try {
+      final deviceAddr = state.deviceData!.bleAddress;
+      final payload = jsonEncode({
+        'deviceId': state.deviceData!.deviceId,
+        'userId': _currentUserIdOrEmpty(),
+      });
+      final ed = await _cryptoService!.encrypt(payload);
       final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: state.deviceData!.bleAddress,
+        deviceId: deviceAddr,
         serviceUuid: BleConstants.serviceUuid,
         characteristicUuid: BleConstants.logoutCharUuid,
-        data: '{}'.codeUnits,
+        data: ed.toBytes(),
         withResponse: true,
       );
       if (!ok) {
@@ -628,6 +655,19 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
+  // TODO: 从真实账号体系获取当前用户ID；此处占位返回空字符串
+  String _currentUserIdOrEmpty() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      return user?.id ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // 对外暴露：当前登录用户ID（无则空串）
+  String currentUserId() => _currentUserIdOrEmpty();
+
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     // 确保可信通道
@@ -637,6 +677,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       return false;
     }
     try {
+      // WiFi 扫描请求目前保持明文（无敏感信息）
       final ok = await BleServiceSimple.writeCharacteristic(
         deviceId: state.deviceData!.bleAddress,
         serviceUuid: BleConstants.serviceUuid,
@@ -687,6 +728,51 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
     }
     return ok;
+  }
+
+  // 使用会话密钥对 JSON 负载加密并写入指定特征
+  Future<bool> writeEncryptedJson({
+    required String characteristicUuid,
+    required Map<String, dynamic> json,
+  }) async {
+    if (state.deviceData == null) return false;
+    final okChannel = await ensureTrustedChannel();
+    if (!okChannel || _cryptoService == null || !_cryptoService!.hasSecureSession) {
+      _log('❌ 可信通道不可用或未建立会话密钥');
+      return false;
+    }
+    try {
+      // 保险：确认目标特征存在，避免 INVALID_HANDLE
+      final deviceId = state.deviceData!.bleAddress;
+      final hasChar = await BleServiceSimple.hasCharacteristic(
+        deviceId: deviceId,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: characteristicUuid,
+      );
+      if (!hasChar) {
+        _log('❌ 目标特征不存在：$characteristicUuid');
+        return false;
+      }
+      final payload = jsonEncode(json);
+      final ed = await _cryptoService!.encrypt(payload);
+      final ok = await BleServiceSimple.writeCharacteristic(
+        deviceId: deviceId,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: characteristicUuid,
+        data: ed.toBytes(),
+        withResponse: true,
+      );
+      if (!ok) {
+        _log('❌ 加密写入失败，触发断开以自愈');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+      }
+      return ok;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<NetworkStatus?> checkNetworkStatus() async {

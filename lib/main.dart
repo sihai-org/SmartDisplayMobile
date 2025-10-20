@@ -12,6 +12,8 @@ import 'l10n/app_localizations.dart';
 import 'core/deeplink/deep_link_handler.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'core/l10n/l10n_extensions.dart';
+import 'core/providers/lifecycle_provider.dart';
+import 'core/providers/saved_devices_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +66,16 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         // Show localized toast and navigate to login
         Fluttertoast.showToast(msg: context.l10n.login_expired);
         appRouter.go(AppRoutes.login);
+      }
+    });
+
+    // Sync devices when app becomes visible (foreground)
+    // Also triggers on initial resume after launch
+    ref.listen<bool>(isForegroundProvider, (prev, isFg) {
+      if (isFg == true) {
+        // Kick off background sync with top toast feedback
+        Future.microtask(() =>
+            ref.read(savedDevicesProvider.notifier).syncFromServer());
       }
     });
   }

@@ -131,10 +131,10 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           if (currStatus == 'login_success') {
             final msg = context.l10n?.login_success ?? 'Login success';
             Fluttertoast.showToast(msg: msg);
-            // 登录成功后刷新本地设备列表，并将当前设备设为选中
+            // 登录成功后同步设备列表，并将当前设备设为选中
             Future.microtask(() async {
               if (!mounted) return;
-              await ref.read(savedDevicesProvider.notifier).load();
+              await ref.read(savedDevicesProvider.notifier).syncFromServer();
               final id = current.deviceData?.deviceId;
               if (id != null && id.isNotEmpty) {
                 // 选中当前设备，便于后续展示与自动连接
@@ -209,18 +209,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!saved.loaded) ...[
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
-                      MediaQuery.of(context).padding.top -
-                      kToolbarHeight -
-                      AppConstants.defaultPadding * 2 -
-                      MediaQuery.of(context).padding.bottom,
-                ),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-            ] else if (saved.devices.isEmpty) ...[
+            if (saved.devices.isEmpty) ...[
               ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: MediaQuery.of(context).size.height -
@@ -468,16 +457,16 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   void _sendCheckUpdate(SavedDeviceRecord device) async {
     try {
-      // 示例 JSON 指令
-      final command = '{"action":"update_version"}';
-      print(
-          "准备写特征，deviceId=${device.lastBleAddress}, serviceUuid=${BleConstants.serviceUuid}");
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: device.lastBleAddress!,
-        serviceUuid: BleConstants.serviceUuid,
+      // 通过连接管理器加密发送（携带 deviceId）
+      final container = ProviderScope.containerOf(context, listen: false);
+      final notifier = container.read(conn.deviceConnectionProvider.notifier);
+      final ok = await notifier.writeEncryptedJson(
         characteristicUuid: BleConstants.updateVersionCharUuid,
-        data: command.codeUnits,
-        withResponse: true,
+        json: {
+          'deviceId': device.deviceId,
+          'userId': notifier.currentUserId(),
+          'action': 'update_version',
+        },
       );
       print("device_management_page: " + "writeCharacteristic ok=$ok");
 
@@ -501,6 +490,86 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 蓝牙卡片
   Widget _buildBLESection(BuildContext context) {
+    final connState = ref.watch(conn.deviceConnectionProvider);
+    final saved = ref.watch(savedDevicesProvider);
+
+    // 当前详情页所展示的目标设备（以最后选中的设备为准）
+    final currentId = saved.lastSelectedId;
+    final currentRec = (currentId != null)
+        ? saved.devices.firstWhere(
+            (e) => e.deviceId == currentId,
+            orElse: () => SavedDeviceRecord.empty(),
+          )
+        : SavedDeviceRecord.empty();
+
+    // 只有当 provider 的当前连接设备等于详情页设备时，才采用其真实 BLE 状态；否则视为未连接
+    final isThisDeviceActive =
+        connState.deviceData?.deviceId.isNotEmpty == true &&
+        connState.deviceData?.deviceId == currentRec.deviceId;
+    final effectiveStatus = isThisDeviceActive ? connState.status : BleDeviceStatus.disconnected;
+
+    Widget statusRow({required Widget leading, required String text, List<Widget> trailing = const []}) {
+      return Row(
+        children: [
+          leading,
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
+          ...trailing,
+        ],
+      );
+    }
+
+    Widget content;
+    switch (effectiveStatus) {
+      case BleDeviceStatus.scanning:
+      case BleDeviceStatus.connecting:
+      case BleDeviceStatus.connected:
+      case BleDeviceStatus.authenticating:
+        content = statusRow(
+          leading: const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+          text: '连接中...',
+        );
+        break;
+      case BleDeviceStatus.authenticated:
+        content = statusRow(
+          leading: const Icon(Icons.check_circle, color: Colors.green),
+          text: '已连接',
+        );
+        break;
+      case BleDeviceStatus.error:
+      case BleDeviceStatus.timeout:
+      case BleDeviceStatus.disconnected:
+      default:
+        final canConnect = saved.loaded && saved.lastSelectedId != null;
+        content = statusRow(
+          leading: const Icon(Icons.error_outline, color: Colors.orange),
+          text: '蓝牙连接失败',
+          trailing: [
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: canConnect
+                  ? () {
+                      // 使用最后一次选择的设备进行连接
+                      final id = saved.lastSelectedId;
+                      if (id == null) return;
+                      final rec = saved.devices.firstWhere((e) => e.deviceId == id, orElse: () => SavedDeviceRecord.empty());
+                      if (rec.deviceId.isEmpty) return;
+                      final qr = DeviceQrData(
+                        deviceId: rec.deviceId,
+                        deviceName: rec.deviceName,
+                        bleAddress: rec.lastBleAddress ?? '',
+                        publicKey: rec.publicKey,
+                      );
+                      ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+                    }
+                  : null,
+              child: const Text('连接'),
+            ),
+          ],
+        );
+        break;
+    }
+
     return Card(
       elevation: 0,
       child: Padding(
@@ -508,13 +577,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '蓝牙连接状态',
-              style: Theme
-                  .of(context)
-                  .textTheme
-                  .titleMedium,
-            ),
+            Text('蓝牙状态', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            content,
           ],
         ),
       ),

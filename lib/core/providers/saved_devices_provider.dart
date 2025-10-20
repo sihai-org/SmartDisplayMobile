@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class SavedDevicesState {
   final List<SavedDeviceRecord> devices;
@@ -19,9 +20,29 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   final Ref _ref;
 
   Future<void> load() async {
-    final list = await _repo.loadAll();
+    // Load local cache first for instant UI
+    final list = await _repo.loadLocal();
     final last = await _repo.loadLastSelectedId();
     state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.deviceId : null), loaded: true);
+  }
+
+  Future<void> syncFromServer() async {
+    // Show top toast for syncing
+    Fluttertoast.showToast(msg: '正在同步设备…', gravity: ToastGravity.TOP);
+    try {
+      final remote = await _repo.fetchRemote();
+      await _repo.saveLocal(remote);
+      // Preserve lastSelectedId if still valid; otherwise pick last
+      final currentSelected = state.lastSelectedId;
+      final stillExists = remote.any((e) => e.deviceId == currentSelected);
+      final selected = stillExists
+          ? currentSelected
+          : (remote.isNotEmpty ? remote.last.deviceId : null);
+      state = state.copyWith(devices: remote, lastSelectedId: selected);
+      Fluttertoast.showToast(msg: '设备同步成功', gravity: ToastGravity.TOP);
+    } catch (e) {
+      Fluttertoast.showToast(msg: '设备同步失败', gravity: ToastGravity.TOP);
+    }
   }
 
   Future<void> upsertFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
@@ -58,4 +79,3 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 final savedDevicesProvider = StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {
   return SavedDevicesNotifier(SavedDevicesRepository(), ref);
 });
-

@@ -41,9 +41,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
           ),
         ],
       ),
-      body: savedDevicesState.loaded
-          ? _buildDeviceList(context, savedDevicesState)
-          : const Center(child: CircularProgressIndicator()),
+      body: _buildDeviceList(context, savedDevicesState),
     );
   }
 

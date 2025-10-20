@@ -61,10 +61,18 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+
+    // Ensure our custom Application class is used
+    defaultConfig.manifestPlaceholders += [
+            applicationName: "com.datou.smart_display_mobile.MainApplication"
+    ]
 }
 
 flutter {
     source '../..'
 }
 
-dependencies {}
+dependencies {
+    // Needed for RxJavaPlugins global error handler used in MainApplication
+    implementation 'io.reactivex.rxjava2:rxjava:2.2.21'
+}

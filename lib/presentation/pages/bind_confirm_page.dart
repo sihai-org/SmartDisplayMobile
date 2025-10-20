@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -149,12 +150,17 @@ class BindConfirmPage extends ConsumerWidget {
         return false;
       }
 
-      final payload = '{"email":"$email", "otpToken":"$otpToken"}';
-      final ok = await ref.read(deviceConnectionProvider.notifier).writeWithTrustedChannel(
-        serviceUuid: BleConstants.serviceUuid,
+      // 构造负载并通过连接管理器进行加密发送
+      final notifier = ref.read(deviceConnectionProvider.notifier);
+      final payload = <String, dynamic>{
+        'deviceId': device.deviceId,
+        'email': email,
+        'otpToken': otpToken,
+        'userId': notifier.currentUserId(),
+      };
+      final ok = await notifier.writeEncryptedJson(
         characteristicUuid: BleConstants.loginAuthCodeCharUuid,
-        data: payload.codeUnits,
-        withResponse: true,
+        json: payload,
       );
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -93,6 +93,7 @@ class _LoginPageState extends State<LoginPage> {
 
       _startCountdown();
     } catch (e) {
+      debugPrint('Unexpected error during signInWithOtp: $e');
       Fluttertoast.showToast(msg: l10n.send_failed(e.toString()));
       setState(() => _error = e.toString());
     } finally {

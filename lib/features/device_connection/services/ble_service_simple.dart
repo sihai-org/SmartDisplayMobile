@@ -278,6 +278,47 @@ class BleServiceSimple {
     }
   }
 
+  /// 检查是否存在指定的 Service/Characteristic
+  static Future<bool> hasCharacteristic({
+    required String deviceId,
+    required String serviceUuid,
+    required String characteristicUuid,
+  }) async {
+    try {
+      final services = await _ble.discoverServices(deviceId);
+      for (final s in services) {
+        print('🧭 Service: ' + s.serviceId.toString());
+        for (final c in s.characteristicIds) {
+          print('   • Char: ' + c.toString());
+        }
+      }
+
+      final targetService = services.firstWhere(
+        (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+        orElse: () => DiscoveredService(
+          serviceId: Uuid.parse('00000000-0000-0000-0000-000000000000'),
+          serviceInstanceId: '',
+          characteristicIds: const [],
+          characteristics: const [],
+          includedServices: const [],
+        ),
+      );
+      if (targetService.characteristicIds.isEmpty) {
+        print('🔎 未发现目标服务 $serviceUuid');
+        return false;
+      }
+      final found = targetService.characteristicIds
+          .any((c) => c.toString().toLowerCase() == characteristicUuid.toLowerCase());
+      if (!found) {
+        print('🔎 服务中未发现特征 $characteristicUuid');
+      }
+      return found;
+    } catch (e) {
+      print('❌ hasCharacteristic 失败: $e');
+      return false;
+    }
+  }
+
   /// 确保 GATT 就绪：稳定延时 -> 服务发现 -> MTU 协商 -> 再次稳定
   static Future<bool> ensureGattReady(String deviceId) async {
     await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
