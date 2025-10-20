@@ -28,7 +28,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.deviceId : null), loaded: true);
   }
 
-  Future<void> syncFromServer({bool allowToast = true}) async {
+  Future<void> syncFromServer({bool allowToast = false}) async {
     // Show top toast for syncing
     if (allowToast) {
       Fluttertoast.showToast(msg: '正在同步设备…', gravity: ToastGravity.TOP);

@@ -1087,7 +1087,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   Future<void> _deleteDevice(SavedDeviceRecord device) async {
-    Fluttertoast.showToast(msg: "click device delete");
     try {
       // 1. 调用 Supabase Edge Function 解绑
       final supabase = Supabase.instance.client;
@@ -1106,6 +1105,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
       // 同步远端状态，确保列表与服务器一致
       try {
+        // Silent refresh after deletion to avoid duplicate toast
         await ref.read(savedDevicesProvider.notifier).syncFromServer();
       } catch (_) {
         // 同步失败不阻塞后续逻辑，保持静默以免打断用户流程

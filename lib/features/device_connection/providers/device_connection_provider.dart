@@ -464,6 +464,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           if (!_syncedAfterLogin && (s == 'login_success' || s.contains('login_success'))) {
             _syncedAfterLogin = true;
             try {
+              // Silent sync to avoid extra toast during login flow (default is silent)
               await _ref.read(savedDevicesProvider.notifier).syncFromServer();
               final id = state.deviceData?.deviceId;
               if (id != null && id.isNotEmpty) {

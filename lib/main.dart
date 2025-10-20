@@ -70,6 +70,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
           event == AuthChangeEvent.tokenRefreshed) {
         // After sign-in or token refresh, sync devices from server
         if (!mounted) return;
+        // Silent sync on auth events (default is silent)
         Future.microtask(() =>
             ref.read(savedDevicesProvider.notifier).syncFromServer());
       }
@@ -79,7 +80,8 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
-        ref.read(savedDevicesProvider.notifier).syncFromServer();
+        // First open: allow a single toast
+        ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true);
       }
     });
 
