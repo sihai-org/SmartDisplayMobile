@@ -67,9 +67,25 @@ class SavedDevicesRepository {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Load locally cached devices
+  String? _currentUserId() => Supabase.instance.client.auth.currentUser?.id;
+
+  String? _devicesKeyForCurrentUser() {
+    final uid = _currentUserId();
+    if (uid == null) return null;
+    return '${_keyDevices}_$uid';
+  }
+
+  String? _lastSelectedKeyForCurrentUser() {
+    final uid = _currentUserId();
+    if (uid == null) return null;
+    return '${_keyLastSelectedId}_$uid';
+  }
+
+  // Load locally cached devices (scoped to current user)
   Future<List<SavedDeviceRecord>> loadLocal() async {
-    final jsonStr = await _storage.read(key: _keyDevices);
+    final key = _devicesKeyForCurrentUser();
+    if (key == null) return [];
+    final jsonStr = await _storage.read(key: key);
     if (jsonStr == null || jsonStr.isEmpty) return [];
     try {
       final List<dynamic> data = json.decode(jsonStr) as List<dynamic>;
@@ -83,8 +99,10 @@ class SavedDevicesRepository {
   }
 
   Future<void> saveLocal(List<SavedDeviceRecord> list) async {
+    final key = _devicesKeyForCurrentUser();
+    if (key == null) return; // No user; do not persist
     final jsonStr = json.encode(list.map((e) => e.toJson()).toList());
-    await _storage.write(key: _keyDevices, value: jsonStr);
+    await _storage.write(key: key, value: jsonStr);
   }
 
   // Fetch device list from Supabase
@@ -121,11 +139,15 @@ class SavedDevicesRepository {
   Future<List<SavedDeviceRecord>> loadAll() => loadLocal();
 
   Future<String?> loadLastSelectedId() async {
-    return _storage.read(key: _keyLastSelectedId);
+    final key = _lastSelectedKeyForCurrentUser();
+    if (key == null) return null;
+    return _storage.read(key: key);
   }
 
   Future<void> saveLastSelectedId(String deviceId) async {
-    await _storage.write(key: _keyLastSelectedId, value: deviceId);
+    final key = _lastSelectedKeyForCurrentUser();
+    if (key == null) return;
+    await _storage.write(key: key, value: deviceId);
   }
 
   Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
@@ -137,7 +159,22 @@ class SavedDevicesRepository {
     // Do not modify remote data here. Just clear last selected if it matches.
     final currentLastSelected = await loadLastSelectedId();
     if (currentLastSelected == deviceId) {
-      await _storage.delete(key: _keyLastSelectedId);
+      final key = _lastSelectedKeyForCurrentUser();
+      if (key != null) {
+        await _storage.delete(key: key);
+      }
+    }
+  }
+
+  // Clear all local cached device data for the current user
+  Future<void> clearCurrentUserData() async {
+    final devicesKey = _devicesKeyForCurrentUser();
+    final lastKey = _lastSelectedKeyForCurrentUser();
+    if (devicesKey != null) {
+      await _storage.delete(key: devicesKey);
+    }
+    if (lastKey != null) {
+      await _storage.delete(key: lastKey);
     }
   }
 }

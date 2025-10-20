@@ -100,7 +100,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     ref.listen<bool>(isForegroundProvider, (prev, isFg) {
       if (isFg == true) {
         Future.microtask(() =>
-            ref.read(savedDevicesProvider.notifier).syncFromServer());
+            ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true));
       }
     });
     return MaterialApp.router(

@@ -43,6 +43,8 @@ class ProfilePage extends ConsumerWidget {
         body: {},
       );
       await supabase.auth.signOut();
+      // 清空本地设备列表与选择，避免不同用户设备串列表
+      await ref.read(savedDevicesProvider.notifier).clearForLogout();
       // 若当前与设备已建立连接，则通过 BLE 通知 TV 执行本地登出
       final connState = ref.read(conn.deviceConnectionProvider);
       if (connState.deviceData != null) {

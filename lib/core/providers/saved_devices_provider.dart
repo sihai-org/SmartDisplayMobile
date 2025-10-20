@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
@@ -26,9 +28,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.deviceId : null), loaded: true);
   }
 
-  Future<void> syncFromServer() async {
+  Future<void> syncFromServer({bool allowToast = true}) async {
     // Show top toast for syncing
-    Fluttertoast.showToast(msg: '正在同步设备…', gravity: ToastGravity.TOP);
+    if (allowToast) {
+      Fluttertoast.showToast(msg: '正在同步设备…', gravity: ToastGravity.TOP);
+    }
     try {
       final remote = await _repo.fetchRemote();
       await _repo.saveLocal(remote);
@@ -39,9 +43,13 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
           ? currentSelected
           : (remote.isNotEmpty ? remote.last.deviceId : null);
       state = state.copyWith(devices: remote, lastSelectedId: selected);
-      Fluttertoast.showToast(msg: '设备同步成功', gravity: ToastGravity.TOP);
+      if(allowToast) {
+        Fluttertoast.showToast(msg: '设备同步成功', gravity: ToastGravity.TOP);
+      }
     } catch (e) {
-      Fluttertoast.showToast(msg: '设备同步失败', gravity: ToastGravity.TOP);
+      if (allowToast) {
+        Fluttertoast.showToast(msg: '设备同步失败', gravity: ToastGravity.TOP);
+      }
     }
   }
 
@@ -71,6 +79,12 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 
     await _repo.removeDevice(deviceId);
     await load(); // 重新加载状态
+  }
+
+  // 清空当前用户的本地设备列表与选择（用于登出）
+  Future<void> clearForLogout() async {
+    await _repo.clearCurrentUserData();
+    state = const SavedDevicesState(devices: [], lastSelectedId: null, loaded: true);
   }
 
   SavedDeviceRecord? get selected => state.devices.firstWhere((e) => e.deviceId == state.lastSelectedId, orElse: () => const SavedDeviceRecord(deviceId: '', deviceName: '', publicKey: ''));
