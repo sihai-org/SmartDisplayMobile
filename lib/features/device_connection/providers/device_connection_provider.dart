@@ -14,6 +14,7 @@ import '../models/ble_device_data.dart';
 import '../models/network_status.dart';
 import '../services/ble_service_simple.dart';
 import '../../../core/providers/lifecycle_provider.dart';
+import '../../../core/providers/saved_devices_provider.dart';
 
 /// 分包拼接工具（支持 {} 和 [] JSON）
 class BleChunkAssembler {
@@ -160,11 +161,13 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   BleChunkAssembler? _handshakeAssembler;
 
   bool _hasReceivedWifiScanNotify = false;
+  bool _syncedAfterLogin = false;
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
     state = const DeviceConnectionState();
     _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
+    _syncedAfterLogin = false;
 
     final deviceData = BleDeviceData(
       deviceId: qrData.deviceId,
@@ -456,6 +459,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           }
           status ??= utf8.decode(data, allowMalformed: true);
           state = state.copyWith(provisionStatus: status);
+          // 绑定登录成功后，主动同步远端绑定列表并选中当前设备
+          final s = (status ?? '').toLowerCase();
+          if (!_syncedAfterLogin && (s == 'login_success' || s.contains('login_success'))) {
+            _syncedAfterLogin = true;
+            try {
+              await _ref.read(savedDevicesProvider.notifier).syncFromServer();
+              final id = state.deviceData?.deviceId;
+              if (id != null && id.isNotEmpty) {
+                await _ref.read(savedDevicesProvider.notifier).select(id);
+              }
+            } catch (_) {}
+          }
         });
 
     // 订阅 A103 + 分包拼接

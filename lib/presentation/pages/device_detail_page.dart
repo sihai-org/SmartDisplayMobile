@@ -26,6 +26,9 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _autoTried = false;
+  // 开关的乐观更新覆盖值（null 表示不覆盖）
+  bool? _bleSwitchOverride;
+  DateTime? _bleSwitchOverrideAt;
   // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
 
   String _formatDateTime(DateTime? dt) {
@@ -121,34 +124,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.deviceConnectionProvider);
 
-    // 监听 BLE 配置状态通知：当 TV 端登录成功（accountBindDevice 完成）时弹出提示并刷新设备列表
-    ref.listen<conn.DeviceConnectionState>(
-      conn.deviceConnectionProvider,
-      (previous, current) {
-        final prevStatus = previous?.provisionStatus;
-        final currStatus = current.provisionStatus;
-        if (prevStatus != currStatus) {
-          if (currStatus == 'login_success') {
-            final msg = context.l10n?.login_success ?? 'Login success';
-            Fluttertoast.showToast(msg: msg);
-            // 登录成功后同步设备列表，并将当前设备设为选中
-            Future.microtask(() async {
-              if (!mounted) return;
-              await ref.read(savedDevicesProvider.notifier).syncFromServer();
-              final id = current.deviceData?.deviceId;
-              if (id != null && id.isNotEmpty) {
-                // 选中当前设备，便于后续展示与自动连接
-                await ref.read(savedDevicesProvider.notifier).select(id);
-              }
-            });
-          } else if (currStatus == 'failed') {
-            final l10n = context.l10n;
-            final msg = l10n != null ? l10n.login_failed('') : 'Login failed';
-            Fluttertoast.showToast(msg: msg);
-          }
-        }
-      },
-    );
+    // login_success 同步逻辑已下沉至 deviceConnectionProvider，页面无需再监听处理
 
     // 监听连接状态变化，实现智能重连和智能WiFi处理
     ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
@@ -523,67 +499,134 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       );
     }
 
-    Widget content;
-    switch (effectiveStatus) {
-      case BleDeviceStatus.scanning:
-      case BleDeviceStatus.connecting:
-      case BleDeviceStatus.connected:
-      case BleDeviceStatus.authenticating:
-        content = statusRow(
-          leading: const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-          text: '连接中...',
+    // 目标视觉：左侧状态图标 + 文案，右侧开关
+    // 三种状态：
+    // - 已连接（开关开、勾选图标、蓝色）
+    // - 连接中（开关开、扫描图标、蓝色）
+    // - 未开启/未连接（开关关、提示图标、灰色）
+    bool computedIsOn() {
+      switch (effectiveStatus) {
+        case BleDeviceStatus.scanning:
+        case BleDeviceStatus.connecting:
+        case BleDeviceStatus.connected:
+        case BleDeviceStatus.authenticating:
+        case BleDeviceStatus.authenticated:
+          return true;
+        case BleDeviceStatus.error:
+        case BleDeviceStatus.timeout:
+        case BleDeviceStatus.disconnected:
+        default:
+          return false;
+      }
+    }
+
+    // 如果存在乐观覆盖且未超时，则优先使用
+    bool isOn = computedIsOn();
+    if (_bleSwitchOverride != null) {
+      final now = DateTime.now();
+      final ts = _bleSwitchOverrideAt;
+      final notExpired = ts != null && now.difference(ts) < const Duration(seconds: 5);
+      // 当状态尚未稳定（如 scanning/connecting/authenticating）时允许覆盖；
+      // 或在覆盖未过期时继续显示覆盖值。
+      if (notExpired) {
+        isOn = _bleSwitchOverride!;
+      } else {
+        // 覆盖过期，清理
+        _bleSwitchOverride = null;
+        _bleSwitchOverrideAt = null;
+      }
+    }
+
+    final titleText = () {
+      switch (effectiveStatus) {
+        case BleDeviceStatus.authenticated:
+        case BleDeviceStatus.connected:
+          return '蓝牙已连接';
+        case BleDeviceStatus.scanning:
+        case BleDeviceStatus.connecting:
+        case BleDeviceStatus.authenticating:
+          return '蓝牙连接中';
+        case BleDeviceStatus.error:
+        case BleDeviceStatus.timeout:
+        case BleDeviceStatus.disconnected:
+        default:
+          return '蓝牙未连接';
+      }
+    }();
+
+    final leadingIcon = () {
+      switch (effectiveStatus) {
+        case BleDeviceStatus.authenticated:
+        case BleDeviceStatus.connected:
+          return const Icon(Icons.check_circle, color: Colors.blue);
+        case BleDeviceStatus.scanning:
+        case BleDeviceStatus.connecting:
+        case BleDeviceStatus.authenticating:
+          return const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          );
+        case BleDeviceStatus.error:
+        case BleDeviceStatus.timeout:
+        case BleDeviceStatus.disconnected:
+        default:
+          return Icon(Icons.error_outline, color: Theme.of(context).disabledColor);
+      }
+    }();
+
+    void handleToggle(bool value) async {
+      // 开关先乐观更新
+      setState(() {
+        _bleSwitchOverride = value;
+        _bleSwitchOverrideAt = DateTime.now();
+      });
+      if (value) {
+        // 打开：尝试连接到当前选中设备
+        final id = saved.lastSelectedId;
+        if (id == null) return;
+        final rec = saved.devices.firstWhere(
+          (e) => e.deviceId == id,
+          orElse: () => SavedDeviceRecord.empty(),
         );
-        break;
-      case BleDeviceStatus.authenticated:
-        content = statusRow(
-          leading: const Icon(Icons.check_circle, color: Colors.green),
-          text: '已连接',
+        if (rec.deviceId.isEmpty) return;
+        final qr = DeviceQrData(
+          deviceId: rec.deviceId,
+          deviceName: rec.deviceName,
+          bleAddress: rec.lastBleAddress ?? '',
+          publicKey: rec.publicKey,
         );
-        break;
-      case BleDeviceStatus.error:
-      case BleDeviceStatus.timeout:
-      case BleDeviceStatus.disconnected:
-      default:
-        final canConnect = saved.loaded && saved.lastSelectedId != null;
-        content = statusRow(
-          leading: const Icon(Icons.error_outline, color: Colors.orange),
-          text: '蓝牙连接失败',
-          trailing: [
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: canConnect
-                  ? () {
-                      // 使用最后一次选择的设备进行连接
-                      final id = saved.lastSelectedId;
-                      if (id == null) return;
-                      final rec = saved.devices.firstWhere((e) => e.deviceId == id, orElse: () => SavedDeviceRecord.empty());
-                      if (rec.deviceId.isEmpty) return;
-                      final qr = DeviceQrData(
-                        deviceId: rec.deviceId,
-                        deviceName: rec.deviceName,
-                        bleAddress: rec.lastBleAddress ?? '',
-                        publicKey: rec.publicKey,
-                      );
-                      ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
-                    }
-                  : null,
-              child: const Text('连接'),
-            ),
-          ],
-        );
-        break;
+        await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+      } else {
+        // 关闭：主动断开
+        await ref.read(conn.deviceConnectionProvider.notifier).disconnect();
+      }
+      // 操作完成后，等待 provider 状态回传来纠正；这里不立即清除覆盖，交由上方过期逻辑处理
     }
 
     return Card(
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.all(AppConstants.defaultPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConstants.defaultPadding,
+          vertical: AppConstants.defaultPadding,
+        ),
+        child: Row(
           children: [
-            Text('蓝牙状态', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            content,
+            leadingIcon,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                titleText,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            Switch(
+              value: isOn,
+              onChanged: (saved.loaded && saved.lastSelectedId != null)
+                  ? handleToggle
+                  : null,
+            ),
           ],
         ),
       ),
