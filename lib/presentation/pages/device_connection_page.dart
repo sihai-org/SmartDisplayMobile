@@ -269,7 +269,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               const SizedBox(height: 16),
               _buildDeviceDetail('设备类型', qrDeviceData.deviceType),
               _buildDeviceDetail('BLE地址', qrDeviceData.bleAddress),
-              if (qrDeviceData.firmwareVersion != null)
+              // 优先展示连接态同步到的固件版本
+              if (state.firmwareVersion != null && state.firmwareVersion!.isNotEmpty)
+                _buildDeviceDetail('固件版本', state.firmwareVersion!),
+              else if (qrDeviceData.firmwareVersion != null)
                 _buildDeviceDetail('固件版本', qrDeviceData.firmwareVersion!),
               if (qrDeviceData.timestamp != null)
                 _buildDeviceDetail('创建时间', 

@@ -76,6 +76,7 @@ class DeviceConnectionState {
   final List<String> connectionLogs;
   final NetworkStatus? networkStatus;
   final bool isCheckingNetwork;
+  final String? firmwareVersion;
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -88,6 +89,7 @@ class DeviceConnectionState {
     this.connectionLogs = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
+    this.firmwareVersion,
   });
 
   DeviceConnectionState copyWith({
@@ -101,6 +103,7 @@ class DeviceConnectionState {
     List<String>? connectionLogs,
     NetworkStatus? networkStatus,
     bool? isCheckingNetwork,
+    String? firmwareVersion,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -113,6 +116,7 @@ class DeviceConnectionState {
       connectionLogs: connectionLogs ?? this.connectionLogs,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
+      firmwareVersion: firmwareVersion ?? this.firmwareVersion,
     );
   }
 }
@@ -339,33 +343,76 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       timeout: const Duration(seconds: 15),
     );
 
-    if (result != null) {
+      if (result != null) {
       state = state.copyWith(
         status: BleDeviceStatus.connected,
         progress: 0.8,
         deviceData: result,
       );
-      _log('BLE 连接成功，准备发现服务并初始化');
-      final ready = await BleServiceSimple.ensureGattReady(result.bleAddress);
-      if (!ready) {
-        _log('服务发现失败，触发重连');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-        return;
-      }
-      await _initGattSession(result);
-      await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
-      _log('开始认证握手');
-      await _startAuthentication(result);
-      // Reset backoff on success
-      _nextRetryMs = BleConstants.reconnectBackoffStartMs;
+        _log('BLE 连接成功，准备发现服务并初始化');
+        final ready = await BleServiceSimple.ensureGattReady(result.bleAddress);
+        if (!ready) {
+          _log('服务发现失败，触发重连');
+          await BleServiceSimple.disconnect();
+          _setError('连接失败');
+          _nextRetryMs = (_nextRetryMs * 2).clamp(
+              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+          return;
+        }
+        await _initGattSession(result);
+        await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
+        _log('开始认证握手');
+        await _startAuthentication(result);
+        // Reset backoff on success
+        _nextRetryMs = BleConstants.reconnectBackoffStartMs;
     } else {
       _setError('连接失败');
       // Exponential backoff up to max
       _nextRetryMs = (_nextRetryMs * 2).clamp(
           BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+    }
+  }
+
+  /// 同步设备信息（A101），解析固件版本等，更新到状态
+  Future<void> _syncDeviceInfo() async {
+    try {
+      final d = state.deviceData;
+      if (d == null) return;
+      final data = await BleServiceSimple.readCharacteristic(
+        deviceId: d.bleAddress,
+        serviceUuid: BleConstants.serviceUuid,
+        characteristicUuid: BleConstants.deviceInfoCharUuid,
+      );
+      if (data == null || data.isEmpty) return;
+      String text;
+      // 尝试解密（若握手已建立，设备可能返回密文）
+      try {
+        if (_cryptoService != null && _cryptoService!.hasSecureSession) {
+          final ed = EncryptedData.fromBytes(data);
+          text = await _cryptoService!.decrypt(ed);
+        } else {
+          text = utf8.decode(data, allowMalformed: true).trim();
+        }
+      } catch (_) {
+        text = utf8.decode(data, allowMalformed: true).trim();
+      }
+      // 期望 JSON 格式，包含 version 或 firmwareVersion 字段
+      String? fw;
+      try {
+        final obj = jsonDecode(text);
+        if (obj is Map<String, dynamic>) {
+          fw = (obj['version'] ?? obj['firmwareVersion'])?.toString();
+        }
+      } catch (_) {
+        // 兼容非JSON的简单字符串版本号
+        if (text.isNotEmpty) fw = text;
+      }
+      if (fw != null && fw.isNotEmpty) {
+        state = state.copyWith(firmwareVersion: fw);
+        _log('📦 已同步固件版本: $fw');
+      }
+    } catch (_) {
+      // ignore
     }
   }
 
@@ -457,6 +504,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           );
           state = state.copyWith(status: BleDeviceStatus.authenticated);
           _log('🎉 认证完成');
+          // 握手完成后，立刻通过加密通道同步设备信息与网络状态
+          await _syncDeviceInfo();
+          await checkNetworkStatus();
         } catch (_) {
           // 非握手响应，尝试解析通用 JSON 并根据 type 处理
           try {
@@ -468,6 +518,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
                 state = state.copyWith(status: BleDeviceStatus.authenticated);
                 _log('📣 收到 A105 authenticated 通知，标记为已认证');
               }
+              // 确认认证后，同步信息
+              await _syncDeviceInfo();
+              await checkNetworkStatus();
             }
           } catch (_) {
             // 忽略无法解析的负载
@@ -784,7 +837,19 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         characteristicUuid: BleConstants.networkStatusCharUuid,
       );
       if (data != null && data.isNotEmpty) {
-        final networkStatus = NetworkStatusParser.fromBleData(data);
+        // 优先尝试解密（握手完成后设备可能返回密文）
+        NetworkStatus? networkStatus;
+        try {
+          if (_cryptoService != null && _cryptoService!.hasSecureSession) {
+            final ed = EncryptedData.fromBytes(data);
+            final plain = await _cryptoService!.decrypt(ed);
+            final map = jsonDecode(plain) as Map<String, dynamic>;
+            networkStatus = NetworkStatus.fromJson(map);
+          }
+        } catch (_) {
+          // ignore and fallback to plaintext JSON
+        }
+        networkStatus ??= NetworkStatusParser.fromBleData(data);
         if (networkStatus != null) {
           state = state.copyWith(networkStatus: networkStatus);
           return networkStatus;

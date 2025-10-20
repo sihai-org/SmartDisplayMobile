@@ -286,7 +286,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 final qrDeviceData = ref
                     .read(appStateProvider.notifier)
                     .getDeviceDataById(rec.deviceId);
-                final String? firmwareVersion = qrDeviceData?.firmwareVersion;
+                final connState = ref.read(conn.deviceConnectionProvider);
+                final String? firmwareVersion =
+                    (connState.firmwareVersion != null && connState.firmwareVersion!.isNotEmpty)
+                        ? connState.firmwareVersion
+                        : qrDeviceData?.firmwareVersion;
                 return Card(
                   elevation: 0,
                   child: Padding(
