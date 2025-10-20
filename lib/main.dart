@@ -66,6 +66,20 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         // Show localized toast and navigate to login
         Fluttertoast.showToast(msg: context.l10n.login_expired);
         appRouter.go(AppRoutes.login);
+      } else if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.tokenRefreshed) {
+        // After sign-in or token refresh, sync devices from server
+        if (!mounted) return;
+        Future.microtask(() =>
+            ref.read(savedDevicesProvider.notifier).syncFromServer());
+      }
+    });
+
+    // Initial sync on first frame if already signed in
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null && mounted) {
+        ref.read(savedDevicesProvider.notifier).syncFromServer();
       }
     });
 
