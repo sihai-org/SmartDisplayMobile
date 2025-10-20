@@ -16,10 +16,14 @@ class QrDataParser {
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
         final Map<String, dynamic> json = jsonDecode(trimmed);
-        final deviceData = DeviceQrData.fromJson(json);
+        final parsed = DeviceQrData.fromJson(json);
+        // 规范化固件版本，避免展示原始 JSON 字符串
+        final normalizedFv = _extractVersion(
+              json['firmwareVersion']?.toString() ?? json['version']?.toString() ?? parsed.firmwareVersion,
+            ) ?? parsed.firmwareVersion;
 
-        print("✅ 解析成功: deviceId=${deviceData.deviceId}, "
-            "deviceName=${deviceData.deviceName}");
+        final deviceData = parsed.copyWith(firmwareVersion: normalizedFv);
+        print("✅ 解析成功: deviceId=${deviceData.deviceId}, deviceName=${deviceData.deviceName}");
         return deviceData;
       } catch (e) {
         throw FormatException("❌ 无法解析二维码 JSON: $e, 内容=$trimmed");
@@ -38,7 +42,7 @@ class QrDataParser {
           String? name = uri.queryParameters['n'];
           String? ble = uri.queryParameters['ba'];
           String? pk = uri.queryParameters['pk'];
-          String? fv = uri.queryParameters['fv'];
+          String? fv = _extractVersion(uri.queryParameters['fv']);
           String? tsStr = uri.queryParameters['ts'];
           int? ts = int.tryParse(tsStr ?? '');
 
@@ -69,7 +73,7 @@ class QrDataParser {
           String? name = uri.queryParameters['n'];
           String? ble = uri.queryParameters['ba'];
           String? pk = uri.queryParameters['pk'];
-          String? fv = uri.queryParameters['fv'];
+          String? fv = _extractVersion(uri.queryParameters['fv']);
           String? tsStr = uri.queryParameters['ts'];
           int? ts = int.tryParse(tsStr ?? '');
 
@@ -98,5 +102,36 @@ class QrDataParser {
 
     // 非支持格式，判定为非法
     throw FormatException("❌ 非法二维码内容（不符合 JSON 或 指定 URL 紧凑格式）: $trimmed");
+  }
+
+  // 尝试从输入中提取干净的版本号（如 v1.2.3 或 1.0.0）
+  static String? _extractVersion(String? input) {
+    if (input == null) return null;
+    final s = input.trim();
+    if (s.isEmpty) return null;
+    // 若是 JSON，优先解析常见键
+    if (s.startsWith('{') && s.endsWith('}')) {
+      try {
+        final obj = jsonDecode(s);
+        if (obj is Map<String, dynamic>) {
+          final direct = (obj['version'] ?? obj['firmwareVersion'] ?? obj['ver'] ?? obj['fv'] ?? obj['fw'])?.toString();
+          if (direct != null && direct.isNotEmpty) return direct;
+          // 从其余字段中正则提取
+          for (final v in obj.values) {
+            final m = _matchVersion(v?.toString());
+            if (m != null && m.isNotEmpty) return m;
+          }
+          return null;
+        }
+      } catch (_) {}
+    }
+    return _matchVersion(s);
+  }
+
+  static String? _matchVersion(String? s) {
+    if (s == null) return null;
+    final reg = RegExp(r'v?\d+(?:\.\d+){1,3}');
+    final m = reg.firstMatch(s);
+    return m?.group(0);
   }
 }

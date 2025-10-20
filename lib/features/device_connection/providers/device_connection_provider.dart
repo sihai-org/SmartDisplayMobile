@@ -407,16 +407,24 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       } catch (_) {
         text = utf8.decode(data, allowMalformed: true).trim();
       }
-      // 期望 JSON 格式，包含 version 或 firmwareVersion 字段
+      // 尝试从返回的数据中提取版本号
       String? fw;
+      // 1) 优先按 JSON 解析常见键位
       try {
         final obj = jsonDecode(text);
         if (obj is Map<String, dynamic>) {
-          fw = (obj['version'] ?? obj['firmwareVersion'])?.toString();
+          fw = (obj['version'] ?? obj['firmwareVersion'] ?? obj['ver'] ?? obj['fv'] ?? obj['fw'])
+              ?.toString();
+          // 如果仍然没有，从所有字符串值中正则提取类似 1.2.3 的版本号
+          fw ??= obj.values
+              .whereType<Object>()
+              .map((e) => e.toString())
+              .map(_extractVersion)
+              .firstWhere((e) => e != null && e.isNotEmpty, orElse: () => null);
         }
       } catch (_) {
-        // 兼容非JSON的简单字符串版本号
-        if (text.isNotEmpty) fw = text;
+        // 非标准 JSON，尝试正则从原始文本中提取版本
+        fw = _extractVersion(text);
       }
       if (fw != null && fw.isNotEmpty) {
         state = state.copyWith(firmwareVersion: fw);
@@ -425,6 +433,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     } catch (_) {
       // ignore
     }
+  }
+
+  // 从字符串中提取常见版本号格式，例如 v1.2.3 或 1.0.0
+  String? _extractVersion(String? input) {
+    if (input == null) return null;
+    final s = input.trim();
+    if (s.isEmpty) return null;
+    // 直接匹配版本片段
+    final reg = RegExp(r'v?\d+(?:\.\d+){1,3}');
+    final m = reg.firstMatch(s);
+    if (m != null) return m.group(0);
+    return null;
   }
 
   Future<void> _initGattSession(BleDeviceData deviceData) async {
