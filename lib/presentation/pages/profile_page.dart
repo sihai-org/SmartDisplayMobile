@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
@@ -13,25 +14,9 @@ class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   void _showTopToast(BuildContext context, String message) {
-    final theme = Theme.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message, style: theme.textTheme.bodyMedium),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 12,
-          left: 16,
-          right: 16,
-        ),
-        duration: const Duration(seconds: 2),
-        dismissDirection: DismissDirection.up,
-        backgroundColor: theme.brightness == Brightness.dark
-            ? Colors.grey.shade900
-            : Colors.grey.shade100,
-        elevation: 2,
-      ),
+    Fluttertoast.showToast(
+      msg: message,
+      gravity: ToastGravity.TOP,
     );
   }
 
@@ -59,9 +44,7 @@ class ProfilePage extends ConsumerWidget {
       context.go(AppRoutes.login);
     } catch (e) {
       final l10n = context.l10n;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.signout_failed(e.toString()))),
-      );
+      Fluttertoast.showToast(msg: l10n.signout_failed(e.toString()));
     }
   }
 

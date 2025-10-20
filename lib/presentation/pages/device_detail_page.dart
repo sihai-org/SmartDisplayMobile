@@ -451,19 +451,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       print("device_management_page: " + "writeCharacteristic ok=$ok");
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已发送检查更新指令')),
-        );
+        Fluttertoast.showToast(msg: '已发送检查更新指令');
       }
     } catch (e, st) {
       print("❌ _sendCheckUpdate 出错: $e\n$st");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('发送更新请求失败: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        Fluttertoast.showToast(msg: '发送更新请求失败: $e');
       }
     }
   }
@@ -984,12 +977,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   Future<void> _connectToWifi(String ssid, String password, WidgetRef ref) async {
     try {
       // 显示连接中状态
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.connecting_to(ssid)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      Fluttertoast.showToast(msg: context.l10n.connecting_to(ssid));
 
       // 发送WiFi凭证到设备
       final success = await ref
@@ -997,27 +985,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           .sendWifiCredentials(ssid, password);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.wifi_credentials_sent(ssid)),
-            backgroundColor: Colors.green,
-          ),
-        );
+        Fluttertoast.showToast(msg: context.l10n.wifi_credentials_sent(ssid));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.wifi_credentials_failed),
-            backgroundColor: Colors.red,
-          ),
-        );
+        Fluttertoast.showToast(msg: context.l10n.wifi_credentials_failed);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.connect_failed(e.toString())),
-          backgroundColor: Colors.red,
-        ),
-      );
+      Fluttertoast.showToast(msg: context.l10n.connect_failed(e.toString()));
     }
   }
 

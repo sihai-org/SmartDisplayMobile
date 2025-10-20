@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 // TODO: 这个解析很奇怪
 /// 扫码无法解析时跳转使用（qr_scanner_page.dart）
@@ -40,9 +41,7 @@ class QrCodeResultPage extends StatelessWidget {
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: decoded));
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已复制到剪贴板')),
-                    );
+                    Fluttertoast.showToast(msg: '已复制到剪贴板');
                   }
                 },
                 icon: const Icon(Icons.copy),
@@ -55,4 +54,3 @@ class QrCodeResultPage extends StatelessWidget {
     );
   }
 }
-

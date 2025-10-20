@@ -10,6 +10,7 @@ import '../../core/providers/saved_devices_provider.dart';
 import '../../core/constants/ble_constants.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class BindConfirmPage extends ConsumerWidget {
   const BindConfirmPage({super.key, required this.deviceId});
@@ -123,9 +124,7 @@ class BindConfirmPage extends ConsumerWidget {
       // 确保可信通道
       final okChannel = await ref.read(deviceConnectionProvider.notifier).ensureTrustedChannel();
       if (!okChannel) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('蓝牙通道未就绪，请靠近设备重试')),
-        );
+        Fluttertoast.showToast(msg: '蓝牙通道未就绪，请靠近设备重试');
         return false;
       }
 
@@ -135,18 +134,14 @@ class BindConfirmPage extends ConsumerWidget {
         body: {'device_id': device.deviceId},
       );
       if (response.status != 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('获取授权码失败: ${response.data}')),
-        );
+        Fluttertoast.showToast(msg: '获取授权码失败: ${response.data}');
         return false;
       }
       final data = response.data as Map;
       final email = (data['email'] ?? '') as String;
       final otpToken = (data['token'] ?? '') as String;
       if (email.isEmpty || otpToken.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('授权码为空')),
-        );
+        Fluttertoast.showToast(msg: '授权码为空');
         return false;
       }
 
@@ -163,19 +158,13 @@ class BindConfirmPage extends ConsumerWidget {
         json: payload,
       );
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('下发绑定指令失败')),
-        );
+        Fluttertoast.showToast(msg: '下发绑定指令失败');
         return false;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('绑定指令已发送，稍候完成登录')),
-      );
+      Fluttertoast.showToast(msg: '绑定指令已发送，稍候完成登录');
       return true;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('绑定失败: $e')),
-      );
+      Fluttertoast.showToast(msg: '绑定失败: $e');
       return false;
     }
   }

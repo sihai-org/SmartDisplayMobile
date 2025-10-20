@@ -560,9 +560,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                   onPressed: () {
                     final allLogs = state.connectionLogs.join("\n");
                     Clipboard.setData(ClipboardData(text: allLogs));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('日志已复制到剪贴板')),
-                    );
+                    Fluttertoast.showToast(msg: '日志已复制到剪贴板');
                   },
                 ),
               ],

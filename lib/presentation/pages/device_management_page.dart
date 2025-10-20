@@ -5,6 +5,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
   final void Function(String deviceId)? onDeviceTapped;
@@ -183,20 +184,12 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     try {
       await ref.read(savedDevicesProvider.notifier).select(deviceId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.device_switched),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        Fluttertoast.showToast(msg: context.l10n.device_switched);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.switch_device_failed(e.toString())),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        Fluttertoast.showToast(
+          msg: context.l10n.switch_device_failed(e.toString()),
         );
       }
     }

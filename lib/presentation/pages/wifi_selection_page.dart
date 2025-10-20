@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
   const WiFiSelectionPage({super.key, required this.deviceId});
@@ -45,9 +46,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
       final s = (next.provisionStatus ?? '').toLowerCase();
       if (s == 'online' || s == 'wifi_online' || s == 'success') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('配网成功，设备已联网')),
-        );
+        Fluttertoast.showToast(msg: '配网成功，设备已联网');
         context.go(AppRoutes.home);
       }
     });
@@ -149,9 +148,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             _ssidController.text = ap.ssid;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('已选择网络: ${ap.ssid}')),
-                            );
+                            Fluttertoast.showToast(msg: '已选择网络: ${ap.ssid}');
                           },
                         );
                       },
@@ -188,9 +185,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                       final ssid = _ssidController.text.trim();
                       final pwd = _pwdController.text;
                       if (ssid.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('请输入Wi‑Fi名称')),
-                        );
+                        Fluttertoast.showToast(msg: '请输入Wi‑Fi名称');
                         return;
                       }
                       setState(() => _sending = true);
@@ -199,9 +194,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           .sendProvisionRequest(ssid: ssid, password: pwd);
                       setState(() => _sending = false);
                       if (!ok) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('发送配网请求失败')),
-                        );
+                        Fluttertoast.showToast(msg: '发送配网请求失败');
                       }
                     },
                 icon: _sending
