@@ -1104,6 +1104,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
       Fluttertoast.showToast(msg: "设备删除成功");
 
+      // 同步远端状态，确保列表与服务器一致
+      try {
+        await ref.read(savedDevicesProvider.notifier).syncFromServer();
+      } catch (_) {
+        // 同步失败不阻塞后续逻辑，保持静默以免打断用户流程
+      }
+
       // 2. 若正在连接该设备，优先通过 BLE 通知 TV 执行本地登出
       final connState = ref.read(conn.deviceConnectionProvider);
       if (connState.deviceData?.deviceId == device.deviceId) {
