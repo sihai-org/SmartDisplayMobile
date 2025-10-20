@@ -69,15 +69,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       }
     });
 
-    // Sync devices when app becomes visible (foreground)
-    // Also triggers on initial resume after launch
-    ref.listen<bool>(isForegroundProvider, (prev, isFg) {
-      if (isFg == true) {
-        // Kick off background sync with top toast feedback
-        Future.microtask(() =>
-            ref.read(savedDevicesProvider.notifier).syncFromServer());
-      }
-    });
+    // moved: foreground listen should be in build for Consumer widgets
   }
 
   @override
@@ -89,6 +81,14 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
   @override
   Widget build(BuildContext context) {
     final locale = ref.watch(localeProvider);
+    // Sync devices when app becomes visible (foreground). Keeping it in build
+    // satisfies Riverpod's requirement for ref.listen in Consumer widgets.
+    ref.listen<bool>(isForegroundProvider, (prev, isFg) {
+      if (isFg == true) {
+        Future.microtask(() =>
+            ref.read(savedDevicesProvider.notifier).syncFromServer());
+      }
+    });
     return MaterialApp.router(
       // Title may be localized by platform; keep constant for now
       title: AppConstants.appName,

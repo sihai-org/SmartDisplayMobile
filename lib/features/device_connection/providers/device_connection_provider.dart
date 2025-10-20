@@ -77,6 +77,8 @@ class DeviceConnectionState {
   final NetworkStatus? networkStatus;
   final bool isCheckingNetwork;
   final String? firmwareVersion;
+  final String? lastHandshakeErrorCode;
+  final String? lastHandshakeErrorMessage;
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -90,6 +92,8 @@ class DeviceConnectionState {
     this.networkStatus,
     this.isCheckingNetwork = false,
     this.firmwareVersion,
+    this.lastHandshakeErrorCode,
+    this.lastHandshakeErrorMessage,
   });
 
   DeviceConnectionState copyWith({
@@ -104,6 +108,8 @@ class DeviceConnectionState {
     NetworkStatus? networkStatus,
     bool? isCheckingNetwork,
     String? firmwareVersion,
+    String? lastHandshakeErrorCode,
+    String? lastHandshakeErrorMessage,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -117,6 +123,8 @@ class DeviceConnectionState {
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+      lastHandshakeErrorCode: lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
+      lastHandshakeErrorMessage: lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
     );
   }
 }
@@ -470,7 +478,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   }
 
   Future<void> _startAuthentication(BleDeviceData deviceData) async {
-    state = state.copyWith(status: BleDeviceStatus.authenticating);
+    state = state.copyWith(status: BleDeviceStatus.authenticating, progress: 0.9);
     _cryptoService = CryptoService();
     await _cryptoService!.generateEphemeralKeyPair();
 
@@ -502,7 +510,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             timestamp: response.timestamp,
             clientTimestamp: _cryptoService!.clientTimestamp!,
           );
-          state = state.copyWith(status: BleDeviceStatus.authenticated);
+          state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
           _log('🎉 认证完成');
           // 握手完成后，立刻通过加密通道同步设备信息与网络状态
           await _syncDeviceInfo();
@@ -512,10 +520,33 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           try {
             final map = jsonDecode(json) as Map<String, dynamic>;
             final type = map['type']?.toString();
+            // 显式错误处理：设备已被其他账号绑定
+            final message = (map['message'] ?? map['reason'] ?? '').toString();
+            final code = (map['code'] ?? '').toString();
+            final isBoundByOther =
+                type == 'error' && (
+                  code == 'user_mismatch' ||
+                  message.contains('仅允许相同 userId') ||
+                  message.contains('设备已登录') ||
+                  message.contains('已被其他账号绑定')
+                );
+            if (isBoundByOther) {
+              _log('❌ 设备拒绝握手：设备已被其他账号绑定');
+              // 记录最近一次握手错误，供上层UI兜底识别
+              state = state.copyWith(
+                lastHandshakeErrorCode: code.isNotEmpty ? code : 'user_mismatch',
+                lastHandshakeErrorMessage: message.isNotEmpty ? message : 'device already logged in; only same userId allowed',
+              );
+              // 断开以清理会话
+              await BleServiceSimple.disconnect();
+              // 设置明确的错误消息供 UI 感知
+              _setError('设备已被其他账号绑定');
+              return;
+            }
             if (type == 'authenticated') {
               // 如果先收到 authenticated 快速通知，也标记为已认证
               if (state.status != BleDeviceStatus.authenticated) {
-                state = state.copyWith(status: BleDeviceStatus.authenticated);
+                state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
                 _log('📣 收到 A105 authenticated 通知，标记为已认证');
               }
               // 确认认证后，同步信息

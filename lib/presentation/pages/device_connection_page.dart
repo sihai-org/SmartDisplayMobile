@@ -92,6 +92,50 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         // ignore: avoid_print
         print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
       }
+      // 特殊错误：设备已被其他账号绑定
+      if (current.status == BleDeviceStatus.error &&
+          (
+            current.errorMessage == '设备已被其他账号绑定' ||
+            (current.errorMessage?.contains('已被其他账号绑定') ?? false) ||
+            // 兜底：最近一次握手错误码为 user_mismatch
+            (ref.read(deviceConnectionProvider).lastHandshakeErrorCode == 'user_mismatch') ||
+            // 回退策略：若扫码校验结果表明已被绑定，且在握手阶段失败，也给出相同提示
+            (ref.read(appStateProvider).scannedIsBound == true &&
+             (previous?.status == BleDeviceStatus.authenticating ||
+              previous?.status == BleDeviceStatus.connected))
+          )) {
+        // Toast 提示并回到扫码前的页面；没有则回到设备详情
+        Fluttertoast.showToast(msg: '设备已被其他账号绑定');
+        if (mounted) {
+          // 清理扫描与连接状态
+          ref.read(appStateProvider.notifier).clearScannedDeviceData();
+          ref.read(deviceConnectionProvider.notifier).reset();
+          ref.read(qrScannerProvider.notifier).reset();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
+        }
+        return;
+      }
+      // 其他连接相关错误：toast 并回退到扫码前页面；没有则回到设备详情
+      if (current.status == BleDeviceStatus.error ||
+          current.status == BleDeviceStatus.timeout) {
+        final msg = current.errorMessage ?? '连接失败，请重试';
+        Fluttertoast.showToast(msg: msg);
+        if (mounted) {
+          ref.read(appStateProvider.notifier).clearScannedDeviceData();
+          ref.read(deviceConnectionProvider.notifier).reset();
+          ref.read(qrScannerProvider.notifier).reset();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
+        }
+        return;
+      }
       if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
         final d = current.deviceData!;
         print('[DeviceConnectionPage] 🎉 认证完成');
@@ -271,7 +315,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               _buildDeviceDetail('BLE地址', qrDeviceData.bleAddress),
               // 优先展示连接态同步到的固件版本
               if (state.firmwareVersion != null && state.firmwareVersion!.isNotEmpty)
-                _buildDeviceDetail('固件版本', state.firmwareVersion!),
+                _buildDeviceDetail('固件版本', state.firmwareVersion!)
               else if (qrDeviceData.firmwareVersion != null)
                 _buildDeviceDetail('固件版本', qrDeviceData.firmwareVersion!),
               if (qrDeviceData.timestamp != null)
