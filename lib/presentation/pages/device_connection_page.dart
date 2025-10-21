@@ -222,15 +222,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     _buildConnectionProgress(connectionState),
                     
                     const SizedBox(height: 32),
-                    
-                    // 移除手动扫描/调试列表，仅显示状态
-                    
-                    const SizedBox(height: 32),
-                    
-                    // 状态信息
-                    _buildStatusInfo(connectionState),
-
-                    const SizedBox(height: 32),
 
                     // 连接日志（仅显示最近10条）
                     _buildConnectionLogs(connectionState),
@@ -452,82 +443,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       case BleDeviceStatus.timeout:
         return 0;
     }
-  }
-
-  /// 构建状态信息
-  Widget _buildStatusInfo(DeviceConnectionState state) {
-    // 检查是否有QR扫描数据
-    final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.deviceId);
-    
-    if (qrDeviceData != null) {
-      // 显示设备信息模式的状态
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Colors.blue.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.info_outline,
-              color: Colors.blue,
-              size: 20,
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '设备信息显示完成，点击"开始连接"按钮启动BLE连接',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // 原有的连接状态显示
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _getStatusColor(state.status).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _getStatusColor(state.status).withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _getStatusIcon(state.status).icon,
-            color: _getStatusColor(state.status),
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              _getStatusMessage(state),
-              style: TextStyle(
-                fontSize: 14,
-                color: _getStatusColor(state.status),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 连接日志
