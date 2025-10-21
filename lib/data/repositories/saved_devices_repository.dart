@@ -10,6 +10,8 @@ class SavedDeviceRecord {
   final String publicKey;
   final String? lastBleAddress;
   final DateTime? lastConnectedAt;
+  final String? firmwareVersion; // overlay from BLE when available
+  final String? networkSummary;  // e.g., SSID or "offline"
 
   const SavedDeviceRecord({
     required this.deviceId,
@@ -17,6 +19,8 @@ class SavedDeviceRecord {
     required this.publicKey,
     this.lastBleAddress,
     this.lastConnectedAt,
+    this.firmwareVersion,
+    this.networkSummary,
   });
 
   // Convenient empty constructor used by UI fallbacks
@@ -25,7 +29,9 @@ class SavedDeviceRecord {
         deviceName = '',
         publicKey = '',
         lastBleAddress = null,
-        lastConnectedAt = null;
+        lastConnectedAt = null,
+        firmwareVersion = null,
+        networkSummary = null;
 
   Map<String, dynamic> toJson() => {
         'deviceId': deviceId,
@@ -43,6 +49,8 @@ class SavedDeviceRecord {
         lastConnectedAt: json['lastConnectedAt'] != null
             ? DateTime.tryParse(json['lastConnectedAt'] as String)
             : null,
+        firmwareVersion: json['firmwareVersion'] as String?,
+        networkSummary: json['networkSummary'] as String?,
       );
 
   SavedDeviceRecord copyWith({
@@ -51,6 +59,8 @@ class SavedDeviceRecord {
     String? publicKey,
     String? lastBleAddress,
     DateTime? lastConnectedAt,
+    String? firmwareVersion,
+    String? networkSummary,
   }) =>
       SavedDeviceRecord(
         deviceId: deviceId ?? this.deviceId,
@@ -58,6 +68,8 @@ class SavedDeviceRecord {
         publicKey: publicKey ?? this.publicKey,
         lastBleAddress: lastBleAddress ?? this.lastBleAddress,
         lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
+        firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+        networkSummary: networkSummary ?? this.networkSummary,
       );
 }
 

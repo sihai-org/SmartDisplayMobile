@@ -104,7 +104,12 @@ class BindConfirmPage extends ConsumerWidget {
                     onPressed: () async {
                       final ok = await _bindViaOtp(context, ref, scanned);
                       if (ok && context.mounted) {
-                        // 等待设备BLE通知登录成功，连接管理器将刷新并选中
+                        // 先与远端同步，确保设备列表立即可见
+                        try {
+                          await ref.read(savedDevicesProvider.notifier).syncFromServer();
+                          await ref.read(savedDevicesProvider.notifier).select(scanned.deviceId);
+                        } catch (_) {}
+                        // 再回到首页；BLE 的 login_success 会继续叠加设备/网络信息
                         context.go(AppRoutes.home);
                       }
                     },
@@ -124,6 +129,9 @@ class BindConfirmPage extends ConsumerWidget {
       // 确保可信通道
       final okChannel = await ref.read(deviceConnectionProvider.notifier).ensureTrustedChannel();
       if (!okChannel) {
+        // 兜底：如果实际上已绑定成功（比如前次已完成），则不报错
+        final recovered = await _attemptSuccessFallback(ref, device.deviceId);
+        if (recovered) return true;
         Fluttertoast.showToast(msg: '蓝牙通道未就绪，请靠近设备重试');
         return false;
       }
@@ -134,6 +142,8 @@ class BindConfirmPage extends ConsumerWidget {
         body: {'device_id': device.deviceId},
       );
       if (response.status != 200) {
+        final recovered = await _attemptSuccessFallback(ref, device.deviceId);
+        if (recovered) return true;
         Fluttertoast.showToast(msg: '获取授权码失败: ${response.data}');
         return false;
       }
@@ -141,6 +151,8 @@ class BindConfirmPage extends ConsumerWidget {
       final email = (data['email'] ?? '') as String;
       final otpToken = (data['token'] ?? '') as String;
       if (email.isEmpty || otpToken.isEmpty) {
+        final recovered = await _attemptSuccessFallback(ref, device.deviceId);
+        if (recovered) return true;
         Fluttertoast.showToast(msg: '授权码为空');
         return false;
       }
@@ -158,13 +170,36 @@ class BindConfirmPage extends ConsumerWidget {
         json: payload,
       );
       if (!ok) {
+        // 写入失败但设备可能已收到（某些平台 withResponse 不可靠），尝试快速验证绑定结果
+        final recovered = await _attemptSuccessFallback(ref, device.deviceId);
+        if (recovered) return true;
         Fluttertoast.showToast(msg: '下发绑定指令失败');
         return false;
       }
       Fluttertoast.showToast(msg: '绑定指令已发送，稍候完成登录');
       return true;
     } catch (e) {
+      // 发生异常时也尝试兜底验证是否已绑定成功
+      final recovered = await _attemptSuccessFallback(ref, device.deviceId);
+      if (recovered) return true;
       Fluttertoast.showToast(msg: '绑定失败: $e');
+      return false;
+    }
+  }
+
+  // 快速兜底：同步服务器设备列表，若已包含该设备则视为成功
+  Future<bool> _attemptSuccessFallback(WidgetRef ref, String deviceId) async {
+    try {
+      // 第一次立即同步
+      await ref.read(savedDevicesProvider.notifier).syncFromServer();
+      if (ref.read(savedDevicesProvider).devices.any((e) => e.deviceId == deviceId)) {
+        return true;
+      }
+      // 短暂等待后再同步一次
+      await Future.delayed(const Duration(seconds: 2));
+      await ref.read(savedDevicesProvider.notifier).syncFromServer();
+      return ref.read(savedDevicesProvider).devices.any((e) => e.deviceId == deviceId);
+    } catch (_) {
       return false;
     }
   }

@@ -73,10 +73,12 @@ class DeviceConnectionState {
   final String? errorMessage;
   final double progress;
   final String? provisionStatus;
+  final String? lastProvisionDeviceId;
   final List<WifiAp> wifiNetworks;
   final List<String> connectionLogs;
   final NetworkStatus? networkStatus;
   final bool isCheckingNetwork;
+  final DateTime? networkStatusUpdatedAt;
   final String? firmwareVersion;
   final String? lastHandshakeErrorCode;
   final String? lastHandshakeErrorMessage;
@@ -88,10 +90,12 @@ class DeviceConnectionState {
     this.errorMessage,
     this.progress = 0.0,
     this.provisionStatus,
+    this.lastProvisionDeviceId,
     this.wifiNetworks = const [],
     this.connectionLogs = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
+    this.networkStatusUpdatedAt,
     this.firmwareVersion,
     this.lastHandshakeErrorCode,
     this.lastHandshakeErrorMessage,
@@ -104,10 +108,12 @@ class DeviceConnectionState {
     String? errorMessage,
     double? progress,
     String? provisionStatus,
+    String? lastProvisionDeviceId,
     List<WifiAp>? wifiNetworks,
     List<String>? connectionLogs,
     NetworkStatus? networkStatus,
     bool? isCheckingNetwork,
+    DateTime? networkStatusUpdatedAt,
     String? firmwareVersion,
     String? lastHandshakeErrorCode,
     String? lastHandshakeErrorMessage,
@@ -119,10 +125,12 @@ class DeviceConnectionState {
       errorMessage: errorMessage ?? this.errorMessage,
       progress: progress ?? this.progress,
       provisionStatus: provisionStatus ?? this.provisionStatus,
+      lastProvisionDeviceId: lastProvisionDeviceId ?? this.lastProvisionDeviceId,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       connectionLogs: connectionLogs ?? this.connectionLogs,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
+      networkStatusUpdatedAt: networkStatusUpdatedAt ?? this.networkStatusUpdatedAt,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
       lastHandshakeErrorCode: lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
       lastHandshakeErrorMessage: lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
@@ -162,6 +170,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   bool _hasReceivedWifiScanNotify = false;
   bool _syncedAfterLogin = false;
+  // Network status read de-dup & throttle
+  DateTime? _lastNetworkStatusReadAt;
+  Future<NetworkStatus?>? _inflightNetworkStatusRead;
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
@@ -467,6 +478,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           serviceUuid: BleConstants.serviceUuid,
           characteristicUuid: BleConstants.wifiConfigStatusCharUuid,
         ).listen((data) async {
+          // Debug: trace incoming A107
+          try {
+            // ignore: avoid_print
+            print('[A107] notify len=${data.length}');
+          } catch (_) {}
           // 若已建立会话，则尝试按密文解密，否则回退到明文
           String? status;
           try {
@@ -478,18 +494,29 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             // ignore and fallback
           }
           status ??= utf8.decode(data, allowMalformed: true);
-          state = state.copyWith(provisionStatus: status);
+          // Debug: log normalized status key
+          try {
+            final peek = status?.length ?? 0;
+            // ignore: avoid_print
+            print('[A107] payload peek=${peek}');
+          } catch (_) {}
+          final normalized = _normalizeBleStatus(status);
+          try { print('[A107] status=$normalized'); } catch (_) {}
+          final devId = _extractDeviceId(status);
+          state = state.copyWith(provisionStatus: normalized, lastProvisionDeviceId: devId);
           // 绑定登录成功后，主动同步远端绑定列表并选中当前设备
-          final s = (status ?? '').toLowerCase();
+          final s = (normalized).toLowerCase();
           if (!_syncedAfterLogin && (s == 'login_success' || s.contains('login_success'))) {
             _syncedAfterLogin = true;
             try {
-              // Silent sync to avoid extra toast during login flow (default is silent)
+              // 先远端同步，确保列表与元数据以服务端为准
               await _ref.read(savedDevicesProvider.notifier).syncFromServer();
               final id = state.deviceData?.deviceId;
               if (id != null && id.isNotEmpty) {
                 await _ref.read(savedDevicesProvider.notifier).select(id);
               }
+              // 再叠加 BLE 内联设备/网络信息（仅当前设备）
+              _maybeApplyInlineDeviceAndNetwork(status, expectedDeviceId: state.deviceData?.deviceId);
             } catch (_) {}
           }
         });
@@ -511,6 +538,88 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     ).listen((chunk) {
       _wifiAssembler?.addChunk(chunk);
     });
+  }
+
+  // 统一规范化 BLE 文本/JSON 状态载荷，提取 status 字段
+  String _normalizeBleStatus(String? raw) {
+    if (raw == null) return '';
+    final s = raw.trim();
+    if (s.isEmpty) return s;
+    if (s.startsWith('{')) {
+      try {
+        final obj = jsonDecode(s);
+        if (obj is Map<String, dynamic>) {
+          final st = obj['status']?.toString();
+          if (st != null && st.isNotEmpty) return st;
+        }
+      } catch (_) {
+        // ignore and fallback
+      }
+    }
+    return s;
+  }
+
+  // 当 login_success 载荷带上了设备信息/网络信息时，尽早更新本地可见状态
+  void _maybeApplyInlineDeviceAndNetwork(String? raw, {String? expectedDeviceId}) {
+    if (raw == null) return;
+    final s = raw.trim();
+    if (!s.startsWith('{')) return;
+    try {
+      final obj = jsonDecode(s);
+      if (obj is! Map<String, dynamic>) return;
+      // 如果载荷包含 deviceId 且与当前设备不一致，则忽略该通知
+      final payloadDeviceId = obj['deviceId']?.toString();
+      if (expectedDeviceId != null && expectedDeviceId.isNotEmpty) {
+        if (payloadDeviceId != null && payloadDeviceId.isNotEmpty && payloadDeviceId != expectedDeviceId) {
+          return;
+        }
+      }
+      // 设备信息字段容错：device/deviceInfo/info
+      final dinfo = (obj['device'] ?? obj['deviceInfo'] ?? obj['info']);
+      String? fwValue;
+      if (dinfo is Map<String, dynamic>) {
+        // 常见字段：version/firmwareVersion/fw
+        final fw = (dinfo['version'] ?? dinfo['firmwareVersion'] ?? dinfo['fw'] ?? dinfo['ver'])?.toString();
+        if (fw != null && fw.isNotEmpty) fwValue = _extractVersion(fw);
+      }
+      // 网络信息字段容错：network/networkStatus/net
+      final ninfo = (obj['network'] ?? obj['networkStatus'] ?? obj['net']);
+      String? networkSummary;
+      if (ninfo is Map<String, dynamic>) {
+        try {
+          final ns = NetworkStatus.fromJson(ninfo);
+          state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
+          networkSummary = ns.connected ? (ns.displaySsid ?? 'connected') : 'offline';
+        } catch (_) {}
+      }
+      // 将 BLE 获取到的信息叠加到设备列表中（基于远端同步的结果）
+      final targetId = expectedDeviceId ?? payloadDeviceId ?? state.deviceData?.deviceId;
+      if (targetId != null && targetId.isNotEmpty) {
+        _ref.read(savedDevicesProvider.notifier).overlayInlineInfo(
+              deviceId: targetId,
+              firmwareVersion: fwValue,
+              networkSummary: networkSummary,
+              lastBleAddress: state.deviceData?.bleAddress,
+            );
+      }
+    } catch (_) {}
+  }
+
+  // 从 BLE 文本/JSON 载荷中提取 deviceId（若存在）
+  String? _extractDeviceId(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+    if (s.startsWith('{')) {
+      try {
+        final obj = jsonDecode(s);
+        if (obj is Map<String, dynamic>) {
+          final id = obj['deviceId']?.toString();
+          if (id != null && id.isNotEmpty) return id;
+        }
+      } catch (_) {}
+    }
+    return null;
   }
 
   Future<void> _startAuthentication(BleDeviceData deviceData) async {
@@ -897,6 +1006,27 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   Future<NetworkStatus?> checkNetworkStatus() async {
     if (state.deviceData == null) return null;
+    // Throttle: if read within last 400ms, return cached value
+    final now = DateTime.now();
+    if (_lastNetworkStatusReadAt != null &&
+        now.difference(_lastNetworkStatusReadAt!) < const Duration(milliseconds: 400)) {
+      return state.networkStatus;
+    }
+    // Deduplicate concurrent reads
+    if (_inflightNetworkStatusRead != null) {
+      return _inflightNetworkStatusRead;
+    }
+    state = state.copyWith(isCheckingNetwork: true);
+    _lastNetworkStatusReadAt = now;
+    final future = _doReadNetworkStatus();
+    _inflightNetworkStatusRead = future;
+    final res = await future;
+    _inflightNetworkStatusRead = null;
+    state = state.copyWith(isCheckingNetwork: false);
+    return res;
+  }
+
+  Future<NetworkStatus?> _doReadNetworkStatus() async {
     try {
       final data = await BleServiceSimple.readCharacteristic(
         deviceId: state.deviceData!.bleAddress,
@@ -918,7 +1048,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         }
         networkStatus ??= NetworkStatusParser.fromBleData(data);
         if (networkStatus != null) {
-          state = state.copyWith(networkStatus: networkStatus);
+          state = state.copyWith(
+            networkStatus: networkStatus,
+            networkStatusUpdatedAt: DateTime.now(),
+          );
           return networkStatus;
         }
       }

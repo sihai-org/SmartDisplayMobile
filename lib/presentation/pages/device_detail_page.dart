@@ -675,14 +675,24 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                   const SizedBox(width: 12),
                   TextButton.icon(
-                    onPressed: () {
-                      ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
-                    },
+                    onPressed: connState.isCheckingNetwork
+                        ? null
+                        : () {
+                            ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
+                          },
                     icon: const Icon(Icons.refresh, size: 16),
                     label: const Text('刷新'),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              if (connState.networkStatusUpdatedAt != null)
+                Text(
+                  '上次更新: ' + _fmtTime(connState.networkStatusUpdatedAt!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
             ]
             // 显示WiFi列表 (未连网或检查失败)
             else ...[
@@ -766,6 +776,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         ],
       ),
     );
+  }
+
+  String _fmtTime(DateTime t) {
+    final lt = t.toLocal();
+    String two(int x) => x.toString().padLeft(2, '0');
+    return '${two(lt.hour)}:${two(lt.minute)}:${two(lt.second)}';
   }
 
   // 构建WiFi列表

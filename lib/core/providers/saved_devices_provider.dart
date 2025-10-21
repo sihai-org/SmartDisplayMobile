@@ -53,6 +53,34 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     }
   }
 
+  // 覆盖（叠加）从 BLE 即时获取的设备信息，基于最新远端列表进行本地增强
+  Future<void> overlayInlineInfo({
+    required String deviceId,
+    String? firmwareVersion,
+    String? networkSummary,
+    String? lastBleAddress,
+  }) async {
+    // 确保有最新的远端数据
+    if (!state.loaded || state.devices.isEmpty) {
+      try {
+        await syncFromServer();
+      } catch (_) {}
+    }
+
+    final updated = state.devices.map((e) {
+      if (e.deviceId != deviceId) return e;
+      return e.copyWith(
+        firmwareVersion: firmwareVersion ?? e.firmwareVersion,
+        networkSummary: networkSummary ?? e.networkSummary,
+        lastBleAddress: lastBleAddress ?? e.lastBleAddress,
+      );
+    }).toList();
+
+    state = state.copyWith(devices: updated);
+    // 持久化本地缓存（不影响远端源）
+    await _repo.saveLocal(updated);
+  }
+
   Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
     await _repo.selectFromQr(qr, lastBleAddress: lastBleAddress);
     // Keep behavior consistent: refresh local state and mark selection

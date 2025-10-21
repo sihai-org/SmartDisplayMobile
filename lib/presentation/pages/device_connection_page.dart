@@ -33,6 +33,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   }
 
   bool _autoStarted = false;
+  bool _networkCheckStarted = false; // 防重复触发带重试的网络检查，避免监听循环
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -57,6 +58,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
   @override
   void dispose() {
+    _networkCheckStarted = false;
     super.dispose();
   }
 
@@ -88,6 +90,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     // 注册状态监听器，在认证完成时跳转首页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider,
         (previous, current) async {
+      if (!mounted) return; // 防止页面销毁后继续处理
       if (previous?.status != current.status) {
         // ignore: avoid_print
         print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
@@ -147,20 +150,26 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final isUnboundScan = isSame && (app.scannedIsBound == false);
 
         if (isUnboundScan) {
-          // 未绑定流程：优先检查设备是否联网
-          print('[DeviceConnectionPage] 未绑定 → 检查设备网络状态');
-          final ns = await ref.read(deviceConnectionProvider.notifier).checkNetworkStatus();
-          if (ns == null || ns.connected != true) {
-            print('[DeviceConnectionPage] 📶 设备离线 → 跳转Wi‑Fi配网页面');
+          if (_networkCheckStarted) {
+            // 已在进行网络检查，避免因 state 变化引发的监听循环再次触发
+            return;
+          }
+          _networkCheckStarted = true;
+          // 未绑定流程：优先检查设备是否联网（增加重试，避免握手后状态尚未就绪导致误判）
+          print('[DeviceConnectionPage] 未绑定 → 检查设备网络状态（带重试）');
+          final connected = await _checkNetworkWithRetry(ref);
+          if (connected == true) {
+            if (mounted) {
+              context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+            }
+          } else if (connected == false) {
+            print('[DeviceConnectionPage] 📶 确认设备离线 → 跳转Wi‑Fi配网页面');
             if (mounted) {
               context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
             }
-            return;
-          }
-
-          // 已联网：跳转到绑定确认页面
-          if (mounted) {
-            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+          } else {
+            // 状态未知：保守处理，停在当前页
+            print('[DeviceConnectionPage] ⚪ 网络状态未知 → 跳转绑定确认');
           }
           return;
         }
@@ -313,6 +322,31 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         ),
       ),
     );
+  }
+
+  /// 带重试的网络状态检查
+  /// 返回：true=已联网，false=未联网，null=未知
+  Future<bool?> _checkNetworkWithRetry(WidgetRef ref) async {
+    const attempts = 3;
+    const delayMs = 700; // 每次重试间隔
+    bool? last;
+    if (!mounted) return null;
+
+    // 只在挂载时读取一次，避免在组件销毁后再次触发 ref.read
+    final connNotifier = ref.read(deviceConnectionProvider.notifier);
+    for (var i = 0; i < attempts; i++) {
+      if (!mounted) return last;
+      final ns = await connNotifier.checkNetworkStatus();
+      if (ns != null) {
+        last = ns.connected;
+        if (ns.connected == true) return true; // 提前返回
+      }
+      if (i < attempts - 1) {
+        await Future.delayed(const Duration(milliseconds: delayMs));
+        if (!mounted) return last;
+      }
+    }
+    return last; // 可能为false或null（未知）
   }
 
   /// 构建设备详情行

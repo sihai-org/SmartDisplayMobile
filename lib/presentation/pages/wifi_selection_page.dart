@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/providers/app_state_provider.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
@@ -42,12 +44,46 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     final connState = ref.watch(deviceConnectionProvider);
     final provisionStatus = connState.provisionStatus ?? '未开始';
 
-    // 监听配网成功：online 或 connected 视为成功（TV 侧后续建议统一为 online）
+    // 监听配网成功：收到 wifi_online（纯文本或JSON载荷）且 deviceId 匹配时跳转绑定页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
-      final s = (next.provisionStatus ?? '').toLowerCase();
-      if (s == 'online' || s == 'wifi_online' || s == 'success') {
+      String s = (next.provisionStatus ?? '').toLowerCase();
+      // 兼容设备端发送的 JSON 载荷：{"deviceId":"...","status":"wifi_online"}
+      if (s.startsWith('{')) {
+        try {
+          final Map<String, dynamic> obj = jsonDecode(next.provisionStatus ?? '{}');
+          final st = (obj['status']?.toString() ?? '').toLowerCase();
+          if (st.isNotEmpty) s = st;
+        } catch (_) {
+          // ignore JSON parse failure and fallback to raw string
+        }
+      }
+      // 校验 deviceId：优先使用 provider 中解析到的 lastProvisionDeviceId
+      final provDeviceId = next.lastProvisionDeviceId;
+      final isDeviceMatch = provDeviceId == null || provDeviceId.isEmpty
+          ? true // 未传则放行（向后兼容）
+          : provDeviceId == widget.deviceId;
+
+      if ((s == 'wifi_online' || s.contains('wifi_online')) && isDeviceMatch) {
         Fluttertoast.showToast(msg: '配网成功，设备已联网');
+        final id = widget.deviceId;
+        if (id.isNotEmpty) {
+          // 判断是否为“未绑定扫描”场景
+          final app = ref.read(appStateProvider);
+          final scanned = app.scannedDeviceData;
+          final isSame = scanned?.deviceId == id;
+          final isUnboundScan = isSame && (app.scannedIsBound == false);
+          if (isUnboundScan) {
+            context.go(
+                '${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(id)}');
+            return;
+          }
+        }
+        // 兜底回首页
         context.go(AppRoutes.home);
+      } else if ((s == 'wifi_online' || s.contains('wifi_online')) && !isDeviceMatch) {
+        // 设备不匹配时仅记录，不进行跳转
+        // ignore: avoid_print
+        print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.deviceId}');
       }
     });
 
