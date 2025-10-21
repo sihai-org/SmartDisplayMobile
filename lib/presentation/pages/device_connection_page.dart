@@ -317,9 +317,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                 _buildDeviceDetail('固件版本', state.firmwareVersion!)
               else if (qrDeviceData.firmwareVersion != null)
                 _buildDeviceDetail('固件版本', qrDeviceData.firmwareVersion!),
-              if (qrDeviceData.timestamp != null)
-                _buildDeviceDetail('创建时间', 
-                  DateTime.fromMillisecondsSinceEpoch(qrDeviceData.timestamp!).toString().substring(0, 19)),
             ],
           ],
         ),
