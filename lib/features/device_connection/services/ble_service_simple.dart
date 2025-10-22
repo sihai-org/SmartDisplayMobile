@@ -204,10 +204,9 @@ class BleServiceSimple {
             case DeviceConnectionState.connected:
               try {
                 await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
-                await _ble.requestMtu(
-                    deviceId: deviceId, mtu: BleConstants.preferredMtu);
+                // 将 MTU 协商统一放到 ensureGattReady 流程中，避免重复请求
               } catch (e) {
-                print('❌ requestMtu 失败: $e');
+                // ignore
               }
               completer.complete(deviceData.copyWith(
                 status: BleDeviceStatus.connected,
@@ -318,10 +317,18 @@ class BleServiceSimple {
   static Future<bool> ensureGattReady(String deviceId) async {
     await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
     final ok = await discoverServices(deviceId);
-    try {
-      await _ble.requestMtu(deviceId: deviceId, mtu: BleConstants.preferredMtu);
-    } catch (e) {
-      print('❌ ensureGattReady.requestMtu 失败: $e');
+    // 仅在 Android 上主动请求更大 MTU；iOS 通常固定或自动协商
+    if (Platform.isAndroid) {
+      try {
+        final mtu1 = await requestMtu(deviceId, BleConstants.preferredMtu);
+        // 若首次协商未到期望值或异常返回（如 23），短暂延时后再重试一次
+        if (mtu1 < BleConstants.preferredMtu) {
+          await Future.delayed(Duration(milliseconds: BleConstants.writeRetryDelayMs));
+          await requestMtu(deviceId, BleConstants.preferredMtu);
+        }
+      } catch (e) {
+        print('❌ ensureGattReady.requestMtu 失败: $e');
+      }
     }
     await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
     return ok;
