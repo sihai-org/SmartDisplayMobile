@@ -9,9 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/router/app_router.dart';
 import '../../core/deeplink/deep_link_handler.dart';
 import '../../core/providers/app_state_provider.dart';
-import '../../features/qr_scanner/utils/qr_data_parser.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/flow/device_entry_coordinator.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -97,16 +97,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
     }
   }
 
-  void _processDeepLink(Uri uri) {
-    // 统一解析 URL（与扫码一致）。成功则自动连接，失败跳结果页。
-    try {
-      final deviceData = QrDataParser.fromQrContent(uri.toString());
-      ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
-      context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
-    } catch (e) {
-      final raw = Uri.encodeComponent(uri.toString());
-      context.go('${AppRoutes.qrCodeResult}?text=$raw');
-    }
+  Future<void> _processDeepLink(Uri uri) async {
+    // Delegate to unified coordinator so deep links and QR follow the same flow
+    await DeviceEntryCoordinator.handle(context, ref, uri.toString());
   }
 
   Future<void> _navigateNext() async {
