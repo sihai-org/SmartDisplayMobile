@@ -15,11 +15,13 @@ class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   // 默认显示设备详情页
   bool _showingDeviceDetail = true;
+  String? _detailDeviceId;
 
   void _openDeviceDetail([String? deviceId]) {
     setState(() {
       _showingDeviceDetail = true;
       _currentIndex = 0;
+      _detailDeviceId = deviceId; // 记录要展示/连接的设备ID（可为空）
     });
   }
 
@@ -36,7 +38,9 @@ class _MainPageState extends State<MainPage> {
     final pages = <Widget>[
       // Tab 0: 设备（默认显示详情；列表通过右上角按钮进入专页）
       _showingDeviceDetail
-          ? const DeviceDetailPage()
+          ? DeviceDetailPage(
+              deviceId: _detailDeviceId,
+            )
           : DeviceManagementPage(
               onDeviceTapped: (_) => _openDeviceDetail(_),
             ),

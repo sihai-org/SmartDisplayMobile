@@ -748,18 +748,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     state = state.copyWith(status: BleDeviceStatus.disconnected, progress: 0.0);
   }
 
-  Future<void> retry() async {
-    if (state.deviceData != null) {
-      final qrData = DeviceQrData(
-        deviceId: state.deviceData!.deviceId,
-        deviceName: state.deviceData!.deviceName,
-        bleAddress: state.deviceData!.bleAddress,
-        publicKey: state.deviceData!.publicKey,
-      );
-      await startConnection(qrData);
-    }
-  }
-
   void reset() {
     _timeoutTimer?.cancel();
     _scanSubscription?.cancel();

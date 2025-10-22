@@ -18,17 +18,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   final VoidCallback? onBackToList;
-  const DeviceDetailPage({super.key, this.onBackToList});
+  // 可选：指定进入本页时要连接/展示的设备ID
+  final String? deviceId;
+  const DeviceDetailPage({super.key, this.onBackToList, this.deviceId});
 
   @override
   ConsumerState<DeviceDetailPage> createState() => _DeviceDetailState();
 }
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
-  bool _autoTried = false;
   // 开关的乐观更新覆盖值（null 表示不覆盖）
   bool? _bleSwitchOverride;
   DateTime? _bleSwitchOverrideAt;
+  bool _paramConnectTried = false; // 仅根据外部传入 deviceId 自动触发一次
   // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
 
   String _formatDateTime(DateTime? dt) {
@@ -50,6 +52,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(savedDevicesProvider.notifier).load();
     });
+    // 根据外部传入的 deviceId（若有）自动触发连接（只触发一次）
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
   }
 
   @override
@@ -57,66 +61,37 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     super.dispose();
   }
 
-  void _tryAutoConnect() {
+  // 如果通过 MainPage 传入了 deviceId，则优先使用它进行一次性自动连接
+  Future<void> _tryConnectByParam() async {
+    if (_paramConnectTried) return;
+    final targetId = widget.deviceId;
+    if (targetId == null || targetId.isEmpty) return;
     final saved = ref.read(savedDevicesProvider);
-    final connState = ref.read(conn.deviceConnectionProvider);
-    
-    // 如果已经尝试过连接，或者没有保存的设备，或者当前已经在连接/已连接状态，则不重试
-    if (_autoTried || !saved.loaded || saved.lastSelectedId == null) return;
-    if (connState.status == BleDeviceStatus.connecting || 
-        connState.status == BleDeviceStatus.connected ||
-        connState.status == BleDeviceStatus.authenticating ||
-        connState.status == BleDeviceStatus.authenticated) return;
-    
-    SavedDeviceRecord? rec;
-    try {
-      rec = saved.devices.firstWhere((e) => e.deviceId == saved.lastSelectedId);
-    } catch (e) {
-      return; // 没找到记录，直接返回
+    // 若尚未加载完成，先等待加载
+    if (!saved.loaded) {
+      try { await ref.read(savedDevicesProvider.notifier).load(); } catch (_) {}
     }
-    if (rec.deviceId.isEmpty) return;
-    
-    _autoTried = true;
-    print('[HomePage] 自动连接上次设备: ${rec.deviceName} (${rec.deviceId})');
-    
-    // 构造最小 QR 数据用于连接
-    final qr = DeviceQrData(
-      deviceId: rec.deviceId, 
-      deviceName: rec.deviceName, 
-      bleAddress: rec.lastBleAddress ?? '', 
-      publicKey: rec.publicKey
+    final current = ref.read(savedDevicesProvider);
+    if (!current.loaded) return;
+    final rec = current.devices.firstWhere(
+      (e) => e.deviceId == targetId,
+      orElse: () => SavedDeviceRecord.empty(),
     );
-    ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+    if (rec.deviceId.isEmpty) return;
+    _paramConnectTried = true;
+    // 将此设备设置为选中（以便后续 UI 与状态一致）
+    await ref.read(savedDevicesProvider.notifier).select(rec.deviceId);
+    // 构造最小二维码数据并触发连接
+    final qr = DeviceQrData(
+      deviceId: rec.deviceId,
+      deviceName: rec.deviceName,
+      bleAddress: rec.lastBleAddress ?? '',
+      publicKey: rec.publicKey,
+    );
+    await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
   }
-  
-  // 智能重连：当连接断开或失败时自动重试
-  void _handleSmartReconnect() {
-    final saved = ref.read(savedDevicesProvider);
-    final connState = ref.read(conn.deviceConnectionProvider);
-    
-    if (!saved.loaded || saved.lastSelectedId == null) return;
-    
-    // 只在断开、错误或超时状态下触发重连
-    if (connState.status == BleDeviceStatus.disconnected ||
-        connState.status == BleDeviceStatus.error ||
-        connState.status == BleDeviceStatus.timeout) {
-      
-      print('[HomePage] 检测到连接问题，5秒后尝试重连...');
-      
-      // 延迟5秒后重试连接，避免在listener中直接修改provider
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          _autoTried = false; // 重置标记允许重连
-          // 再次延迟确保不在build周期中
-          Future.delayed(Duration.zero, () {
-            if (mounted) {
-              _tryAutoConnect();
-            }
-          });
-        }
-      });
-    }
-  }
+
+  // 已移除“自动连接上次设备”和“智能重连”实现
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +101,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
     // login_success 同步逻辑已下沉至 deviceConnectionProvider，页面无需再监听处理
 
-    // 监听连接状态变化，实现智能重连和智能WiFi处理
+    // 监听连接状态变化，仅处理智能WiFi（不再做智能重连）
     ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
       if (previous != null && previous.status != current.status) {
         print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
@@ -142,22 +117,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           });
         }
 
-        _handleSmartReconnect();
+        // 不再自动重连
       }
     });
 
-    // 监听保存设备状态变化，延迟尝试自动连接以避免在build期间修改provider
-    ref.listen<SavedDevicesState>(savedDevicesProvider, (previous, current) {
-      if (current.loaded && current.lastSelectedId != null &&
-          (previous == null || !previous.loaded)) {
-        // 延迟执行，避免在build期间修改provider
-        Future.delayed(Duration.zero, () {
-          if (mounted) {
-            _tryAutoConnect();
-          }
-        });
-      }
-    });
+    // 移除“自动连接上次设备”的监听逻辑
     return Scaffold(
       appBar: AppBar(
         leading: widget.onBackToList != null
