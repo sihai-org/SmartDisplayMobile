@@ -54,6 +54,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     });
     // 根据外部传入的 deviceId（若有）自动触发连接（只触发一次）
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
+    // 首次进入设备详情页（本会话）时，若存在选中设备且未连接，自动尝试一次连接
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoConnectSelectedOnce());
   }
 
   @override
@@ -89,6 +91,53 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       publicKey: rec.publicKey,
     );
     await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+  }
+
+  // 本会话内在设备详情页只尝试一次：若存在已选中设备且当前未在连接/已连，则自动连接
+  Future<void> _tryAutoConnectSelectedOnce() async {
+    // 若通过参数触发了特定设备的连接，则不再做兜底自动连接
+    if (_paramConnectTried) return;
+    // 已在本会话内做过自动连接则跳过
+    final appState = ref.read(appStateProvider);
+    if (appState.didAutoConnectOnDetailPage) return;
+
+    // 确保已加载设备列表
+    final savedNotifier = ref.read(savedDevicesProvider.notifier);
+    var saved = ref.read(savedDevicesProvider);
+    if (!saved.loaded) {
+      try { await savedNotifier.load(); } catch (_) {}
+      saved = ref.read(savedDevicesProvider);
+    }
+    if (!saved.loaded) return;
+
+    // 获取当前选中设备
+    final selectedId = saved.lastSelectedId;
+    final rec = selectedId == null
+        ? const SavedDeviceRecord.empty()
+        : saved.devices.firstWhere(
+            (e) => e.deviceId == selectedId,
+            orElse: () => const SavedDeviceRecord.empty(),
+          );
+    if (rec.deviceId.isEmpty) return;
+
+    // 避免在已有连接流程中重复触发
+    final connState = ref.read(conn.deviceConnectionProvider);
+    final busy = connState.status == BleDeviceStatus.connecting ||
+        connState.status == BleDeviceStatus.connected ||
+        connState.status == BleDeviceStatus.authenticating ||
+        connState.status == BleDeviceStatus.authenticated;
+    if (busy) return;
+
+    // 构造最小二维码数据并触发连接
+    final qr = DeviceQrData(
+      deviceId: rec.deviceId,
+      deviceName: rec.deviceName,
+      bleAddress: rec.lastBleAddress ?? '',
+      publicKey: rec.publicKey,
+    );
+    await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+    // 标记已执行，防止本会话内重复触发
+    ref.read(appStateProvider.notifier).markAutoConnectOnDetailPage();
   }
 
   // 已移除“自动连接上次设备”和“智能重连”实现

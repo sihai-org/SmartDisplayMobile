@@ -7,22 +7,28 @@ class AppState {
   // 扫码后从云端检查的绑定状态
   final bool? scannedIsBound;
   final bool? scannedIsOwner;
+  // 本应用会话内是否已在设备详情页触发过一次自动连接
+  final bool didAutoConnectOnDetailPage;
 
   const AppState({
     this.scannedDeviceData,
     this.scannedIsBound,
     this.scannedIsOwner,
+    this.didAutoConnectOnDetailPage = false,
   });
 
   AppState copyWith({
     DeviceQrData? scannedDeviceData,
     bool? scannedIsBound,
     bool? scannedIsOwner,
+    bool? didAutoConnectOnDetailPage,
   }) {
     return AppState(
       scannedDeviceData: scannedDeviceData ?? this.scannedDeviceData,
       scannedIsBound: scannedIsBound ?? this.scannedIsBound,
       scannedIsOwner: scannedIsOwner ?? this.scannedIsOwner,
+      didAutoConnectOnDetailPage:
+          didAutoConnectOnDetailPage ?? this.didAutoConnectOnDetailPage,
     );
   }
 }
@@ -61,6 +67,13 @@ class AppStateNotifier extends StateNotifier<AppState> {
   /// 记录扫码绑定检查结果
   void setScannedBindingStatus({required bool isBound, required bool isOwner}) {
     state = state.copyWith(scannedIsBound: isBound, scannedIsOwner: isOwner);
+  }
+
+  /// 记录本会话内已在设备详情页触发过一次自动连接
+  void markAutoConnectOnDetailPage() {
+    if (!state.didAutoConnectOnDetailPage) {
+      state = state.copyWith(didAutoConnectOnDetailPage: true);
+    }
   }
 }
 
