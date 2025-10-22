@@ -51,11 +51,6 @@ class BleServiceSimple {
   /// 请求蓝牙权限
   static Future<bool> requestPermissions() async {
     try {
-      if (AppConstants.skipPermissionCheck) {
-        print('🔧 开发模式：跳过权限检查');
-        return true;
-      }
-
       final bleStatus = await checkBleStatus();
       if (bleStatus == BleStatus.unsupported) return false;
       if (bleStatus == BleStatus.poweredOff) return false;
