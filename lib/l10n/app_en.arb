@@ -110,7 +110,8 @@
   "empty_hint_add_by_scan": "Scan the QR on your device to add a new SmartDisplay",
   "scan_qr_add_device": "Scan QR to add device",
   "device_switched": "Switched to current device",
-  "switch_device_failed": "Failed to switch device: {error}"
+  "switch_device_failed": "Failed to switch device: {error}",
+  "missing_ble_params": "Missing Bluetooth parameters. Please rescan the device first."
   ,
   "no_device_title": "No device added yet",
   "no_device_subtitle": "Power on the display, then scan the QR code shown to add a device"

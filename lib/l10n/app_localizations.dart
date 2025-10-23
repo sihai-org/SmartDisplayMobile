@@ -625,6 +625,7 @@ abstract class AppLocalizations {
   String get scan_qr_add_device;
   String get device_switched;
   String switch_device_failed(Object error);
+  String get missing_ble_params;
 
   // QR scanner localized strings
   String get gallery_picker;

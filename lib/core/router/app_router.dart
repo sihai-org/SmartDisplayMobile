@@ -70,7 +70,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.home,
       name: 'home',
-      builder: (context, state) => const MainPage(),
+      builder: (context, state) {
+        final deviceId = state.uri.queryParameters['deviceId'];
+        return MainPage(initialDeviceId: deviceId);
+      },
     ),
 
 

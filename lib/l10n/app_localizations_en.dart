@@ -326,6 +326,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get missing_ble_params => 'Missing Bluetooth parameters. Please rescan the device first.';
+
+  @override
   String get gallery_picker => 'Choose from gallery';
 
   @override

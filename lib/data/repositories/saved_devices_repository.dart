@@ -163,8 +163,37 @@ class SavedDevicesRepository {
   }
 
   Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
-    // No longer cache devices locally. Only remember last selected id.
     await saveLastSelectedId(qr.deviceId);
+
+    final key = _devicesKeyForCurrentUser();
+    if (key == null) {
+      return;
+    }
+
+    final devices = await loadLocal();
+    final mergedBleAddress = (lastBleAddress != null && lastBleAddress.isNotEmpty)
+        ? lastBleAddress
+        : qr.bleAddress;
+
+    final idx = devices.indexWhere((e) => e.deviceId == qr.deviceId);
+    if (idx >= 0) {
+      final current = devices[idx];
+      devices[idx] = current.copyWith(
+        deviceName: qr.deviceName.isNotEmpty ? qr.deviceName : current.deviceName,
+        publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
+        lastBleAddress: mergedBleAddress,
+      );
+    } else {
+      devices.add(SavedDeviceRecord(
+        deviceId: qr.deviceId,
+        deviceName: qr.deviceName,
+        publicKey: qr.publicKey,
+        lastBleAddress: mergedBleAddress,
+        lastConnectedAt: DateTime.now(),
+      ));
+    }
+
+    await saveLocal(devices);
   }
 
   Future<void> removeDevice(String deviceId) async {

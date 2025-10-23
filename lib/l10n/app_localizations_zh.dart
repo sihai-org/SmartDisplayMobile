@@ -326,6 +326,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get missing_ble_params => '当前设备缺少蓝牙参数，请重新扫码或靠近设备后重试';
+
+  @override
   String get gallery_picker => '从相册选择';
 
   @override

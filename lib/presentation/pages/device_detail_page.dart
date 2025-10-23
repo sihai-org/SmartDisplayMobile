@@ -31,7 +31,22 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool? _bleSwitchOverride;
   DateTime? _bleSwitchOverrideAt;
   bool _paramConnectTried = false; // 仅根据外部传入 deviceId 自动触发一次
+  String? _lastParamDeviceId; // 记录上一次处理过的构造参数 deviceId
   // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
+
+  DeviceQrData? _qrFromRecord(SavedDeviceRecord rec) {
+    final bleAddress = rec.lastBleAddress;
+    if (bleAddress == null || bleAddress.isEmpty) {
+      Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
+      return null;
+    }
+    return DeviceQrData(
+      deviceId: rec.deviceId,
+      deviceName: rec.deviceName,
+      bleAddress: bleAddress,
+      publicKey: rec.publicKey,
+    );
+  }
 
   String _formatDateTime(DateTime? dt) {
     if (dt == null) return '-';
@@ -56,6 +71,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
     // 首次进入设备详情页（本会话）时，若存在选中设备且未连接，自动尝试一次连接
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoConnectSelectedOnce());
+
+    // 保留单一路径：通过参数 deviceId 触发连接（含 didUpdateWidget 变更时）
   }
 
   @override
@@ -63,33 +80,59 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant DeviceDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 当父组件传入的 deviceId 发生变化时，重新尝试基于参数的自动连接
+    final prev = oldWidget.deviceId ?? '';
+    final curr = widget.deviceId ?? '';
+    if (curr.isNotEmpty && curr != prev) {
+      _paramConnectTried = false; // 允许对新的参数再次尝试
+      _lastParamDeviceId = curr;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
+    }
+  }
+
   // 如果通过 MainPage 传入了 deviceId，则优先使用它进行一次性自动连接
   Future<void> _tryConnectByParam() async {
     if (_paramConnectTried) return;
     final targetId = widget.deviceId;
     if (targetId == null || targetId.isEmpty) return;
-    final saved = ref.read(savedDevicesProvider);
+    // 同一参数重复进入时避免多次触发
+    if (_lastParamDeviceId == targetId) {
+      // 已进入过一次但未成功时也允许再次尝试，这里不提前 return
+    } else {
+      _lastParamDeviceId = targetId;
+    }
+    var saved = ref.read(savedDevicesProvider);
     // 若尚未加载完成，先等待加载
     if (!saved.loaded) {
       try { await ref.read(savedDevicesProvider.notifier).load(); } catch (_) {}
+      saved = ref.read(savedDevicesProvider);
     }
-    final current = ref.read(savedDevicesProvider);
-    if (!current.loaded) return;
-    final rec = current.devices.firstWhere(
+    if (!saved.loaded) return;
+    // 查找本地缓存记录
+    var rec = saved.devices.firstWhere(
       (e) => e.deviceId == targetId,
       orElse: () => SavedDeviceRecord.empty(),
     );
-    if (rec.deviceId.isEmpty) return;
+    // 若本地未找到，尝试从服务器同步一次再查找
+    if (rec.deviceId.isEmpty) {
+      try {
+        await ref.read(savedDevicesProvider.notifier).syncFromServer();
+      } catch (_) {}
+      final refreshed = ref.read(savedDevicesProvider);
+      rec = refreshed.devices.firstWhere(
+        (e) => e.deviceId == targetId,
+        orElse: () => SavedDeviceRecord.empty(),
+      );
+      if (rec.deviceId.isEmpty) return;
+    }
     _paramConnectTried = true;
     // 将此设备设置为选中（以便后续 UI 与状态一致）
     await ref.read(savedDevicesProvider.notifier).select(rec.deviceId);
-    // 构造最小二维码数据并触发连接
-    final qr = DeviceQrData(
-      deviceId: rec.deviceId,
-      deviceName: rec.deviceName,
-      bleAddress: rec.lastBleAddress ?? '',
-      publicKey: rec.publicKey,
-    );
+    final qr = _qrFromRecord(rec);
+    if (qr == null) return;
     await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
   }
 
@@ -128,13 +171,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         connState.status == BleDeviceStatus.authenticated;
     if (busy) return;
 
-    // 构造最小二维码数据并触发连接
-    final qr = DeviceQrData(
-      deviceId: rec.deviceId,
-      deviceName: rec.deviceName,
-      bleAddress: rec.lastBleAddress ?? '',
-      publicKey: rec.publicKey,
-    );
+    final qr = _qrFromRecord(rec);
+    if (qr == null) return;
     await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
     // 标记已执行，防止本会话内重复触发
     ref.read(appStateProvider.notifier).markAutoConnectOnDetailPage();
@@ -596,12 +634,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           orElse: () => SavedDeviceRecord.empty(),
         );
         if (rec.deviceId.isEmpty) return;
-        final qr = DeviceQrData(
-          deviceId: rec.deviceId,
-          deviceName: rec.deviceName,
-          bleAddress: rec.lastBleAddress ?? '',
-          publicKey: rec.publicKey,
-        );
+        final qr = _qrFromRecord(rec);
+        if (qr == null) return;
         await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
       } else {
         // 关闭：主动断开
