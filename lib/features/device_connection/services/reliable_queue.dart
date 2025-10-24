@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
@@ -13,10 +14,16 @@ class ReliableRequestQueue {
   final String rxUuid;
   final String txUuid;
   final FlutterReactiveBle _ble;
+  final _eventsController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get events => _eventsController.stream;
 
   StreamSubscription<List<int>>? _sub;
   final FrameDecoder _decoder = FrameDecoder();
   int _nextReqId = 1;
+
+  // Optional crypto handlers installed after handshake
+  Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _wrapEncrypt;
+  Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _unwrapDecrypt;
 
   ReliableRequestQueue({
     required this.deviceId,
@@ -34,7 +41,7 @@ class ReliableRequestQueue {
       deviceId: deviceId,
       serviceUuid: serviceUuid,
       txCharacteristicUuid: txUuid,
-    ).listen((evt) {
+    ).listen((evt) async {
       try {
         // Log each incoming fragment with parsed header for debugging
         if (evt.isNotEmpty && evt.length >= 10) {
@@ -50,8 +57,48 @@ class ReliableRequestQueue {
         } else {
           _log('RX frag len=${evt.length}');
         }
-        final msg = _decoder.addPacket(Uint8List.fromList(evt));
-        if (msg != null) {
+        final decoded = _decoder.addPacket(Uint8List.fromList(evt));
+        if (decoded != null) {
+          // Work with a guaranteed non-null map inside this block
+          Map<String, dynamic> msg = decoded;
+          // If post-handshake, require encrypted envelope for non-handshake messages
+          if (_unwrapDecrypt != null) {
+            try {
+              final t = (msg['type'] ?? '').toString();
+              if (t == 'handshake_response') {
+                // handshake_response is allowed in plain during handshake phase (handlers not installed then)
+                // but in case we still see it here, just pass through
+              } else if (t == 'enc') {
+                msg = await _unwrapDecrypt!(msg);
+              } else {
+                // Post-handshake plaintext is not allowed
+                final reqIdFromHeader = msg['hReqId'] as int?;
+                msg = {
+                  'type': 'error',
+                  'ok': false,
+                  'error': {
+                    'code': 'require_encrypted',
+                    'message': 'use encrypted envelope {type: "enc"}'
+                  },
+                  if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
+                  if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
+                };
+              }
+            } catch (e) {
+              // Decrypt failed: surface as error to the pending request
+              final reqIdFromHeader = msg['hReqId'] as int?;
+              msg = {
+                'type': 'error',
+                'ok': false,
+                'error': {
+                  'code': 'decrypt_failed',
+                  'message': e.toString(),
+                },
+                if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
+                if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
+              };
+            }
+          }
           // Robustly extract reqId (support int or numeric string); fallback to header reqId
           int? reqId;
           final v = msg['reqId'];
@@ -78,6 +125,9 @@ class ReliableRequestQueue {
               pending.completer.complete(msg);
             }
             // else: keep waiting for the final message for this reqId
+          } else {
+            // Unsolicited or no matching in-flight request: publish as push event
+            _eventsController.add(msg);
           }
         }
       } catch (e) {
@@ -103,7 +153,16 @@ class ReliableRequestQueue {
     final mtu = await _ble.requestMtu(deviceId: deviceId, mtu: BleConstants.preferredMtu).catchError((_) => BleConstants.minMtu);
     final encoder = FrameEncoder(mtu);
     final reqId = (_nextReqId++ & 0xFFFF);
-    final frames = encoder.encodeJson(reqId, json);
+    // Apply encryption wrapper if installed and not handshake
+    Map<String, dynamic> payload = json;
+    if (_wrapEncrypt != null) {
+      final t = (json['type'] ?? '').toString();
+      if (t != 'handshake_init') {
+        // Post-handshake: enforce encryption; if wrapper fails, do not fall back to plain
+        payload = await _wrapEncrypt!(json);
+      }
+    }
+    final frames = encoder.encodeJson(reqId, payload);
     final completer = Completer<Map<String, dynamic>>();
     _inflight[reqId] = _Pending(completer, isFinal);
 
@@ -140,10 +199,19 @@ class ReliableRequestQueue {
     throw TimeoutException('BLE request timeout');
   }
 
+  void setCryptoHandlers({
+    required Future<Map<String, dynamic>> Function(Map<String, dynamic>) encrypt,
+    required Future<Map<String, dynamic>> Function(Map<String, dynamic>) decrypt,
+  }) {
+    _wrapEncrypt = encrypt;
+    _unwrapDecrypt = decrypt;
+  }
+
   Future<void> dispose() async {
     await _sub?.cancel();
     _sub = null;
     _inflight.clear();
+    await _eventsController.close();
   }
 }
 

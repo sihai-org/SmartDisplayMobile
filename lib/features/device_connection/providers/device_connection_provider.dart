@@ -111,6 +111,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // 旧版特征订阅已移除（A103/A107/A105）
   ProviderSubscription<bool>? _foregroundSub;
   ReliableRequestQueue? _rq; // dual-char reliable queue
+  StreamSubscription<Map<String, dynamic>>? _rqEventsSub; // push events from peripheral
 
   // Backoff tracking
   int _nextRetryMs = BleConstants.reconnectBackoffStartMs;
@@ -127,6 +128,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   // Timing markers for profiling
   DateTime? _sessionStart;
   DateTime? _connectStart;
+  // Post-provision polling to settle network status
+  Future<void>? _postProvisionPoll;
 
   void _t(String label) {
     final now = DateTime.now();
@@ -405,6 +408,66 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
             state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
             _t('handshake.done');
             _log('🎉 应用层握手完成');
+
+            // Install crypto handlers on reliable queue for post-handshake traffic
+          try {
+              _rq!.setCryptoHandlers(
+                encrypt: (Map<String, dynamic> plain) async {
+                  final text = jsonEncode(plain);
+                  final enc = await _cryptoService!.encrypt(text);
+                  final b64 = base64Encode(Uint8List.fromList(enc.toBytes()));
+                  return {'type': 'enc', 'data': b64};
+                },
+                decrypt: (Map<String, dynamic> msg) async {
+                  if (msg['type'] == 'enc' && msg['data'] is String) {
+                    final raw = base64Decode(msg['data'] as String);
+                    final ed = EncryptedData.fromBytes(raw);
+                    final plain = await _cryptoService!.decrypt(ed);
+                    final obj = jsonDecode(plain) as Map<String, dynamic>;
+                    // Preserve reqId/hReqId for matching and diagnostics
+                    final hReqId = msg['hReqId'];
+                    if (hReqId != null) obj['hReqId'] = hReqId;
+                    obj['reqId'] = obj['reqId'] ?? msg['reqId'] ?? hReqId;
+                    return obj;
+                  }
+                  return msg;
+                },
+              );
+            } catch (e) {
+              _log('⚠️ 安装加密处理器失败: $e');
+            }
+
+            // 订阅设备端推送事件（如 notifyBleOnly 的加密 status 事件）
+            try {
+              await _rqEventsSub?.cancel();
+              _rqEventsSub = _rq!.events.listen((evt) async {
+                final type = (evt['type'] ?? '').toString();
+                if (type == 'status') {
+                  final s = (evt['status'] ?? '').toString();
+                  _log('📣 收到设备事件: status=$s');
+                  // 依据常见状态做一些内联动作
+                  if (s == 'authenticated') {
+                    state = state.copyWith(status: BleDeviceStatus.authenticated);
+                  } else if (s == 'wifi_online') {
+                    // 标记配网成功（去重），并刷新网络状态
+                    if (state.provisionStatus != 'wifi_online') {
+                      state = state.copyWith(
+                        provisionStatus: 'wifi_online',
+                        lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+                      );
+                    }
+                    await _doReadNetworkStatus();
+                    _kickoffPostProvisionPolling();
+                  }
+                } else if (type == 'error') {
+                  _log('📣 设备事件错误: ${evt['error']}');
+                } else {
+                  _log('📣 收到设备事件: $evt');
+                }
+              });
+            } catch (e) {
+              _log('⚠️ 订阅设备推送事件失败: $e');
+            }
           } catch (e) {
             _t('handshake.error');
             _log('❌ 应用层握手失败: $e');
@@ -568,15 +631,21 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   }) async {
     if (state.deviceData == null) return false;
     try {
+      // 进入配网中状态并记录设备ID
+      final currId = state.deviceData!.deviceId;
+      state = state.copyWith(provisionStatus: 'provisioning', lastProvisionDeviceId: currId);
       final resp = await _rq!.send({
         'type': 'wifi.config',
         'data': { 'ssid': ssid, 'password': password }
       });
       final ok = resp['ok'] == true;
-      if (ok) state = state.copyWith(provisionStatus: 'provisioning');
+      if (!ok) state = state.copyWith(provisionStatus: 'failed');
+      // 启动后台轮询以尽快拿到最新网络状态（若事件稍后才到也能兜底）
+      _kickoffPostProvisionPolling();
       return ok;
     } catch (e) {
       _log('❌ wifi.config 失败: $e');
+      state = state.copyWith(provisionStatus: 'failed');
       return false;
     }
   }
@@ -819,7 +888,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       final data = resp['data'];
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
+        // 同步网络状态；若正在配网，仅在连接成功时切到 wifi_online，避免过早判定离线
         state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
+        if (state.provisionStatus == 'provisioning' && ns.connected) {
+          state = state.copyWith(
+            provisionStatus: 'wifi_online',
+            lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+          );
+        }
         return ns;
       }
       return null;
@@ -827,6 +903,24 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       _t('network.status.error(${e.runtimeType})');
       return null;
     }
+  }
+
+  void _kickoffPostProvisionPolling() {
+    if (_postProvisionPoll != null) return;
+    // 软轮询：在有限时间内重复读取网络状态，直到已连接或超时
+    _postProvisionPoll = () async {
+      final deadline = DateTime.now().add(const Duration(seconds: 20));
+      var delay = const Duration(milliseconds: 800);
+      while (DateTime.now().isBefore(deadline)) {
+        final ns = await _doReadNetworkStatus();
+        if (ns?.connected == true) break;
+        await Future.delayed(delay);
+        // 增量退避但限制上限
+        final nextMs = (delay.inMilliseconds * 1.5).toInt();
+        delay = Duration(milliseconds: nextMs > 3000 ? 3000 : nextMs);
+      }
+      _postProvisionPoll = null;
+    }();
   }
 
   Future<void> handleWifiSmartly() async {
@@ -880,6 +974,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   void dispose() {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
+    _rqEventsSub?.cancel();
     _rq?.dispose();
     _rq = null;
     _cryptoService?.cleanup();

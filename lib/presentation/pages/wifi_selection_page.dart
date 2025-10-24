@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../core/router/app_router.dart';
+import '../../core/providers/saved_devices_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -20,6 +21,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   final _ssidController = TextEditingController();
   final _pwdController = TextEditingController();
   bool _sending = false;
+  bool _shownSuccessToast = false;
+  bool _navigatedOnSuccess = false;
 
   @override
   void initState() {
@@ -27,6 +30,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     // 进入页面后自动触发一次Wi‑Fi扫描
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // 确保本地设备列表已加载，便于后续跳转判断
+        ref.read(savedDevicesProvider.notifier).load();
         ref.read(deviceConnectionProvider.notifier).requestWifiScan();
       }
     });
@@ -44,7 +49,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     final connState = ref.watch(deviceConnectionProvider);
     final provisionStatus = connState.provisionStatus ?? '未开始';
 
-    // 监听配网成功：收到 wifi_online（纯文本或JSON载荷）且 deviceId 匹配时跳转绑定页
+    // 监听配网结果：wifi_online/wifi_offline，若未在设备列表则跳转绑定页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
       String s = (next.provisionStatus ?? '').toLowerCase();
       // 兼容设备端发送的 JSON 载荷：{"deviceId":"...","status":"wifi_online"}
@@ -64,26 +69,27 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           : provDeviceId == widget.deviceId;
 
       if ((s == 'wifi_online' || s.contains('wifi_online')) && isDeviceMatch) {
-        Fluttertoast.showToast(msg: '配网成功，设备已联网');
-        final id = widget.deviceId;
-        if (id.isNotEmpty) {
-          // 判断是否为“未绑定扫描”场景
-          final app = ref.read(appStateProvider);
-          final scanned = app.scannedDeviceData;
-          final isSame = scanned?.deviceId == id;
-          final isUnboundScan = isSame && (app.scannedIsBound == false);
-          if (isUnboundScan) {
-            context.go(
-                '${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(id)}');
-            return;
-          }
+        if (!_shownSuccessToast) {
+          _shownSuccessToast = true;
+          Fluttertoast.showToast(msg: '配网成功，设备已联网');
         }
-        // 兜底回首页
-        context.go(AppRoutes.home);
+        final id = widget.deviceId;
+        if (!_navigatedOnSuccess && id.isNotEmpty) {
+          // 未绑定（设备列表中不存在）→ 跳转绑定页
+          final saved = ref.read(savedDevicesProvider);
+          final inList = saved.devices.any((e) => e.deviceId == id);
+          if (!inList) {
+            _navigatedOnSuccess = true;
+            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(id)}');
+          }
+          // 已绑定 → 保持当前页面，不做跳转
+        }
       } else if ((s == 'wifi_online' || s.contains('wifi_online')) && !isDeviceMatch) {
         // 设备不匹配时仅记录，不进行跳转
         // ignore: avoid_print
         print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.deviceId}');
+      } else if ((s == 'wifi_offline' || s.contains('wifi_offline')) && isDeviceMatch) {
+        Fluttertoast.showToast(msg: '配网失败，设备未能连接网络');
       }
     });
 
@@ -113,7 +119,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-            return SingleChildScrollView(
+            final content = SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
               child: ConstrainedBox(
@@ -275,6 +281,28 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         ),
               ),
             );
+            final showLoading = _sending || provisionStatus.toLowerCase() == 'provisioning';
+            return Stack(
+              children: [
+                content,
+                if (showLoading)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black45,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('正在配网，请稍候…', style: TextStyle(color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
           },
         ),
       ),
@@ -284,10 +312,13 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
   Color _statusColor(String s) {
     switch (s.toLowerCase()) {
-      case 'connecting':
+      case 'provisioning':
         return Colors.orange;
+      case 'wifi_online':
       case 'connected':
         return Colors.green;
+      case 'wifi_offline':
+      case 'connecting':
       case 'failed':
         return Colors.red;
       case 'ready':
