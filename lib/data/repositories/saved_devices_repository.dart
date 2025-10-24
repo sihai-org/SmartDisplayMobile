@@ -37,8 +37,9 @@ class SavedDeviceRecord {
         'deviceId': deviceId,
         'deviceName': deviceName,
         'publicKey': publicKey,
-        'lastBleAddress': lastBleAddress,
         'lastConnectedAt': lastConnectedAt?.toIso8601String(),
+        // 不再持久化 BLE 地址，避免因设备地址变更导致脏缓存
+        // 'lastBleAddress': lastBleAddress,
       };
 
   static SavedDeviceRecord fromJson(Map<String, dynamic> json) => SavedDeviceRecord(
@@ -171,24 +172,18 @@ class SavedDevicesRepository {
     }
 
     final devices = await loadLocal();
-    final mergedBleAddress = (lastBleAddress != null && lastBleAddress.isNotEmpty)
-        ? lastBleAddress
-        : qr.bleAddress;
-
     final idx = devices.indexWhere((e) => e.deviceId == qr.deviceId);
     if (idx >= 0) {
       final current = devices[idx];
       devices[idx] = current.copyWith(
         deviceName: qr.deviceName.isNotEmpty ? qr.deviceName : current.deviceName,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
-        lastBleAddress: mergedBleAddress,
       );
     } else {
       devices.add(SavedDeviceRecord(
         deviceId: qr.deviceId,
         deviceName: qr.deviceName,
         publicKey: qr.publicKey,
-        lastBleAddress: mergedBleAddress,
         lastConnectedAt: DateTime.now(),
       ));
     }

@@ -3,21 +3,14 @@ class BleConstants {
   // Service UUID
   static const String serviceUuid = '0000A100-0000-1000-8000-00805F9B34FB';
   
-  // Characteristic UUIDs
-  static const String deviceInfoCharUuid = '0000A101-0000-1000-8000-00805F9B34FB';
-  static const String wifiScanRequestCharUuid = '0000A102-0000-1000-8000-00805F9B34FB';
-  static const String wifiScanResultCharUuid = '0000A103-0000-1000-8000-00805F9B34FB';
-  static const String sessionNonceCharUuid = '0000A104-0000-1000-8000-00805F9B34FB';
-  static const String secureHandshakeCharUuid = '0000A105-0000-1000-8000-00805F9B34FB';
-  // Renamed: Provision_Request -> Wifi_Config_Request (UUID unchanged)
-  static const String wifiConfigRequestCharUuid = '0000A106-0000-1000-8000-00805F9B34FB';
-  // Renamed: Provision_Status -> Wifi_Config_Status (UUID unchanged)
-  static const String wifiConfigStatusCharUuid = '0000A107-0000-1000-8000-00805F9B34FB';
-  static const String oobQrInfoCharUuid = '0000A108-0000-1000-8000-00805F9B34FB';
-  static const String networkStatusCharUuid = '0000A109-0000-1000-8000-00805F9B34FB';
+  // Legacy multi-characteristic UUIDs removed. Keep logical IDs for higher-level mapping.
   static const String updateVersionCharUuid = '0000A10A-0000-1000-8000-00805F9B34FB';
   static const String loginAuthCodeCharUuid =  '0000A10B-0000-1000-8000-00805F9B34FB';
   static const String logoutCharUuid =  '0000A10C-0000-1000-8000-00805F9B34FB';
+
+  // Dual-char design
+  static const String rxCharUuid = '0000A111-0000-1000-8000-00805F9B34FB'; // WRITE WITH RESPONSE
+  static const String txCharUuid = '0000A112-0000-1000-8000-00805F9B34FB'; // INDICATE only (no READ)
 
   // Device Advertisement
   static const String deviceNamePrefix = 'AI-TV-';

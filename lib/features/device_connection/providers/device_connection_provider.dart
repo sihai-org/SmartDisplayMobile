@@ -13,57 +13,12 @@ import '../../qr_scanner/utils/device_fingerprint.dart';
 import '../models/ble_device_data.dart';
 import '../models/network_status.dart';
 import '../services/ble_service_simple.dart';
+import '../services/reliable_queue.dart';
 import '../../../core/providers/lifecycle_provider.dart';
 import '../../../core/providers/saved_devices_provider.dart';
+import 'dart:developer' as developer;
 
-/// 分包拼接工具（支持 {} 和 [] JSON）
-class BleChunkAssembler {
-  final String characteristic;
-  final int timeoutMs;
-  final void Function(String json) onCompleted;
-
-  final List<int> _buffer = [];
-  DateTime _lastChunkTime = DateTime.now();
-
-  BleChunkAssembler({
-    required this.characteristic,
-    required this.timeoutMs,
-    required this.onCompleted,
-  });
-
-  void addChunk(List<int> chunk) {
-    final now = DateTime.now();
-
-    // 超时重置（避免旧数据残留）
-    if (now.difference(_lastChunkTime).inMilliseconds > timeoutMs) {
-      _buffer.clear();
-    }
-
-    _buffer.addAll(chunk);
-    _lastChunkTime = now;
-
-    try {
-      final decoded = utf8.decode(_buffer);
-      final trimmed = decoded.trim();
-
-      // 先简单检查结尾
-      if (trimmed.endsWith("}") || trimmed.endsWith("]")) {
-        // 用 jsonDecode 验证完整性
-        jsonDecode(trimmed);
-
-        // ✅ 是完整 JSON
-        onCompleted(trimmed);
-        _buffer.clear();
-      }
-    } catch (_) {
-      // 还没收完整，继续等待
-    }
-  }
-
-  void reset() {
-    _buffer.clear();
-  }
-}
+// 旧版分包拼接工具已移除；双特征通道统一使用帧协议 + 可靠队列。
 
 /// 设备连接状态数据
 class DeviceConnectionState {
@@ -153,10 +108,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   StreamSubscription? _scanSubscription;
   Timer? _timeoutTimer;
-  StreamSubscription<List<int>>? _provisionStatusSubscription;
-  StreamSubscription<List<int>>? _wifiScanResultSubscription;
-  StreamSubscription<List<int>>? _handshakeSubscription;
+  // 旧版特征订阅已移除（A103/A107/A105）
   ProviderSubscription<bool>? _foregroundSub;
+  ReliableRequestQueue? _rq; // dual-char reliable queue
 
   // Backoff tracking
   int _nextRetryMs = BleConstants.reconnectBackoffStartMs;
@@ -164,20 +118,32 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   CryptoService? _cryptoService;
 
-  // 分包拼接器
-  BleChunkAssembler? _wifiAssembler;
-  BleChunkAssembler? _handshakeAssembler;
-
-  bool _hasReceivedWifiScanNotify = false;
+  // 旧版分包拼接器/标志已移除
   bool _syncedAfterLogin = false;
   // Network status read de-dup & throttle
   DateTime? _lastNetworkStatusReadAt;
   Future<NetworkStatus?>? _inflightNetworkStatusRead;
 
+  // Timing markers for profiling
+  DateTime? _sessionStart;
+  DateTime? _connectStart;
+
+  void _t(String label) {
+    final now = DateTime.now();
+    if (_sessionStart != null) {
+      final ms = now.difference(_sessionStart!).inMilliseconds;
+      _log('⏱ [$ms ms] $label');
+    } else {
+      _log('⏱ $label');
+    }
+  }
+
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
     state = const DeviceConnectionState();
+    _sessionStart = DateTime.now();
     _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
+    _t('session.start');
     _syncedAfterLogin = false;
 
     final deviceData = BleDeviceData(
@@ -236,6 +202,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<bool> ensureTrustedChannel() async {
     final d = state.deviceData;
     if (d == null) return false;
+    // Dual-char queue ready implies trusted channel
+    if (_rq != null) return true;
     if (state.status == BleDeviceStatus.authenticated) return true;
     await _ensureTrustedChannel(d);
     return state.status == BleDeviceStatus.authenticated;
@@ -243,6 +211,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   Future<void> _scanForDevice(BleDeviceData deviceData) async {
     state = state.copyWith(status: BleDeviceStatus.scanning, progress: 0.3);
+    _t('scan.start');
     _log('开始扫描目标设备，最长 30s...');
     // 重置目标首次出现时间与弱信号提示时间
     _targetFirstSeenAt = null;
@@ -268,6 +237,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
         if (scanResult.rssi >= BleConstants.rssiProximityThreshold) {
           _log('✅ 找到目标设备且距离合适！准备连接');
+          _t('scan.first_target_ready');
           _timeoutTimer?.cancel();
           _scanSubscription?.cancel();
           await BleServiceSimple.stopScan();
@@ -280,6 +250,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         const grace = Duration(seconds: 6);
         if (now.difference(_targetFirstSeenAt!) >= grace) {
           _log('⚠️ 信号偏弱(rssi=${scanResult.rssi})，已超过${grace.inSeconds}s，尝试连接');
+          _t('scan.force_connect_after_grace');
           _timeoutTimer?.cancel();
           _scanSubscription?.cancel();
           await BleServiceSimple.stopScan();
@@ -358,6 +329,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       status: BleDeviceStatus.connecting,
       progress: 0.6,
     );
+    _connectStart = DateTime.now();
+    _t('connect.start');
     _log('开始连接: ${deviceData.bleAddress}');
 
     final result = await BleServiceSimple.connectToDevice(
@@ -371,6 +344,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         progress: 0.8,
         deviceData: result,
       );
+        _t('connect.done');
         _log('BLE 连接成功，准备发现服务并初始化');
         final ready = await BleServiceSimple.ensureGattReady(result.bleAddress);
         if (!ready) {
@@ -381,10 +355,73 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
               BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
           return;
         }
-        await _initGattSession(result);
-        await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
-        _log('开始认证握手');
-        await _startAuthentication(result);
+        // Prefer dual-char RX/TX if available
+        final hasDual = await BleServiceSimple.hasRxTx(
+          deviceId: result.bleAddress,
+          serviceUuid: BleConstants.serviceUuid,
+          rxUuid: BleConstants.rxCharUuid,
+          txUuid: BleConstants.txCharUuid,
+        );
+        if (hasDual) {
+          // 准备可靠请求通道
+          try { await _rq?.dispose(); } catch (_) {}
+          _rq = ReliableRequestQueue(deviceId: result.bleAddress);
+          final ts = DateTime.now();
+          await _rq!.prepare();
+          _t('dualtx.ready(+${DateTime.now().difference(ts).inMilliseconds}ms prepare)');
+          _log('✅ Dual-char RX/TX 可用，准备应用层握手');
+
+          // 应用层握手（通过 RX/TX 帧协议）
+          state = state.copyWith(status: BleDeviceStatus.authenticating, progress: 0.9);
+          _cryptoService = CryptoService();
+          await _cryptoService!.generateEphemeralKeyPair();
+          var handshakeInit = await _cryptoService!.getHandshakeInitData();
+          try {
+            final supaUserId = Supabase.instance.client.auth.currentUser?.id;
+            if (supaUserId != null && supaUserId.isNotEmpty) {
+              final obj = jsonDecode(handshakeInit) as Map<String, dynamic>;
+              obj['userId'] = supaUserId;
+              handshakeInit = jsonEncode(obj);
+            }
+          } catch (_) {}
+
+          // 发送握手请求并等待握手响应
+          final initObj = jsonDecode(handshakeInit) as Map<String, dynamic>;
+          _t('handshake.start');
+          final resp = await _rq!.send(initObj, timeout: const Duration(seconds: 8), retries: 1,
+              isFinal: (msg) => (msg['type']?.toString() == 'handshake_response'));
+          try {
+            final responseJson = jsonEncode(resp);
+            final parsed = _cryptoService!.parseHandshakeResponse(responseJson);
+            final publicKey = await _cryptoService!.getLocalPublicKey();
+            await _cryptoService!.performKeyExchange(
+              remoteEphemeralPubKey: parsed.publicKey,
+              signature: parsed.signature,
+              devicePublicKeyHex: result.publicKey,
+              clientEphemeralPubKey: publicKey,
+              timestamp: parsed.timestamp,
+              clientTimestamp: _cryptoService!.clientTimestamp!,
+            );
+            state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
+            _t('handshake.done');
+            _log('🎉 应用层握手完成');
+          } catch (e) {
+            _t('handshake.error');
+            _log('❌ 应用层握手失败: $e');
+            await BleServiceSimple.disconnect();
+            _setError('连接失败');
+            _nextRetryMs = (_nextRetryMs * 2).clamp(
+                BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+            return;
+          }
+        } else {
+          _log('❌ 设备不支持双特征通道 (RX/TX)，取消');
+          await BleServiceSimple.disconnect();
+          _setError('连接失败');
+          _nextRetryMs = (_nextRetryMs * 2).clamp(
+              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+          return;
+        }
         // Reset backoff on success
         _nextRetryMs = BleConstants.reconnectBackoffStartMs;
     } else {
@@ -395,56 +432,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  /// 同步设备信息（A101），解析固件版本等，更新到状态
-  Future<void> _syncDeviceInfo() async {
-    try {
-      final d = state.deviceData;
-      if (d == null) return;
-      final data = await BleServiceSimple.readCharacteristic(
-        deviceId: d.bleAddress,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.deviceInfoCharUuid,
-      );
-      if (data == null || data.isEmpty) return;
-      String text;
-      // 尝试解密（若握手已建立，设备可能返回密文）
-      try {
-        if (_cryptoService != null && _cryptoService!.hasSecureSession) {
-          final ed = EncryptedData.fromBytes(data);
-          text = await _cryptoService!.decrypt(ed);
-        } else {
-          text = utf8.decode(data, allowMalformed: true).trim();
-        }
-      } catch (_) {
-        text = utf8.decode(data, allowMalformed: true).trim();
-      }
-      // 尝试从返回的数据中提取版本号
-      String? fw;
-      // 1) 优先按 JSON 解析常见键位
-      try {
-        final obj = jsonDecode(text);
-        if (obj is Map<String, dynamic>) {
-          fw = (obj['version'] ?? obj['firmwareVersion'] ?? obj['ver'] ?? obj['fv'] ?? obj['fw'])
-              ?.toString();
-          // 如果仍然没有，从所有字符串值中正则提取类似 1.2.3 的版本号
-          fw ??= obj.values
-              .whereType<Object>()
-              .map((e) => e.toString())
-              .map(_extractVersion)
-              .firstWhere((e) => e != null && e.isNotEmpty, orElse: () => null);
-        }
-      } catch (_) {
-        // 非标准 JSON，尝试正则从原始文本中提取版本
-        fw = _extractVersion(text);
-      }
-      if (fw != null && fw.isNotEmpty) {
-        state = state.copyWith(firmwareVersion: fw);
-        _log('📦 已同步固件版本: $fw');
-      }
-    } catch (_) {
-      // ignore
-    }
-  }
+  // 旧版设备信息读取（A101）已移除；设备信息改由业务层通过命令获取（如需）。
 
   // 从字符串中提取常见版本号格式，例如 v1.2.3 或 1.0.0
   String? _extractVersion(String? input) {
@@ -458,87 +446,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     return null;
   }
 
-  Future<void> _initGattSession(BleDeviceData deviceData) async {
-    final deviceId = deviceData.bleAddress;
-
-    // 清理旧订阅，避免重连后出现多路回调
-    await _provisionStatusSubscription?.cancel();
-    await _wifiScanResultSubscription?.cancel();
-    await _handshakeSubscription?.cancel();
-    _provisionStatusSubscription = null;
-    _wifiScanResultSubscription = null;
-    _handshakeSubscription = null;
-    _wifiAssembler?.reset();
-    _handshakeAssembler?.reset();
-
-    // 订阅 A107（Wifi_Config_Status）
-    _provisionStatusSubscription =
-        BleServiceSimple.subscribeToCharacteristic(
-          deviceId: deviceId,
-          serviceUuid: BleConstants.serviceUuid,
-          characteristicUuid: BleConstants.wifiConfigStatusCharUuid,
-        ).listen((data) async {
-          // Debug: trace incoming A107
-          try {
-            // ignore: avoid_print
-            print('[A107] notify len=${data.length}');
-          } catch (_) {}
-          // 若已建立会话，则尝试按密文解密，否则回退到明文
-          String? status;
-          try {
-            if (_cryptoService != null && _cryptoService!.hasSecureSession) {
-              final ed = EncryptedData.fromBytes(data);
-              status = await _cryptoService!.decrypt(ed);
-            }
-          } catch (_) {
-            // ignore and fallback
-          }
-          status ??= utf8.decode(data, allowMalformed: true);
-          // Debug: log normalized status key
-          try {
-            final peek = status?.length ?? 0;
-            // ignore: avoid_print
-            print('[A107] payload peek=${peek}');
-          } catch (_) {}
-          final normalized = _normalizeBleStatus(status);
-          try { print('[A107] status=$normalized'); } catch (_) {}
-          final devId = _extractDeviceId(status);
-          state = state.copyWith(provisionStatus: normalized, lastProvisionDeviceId: devId);
-          // 绑定登录成功后，主动同步远端绑定列表并选中当前设备
-          final s = (normalized).toLowerCase();
-          if (!_syncedAfterLogin && (s == 'login_success' || s.contains('login_success'))) {
-            _syncedAfterLogin = true;
-            try {
-              // 先远端同步，确保列表与元数据以服务端为准
-              await _ref.read(savedDevicesProvider.notifier).syncFromServer();
-              final id = state.deviceData?.deviceId;
-              if (id != null && id.isNotEmpty) {
-                await _ref.read(savedDevicesProvider.notifier).select(id);
-              }
-              // 再叠加 BLE 内联设备/网络信息（仅当前设备）
-              _maybeApplyInlineDeviceAndNetwork(status, expectedDeviceId: state.deviceData?.deviceId);
-            } catch (_) {}
-          }
-        });
-
-    // 订阅 A103 + 分包拼接
-    _wifiAssembler = BleChunkAssembler(
-      characteristic: 'A103',
-      timeoutMs: 2000,
-      onCompleted: (json) {
-        final parsed = _parseWifiScanJson(json);
-        state = state.copyWith(wifiNetworks: parsed);
-      },
-    );
-
-    _wifiScanResultSubscription = BleServiceSimple.subscribeToCharacteristic(
-      deviceId: deviceId,
-      serviceUuid: BleConstants.serviceUuid,
-      characteristicUuid: BleConstants.wifiScanResultCharUuid,
-    ).listen((chunk) {
-      _wifiAssembler?.addChunk(chunk);
-    });
-  }
+  // 旧版 GATT 会话/订阅（A103/A107）已移除；双特征下通过请求/响应帧传递状态与结果。
 
   // 统一规范化 BLE 文本/JSON 状态载荷，提取 status 字段
   String _normalizeBleStatus(String? raw) {
@@ -622,114 +530,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     return null;
   }
 
-  Future<void> _startAuthentication(BleDeviceData deviceData) async {
-    state = state.copyWith(status: BleDeviceStatus.authenticating, progress: 0.9);
-    _cryptoService = CryptoService();
-    await _cryptoService!.generateEphemeralKeyPair();
-
-    final deviceId = deviceData.bleAddress;
-
-    var handshakeInit = await _cryptoService!.getHandshakeInitData();
-    try {
-      final supaUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (supaUserId != null && supaUserId.isNotEmpty) {
-        final obj = jsonDecode(handshakeInit) as Map<String, dynamic>;
-        obj['userId'] = supaUserId;
-        handshakeInit = jsonEncode(obj);
-      }
-    } catch (_) {}
-
-    _handshakeAssembler = BleChunkAssembler(
-      characteristic: 'A105',
-      timeoutMs: 2000,
-      onCompleted: (json) async {
-        // 兼容 A105 的后续简短通知，例如 {"type":"authenticated"}
-        try {
-          final response = _cryptoService!.parseHandshakeResponse(json);
-          final publicKey = await _cryptoService!.getLocalPublicKey();
-          await _cryptoService!.performKeyExchange(
-            remoteEphemeralPubKey: response.publicKey,
-            signature: response.signature,
-            devicePublicKeyHex: deviceData.publicKey,
-            clientEphemeralPubKey: publicKey,
-            timestamp: response.timestamp,
-            clientTimestamp: _cryptoService!.clientTimestamp!,
-          );
-          state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
-          _log('🎉 认证完成');
-          // 握手完成后，立刻通过加密通道同步设备信息与网络状态
-          await _syncDeviceInfo();
-          await checkNetworkStatus();
-        } catch (_) {
-          // 非握手响应，尝试解析通用 JSON 并根据 type 处理
-          try {
-            final map = jsonDecode(json) as Map<String, dynamic>;
-            final type = map['type']?.toString();
-            // 显式错误处理：设备已被其他账号绑定
-            final message = (map['message'] ?? map['reason'] ?? '').toString();
-            final code = (map['code'] ?? '').toString();
-            final isBoundByOther =
-                type == 'error' && (
-                  code == 'user_mismatch' ||
-                  message.contains('仅允许相同 userId') ||
-                  message.contains('设备已登录') ||
-                  message.contains('已被其他账号绑定')
-                );
-            if (isBoundByOther) {
-              _log('❌ 设备拒绝握手：设备已被其他账号绑定');
-              // 记录最近一次握手错误，供上层UI兜底识别
-              state = state.copyWith(
-                lastHandshakeErrorCode: code.isNotEmpty ? code : 'user_mismatch',
-                lastHandshakeErrorMessage: message.isNotEmpty ? message : 'device already logged in; only same userId allowed',
-              );
-              // 断开以清理会话
-              await BleServiceSimple.disconnect();
-              // 设置明确的错误消息供 UI 感知
-              _setError('设备已被其他账号绑定');
-              return;
-            }
-            if (type == 'authenticated') {
-              // 如果先收到 authenticated 快速通知，也标记为已认证
-              if (state.status != BleDeviceStatus.authenticated) {
-                state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
-                _log('📣 收到 A105 authenticated 通知，标记为已认证');
-              }
-              // 确认认证后，同步信息
-              await _syncDeviceInfo();
-              await checkNetworkStatus();
-            }
-          } catch (_) {
-            // 忽略无法解析的负载
-          }
-        }
-      },
-    );
-
-    _handshakeSubscription = BleServiceSimple.subscribeToCharacteristic(
-      deviceId: deviceId,
-      serviceUuid: BleConstants.serviceUuid,
-      characteristicUuid: BleConstants.secureHandshakeCharUuid,
-    ).listen((chunk) {
-      _handshakeAssembler?.addChunk(chunk);
-    });
-
-    final ok = await BleServiceSimple.writeCharacteristic(
-      deviceId: deviceId,
-      serviceUuid: BleConstants.serviceUuid,
-      characteristicUuid: BleConstants.secureHandshakeCharUuid,
-      data: handshakeInit.codeUnits,
-      withResponse: true,
-    );
-    if (!ok) {
-      _log('握手首包写入失败，准备断开重连（可能是 GATT 133/服务未就绪）');
-      await BleServiceSimple.disconnect();
-      _setError('连接失败');
-      _nextRetryMs = (_nextRetryMs * 2).clamp(
-          BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-      return;
-    }
-    _log('握手请求已发送');
-  }
+  // 旧版 A105 握手流程已移除；双特征下在连接后通过可靠队列发送 handshake_init 并等待 handshake_response。
 
   // ======================
   // 👉 补回你之前的全部方法
@@ -738,9 +539,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   Future<void> disconnect() async {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
-    await _provisionStatusSubscription?.cancel();
-    await _wifiScanResultSubscription?.cancel();
-    await _handshakeSubscription?.cancel();
+    await _rq?.dispose();
+    _rq = null;
     _cryptoService?.cleanup();
     _cryptoService = null;
 
@@ -751,9 +551,8 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   void reset() {
     _timeoutTimer?.cancel();
     _scanSubscription?.cancel();
-    _provisionStatusSubscription?.cancel();
-    _wifiScanResultSubscription?.cancel();
-    _handshakeSubscription?.cancel();
+    _rq?.dispose();
+    _rq = null;
     _cryptoService?.cleanup();
     _cryptoService = null;
     state = const DeviceConnectionState();
@@ -768,106 +567,44 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     required String password,
   }) async {
     if (state.deviceData == null) return false;
-    // 确保可信通道
-    final okChannel = await ensureTrustedChannel();
-    if (!okChannel) {
-      _log('❌ 未建立可信通道，取消发送WiFi凭证');
-      return false;
-    }
-
     try {
-      final deviceAddr = state.deviceData!.bleAddress;
-      final json = jsonEncode({
-        'deviceId': state.deviceData!.deviceId,
-        'ssid': _escapeJson(ssid),
-        'password': _escapeJson(password),
+      final resp = await _rq!.send({
+        'type': 'wifi.config',
+        'data': { 'ssid': ssid, 'password': password }
       });
-      final ed = await _cryptoService!.encrypt(json);
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: deviceAddr,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.wifiConfigRequestCharUuid,
-        data: ed.toBytes(),
-        withResponse: true,
-      );
-      if (!ok) {
-        _log('写入加密WiFi凭证失败，触发断开以自愈');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-      }
+      final ok = resp['ok'] == true;
+      if (ok) state = state.copyWith(provisionStatus: 'provisioning');
       return ok;
-    } catch (_) {
+    } catch (e) {
+      _log('❌ wifi.config 失败: $e');
       return false;
     }
   }
 
   Future<bool> sendDeviceLoginCode(String code) async {
     if (state.deviceData == null) return false;
-    final okChannel = await ensureTrustedChannel();
-    if (!okChannel) {
-      _log('❌ 未建立可信通道，取消发送登录验证码');
-      return false;
-    }
     try {
-      final deviceAddr = state.deviceData!.bleAddress;
-      final json = jsonEncode({
-        'deviceId': state.deviceData!.deviceId,
-        'code': _escapeJson(code),
+      final resp = await _rq!.send({
+        'type': 'login.auth',
+        'data': { 'email': '', 'otpToken': code },
       });
-      final ed = await _cryptoService!.encrypt(json);
-      final data = ed.toBytes();
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: deviceAddr,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.loginAuthCodeCharUuid,
-        data: data,
-        withResponse: true,
-      );
-      if (!ok) {
-        _log('写入登录验证码失败，触发断开以自愈');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-      }
-      return ok;
-    } catch (_) {
+      return resp['ok'] == true || resp['type'] == 'login.auth';
+    } catch (e) {
+      _log('❌ login.auth 失败: $e');
       return false;
     }
   }
 
   Future<bool> sendDeviceLogout() async {
     if (state.deviceData == null) return false;
-    final okChannel = await ensureTrustedChannel();
-    if (!okChannel) {
-      _log('❌ 未建立可信通道，取消发送退出登录');
-      return false;
-    }
     try {
-      final deviceAddr = state.deviceData!.bleAddress;
-      final payload = jsonEncode({
-        'deviceId': state.deviceData!.deviceId,
-        'userId': _currentUserIdOrEmpty(),
+      final resp = await _rq!.send({
+        'type': 'logout',
+        'data': { 'userId': _currentUserIdOrEmpty() },
       });
-      final ed = await _cryptoService!.encrypt(payload);
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: deviceAddr,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.logoutCharUuid,
-        data: ed.toBytes(),
-        withResponse: true,
-      );
-      if (!ok) {
-        _log('退出登录写入失败，触发断开以自愈');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-      }
-      return ok;
-    } catch (_) {
+      return resp['ok'] == true || resp['type'] == 'logout';
+    } catch (e) {
+      _log('❌ logout 失败: $e');
       return false;
     }
   }
@@ -887,33 +624,48 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
-    // 确保可信通道
-    final okChannel = await ensureTrustedChannel();
-    if (!okChannel) {
-      _log('❌ 未建立可信通道，取消发送WiFi扫描请求');
+    try {
+      // 确保可信通道（支持双通道/握手后）
+      var okChannel = await ensureTrustedChannel();
+      if (!okChannel || _rq == null) {
+        // 等待认证完成（最多6秒），避免用户点击时通道尚未就绪导致“无反应”
+        await _waitForAuthenticated(const Duration(seconds: 6));
+        okChannel = _rq != null || state.status == BleDeviceStatus.authenticated;
+        if (!okChannel || _rq == null) {
+          _log('❌ wifi.scan 取消：通道未就绪');
+          return false;
+        }
+      }
+      _log('⏳ 开始扫描附近Wi‑Fi...');
+      final resp = await _rq!.send(
+        { 'type': 'wifi.scan' },
+        timeout: const Duration(seconds: 3),
+        retries: 0,
+      );
+      final data = resp['data'];
+      if (data is List) {
+        final networks = data.map((e) => WifiAp(
+          ssid: (e['ssid'] ?? '').toString(),
+          rssi: int.tryParse((e['rssi'] ?? '0').toString()) ?? 0,
+          secure: (e['secure'] == true),
+          bssid: e['bssid']?.toString(),
+          frequency: int.tryParse((e['frequency'] ?? '').toString()),
+        )).toList().cast<WifiAp>();
+        state = state.copyWith(wifiNetworks: networks);
+        _log('📶 Wi‑Fi 扫描完成，发现 ${networks.length} 个网络');
+      }
+      return true;
+    } catch (e) {
+      _log('❌ wifi.scan 失败: $e');
       return false;
     }
-    try {
-      // WiFi 扫描请求目前保持明文（无敏感信息）
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: state.deviceData!.bleAddress,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.wifiScanRequestCharUuid,
-        data: '{}'.codeUnits,
-        withResponse: true,
-      );
-      if (ok) {
-        print('📤 已写入WiFi扫描请求');
-      } else {
-        _log('WiFi扫描请求写入失败，触发断开以自愈');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-      }
-      return ok;
-    } catch (_) {
-      return false;
+  }
+
+  Future<void> _waitForAuthenticated(Duration timeout) async {
+    final start = DateTime.now();
+    while (DateTime.now().difference(start) < timeout) {
+      if (state.status == BleDeviceStatus.authenticated || _rq != null) return;
+      await Future.delayed(const Duration(milliseconds: 150));
     }
   }
 
@@ -953,41 +705,79 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     required Map<String, dynamic> json,
   }) async {
     if (state.deviceData == null) return false;
-    final okChannel = await ensureTrustedChannel();
-    if (!okChannel || _cryptoService == null || !_cryptoService!.hasSecureSession) {
-      _log('❌ 可信通道不可用或未建立会话密钥');
-      return false;
-    }
     try {
-      // 保险：确认目标特征存在，避免 INVALID_HANDLE
-      final deviceId = state.deviceData!.bleAddress;
-      final hasChar = await BleServiceSimple.hasCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: characteristicUuid,
-      );
-      if (!hasChar) {
-        _log('❌ 目标特征不存在：$characteristicUuid');
-        return false;
+      if (characteristicUuid == BleConstants.loginAuthCodeCharUuid) {
+        final payload = {
+          'type': 'login.auth',
+          'data': {
+            'email': json['email'] ?? '',
+            'otpToken': json['otpToken'] ?? json['code'] ?? '',
+          },
+        };
+        // 在双特征+帧协议下，将登录建模为“异步完成”的一次调用：
+        // 1) 设备可先返回 ack/accepted；
+        // 2) 登录完成后再返回 login.result 或包含 status=login_success 的事件帧（沿用同 reqId）。
+        final resp = await _rq!.send(
+          payload,
+          timeout: const Duration(seconds: 25),
+          retries: 0,
+          isFinal: (msg) {
+            final type = (msg['type'] ?? '').toString();
+            final data = msg['data'];
+            final status = data is Map<String, dynamic> ? (data['status'] ?? '').toString() : (msg['status'] ?? '').toString();
+            if (type == 'login.result') return true;
+            if (status == 'login_success' || status == 'login_failed') return true;
+            return false; // 对 ack/accepted 等中间态继续等待
+          },
+        );
+        // 同步状态，触发上层UI跳转与数据同步（与 A107 行为对齐）
+        try {
+          final data = resp['data'];
+          final status = data is Map<String, dynamic> ? (data['status'] ?? '').toString() : (resp['status'] ?? '').toString();
+          if (status == 'login_success') {
+            state = state.copyWith(provisionStatus: 'login_success', lastProvisionDeviceId: state.deviceData?.deviceId);
+            if (!_syncedAfterLogin) {
+              _syncedAfterLogin = true;
+              try {
+                await _ref.read(savedDevicesProvider.notifier).syncFromServer();
+                final id = state.deviceData?.deviceId;
+                if (id != null && id.isNotEmpty) {
+                  await _ref.read(savedDevicesProvider.notifier).select(id);
+                }
+                _maybeApplyInlineDeviceAndNetwork(data is Map<String, dynamic> ? jsonEncode(data) : null,
+                    expectedDeviceId: state.deviceData?.deviceId);
+              } catch (_) {}
+            }
+            return true;
+          }
+          if (status == 'login_failed') {
+            _setError('设备登录失败');
+            return false;
+          }
+        } catch (_) {}
+        // 若未带明确状态，依据 ok/type 回退判断
+        return resp['ok'] == true || resp['type'] == 'login.result';
       }
-      final payload = jsonEncode(json);
-      final ed = await _cryptoService!.encrypt(payload);
-      final ok = await BleServiceSimple.writeCharacteristic(
-        deviceId: deviceId,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: characteristicUuid,
-        data: ed.toBytes(),
-        withResponse: true,
-      );
-      if (!ok) {
-        _log('❌ 加密写入失败，触发断开以自愈');
-        await BleServiceSimple.disconnect();
-        _setError('连接失败');
-        _nextRetryMs = (_nextRetryMs * 2).clamp(
-            BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
+      if (characteristicUuid == BleConstants.logoutCharUuid) {
+        final payload = {
+          'type': 'logout',
+          'data': { 'userId': json['userId'] ?? _currentUserIdOrEmpty() },
+        };
+        final resp = await _rq!.send(payload);
+        return resp['ok'] == true || resp['type'] == 'logout';
       }
-      return ok;
-    } catch (_) {
+      if (characteristicUuid == BleConstants.updateVersionCharUuid) {
+        final payload = {
+          'type': 'update.version',
+          'data': { 'channel': json['channel'] },
+        };
+        final resp = await _rq!.send(payload);
+        return resp['ok'] == true || resp['type'] == 'update.version';
+      }
+      _log('❌ 未知的映射特征：$characteristicUuid');
+      return false;
+    } catch (e) {
+      _log('❌ writeEncryptedJson via queue 失败: $e');
       return false;
     }
   }
@@ -1016,35 +806,25 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   Future<NetworkStatus?> _doReadNetworkStatus() async {
     try {
-      final data = await BleServiceSimple.readCharacteristic(
-        deviceId: state.deviceData!.bleAddress,
-        serviceUuid: BleConstants.serviceUuid,
-        characteristicUuid: BleConstants.networkStatusCharUuid,
+      // 仅双特征通道：通过帧协议查询
+      if (_rq == null) return null;
+      // 快速查询以避免首跳等待过久：1.2s 超时，不重试
+      final t0 = DateTime.now();
+      final resp = await _rq!.send(
+        { 'type': 'network.status' },
+        timeout: const Duration(milliseconds: 1200),
+        retries: 0,
       );
-      if (data != null && data.isNotEmpty) {
-        // 优先尝试解密（握手完成后设备可能返回密文）
-        NetworkStatus? networkStatus;
-        try {
-          if (_cryptoService != null && _cryptoService!.hasSecureSession) {
-            final ed = EncryptedData.fromBytes(data);
-            final plain = await _cryptoService!.decrypt(ed);
-            final map = jsonDecode(plain) as Map<String, dynamic>;
-            networkStatus = NetworkStatus.fromJson(map);
-          }
-        } catch (_) {
-          // ignore and fallback to plaintext JSON
-        }
-        networkStatus ??= NetworkStatusParser.fromBleData(data);
-        if (networkStatus != null) {
-          state = state.copyWith(
-            networkStatus: networkStatus,
-            networkStatusUpdatedAt: DateTime.now(),
-          );
-          return networkStatus;
-        }
+      _t('network.status.rq.done(${DateTime.now().difference(t0).inMilliseconds}ms)');
+      final data = resp['data'];
+      if (data is Map<String, dynamic>) {
+        final ns = NetworkStatus.fromJson(data);
+        state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
+        return ns;
       }
       return null;
-    } catch (_) {
+    } catch (e) {
+      _t('network.status.error(${e.runtimeType})');
       return null;
     }
   }
@@ -1092,16 +872,16 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         ? nextLogs.sublist(nextLogs.length - _maxConnectionLogs)
         : nextLogs;
     state = state.copyWith(connectionLogs: trimmedLogs);
-    print(msg);
+    // print(msg);
+    developer.log(msg, name: 'BLE');
   }
 
   @override
   void dispose() {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
-    _provisionStatusSubscription?.cancel();
-    _wifiScanResultSubscription?.cancel();
-    _handshakeSubscription?.cancel();
+    _rq?.dispose();
+    _rq = null;
     _cryptoService?.cleanup();
     super.dispose();
   }

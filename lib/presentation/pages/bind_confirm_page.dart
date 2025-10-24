@@ -12,16 +12,45 @@ import '../../features/device_connection/providers/device_connection_provider.da
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-class BindConfirmPage extends ConsumerWidget {
+class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.deviceId});
 
   final String deviceId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BindConfirmPage> createState() => _BindConfirmPageState();
+}
+
+class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
+  bool _navigated = false; // 防止重复跳转
+  bool _sending = false;   // 按钮loading
+
+  void _goHomeOnce() {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    context.go(AppRoutes.home);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final app = ref.watch(appStateProvider);
     final scanned = app.scannedDeviceData;
-    final same = scanned?.deviceId == deviceId;
+    final same = scanned?.deviceId == widget.deviceId;
+
+    // 监听设备端 login_success，确保即使未点击按钮也能自动跳转
+    ref.listen<DeviceConnectionState>(
+      deviceConnectionProvider,
+      (prev, next) {
+        final s = (next.provisionStatus ?? '').toLowerCase();
+        final matchedId = next.lastProvisionDeviceId ?? scanned?.deviceId;
+        final isMatch = matchedId == null || matchedId.isEmpty || matchedId == widget.deviceId;
+        if (isMatch && (s == 'login_success' || s.contains('login_success'))) {
+          Fluttertoast.showToast(msg: '登录成功');
+          _goHomeOnce();
+        }
+      },
+    );
 
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
@@ -101,19 +130,45 @@ class BindConfirmPage extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () async {
-                      final ok = await _bindViaOtp(context, ref, scanned);
-                      if (ok && context.mounted) {
-                        // 先与远端同步，确保设备列表立即可见
-                        try {
-                          await ref.read(savedDevicesProvider.notifier).syncFromServer();
-                          await ref.read(savedDevicesProvider.notifier).select(scanned.deviceId);
-                        } catch (_) {}
-                        // 再回到首页；BLE 的 login_success 会继续叠加设备/网络信息
-                        context.go(AppRoutes.home);
-                      }
-                    },
-                    child: const Text('绑定'),
+                    onPressed: _sending
+                        ? null
+                        : () async {
+                            setState(() => _sending = true);
+                            final ok = await _bindViaOtp(context, ref, scanned);
+                            if (ok && mounted) {
+                              // 异步后台同步（最多等待2秒），不阻塞跳转
+                              try {
+                                final sync = ref.read(savedDevicesProvider.notifier).syncFromServer();
+                                await Future.any([
+                                  sync,
+                                  Future.delayed(const Duration(seconds: 2)),
+                                ]);
+                              } catch (_) {}
+                              try {
+                                await ref.read(savedDevicesProvider.notifier).select(scanned.deviceId);
+                              } catch (_) {}
+                              _goHomeOnce();
+                            }
+                            if (mounted) setState(() => _sending = false);
+                          },
+                    child: _sending
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('绑定'),
+                            ],
+                          )
+                        : const Text('绑定'),
                   ),
                 ),
               ],

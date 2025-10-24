@@ -143,46 +143,44 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final d = current.deviceData!;
         print('[DeviceConnectionPage] 🎉 认证完成');
 
-        // 判断是否为“未绑定扫描”场景
+        // 统一在认证后先检查网络（新帧协议由 provider 内部处理）
+        if (_networkCheckStarted) return; // 防重复
+        _networkCheckStarted = true;
+
         final app = ref.read(appStateProvider);
         final scanned = app.scannedDeviceData;
         final isSame = scanned?.deviceId == d.deviceId;
         final isUnboundScan = isSame && (app.scannedIsBound == false);
 
-        if (isUnboundScan) {
-          if (_networkCheckStarted) {
-            // 已在进行网络检查，避免因 state 变化引发的监听循环再次触发
-            return;
-          }
-          _networkCheckStarted = true;
-          // 未绑定流程：优先检查设备是否联网（增加重试，避免握手后状态尚未就绪导致误判）
-          print('[DeviceConnectionPage] 未绑定 → 检查设备网络状态（带重试）');
-          final connected = await _checkNetworkWithRetry(ref);
-          if (connected == true) {
-            if (mounted) {
-              context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
-            }
-          } else if (connected == false) {
-            print('[DeviceConnectionPage] 📶 确认设备离线 → 跳转Wi‑Fi配网页面');
-            if (mounted) {
-              context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
-            }
-          } else {
-            // 状态未知：保守处理，停在当前页
-            print('[DeviceConnectionPage] ⚪ 网络状态未知 → 跳转绑定确认');
+        print('[DeviceConnectionPage] 认证后检查网络状态（带重试）');
+        final connected = await _checkNetworkWithRetry(ref);
+        if (connected == false) {
+          // 无网优先：跳转 Wi‑Fi 配网
+          print('[DeviceConnectionPage] 📶 设备离线 → 跳转Wi‑Fi配网页面');
+          if (mounted) {
+            context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
           }
           return;
         }
 
-        // 常规流程：保存并进入首页（设备详情页）
+        // 已联网或未知：若未绑定则去绑定页，否则进入首页
+        if (isUnboundScan) {
+          print('[DeviceConnectionPage] 设备未绑定 → 跳转绑定确认');
+          if (mounted) {
+            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+          }
+          return;
+        }
+
+        // 保存并进入首页（设备详情页）
         final qr = DeviceQrData(
-            deviceId: d.deviceId,
-            deviceName: d.deviceName,
-            bleAddress: d.bleAddress,
-            publicKey: d.publicKey);
+          deviceId: d.deviceId,
+          deviceName: d.deviceName,
+          bleAddress: d.bleAddress,
+          publicKey: d.publicKey,
+        );
         print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
-        await ref
-            .read(savedDevicesProvider.notifier)
+        await ref.read(savedDevicesProvider.notifier)
             .selectFromQr(qr, lastBleAddress: d.bleAddress);
         print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
         if (mounted) {
@@ -311,7 +309,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               const Divider(),
               const SizedBox(height: 16),
               _buildDeviceDetail('设备类型', qrDeviceData.deviceType),
-              _buildDeviceDetail('BLE地址', qrDeviceData.bleAddress),
               // 优先展示连接态同步到的固件版本
               if (state.firmwareVersion != null && state.firmwareVersion!.isNotEmpty)
                 _buildDeviceDetail('固件版本', state.firmwareVersion!)
@@ -327,16 +324,21 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   /// 带重试的网络状态检查
   /// 返回：true=已联网，false=未联网，null=未知
   Future<bool?> _checkNetworkWithRetry(WidgetRef ref) async {
-    const attempts = 3;
-    const delayMs = 700; // 每次重试间隔
+    const attempts = 2; // 快速判断首跳，避免等待
+    const delayMs = 300; // 每次重试间隔（更短）
     bool? last;
     if (!mounted) return null;
 
     // 只在挂载时读取一次，避免在组件销毁后再次触发 ref.read
     final connNotifier = ref.read(deviceConnectionProvider.notifier);
+    final swTotal = Stopwatch()..start();
     for (var i = 0; i < attempts; i++) {
       if (!mounted) return last;
+      final sw = Stopwatch()..start();
       final ns = await connNotifier.checkNetworkStatus();
+      sw.stop();
+      // ignore: avoid_print
+      print('[DeviceConnectionPage][⏱] network.status attempt ${i + 1}/$attempts: ${sw.elapsedMilliseconds} ms, result=${ns?.connected}');
       if (ns != null) {
         last = ns.connected;
         if (ns.connected == true) return true; // 提前返回
@@ -346,6 +348,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         if (!mounted) return last;
       }
     }
+    swTotal.stop();
+    // ignore: avoid_print
+    print('[DeviceConnectionPage][⏱] network.status total: ${swTotal.elapsedMilliseconds} ms, final=${last}');
     return last; // 可能为false或null（未知）
   }
 

@@ -62,15 +62,15 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   }
 
   Future<bool> _connectSavedDevice(SavedDeviceRecord device) async {
-    final bleAddress = device.lastBleAddress;
-    if (bleAddress == null || bleAddress.isEmpty) {
+    // 允许在缺少本地 BLE 地址时尝试连接：扫描流程会补上实际地址
+    if (device.deviceId.isEmpty || device.publicKey.isEmpty) {
       Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
       return false;
     }
     final qr = DeviceQrData(
       deviceId: device.deviceId,
       deviceName: device.deviceName,
-      bleAddress: bleAddress,
+      bleAddress: device.lastBleAddress ?? '',
       publicKey: device.publicKey,
     );
     await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
@@ -149,13 +149,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                         fontFamily: 'monospace',
                       ),
                 ),
-                if (device.lastBleAddress != null)
-                  Text(
-                    '${context.l10n.ble_label}: ${device.lastBleAddress}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                        ),
-                  ),
+                // 隐藏 BLE 地址展示
                 if (device.lastConnectedAt != null) ...[
                   const SizedBox(height: 4),
                   Text(

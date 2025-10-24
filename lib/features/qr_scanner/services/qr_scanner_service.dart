@@ -12,38 +12,35 @@ class QrScannerService {
   static QrScanResult parseQrCode(String rawData) {
     try {
       // 尝试解析JSON格式的QR码
-      final jsonData = jsonDecode(rawData);
-      
-      // 验证必需字段
+      final raw = jsonDecode(rawData);
+      if (raw is! Map<String, dynamic>) {
+        return const QrScanResult.error('QR码格式不正确：必须为JSON对象');
+      }
+
+      final Map<String, dynamic> jsonData = Map<String, dynamic>.from(raw);
+
+      // 验证必需字段（不再强制 bleAddress）
       if (!jsonData.containsKey('deviceId') ||
           !jsonData.containsKey('deviceName') ||
-          !jsonData.containsKey('bleAddress') ||
           !jsonData.containsKey('publicKey')) {
         return const QrScanResult.error('QR码格式不正确：缺少必需字段');
       }
 
+      // 兼容：若缺少 bleAddress，则置为空字符串
+      jsonData.putIfAbsent('bleAddress', () => '');
+
       // 创建设备数据对象
       final deviceData = DeviceQrData.fromJson(jsonData);
-      
-      // 基本数据验证
+
+      // 基本数据验证（仅关键标识）
       if (deviceData.deviceId.isEmpty) {
         return const QrScanResult.error('设备ID不能为空');
       }
-      
-      if (deviceData.bleAddress.isEmpty) {
-        return const QrScanResult.error('BLE地址不能为空');
-      }
-      
       if (deviceData.publicKey.isEmpty) {
         return const QrScanResult.error('设备公钥不能为空');
       }
 
-      // 验证BLE地址格式 (XX:XX:XX:XX:XX:XX)
-      final bleRegex = RegExp(r'^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}$');
-      if (!bleRegex.hasMatch(deviceData.bleAddress)) {
-        return const QrScanResult.error('BLE地址格式不正确');
-      }
-
+      // 不再校验 BLE 地址是否存在或格式
       return QrScanResult.success(deviceData);
     } on FormatException catch (e) {
       return QrScanResult.error('QR码格式错误: ${e.message}');

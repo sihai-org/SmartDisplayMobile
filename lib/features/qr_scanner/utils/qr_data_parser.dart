@@ -15,14 +15,27 @@ class QrDataParser {
     // 1) 明显是 JSON 格式
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
-        final Map<String, dynamic> json = jsonDecode(trimmed);
-        final parsed = DeviceQrData.fromJson(json);
-        // 规范化固件版本，避免展示原始 JSON 字符串
+        final raw = jsonDecode(trimmed);
+        if (raw is! Map<String, dynamic>) {
+          throw const FormatException('JSON需为对象');
+        }
+        final Map<String, dynamic> json = Map<String, dynamic>.from(raw);
+        // 放宽：bleAddress 可缺省
+        final id = (json['deviceId'] ?? '').toString();
+        final name = (json['deviceName'] ?? '').toString();
+        final pk = (json['publicKey'] ?? '').toString();
+        final ble = (json['bleAddress'] ?? '').toString();
         final normalizedFv = _extractVersion(
-              json['firmwareVersion']?.toString() ?? json['version']?.toString() ?? parsed.firmwareVersion,
-            ) ?? parsed.firmwareVersion;
-
-        final deviceData = parsed.copyWith(firmwareVersion: normalizedFv);
+              json['firmwareVersion']?.toString() ?? json['version']?.toString(),
+            );
+        final deviceData = DeviceQrData(
+          deviceId: id,
+          deviceName: name,
+          bleAddress: ble, // 可为空，连接流程会扫描覆盖
+          publicKey: pk,
+          firmwareVersion: normalizedFv,
+          timestamp: int.tryParse((json['timestamp'] ?? json['ts'] ?? '').toString()),
+        );
         print("✅ 解析成功: deviceId=${deviceData.deviceId}, deviceName=${deviceData.deviceName}");
         return deviceData;
       } catch (e) {
@@ -46,11 +59,11 @@ class QrDataParser {
           String? tsStr = uri.queryParameters['ts'];
           int? ts = int.tryParse(tsStr ?? '');
 
-          if (id != null && name != null && ble != null && pk != null) {
+          if (id != null && name != null && pk != null) {
             final data = DeviceQrData(
               deviceId: id,
               deviceName: name,
-              bleAddress: ble,
+              bleAddress: ble ?? '',
               publicKey: pk,
               firmwareVersion: fv,
               timestamp: ts,
@@ -77,11 +90,11 @@ class QrDataParser {
           String? tsStr = uri.queryParameters['ts'];
           int? ts = int.tryParse(tsStr ?? '');
 
-          if (id != null && name != null && ble != null && pk != null) {
+          if (id != null && name != null && pk != null) {
             final data = DeviceQrData(
               deviceId: id,
               deviceName: name,
-              bleAddress: ble,
+              bleAddress: ble ?? '',
               publicKey: pk,
               firmwareVersion: fv,
               timestamp: ts,

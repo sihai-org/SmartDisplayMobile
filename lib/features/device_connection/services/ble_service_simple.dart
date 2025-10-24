@@ -387,6 +387,47 @@ class BleServiceSimple {
     return _ble.subscribeToCharacteristic(q);
   }
 
+  /// 订阅 TX(indicate) 的语义包装
+  static Stream<List<int>> subscribeToIndications({
+    required String deviceId,
+    required String serviceUuid,
+    required String txCharacteristicUuid,
+  }) {
+    return subscribeToCharacteristic(
+      deviceId: deviceId,
+      serviceUuid: serviceUuid,
+      characteristicUuid: txCharacteristicUuid,
+    );
+  }
+
+  /// 发现并校验 RX/TX 是否存在
+  static Future<bool> hasRxTx({
+    required String deviceId,
+    required String serviceUuid,
+    required String rxUuid,
+    required String txUuid,
+  }) async {
+    try {
+      final services = await _ble.discoverServices(deviceId);
+      final s = services.firstWhere(
+        (e) => e.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+        orElse: () => DiscoveredService(
+          serviceId: Uuid.parse('00000000-0000-0000-0000-000000000000'),
+          serviceInstanceId: '',
+          characteristicIds: const [],
+          characteristics: const [],
+          includedServices: const [],
+        ),
+      );
+      if (s.characteristicIds.isEmpty) return false;
+      final hasRx = s.characteristicIds.any((c) => c.toString().toLowerCase() == rxUuid.toLowerCase());
+      final hasTx = s.characteristicIds.any((c) => c.toString().toLowerCase() == txUuid.toLowerCase());
+      return hasRx && hasTx;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 清理
   static void dispose() {
     _bleStatusSubscription?.cancel();

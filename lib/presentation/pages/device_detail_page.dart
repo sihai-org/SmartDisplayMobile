@@ -35,11 +35,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
 
   DeviceQrData? _qrFromRecord(SavedDeviceRecord rec) {
-    final bleAddress = rec.lastBleAddress;
-    if (bleAddress == null || bleAddress.isEmpty) {
+    // 允许缺少本地缓存的 BLE 地址：连接流程会在扫描后用发现的地址覆盖。
+    // 仅当关键标识缺失时才放弃（如 deviceId/publicKey）。
+    if (rec.deviceId.isEmpty || rec.publicKey.isEmpty) {
       Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
       return null;
     }
+    final bleAddress = rec.lastBleAddress ?? '';
     return DeviceQrData(
       deviceId: rec.deviceId,
       deviceName: rec.deviceName,
@@ -713,7 +715,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               Row(
                 children: [
                   ElevatedButton.icon(
-                    onPressed: () => context.push(AppRoutes.wifiSelection),
+                    onPressed: () {
+                      final saved = ref.read(savedDevicesProvider);
+                      final id = saved.lastSelectedId;
+                      if (id != null && id.isNotEmpty) {
+                        context.push('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(id)}');
+                      } else {
+                        context.push(AppRoutes.wifiSelection);
+                      }
+                    },
                     icon: const Icon(Icons.settings, size: 16),
                     label: const Text('管理网络'),
                     style: ElevatedButton.styleFrom(
@@ -847,8 +857,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: () {
-                ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+              onPressed: () async {
+                Fluttertoast.showToast(msg: '正在扫描附近Wi‑Fi...');
+                final ok = await ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+                if (!ok) {
+                  Fluttertoast.showToast(msg: '扫描失败，请检查蓝牙连接');
+                }
               },
               icon: const Icon(Icons.refresh, size: 16),
               label: Text(l10n?.scan_networks ?? 'Scan Networks'),
@@ -889,8 +903,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         const SizedBox(height: 12),
         // 刷新按钮
         TextButton.icon(
-          onPressed: () {
-            ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+          onPressed: () async {
+            Fluttertoast.showToast(msg: '正在扫描附近Wi‑Fi...');
+            final ok = await ref.read(conn.deviceConnectionProvider.notifier).requestWifiScan();
+            if (!ok) {
+              Fluttertoast.showToast(msg: '扫描失败，请检查蓝牙连接');
+            }
           },
           icon: const Icon(Icons.refresh, size: 16),
           label: Text(l10n?.refresh_networks ?? 'Refresh Networks'),
