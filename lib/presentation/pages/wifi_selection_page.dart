@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
+import '../../features/device_connection/models/network_status.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   final _pwdController = TextEditingController();
   bool _sending = false;
   bool _shownSuccessToast = false;
+  bool _shownFailureToast = false;
   bool _navigatedOnSuccess = false;
 
   @override
@@ -52,6 +54,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     // 监听配网结果：wifi_online/wifi_offline，若未在设备列表则跳转绑定页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
       String s = (next.provisionStatus ?? '').toLowerCase();
+      final String prevS = (prev?.provisionStatus ?? '').toLowerCase();
       // 兼容设备端发送的 JSON 载荷：{"deviceId":"...","status":"wifi_online"}
       if (s.startsWith('{')) {
         try {
@@ -68,7 +71,15 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           ? true // 未传则放行（向后兼容）
           : provDeviceId == widget.deviceId;
 
-      if ((s == 'wifi_online' || s.contains('wifi_online')) && isDeviceMatch) {
+      // 成功：只在状态从非成功 -> 成功时提示一次，且必须确认网络真实连接并匹配本次 SSID
+      final bool nextIsSuccess = (s == 'wifi_online' || s.contains('wifi_online'));
+      final bool prevWasSuccess = (prevS == 'wifi_online' || prevS.contains('wifi_online'));
+      final ns = next.networkStatus; // 需为已连接
+      final reqSsid = (next.lastProvisionSsid ?? '').trim();
+      final currSsid = ((ns?.displaySsid ?? ns?.ssid) ?? '').trim();
+      final bool ssidMatches = reqSsid.isNotEmpty && currSsid.isNotEmpty && reqSsid == currSsid;
+      final bool successSatisfied = nextIsSuccess && isDeviceMatch && ns?.connected == true && ssidMatches;
+      if (successSatisfied && (!_shownSuccessToast || !prevWasSuccess)) {
         if (!_shownSuccessToast) {
           _shownSuccessToast = true;
           Fluttertoast.showToast(msg: '配网成功，设备已联网');
@@ -84,12 +95,20 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           }
           // 已绑定 → 保持当前页面，不做跳转
         }
-      } else if ((s == 'wifi_online' || s.contains('wifi_online')) && !isDeviceMatch) {
+      } else if (nextIsSuccess && !isDeviceMatch) {
         // 设备不匹配时仅记录，不进行跳转
         // ignore: avoid_print
         print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.deviceId}');
-      } else if ((s == 'wifi_offline' || s.contains('wifi_offline')) && isDeviceMatch) {
-        Fluttertoast.showToast(msg: '配网失败，设备未能连接网络');
+      }
+
+      // 失败：只在状态从非失败 -> 失败时提示一次
+      final bool nextIsFail = (s == 'wifi_offline' || s.contains('wifi_offline') || s == 'failed');
+      // 去掉对 prevWasFail 的限制，改为由页面内一次性标志控制每次“尝试”的 toast 频率
+      if (nextIsFail && isDeviceMatch) {
+        if (!_shownFailureToast) {
+          _shownFailureToast = true;
+          Fluttertoast.showToast(msg: '配网失败，设备未能连接网络');
+        }
       }
     });
 
@@ -230,6 +249,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         Fluttertoast.showToast(msg: '请输入Wi‑Fi名称');
                         return;
                       }
+                      // 新的一次请求前，重置一次性提示标志
+                      _shownSuccessToast = false;
+                      _shownFailureToast = false;
+                      _navigatedOnSuccess = false;
                       setState(() => _sending = true);
                       final ok = await ref
                           .read(deviceConnectionProvider.notifier)

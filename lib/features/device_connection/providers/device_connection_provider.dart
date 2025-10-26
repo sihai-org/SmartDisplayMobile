@@ -29,6 +29,7 @@ class DeviceConnectionState {
   final double progress;
   final String? provisionStatus;
   final String? lastProvisionDeviceId;
+  final String? lastProvisionSsid;
   final List<WifiAp> wifiNetworks;
   final List<String> connectionLogs;
   final NetworkStatus? networkStatus;
@@ -46,6 +47,7 @@ class DeviceConnectionState {
     this.progress = 0.0,
     this.provisionStatus,
     this.lastProvisionDeviceId,
+    this.lastProvisionSsid,
     this.wifiNetworks = const [],
     this.connectionLogs = const [],
     this.networkStatus,
@@ -64,6 +66,7 @@ class DeviceConnectionState {
     double? progress,
     String? provisionStatus,
     String? lastProvisionDeviceId,
+    String? lastProvisionSsid,
     List<WifiAp>? wifiNetworks,
     List<String>? connectionLogs,
     NetworkStatus? networkStatus,
@@ -81,6 +84,7 @@ class DeviceConnectionState {
       progress: progress ?? this.progress,
       provisionStatus: provisionStatus ?? this.provisionStatus,
       lastProvisionDeviceId: lastProvisionDeviceId ?? this.lastProvisionDeviceId,
+      lastProvisionSsid: lastProvisionSsid ?? this.lastProvisionSsid,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       connectionLogs: connectionLogs ?? this.connectionLogs,
       networkStatus: networkStatus ?? this.networkStatus,
@@ -449,15 +453,37 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
                   if (s == 'authenticated') {
                     state = state.copyWith(status: BleDeviceStatus.authenticated);
                   } else if (s == 'wifi_online') {
-                    // 标记配网成功（去重），并刷新网络状态
-                    if (state.provisionStatus != 'wifi_online') {
-                      state = state.copyWith(
-                        provisionStatus: 'wifi_online',
-                        lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
-                      );
-                    }
+                    // 不直接标记为成功，先读取网络状态并仅在 SSID 匹配时由 _doReadNetworkStatus 设置成功
                     await _doReadNetworkStatus();
                     _kickoffPostProvisionPolling();
+                  }
+                } else if (type == 'wifi.result') {
+                  // 处理设备端的配网最终结果事件
+                  final ok = evt['ok'] == true;
+                  final data = evt['data'];
+                  final err = evt['error'];
+                  String? status = (data is Map<String, dynamic>)
+                      ? (data['status']?.toString())
+                      : null;
+                  if (ok && status == 'connected') {
+                    _log('📣 wifi.result: connected');
+                    state = state.copyWith(
+                      provisionStatus: 'wifi_online',
+                      lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+                    );
+                    await _doReadNetworkStatus();
+                    _kickoffPostProvisionPolling();
+                  } else {
+                    // 失败或超时：例如 error.code=incorrect_password_or_timeout
+                    final code = (err is Map<String, dynamic>) ? (err['code']?.toString()) : null;
+                    final message = (err is Map<String, dynamic>) ? (err['message']?.toString()) : null;
+                    _log('📣 wifi.result: failed code=$code message=$message');
+                    state = state.copyWith(
+                      provisionStatus: 'wifi_offline',
+                      lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+                    );
+                    // 读取一次网络状态以同步面板显示
+                    await _doReadNetworkStatus();
                   }
                 } else if (type == 'error') {
                   _log('📣 设备事件错误: ${evt['error']}');
@@ -633,7 +659,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     try {
       // 进入配网中状态并记录设备ID
       final currId = state.deviceData!.deviceId;
-      state = state.copyWith(provisionStatus: 'provisioning', lastProvisionDeviceId: currId);
+      state = state.copyWith(
+        provisionStatus: 'provisioning',
+        lastProvisionDeviceId: currId,
+        lastProvisionSsid: ssid,
+      );
       final resp = await _rq!.send({
         'type': 'wifi.config',
         'data': { 'ssid': ssid, 'password': password }
@@ -888,13 +918,20 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       final data = resp['data'];
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
-        // 同步网络状态；若正在配网，仅在连接成功时切到 wifi_online，避免过早判定离线
+        // 同步网络状态；若正在配网，仅在连接成功且 SSID 匹配本次请求时切到 wifi_online，避免误判
         state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
         if (state.provisionStatus == 'provisioning' && ns.connected) {
-          state = state.copyWith(
-            provisionStatus: 'wifi_online',
-            lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
-          );
+          final reqSsid = state.lastProvisionSsid?.trim();
+          final currSsid = ns.displaySsid?.trim() ?? ns.ssid?.trim();
+          final ssidMatches = reqSsid != null && reqSsid.isNotEmpty &&
+              currSsid != null && currSsid.isNotEmpty &&
+              currSsid == reqSsid;
+          if (ssidMatches) {
+            state = state.copyWith(
+              provisionStatus: 'wifi_online',
+              lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+            );
+          }
         }
         return ns;
       }
@@ -918,6 +955,13 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         // 增量退避但限制上限
         final nextMs = (delay.inMilliseconds * 1.5).toInt();
         delay = Duration(milliseconds: nextMs > 3000 ? 3000 : nextMs);
+      }
+      // 若超时仍未匹配成功且仍处于配网中，则标记失败，触发页面提示
+      if (state.provisionStatus == 'provisioning') {
+        state = state.copyWith(
+          provisionStatus: 'wifi_offline',
+          lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+        );
       }
       _postProvisionPoll = null;
     }();
