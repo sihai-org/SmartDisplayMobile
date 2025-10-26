@@ -685,12 +685,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '网络状态',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-
             // 检查网络状态中
             if (connState.isCheckingNetwork) ...[
               Row(
@@ -751,24 +745,56 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       ),
                 ),
             ]
-            // 显示WiFi列表 (未连网或检查失败)
+            // 未连网或检查失败：提示“无网络”。“管理网络”前往配网，“刷新”仅刷新网络状态
             else ...[
-              if (connState.networkStatus?.connected == false)
-                Text(
-                  l10n?.wifi_not_connected ?? 'Device not connected to network. Select a Wi‑Fi to provision:',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              Row(
+                children: [
+                  Icon(
+                    Icons.error,
+                    size: 24,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                )
-              else
-                Text(
-                  l10n?.wifi_status_unknown ?? 'Unable to get network status. Showing available Wi‑Fi networks:',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Text(
+                    '网络未连接',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
-                ),
+                ],
+              ),
               const SizedBox(height: 12),
-              _buildWifiList(context, connState),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final saved = ref.read(savedDevicesProvider);
+                      final id = saved.lastSelectedId;
+                      if (id != null && id.isNotEmpty) {
+                        context.push('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(id)}');
+                      } else {
+                        context.push(AppRoutes.wifiSelection);
+                      }
+                    },
+                    icon: const Icon(Icons.settings, size: 16),
+                    label: const Text('管理网络'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    onPressed: connState.isCheckingNetwork
+                        ? null
+                        : () {
+                            ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
+                          },
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('刷新'),
+                  ),
+                ],
+              ),
             ],
           ],
         ),
