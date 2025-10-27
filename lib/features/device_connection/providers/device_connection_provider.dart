@@ -106,6 +106,23 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         _onEnterForeground();
       }
     });
+
+    // 🔥 新增：自动监听 BLE 权限变化
+    BleServiceSimple.permissionStream.listen((granted) {
+      if (granted && state.status == BleDeviceStatus.error &&
+          (state.errorMessage?.contains('权限') ?? false)) {
+        _log('✅ 检测到 BLE 权限已授予，自动重启连接');
+        final d = state.deviceData;
+        if (d != null) {
+          startConnection(DeviceQrData(
+            deviceId: d.deviceId,
+            deviceName: d.deviceName,
+            bleAddress: d.bleAddress,
+            publicKey: d.publicKey,
+          ));
+        }
+      }
+    });
   }
 
   final Ref _ref;

@@ -23,6 +23,10 @@ class BleServiceSimple {
   static final Map<String, int> _lastLogRssi = {};
   static const Duration _perDeviceLogInterval = Duration(seconds: 3);
 
+  static final _permissionStreamController = StreamController<bool>.broadcast();
+  static Stream<bool> get permissionStream => _permissionStreamController.stream;
+
+
   /// ✅ 新增：申请更大的 MTU
   static Future<int> requestMtu(String deviceId, int mtu) async {
     try {
@@ -79,7 +83,23 @@ class BleServiceSimple {
         }
       }
 
-      return (await checkBleStatus()) == BleStatus.ready;
+      // return (await checkBleStatus()) == BleStatus.ready;
+
+      // 延迟再检测一次，给系统时间刷新状态
+      await Future.delayed(const Duration(milliseconds: 300));
+      var s1 = await checkBleStatus();
+      var granted = (s1 == BleStatus.ready);
+      if (granted) {
+        _permissionStreamController.add(granted);
+        return granted;
+      };
+
+      // 再延迟一次作为兜底
+      await Future.delayed(const Duration(milliseconds: 700));
+      final s2 = await checkBleStatus();
+      granted = (s2 == BleStatus.ready);
+      _permissionStreamController.add(granted);
+      return granted;
     } catch (e) {
       print('❌ 权限检查失败: $e');
       return false;
