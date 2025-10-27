@@ -87,6 +87,27 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   Widget build(BuildContext context) {
     final connectionState = ref.watch(deviceConnectionProvider);
     
+    // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
+    Future<void> _maybeDisconnectIfEphemeral() async {
+      final conn = ref.read(deviceConnectionProvider);
+      final devId = conn.deviceData?.deviceId;
+      final st = conn.status;
+      final isBleConnected = st == BleDeviceStatus.connected ||
+          st == BleDeviceStatus.authenticating ||
+          st == BleDeviceStatus.authenticated;
+      if (devId == null || devId.isEmpty || !isBleConnected) return;
+      await ref.read(savedDevicesProvider.notifier).load();
+      final saved = ref.read(savedDevicesProvider);
+      final inList = saved.devices.any((e) => e.deviceId == devId);
+      if (!inList) {
+        // 日志与用户提示
+        // ignore: avoid_print
+        print('[DeviceConnectionPage] 返回且设备不在列表，主动断开BLE: $devId');
+        await ref.read(deviceConnectionProvider.notifier).disconnect();
+        Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+      }
+    }
+    
     // 注册状态监听器，在认证完成时跳转首页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider,
         (previous, current) async {
@@ -190,7 +211,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       }
     });
 
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) {
+          await _maybeDisconnectIfEphemeral();
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('连接设备'),
@@ -199,6 +226,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
+            // 返回前进行断开判断
+            Future(() async { await _maybeDisconnectIfEphemeral(); });
             // 清理状态并返回扫描页面
             ref.read(appStateProvider.notifier).clearScannedDeviceData();
             ref.read(deviceConnectionProvider.notifier).reset();
@@ -241,7 +270,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           },
         ),
       ),
-    );
+    ),
+  );
   }
 
   // 绑定流程改为独立页面处理

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../features/device_connection/models/network_status.dart';
+import '../../features/device_connection/models/ble_device_data.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -50,6 +51,28 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   Widget build(BuildContext context) {
     final connState = ref.watch(deviceConnectionProvider);
     final provisionStatus = connState.provisionStatus ?? '未开始';
+
+    // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
+    Future<void> _maybeDisconnectIfEphemeral() async {
+      final conn = ref.read(deviceConnectionProvider);
+      final devId = conn.deviceData?.deviceId;
+      final st = conn.status;
+      final isBleConnected = st == BleDeviceStatus.connected ||
+          st == BleDeviceStatus.authenticating ||
+          st == BleDeviceStatus.authenticated;
+      if (devId == null || devId.isEmpty || !isBleConnected) return;
+      // 确保本地设备列表已加载
+      await ref.read(savedDevicesProvider.notifier).load();
+      final saved = ref.read(savedDevicesProvider);
+      final inList = saved.devices.any((e) => e.deviceId == devId);
+      if (!inList) {
+        // 日志与用户提示
+        // ignore: avoid_print
+        print('[WiFiSelectionPage] 返回且设备不在列表，主动断开BLE: $devId');
+        await ref.read(deviceConnectionProvider.notifier).disconnect();
+        Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+      }
+    }
 
     // 监听配网结果：wifi_online/wifi_offline，若未在设备列表则跳转绑定页
     ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
@@ -112,23 +135,21 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       }
     });
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        await _maybeDisconnectIfEphemeral();
+        if (context.mounted) context.go(AppRoutes.qrScanner);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('选择Wi-Fi网络'),
         // 使用全局主题的默认配色，去掉蓝色背景
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            // 优先返回上一页；若无返回栈则根据上下文回退到合理页面
-            if (context.canPop()) {
-              context.pop();
-              return;
-            }
-            if (widget.deviceId.isNotEmpty) {
-              context.go('${AppRoutes.deviceConnection}?deviceId=${Uri.encodeComponent(widget.deviceId)}');
-            } else {
-              context.go(AppRoutes.home);
-            }
+          onPressed: () async {
+            await _maybeDisconnectIfEphemeral();
+            if (context.mounted) context.go(AppRoutes.qrScanner);
           },
         ),
         // 移除右侧关闭按钮，统一使用左侧返回
@@ -330,6 +351,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         ),
       ),
       // 附近网络列表已放入正文区域，移除底部栏
+      ),
     );
   }
 

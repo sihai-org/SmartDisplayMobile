@@ -11,6 +11,7 @@ import '../../core/constants/ble_constants.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../features/device_connection/models/ble_device_data.dart';
 
 class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.deviceId});
@@ -29,6 +30,27 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     if (_navigated || !mounted) return;
     _navigated = true;
     context.go(AppRoutes.home);
+  }
+
+  // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
+  Future<void> _maybeDisconnectIfEphemeral() async {
+    final conn = ref.read(deviceConnectionProvider);
+    final devId = conn.deviceData?.deviceId;
+    final st = conn.status;
+    final isBleConnected = st == BleDeviceStatus.connected ||
+        st == BleDeviceStatus.authenticating ||
+        st == BleDeviceStatus.authenticated;
+    if (devId == null || devId.isEmpty || !isBleConnected) return;
+    await ref.read(savedDevicesProvider.notifier).load();
+    final saved = ref.read(savedDevicesProvider);
+    final inList = saved.devices.any((e) => e.deviceId == devId);
+    if (!inList) {
+      // 日志与用户提示
+      // ignore: avoid_print
+      print('[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $devId');
+      await ref.read(deviceConnectionProvider.notifier).disconnect();
+      Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+    }
   }
 
   @override
@@ -72,12 +94,21 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        await _maybeDisconnectIfEphemeral();
+        if (context.mounted) context.go(AppRoutes.qrScanner);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('确认绑定'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(AppRoutes.qrScanner),
+          onPressed: () async {
+            await _maybeDisconnectIfEphemeral();
+            context.go(AppRoutes.qrScanner);
+          },
         ),
       ),
       body: Padding(
@@ -119,7 +150,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      await _maybeDisconnectIfEphemeral();
                       ref.read(appStateProvider.notifier).clearScannedDeviceData();
                       ref.read(deviceConnectionProvider.notifier).reset();
                       context.go(AppRoutes.qrScanner);
@@ -176,7 +208,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Future<bool> _bindViaOtp(BuildContext context, WidgetRef ref, DeviceQrData device) async {
