@@ -87,7 +87,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   Widget build(BuildContext context) {
     final connectionState = ref.watch(deviceConnectionProvider);
     
-    // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
+    // 返回或手动触发时：若蓝牙已连接且设备不在已保存列表，则强制断开
     Future<void> _maybeDisconnectIfEphemeral() async {
       final conn = ref.read(deviceConnectionProvider);
       final devId = conn.deviceData?.deviceId;
@@ -100,7 +100,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       final saved = ref.read(savedDevicesProvider);
       final inList = saved.devices.any((e) => e.deviceId == devId);
       if (!inList) {
-        // 日志与用户提示
         // ignore: avoid_print
         print('[DeviceConnectionPage] 返回且设备不在列表，主动断开BLE: $devId');
         await ref.read(deviceConnectionProvider.notifier).disconnect();
@@ -225,9 +224,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         // 使用主题默认的 AppBar 配色，去掉硬编码的蓝色
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            // 返回前进行断开判断
-            Future(() async { await _maybeDisconnectIfEphemeral(); });
+          onPressed: () async {
+            // 返回前进行断开判断（需等待执行完成，避免在导航后错过断开时机）
+            await _maybeDisconnectIfEphemeral();
             // 清理状态并返回扫描页面
             ref.read(appStateProvider.notifier).clearScannedDeviceData();
             ref.read(deviceConnectionProvider.notifier).reset();

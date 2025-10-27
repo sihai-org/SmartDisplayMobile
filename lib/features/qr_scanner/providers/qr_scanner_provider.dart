@@ -1,4 +1,5 @@
 import 'dart:ui' show Rect;
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -66,8 +67,13 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   final _tracker = _CandidateTracker();
   DateTime? _lastAnyDetectAt;
 
+  void _log(String msg) {
+    developer.log(msg, name: 'QR');
+  }
+
   /// 初始化控制器 (不更新状态)
   void initializeController() {
+    _log('initializeController');
     _controller = MobileScannerController(
       // Use normal detection speed to reduce rapid UI updates
       detectionSpeed: DetectionSpeed.normal,
@@ -81,16 +87,19 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   void initialize() {
     initializeController();
     if (mounted) {
+      _log('initialize -> set status=scanning');
       state = state.copyWith(status: QrScannerStatus.scanning);
     }
   }
 
   /// 处理扫描结果
   void onDetect(BarcodeCapture capture) {
+    _log('onDetect: ----------------------${state.status}');
     if (state.status != QrScannerStatus.scanning) return;
 
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) {
+      _log('onDetect: no barcodes');
       _updateSuggestTorch();
       return;
     }
@@ -101,6 +110,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     final candidates = barcodes
         .where((b) => b.format == BarcodeFormat.qrCode && (b.rawValue?.isNotEmpty ?? false))
         .toList();
+    _log('onDetect: barcodes=${barcodes.length}, qrCandidates=${candidates.length}');
     if (candidates.isEmpty) return;
 
     // 选择首个候选（ROI 已在控件层限定）
@@ -112,9 +122,13 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     }
 
     final stable = _tracker.update(best.rawValue!);
-    if (!stable.isStable) return;
+    if (!stable.isStable) {
+      _log('onDetect: candidate unstable hits=${stable.hitCount} elapsedMs=${stable.elapsedMs}');
+      return;
+    }
 
     // 达到稳定阈值，判定成功
+    _log('onDetect: STABLE success, contentLen=${best.rawValue?.length ?? 0}');
     QrScannerService.vibrate();
     if (mounted) {
       state = state.copyWith(
@@ -127,6 +141,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
 
   /// 开始扫描
   void startScanning() {
+    _log('startScanning');
     if (mounted) {
       state = state.copyWith(
         status: QrScannerStatus.scanning,
@@ -142,6 +157,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
 
   /// 停止扫描
   void stopScanning() {
+    _log('stopScanning');
     if (mounted) {
       state = state.copyWith(status: QrScannerStatus.idle, candidateRect: null);
     }
@@ -152,6 +168,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     _controller?.toggleTorch();
     // 获取实际的闪光灯状态
     final currentTorchState = _controller?.torchState.value == TorchState.on;
+    _log('toggleTorch -> wasOn=$currentTorchState');
     if (mounted) {
       state = state.copyWith(isTorchOn: !currentTorchState, suggestTorch: false);
     }
@@ -160,6 +177,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   /// 更新扫描窗口（ROI），用于限定解码区域与引导绘制
   void updateScanWindow(Rect rect) {
     _scanWindow = rect;
+    _log('updateScanWindow: ${rect.left},${rect.top},${rect.width}x${rect.height}');
     if (mounted) {
       state = state.copyWith(scanWindow: rect);
     }
@@ -176,12 +194,14 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     final now = DateTime.now();
     if (last == null || now.difference(last).inSeconds > 2) {
       // 2 秒内无稳定候选时提示
+      _log('suggestTorch: true');
       state = state.copyWith(suggestTorch: true);
     }
   }
 
   /// 从相册扫描图片
   Future<void> scanFromImage() async {
+    _log('scanFromImage: start');
     // 设置为处理状态
     if (mounted) {
       state = state.copyWith(status: QrScannerStatus.processing);
@@ -192,6 +212,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
       final result = await QrScannerService.scanQrFromImageSimple();
       
       if (result.isNotEmpty) {
+        _log('scanFromImage: success length=${result.length}');
         // 振动反馈
         QrScannerService.vibrate();
         
@@ -203,11 +224,13 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
           );
         }
       } else {
+        _log('scanFromImage: no result');
         if (mounted) {
           state = state.copyWith(status: QrScannerStatus.scanning);
         }
       }
     } catch (e) {
+      _log('scanFromImage: error $e');
       if (mounted) {
         state = state.copyWith(
           status: QrScannerStatus.error,
@@ -226,6 +249,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   /// 重置状态
   void reset() {
     // 清理现有控制器
+    _log('reset: dispose controller and clear state');
     _controller?.dispose();
     _controller = null;
     // 重置状态 (只有在未销毁时才更新状态)
@@ -237,6 +261,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   /// 释放资源
   @override
   void dispose() {
+    _log('dispose: controller cleanup');
     _controller?.dispose();
     _controller = null;
     super.dispose();
@@ -249,7 +274,9 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
 
 class _CandidateUpdateResult {
   final bool isStable;
-  const _CandidateUpdateResult(this.isStable);
+  final int hitCount;
+  final int elapsedMs;
+  const _CandidateUpdateResult(this.isStable, this.hitCount, this.elapsedMs);
 }
 
 /// 候选追踪：多帧一致性与位置稳定
@@ -275,7 +302,8 @@ class _CandidateTracker {
     _lastValue = value;
     final inWindow = now.difference(_firstAt!) <= _window;
     final ok = _hits >= _minHits && inWindow;
-    return _CandidateUpdateResult(ok);
+    final elapsed = now.difference(_firstAt!).inMilliseconds;
+    return _CandidateUpdateResult(ok, _hits, elapsed);
   }
 
   void reset() {

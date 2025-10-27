@@ -20,9 +20,18 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   void initState() {
     super.initState();
     // 初始化扫描器
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // ignore: avoid_print
+    print('[QrScannerPage] initState -> initializeController + startScanning');
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final notifier = ref.read(qrScannerProvider.notifier);
+
+      // ✅ 如果 controller 已存在，说明是 hot reload 后重建的 Widget，要强制重置
+      if (notifier.controller != null) {
+        notifier.reset();
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
       notifier.initializeController();
       notifier.startScanning();
     });
@@ -42,6 +51,8 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     ref.listen<QrScannerState>(qrScannerProvider, (previous, current) async {
       if (!mounted) return;
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
+        // ignore: avoid_print
+        print('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator');
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           // 停止扫描 - 延迟执行避免在构建期间修改Provider
@@ -75,6 +86,8 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             onPressed: () {
               // 停止扫描并清理资源 - 延迟执行避免在构建期间修改Provider
               Future(() {
+                // ignore: avoid_print
+                print('[QrScannerPage] back pressed -> stopScanning and go home');
                 ref.read(qrScannerProvider.notifier).stopScanning();
               });
               // 返回主页
@@ -92,15 +105,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             //   ),
             //   tooltip: context.l10n.gallery_picker,
             // ),
-            // 闪光灯按钮
-            IconButton(
-              onPressed: () => scannerNotifier.toggleTorch(),
-              icon: Icon(
-                scannerState.isTorchOn ? Icons.flash_on : Icons.flash_off,
-                color: scannerState.isTorchOn ? Colors.yellow : Colors.white,
-              ),
-              tooltip: context.l10n.torch,
-            ),
+            // 顶部右侧闪光灯按钮暂时移除（点击无效问题）
           ],
         ),
         body: LayoutBuilder(

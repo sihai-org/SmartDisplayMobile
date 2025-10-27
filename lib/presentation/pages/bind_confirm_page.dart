@@ -10,6 +10,7 @@ import '../../core/providers/saved_devices_provider.dart';
 import '../../core/constants/ble_constants.dart';
 import '../../features/device_connection/providers/device_connection_provider.dart';
 import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../features/device_connection/models/ble_device_data.dart';
 
@@ -45,7 +46,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final saved = ref.read(savedDevicesProvider);
     final inList = saved.devices.any((e) => e.deviceId == devId);
     if (!inList) {
-      // 日志与用户提示
       // ignore: avoid_print
       print('[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $devId');
       await ref.read(deviceConnectionProvider.notifier).disconnect();
@@ -98,6 +98,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         await _maybeDisconnectIfEphemeral();
+        // 清理扫描与连接状态，返回扫码页后重新初始化
+        ref.read(appStateProvider.notifier).clearScannedDeviceData();
+        ref.read(deviceConnectionProvider.notifier).reset();
+        ref.read(qrScannerProvider.notifier).reset();
         if (context.mounted) context.go(AppRoutes.qrScanner);
       },
       child: Scaffold(
@@ -107,6 +111,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             await _maybeDisconnectIfEphemeral();
+            // 清理扫描与连接状态，返回扫码页后重新初始化
+            ref.read(appStateProvider.notifier).clearScannedDeviceData();
+            ref.read(deviceConnectionProvider.notifier).reset();
+            ref.read(qrScannerProvider.notifier).reset();
             context.go(AppRoutes.qrScanner);
           },
         ),
@@ -152,8 +160,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                   child: OutlinedButton(
                     onPressed: () async {
                       await _maybeDisconnectIfEphemeral();
+                      // 清理扫描与连接状态，返回扫码页后重新初始化
                       ref.read(appStateProvider.notifier).clearScannedDeviceData();
                       ref.read(deviceConnectionProvider.notifier).reset();
+                      ref.read(qrScannerProvider.notifier).reset();
                       context.go(AppRoutes.qrScanner);
                     },
                     child: const Text('取消'),
@@ -264,7 +274,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         Fluttertoast.showToast(msg: '下发绑定指令失败');
         return false;
       }
-      Fluttertoast.showToast(msg: '绑定指令已发送，稍候完成登录');
       return true;
     } catch (e) {
       // 发生异常时也尝试兜底验证是否已绑定成功
