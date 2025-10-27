@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
@@ -92,6 +93,7 @@ class ProfilePage extends ConsumerWidget {
     final saved = ref.watch(savedDevicesProvider);
     final locale = ref.watch(localeProvider);
     final devicesCount = saved.devices.length;
+    final Uri helpUri = Uri.parse('https://ccns7n13cske.feishu.cn/wiki/ZuTwwMAjxixf9LklncicER1Mnib?from=from_copylink');
 
     final user = Supabase.instance.client.auth.currentUser;
     final displayName = (user?.userMetadata?['name'] as String?)?.trim();
@@ -243,8 +245,11 @@ class ProfilePage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.help),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, '${l10n.help} - ${l10n.google_signin_placeholder}');
+                  onTap: () async {
+                    await launchUrl(
+                      helpUri,
+                      mode: LaunchMode.externalApplication,
+                    );
                   },
                 ),
                 ListTile(
