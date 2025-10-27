@@ -4,34 +4,44 @@ import 'dart:typed_data';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/ble_device_data.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/ble_constants.dart';
 
-/// 简化的BLE服务类，用于基本的蓝牙操作
+/// 简化的BLE服务类，用于基本的蓝牙操作（已合并权限与就绪逻辑）
 class BleServiceSimple {
   static final FlutterReactiveBle _ble = FlutterReactiveBle();
-  static StreamSubscription<BleStatus>? _bleStatusSubscription;
+
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
   static StreamSubscription<ConnectionStateUpdate>? _deviceConnectionSubscription;
+
   static bool _isScanning = false;
   static StreamController<SimpleBLEScanResult>? _scanController;
 
   // 设备去重映射表 - 按设备ID去重
   static final Map<String, SimpleBLEScanResult> _discoveredDevices = {};
+
   // 每个设备的最近一次打印时间与RSSI，用于节流日志
   static final Map<String, DateTime> _lastLogAt = {};
   static final Map<String, int> _lastLogRssi = {};
   static const Duration _perDeviceLogInterval = Duration(seconds: 3);
 
+  // Track negotiated MTU per device for framing without re-requesting MTU each time
+  static final Map<String, int> _mtuByDevice = {};
+
+  // 权限就绪广播（供上层监听）
   static final _permissionStreamController = StreamController<bool>.broadcast();
   static Stream<bool> get permissionStream => _permissionStreamController.stream;
 
+  // ✅ 统一的“刚就绪”时间戳 & 老安卓定位门槛缓存
+  static bool _legacyNeedsLocation = false; // Android < 12 是否需要定位服务开关
 
-  /// ✅ 新增：申请更大的 MTU
+  /// 申请更大的 MTU
   static Future<int> requestMtu(String deviceId, int mtu) async {
     try {
       final negotiatedMtu = await _ble.requestMtu(deviceId: deviceId, mtu: mtu);
       print('📏 已请求MTU=$mtu，协商结果: $negotiatedMtu');
+      if (negotiatedMtu > 0) {
+        _mtuByDevice[deviceId] = negotiatedMtu;
+      }
       return negotiatedMtu;
     } catch (e) {
       print('❌ requestMtu 失败: $e');
@@ -39,12 +49,16 @@ class BleServiceSimple {
     }
   }
 
-  /// 检查BLE状态
+  static int getNegotiatedMtu(String deviceId) {
+    return _mtuByDevice[deviceId] ?? BleConstants.minMtu;
+  }
+
+  /// 查询 BLE 当前状态（忽略 unknown）
   static Future<BleStatus> checkBleStatus() async {
     try {
       final status = await _ble.statusStream
           .firstWhere((s) => s != BleStatus.unknown,
-          orElse: () => BleStatus.unknown)
+              orElse: () => BleStatus.unknown)
           .timeout(const Duration(seconds: 5));
       return status;
     } catch (_) {
@@ -52,63 +66,71 @@ class BleServiceSimple {
     }
   }
 
-  /// 请求蓝牙权限
-  static Future<bool> requestPermissions() async {
+  static Future<bool> ensureBleReady() async {
     try {
-      final bleStatus = await checkBleStatus();
-      if (bleStatus == BleStatus.unsupported) return false;
-      if (bleStatus == BleStatus.poweredOff) return false;
+      final status = await checkBleStatus();
+      if (status == BleStatus.unsupported || status == BleStatus.poweredOff)
+        return false;
 
-      if (Platform.isIOS) {
-        return bleStatus == BleStatus.ready;
-      }
-
-      List<Permission> requiredPermissions = [];
       if (Platform.isAndroid) {
-        if (!(await Permission.bluetoothScan.isGranted)) {
-          requiredPermissions.add(Permission.bluetoothScan);
+        final reqs = <Permission>[];
+        if (!await Permission.bluetoothScan.isGranted)
+          reqs.add(Permission.bluetoothScan);
+        if (!await Permission.bluetoothConnect.isGranted)
+          reqs.add(Permission.bluetoothConnect);
+        // 仅在老安卓需要定位权限：
+        _legacyNeedsLocation = await _legacyNeedsLocationGate();
+        if (_legacyNeedsLocation &&
+            !await Permission.locationWhenInUse.isGranted) {
+          reqs.add(Permission.locationWhenInUse);
         }
-        if (!(await Permission.bluetoothConnect.isGranted)) {
-          requiredPermissions.add(Permission.bluetoothConnect);
+        if (reqs.isNotEmpty) {
+          final rs = await reqs.request();
+          if (rs.values.any((s) => !s.isGranted)) {
+            _permissionStreamController.add(false);
+            return false;
+          }
+          if (_legacyNeedsLocation) {
+            final service = await Permission.locationWhenInUse.serviceStatus;
+            if (service != ServiceStatus.enabled) {
+              _permissionStreamController.add(false);
+              return false;
+            }
+          }
         }
       }
-      if (!(await Permission.locationWhenInUse.isGranted)) {
-        requiredPermissions.add(Permission.locationWhenInUse);
-      }
 
-      if (requiredPermissions.isNotEmpty) {
-        final results = await requiredPermissions.request();
-        if (results.values.any((status) => !status.isGranted)) {
-          return false;
-        }
-      }
+      // 单次等 Ready（2s），失败再兜底等 2s
+      Future<BleStatus> waitReady(Duration t) => _ble.statusStream
+          .timeout(t, onTimeout: (sink) {})
+          .firstWhere((s) => s == BleStatus.ready,
+              orElse: () => BleStatus.unknown);
 
-      // return (await checkBleStatus()) == BleStatus.ready;
+      var s = await waitReady(const Duration(seconds: 2));
+      if (s != BleStatus.ready) s = await waitReady(const Duration(seconds: 2));
 
-      // 延迟再检测一次，给系统时间刷新状态
-      await Future.delayed(const Duration(milliseconds: 300));
-      var s1 = await checkBleStatus();
-      var granted = (s1 == BleStatus.ready);
-      if (granted) {
-        _permissionStreamController.add(granted);
-        return granted;
-      };
-
-      // 再延迟一次作为兜底
-      await Future.delayed(const Duration(milliseconds: 700));
-      final s2 = await checkBleStatus();
-      granted = (s2 == BleStatus.ready);
-      _permissionStreamController.add(granted);
-      return granted;
-    } catch (e) {
-      print('❌ 权限检查失败: $e');
+      final ok = (s == BleStatus.ready);
+      _permissionStreamController.add(ok);
+      return ok;
+    } catch (_) {
+      _permissionStreamController.add(false);
       return false;
     }
   }
 
-  /// 扫描设备
+  // 老安卓门槛判断：用“是否具备 bluetoothScan 权限常量”近似判断系统代际。
+  static Future<bool> _legacyNeedsLocationGate() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final hasScan = await Permission.bluetoothScan.isGranted;
+      return !hasScan; // 没有 scan 权限 → 旧系统 → 需要定位服务开关
+    } catch (_) {
+      return true; // 保守处理
+    }
+  }
+
   static Stream<SimpleBLEScanResult> scanForDevice({
-    required String targetDeviceId,
+    // required String targetDeviceId,
     required Duration timeout,
   }) {
     _scanController?.close();
@@ -119,87 +141,72 @@ class BleServiceSimple {
 
   static void _startScanningProcess(Duration timeout) async {
     try {
-      // 确保先停止旧的扫描
-      await stopScan();
-
+      await stopScan(); // 确保冷启动
+      _discoveredDevices.clear();
       _isScanning = true;
-      print("🔄 开始扫描，超时时间=${timeout.inSeconds}s");
 
-      // 设置超时
-      Timer(timeout, () async {
-        if (_isScanning) {
-          print("⏰ 扫描超时，自动停止");
-          await stopScan();
-        }
-      });
-
+      // ✅ 固定用 lowLatency，别切 balanced
       _scanSubscription = _ble.scanForDevices(
         withServices: [],
         scanMode: ScanMode.lowLatency,
-        // ⚠️ 这里改为 false，避免 ROM 强制拦截
-        requireLocationServicesEnabled: false,
+        requireLocationServicesEnabled: _legacyNeedsLocation, // Android<12 仍保留
       ).listen((device) {
         if (!_isScanning) return;
-
         final result = SimpleBLEScanResult.fromDiscoveredDevice(device);
         _discoveredDevices[result.deviceId] = result;
         _scanController?.add(result);
-
-        // 节流打印，避免日志刷屏：
-        // - 同一设备至少间隔 _perDeviceLogInterval 才打印
-        // - 或者RSSI变化超过5dBm
-        final now = DateTime.now();
-        final lastAt = _lastLogAt[result.deviceId];
-        final lastRssi = _lastLogRssi[result.deviceId];
-        final rssiChanged = lastRssi == null || (result.rssi - lastRssi).abs() >= 5;
-        final timeOk = lastAt == null || now.difference(lastAt) >= _perDeviceLogInterval;
-        if (timeOk || rssiChanged) {
-          _lastLogAt[result.deviceId] = now;
-          _lastLogRssi[result.deviceId] = result.rssi;
-          // 仅在开发时打印详细发现日志
-          // ignore: avoid_print
-          print('🔍 发现设备: ${result.name}');
-          // ignore: avoid_print
-          print('  id=${result.deviceId}, rssi=${result.rssi}');
-          // ignore: avoid_print
-          print('  serviceUuids=${result.serviceUuids}');
-          // ignore: avoid_print
-          print('  manufacturerData=${result.manufacturerData}');
-        }
-      }, onError: (error) {
-        print("❌ 扫描出错: $error");
-        _scanController?.addError(error);
+        _throttledLog(result); // 你的节流日志函数保留即可
+      }, onError: (e) {
+        _scanController?.addError(e); // ❌ 不做重扫预算
         _isScanning = false;
+        _scanController?.close();
       }, onDone: () {
-        print("🛑 扫描完成");
         _isScanning = false;
         _scanController?.close();
       });
+
+      // 超时停止（单次）
+      Timer(timeout, () async {
+        if (_isScanning) await stopScan();
+      });
     } catch (e) {
-      print("❌ 扫描启动失败: $e");
       _isScanning = false;
       _scanController?.addError(e);
       _scanController?.close();
     }
   }
 
-  static Future<void> _stopScanSubscription() async {
-    if (_scanSubscription != null) {
-      await _scanSubscription?.cancel();
-      _scanSubscription = null;
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-  }
-
   static Future<void> stopScan() async {
     if (!_isScanning && _scanSubscription == null) return;
-    print("🛑 手动停止扫描");
     _isScanning = false;
-    await _stopScanSubscription();
+    await _scanSubscription?.cancel();
+    _scanSubscription = null;
     if (_scanController != null && !_scanController!.isClosed) {
       await _scanController?.close();
     }
     _scanController = null;
+  }
+
+  // 放在 BleServiceSimple 类内部的任意位置（比如 stopScan() 下面）
+  static void _throttledLog(SimpleBLEScanResult r) {
+    final now = DateTime.now();
+    final lastAt = _lastLogAt[r.deviceId];
+    final lastRssi = _lastLogRssi[r.deviceId];
+
+    final rssiChanged = lastRssi == null || (r.rssi - lastRssi).abs() >= 5;
+    final timeOk =
+        lastAt == null || now.difference(lastAt) >= _perDeviceLogInterval;
+
+    if (timeOk || rssiChanged) {
+      _lastLogAt[r.deviceId] = now;
+      _lastLogRssi[r.deviceId] = r.rssi;
+
+      // 这里按需打印你想看的字段
+      print('🔍 发现设备: ${r.name}');
+      print('  id=${r.deviceId}, rssi=${r.rssi}');
+      print('  serviceUuids=${r.serviceUuids}');
+      print('  manufacturerData=${r.manufacturerData}');
+    }
   }
 
   /// 连接设备
@@ -209,46 +216,60 @@ class BleServiceSimple {
   }) async {
     try {
       await stopScan();
-      final deviceId = deviceData.bleAddress.isNotEmpty
+      final id = deviceData.bleAddress.isNotEmpty
           ? deviceData.bleAddress
           : deviceData.deviceId;
+
       final connectionStream = _ble.connectToDevice(
-        id: deviceId,
+        id: id,
         connectionTimeout: timeout,
       );
+
       final completer = Completer<BleDeviceData?>();
+
+      // ▼ 可取消的超时定时器 & 完成函数
+      late final Timer timer;
+      void completeOnce(BleDeviceData? v) {
+        if (!completer.isCompleted) {
+          timer.cancel(); // 1) 先取消超时
+          completer.complete(v); // 2) 再完成
+        }
+      }
+      // ▲
+
       await _deviceConnectionSubscription?.cancel();
-      _deviceConnectionSubscription = connectionStream.listen(
-            (update) async {
-          switch (update.connectionState) {
-            case DeviceConnectionState.connected:
-              try {
-                await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
-                // 将 MTU 协商统一放到 ensureGattReady 流程中，避免重复请求
-              } catch (e) {
-                // ignore
-              }
-              completer.complete(deviceData.copyWith(
-                status: BleDeviceStatus.connected,
-                connectedAt: DateTime.now(),
-              ));
-              break;
-            case DeviceConnectionState.disconnected:
-              if (!completer.isCompleted) completer.complete(null);
-              break;
-            default:
-              break;
-          }
-        },
-        onError: (e) {
-          if (!completer.isCompleted) completer.complete(null);
-        },
-      );
-      Timer(timeout, () {
-        if (!completer.isCompleted) completer.complete(null);
+      _deviceConnectionSubscription = connectionStream.listen((update) async {
+        // Minimal connection state logging to aid field debugging
+        // ignore: avoid_print
+        print('[BLE] connectionState=${update.connectionState} device=${update.deviceId} failure=${update.failure}');
+        switch (update.connectionState) {
+          case DeviceConnectionState.connected:
+            await Future.delayed(BleConstants.kPostConnectStabilize);
+            completeOnce(deviceData.copyWith(
+              status: BleDeviceStatus.connected,
+              connectedAt: DateTime.now(),
+            ));
+            break;
+          case DeviceConnectionState.disconnected:
+            completeOnce(null);
+            break;
+          default:
+            break;
+        }
+      }, onError: (_) {
+        // ignore: avoid_print
+        print('[BLE] connection stream error: _');
+        completeOnce(null);
       });
-      return await completer.future;
-    } catch (e) {
+
+      // ▼ 超时兜底（会在 completeOnce 里被 cancel）
+      timer = Timer(timeout, () => completeOnce(null));
+      // ▲
+
+      final res = await completer.future;
+      // 保持连接订阅存活，直至显式调用 disconnect()
+      return res;
+    } catch (_) {
       return null;
     }
   }
@@ -256,10 +277,16 @@ class BleServiceSimple {
   /// 断开连接
   static Future<void> disconnect() async {
     await stopScan();
-    await _scanSubscription?.cancel();
-    _scanSubscription = null;
     await _deviceConnectionSubscription?.cancel();
     _deviceConnectionSubscription = null;
+
+    // ✅ 仅保留这一处固定等待
+    await Future.delayed(BleConstants.kDisconnectStabilize);
+
+    // 清状态（避免下一轮粘连）
+    _discoveredDevices.clear();
+    _lastLogAt.clear();
+    _lastLogRssi.clear();
   }
 
   /// 读特征
@@ -301,14 +328,14 @@ class BleServiceSimple {
     try {
       final services = await _ble.discoverServices(deviceId);
       for (final s in services) {
-        print('🧭 Service: ' + s.serviceId.toString());
+        print('🧭 Service: ${s.serviceId}');
         for (final c in s.characteristicIds) {
-          print('   • Char: ' + c.toString());
+          print('   • Char: $c');
         }
       }
-
       final targetService = services.firstWhere(
-        (s) => s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+        (s) =>
+            s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
         orElse: () => DiscoveredService(
           serviceId: Uuid.parse('00000000-0000-0000-0000-000000000000'),
           serviceInstanceId: '',
@@ -335,22 +362,27 @@ class BleServiceSimple {
 
   /// 确保 GATT 就绪：稳定延时 -> 服务发现 -> MTU 协商 -> 再次稳定
   static Future<bool> ensureGattReady(String deviceId) async {
-    await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
-    final ok = await discoverServices(deviceId);
-    // 仅在 Android 上主动请求更大 MTU；iOS 通常固定或自动协商
+    // Allow connection to fully settle before first discovery
+    await Future.delayed(BleConstants.kPostConnectStabilize);
+
+    // Retry service discovery once to mitigate transient 133/135
+    bool ok = await discoverServices(deviceId);
+    if (!ok) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      ok = await discoverServices(deviceId);
+    }
+
+    if (!ok) return false;
+
+    // Request MTU once per connection; cache result for framing
     if (Platform.isAndroid) {
       try {
-        final mtu1 = await requestMtu(deviceId, BleConstants.preferredMtu);
-        // 若首次协商未到期望值或异常返回（如 23），短暂延时后再重试一次
-        if (mtu1 < BleConstants.preferredMtu) {
-          await Future.delayed(Duration(milliseconds: BleConstants.writeRetryDelayMs));
-          await requestMtu(deviceId, BleConstants.preferredMtu);
-        }
-      } catch (e) {
-        print('❌ ensureGattReady.requestMtu 失败: $e');
-      }
+        final mtu = await requestMtu(deviceId, BleConstants.preferredMtu);
+        if (mtu > 0) _mtuByDevice[deviceId] = mtu;
+      } catch (_) {}
     }
-    await Future.delayed(Duration(milliseconds: BleConstants.postConnectStabilizeDelayMs));
+
+    await Future.delayed(BleConstants.kPostConnectStabilize);
     return ok;
   }
 
@@ -430,7 +462,8 @@ class BleServiceSimple {
     try {
       final services = await _ble.discoverServices(deviceId);
       final s = services.firstWhere(
-        (e) => e.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
+        (e) =>
+            e.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
         orElse: () => DiscoveredService(
           serviceId: Uuid.parse('00000000-0000-0000-0000-000000000000'),
           serviceInstanceId: '',
@@ -440,8 +473,10 @@ class BleServiceSimple {
         ),
       );
       if (s.characteristicIds.isEmpty) return false;
-      final hasRx = s.characteristicIds.any((c) => c.toString().toLowerCase() == rxUuid.toLowerCase());
-      final hasTx = s.characteristicIds.any((c) => c.toString().toLowerCase() == txUuid.toLowerCase());
+      final hasRx = s.characteristicIds
+          .any((c) => c.toString().toLowerCase() == rxUuid.toLowerCase());
+      final hasTx = s.characteristicIds
+          .any((c) => c.toString().toLowerCase() == txUuid.toLowerCase());
       return hasRx && hasTx;
     } catch (_) {
       return false;
@@ -450,8 +485,6 @@ class BleServiceSimple {
 
   /// 清理
   static void dispose() {
-    _bleStatusSubscription?.cancel();
-    _bleStatusSubscription = null;
     _scanSubscription?.cancel();
     _scanSubscription = null;
     _deviceConnectionSubscription?.cancel();
@@ -460,6 +493,7 @@ class BleServiceSimple {
     _scanController = null;
     _discoveredDevices.clear();
     _isScanning = false;
+    _mtuByDevice.clear();
   }
 }
 

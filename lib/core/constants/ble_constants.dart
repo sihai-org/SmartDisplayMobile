@@ -32,4 +32,8 @@ class BleConstants {
   static const int connectionIntervalMs = 100;
   static const int connectionLatency = 0;
   static const int supervisionTimeoutMs = 20000;
+
+  static const Duration kDisconnectStabilize = Duration(milliseconds: 500);
+  // Longer settle time helps avoid Android GATT 133/135 right after connect
+  static const Duration kPostConnectStabilize = Duration(milliseconds: 800);
 }

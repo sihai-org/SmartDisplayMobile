@@ -150,7 +150,8 @@ class ReliableRequestQueue {
     int retries = 2,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
-    final mtu = await _ble.requestMtu(deviceId: deviceId, mtu: BleConstants.preferredMtu).catchError((_) => BleConstants.minMtu);
+    // Use negotiated MTU if available; fallback to safe minimum
+    final mtu = BleServiceSimple.getNegotiatedMtu(deviceId);
     final encoder = FrameEncoder(mtu);
     final reqId = (_nextReqId++ & 0xFFFF);
     // Apply encryption wrapper if installed and not handshake

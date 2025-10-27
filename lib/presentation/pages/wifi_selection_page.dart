@@ -136,10 +136,20 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     });
 
     return PopScope(
-      canPop: false,
+      // 允许系统返回手势/按钮先尝试出栈
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
+        // 无论是否已经出栈，都做一次临时设备断开检查
         await _maybeDisconnectIfEphemeral();
-        if (context.mounted) context.go(AppRoutes.qrScanner);
+        // didPop 为 true 时已由框架完成出栈，这里不再强制跳转
+        if (!didPop && context.mounted) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            // 无回退栈时退回首页（设备详情）
+            context.go(AppRoutes.home);
+          }
+        }
       },
       child: Scaffold(
       appBar: AppBar(
@@ -149,7 +159,13 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             await _maybeDisconnectIfEphemeral();
-            if (context.mounted) context.go(AppRoutes.qrScanner);
+            if (!context.mounted) return;
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              // 无回退栈时退回首页（设备详情）
+              context.go(AppRoutes.home);
+            }
           },
         ),
         // 移除右侧关闭按钮，统一使用左侧返回

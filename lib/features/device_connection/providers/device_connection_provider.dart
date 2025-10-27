@@ -18,8 +18,6 @@ import '../../../core/providers/lifecycle_provider.dart';
 import '../../../core/providers/saved_devices_provider.dart';
 import 'dart:developer' as developer;
 
-// 旧版分包拼接工具已移除；双特征通道统一使用帧协议 + 可靠队列。
-
 /// 设备连接状态数据
 class DeviceConnectionState {
   final BleDeviceStatus status;
@@ -100,18 +98,17 @@ class DeviceConnectionState {
 /// 设备连接管理器
 class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   DeviceConnectionNotifier(this._ref) : super(const DeviceConnectionState()) {
-    // Listen to foreground changes and try to ensure channel when returning to foreground
+    // 前后台切换：回到前台时尝试确保可信通道
     _foregroundSub = _ref.listen<bool>(isForegroundProvider, (prev, curr) {
-      if (curr == true) {
-        _onEnterForeground();
-      }
+      if (curr == true) _onEnterForeground();
     });
 
-    // 🔥 新增：自动监听 BLE 权限变化
+    // 监听 BLE 权限/就绪变化：若之前因“权限未就绪”报错，恢复后自动重启连接
     BleServiceSimple.permissionStream.listen((granted) {
-      if (granted && state.status == BleDeviceStatus.error &&
+      if (granted &&
+          state.status == BleDeviceStatus.error &&
           (state.errorMessage?.contains('权限') ?? false)) {
-        _log('✅ 检测到 BLE 权限已授予，自动重启连接');
+        _log('✅ 检测到 BLE 就绪，自动重启连接');
         final d = state.deviceData;
         if (d != null) {
           startConnection(DeviceQrData(
@@ -129,27 +126,27 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   StreamSubscription? _scanSubscription;
   Timer? _timeoutTimer;
-  // 旧版特征订阅已移除（A103/A107/A105）
   ProviderSubscription<bool>? _foregroundSub;
   ReliableRequestQueue? _rq; // dual-char reliable queue
-  StreamSubscription<Map<String, dynamic>>? _rqEventsSub; // push events from peripheral
+  StreamSubscription<Map<String, dynamic>>? _rqEventsSub; // 设备侧推送
 
-  // Backoff tracking
+  // Backoff
   int _nextRetryMs = BleConstants.reconnectBackoffStartMs;
   DateTime? _lastAttemptAt;
 
   CryptoService? _cryptoService;
 
-  // 旧版分包拼接器/标志已移除
   bool _syncedAfterLogin = false;
+
   // Network status read de-dup & throttle
   DateTime? _lastNetworkStatusReadAt;
   Future<NetworkStatus?>? _inflightNetworkStatusRead;
 
-  // Timing markers for profiling
+  // 打点
   DateTime? _sessionStart;
   DateTime? _connectStart;
-  // Post-provision polling to settle network status
+
+  // 配网后轮询
   Future<void>? _postProvisionPoll;
 
   void _t(String label) {
@@ -164,6 +161,12 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
+    // ✅ 固定硬断开 + 稳定等待
+    try {
+      await BleServiceSimple.disconnect();
+      await Future.delayed(BleConstants.kDisconnectStabilize);
+    } catch (_) {}
+
     state = const DeviceConnectionState();
     _sessionStart = DateTime.now();
     _log('初始化连接：${qrData.deviceName} (${qrData.deviceId})');
@@ -184,28 +187,29 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       progress: 0.1,
     );
 
-    final hasPermission = await BleServiceSimple.requestPermissions();
-    if (!hasPermission) {
+    final ready = await BleServiceSimple.ensureBleReady();
+    if (!ready) {
       _setError('蓝牙权限未授予或蓝牙未开启');
       return;
     }
 
-    _log('权限通过，开始扫描目标设备');
+    _log('权限与就绪通过，开始扫描目标设备');
     await _scanForDevice(deviceData);
   }
 
   Future<void> _onEnterForeground() async {
-    // If we already authenticated, nothing to do
     if (state.status == BleDeviceStatus.authenticated) return;
-    // If we have device info, attempt to ensure channel
     final d = state.deviceData;
-    if (d != null) {
-      await _ensureTrustedChannel(d);
-    }
+    if (d != null) await _ensureTrustedChannel(d);
   }
 
   Future<void> _ensureTrustedChannel(BleDeviceData deviceData) async {
-    // Cooldown to avoid thrash
+    // ✅ 固定硬断开 + 稳定等待
+    try {
+      await BleServiceSimple.disconnect();
+      await Future.delayed(BleConstants.kDisconnectStabilize);
+    } catch (_) {}
+
     final now = DateTime.now();
     if (_lastAttemptAt != null &&
         now.difference(_lastAttemptAt!).inMilliseconds < _nextRetryMs) {
@@ -213,20 +217,19 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
     _lastAttemptAt = now;
 
-    final hasPermission = await BleServiceSimple.requestPermissions();
-    if (!hasPermission) {
+    final ready = await BleServiceSimple.ensureBleReady();
+    if (!ready) {
       _log('蓝牙未就绪，跳过');
       return;
     }
-    // Start scanning and connect when close
+
     await _scanForDevice(deviceData);
   }
 
-  // 对外：确保可信通道（用于前台进入或下发指令前）
+  /// 对外：确保可信通道
   Future<bool> ensureTrustedChannel() async {
     final d = state.deviceData;
     if (d == null) return false;
-    // Dual-char queue ready implies trusted channel
     if (_rq != null) return true;
     if (state.status == BleDeviceStatus.authenticated) return true;
     await _ensureTrustedChannel(d);
@@ -234,25 +237,31 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   }
 
   Future<void> _scanForDevice(BleDeviceData deviceData) async {
+    // ✅ 任何新一次扫描前，先停掉底层扫描，确保冷启动
+    try {
+      await BleServiceSimple.stopScan();
+    } catch (_) {}
+
     state = state.copyWith(status: BleDeviceStatus.scanning, progress: 0.3);
     _t('scan.start');
     _log('开始扫描目标设备，最长 30s...');
-    // 重置目标首次出现时间与弱信号提示时间
     _targetFirstSeenAt = null;
     _lastWeakSignalNoteAt = null;
 
-    _timeoutTimer = Timer(const Duration(seconds: 30), () {
+    _timeoutTimer = Timer(const Duration(seconds: 30), () async {
       if (state.status == BleDeviceStatus.scanning) {
+        // 🔧 新增：确保底层扫描也停掉
+        try {
+          await BleServiceSimple.stopScan();
+        } catch (_) {}
         _setError('扫描超时：未找到目标设备');
       }
     });
 
     _scanSubscription = BleServiceSimple.scanForDevice(
-      targetDeviceId: deviceData.deviceId,
+      // targetDeviceId: deviceData.deviceId,
       timeout: const Duration(seconds: 30),
     ).listen((scanResult) async {
-      // 节流发现日志，避免刷屏（同一设备3秒内只打一条，除非RSSI变化>5）。
-      // 注意：这里仅使用 print 而不更新 state，避免频繁重建影响连接时序。
       _maybePrintScanResult(scanResult);
 
       if (_isTargetDevice(scanResult, deviceData.deviceId)) {
@@ -270,7 +279,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           return;
         }
 
-        // 如果持续找到目标设备超过宽限期，放宽RSSI限制以便尝试连接（可能用户设备远一点）
+        // 超过宽限期后，放宽RSSI限制
         const grace = Duration(seconds: 6);
         if (now.difference(_targetFirstSeenAt!) >= grace) {
           _log('⚠️ 信号偏弱(rssi=${scanResult.rssi})，已超过${grace.inSeconds}s，尝试连接');
@@ -283,7 +292,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           return;
         }
 
-        // 节流提醒，避免每次都刷屏
         _maybePrintWeakSignal(scanResult.rssi);
       }
     }, onError: (error) {
@@ -291,7 +299,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     });
   }
 
-  // 用于节流的最近日志时间与RSSI
+  // 扫描日志节流
   final Map<String, DateTime> _lastScanLogAt = {};
   final Map<String, int> _lastScanLogRssi = {};
   static const Duration _scanLogInterval = Duration(seconds: 3);
@@ -309,7 +317,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     if (timeOk || rssiChanged) {
       _lastScanLogAt[id] = now;
       _lastScanLogRssi[id] = scanResult.rssi;
-      // ignore: avoid_print
       print('发现设备: ${scanResult.name} (${scanResult.deviceId}), RSSI=${scanResult.rssi}');
     }
   }
@@ -318,24 +325,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     final now = DateTime.now();
     if (_lastWeakSignalNoteAt == null || now.difference(_lastWeakSignalNoteAt!) >= _weakNoteInterval) {
       _lastWeakSignalNoteAt = now;
-      // ignore: avoid_print
       print('⚠️ 信号强度不足，等待靠近后再连接 (rssi=$rssi)');
     }
   }
 
   bool _isTargetDevice(SimpleBLEScanResult result, String targetDeviceId) {
-    // 优先使用厂商数据中的指纹匹配
     if (result.manufacturerData != null) {
       final expected = createDeviceFingerprint(targetDeviceId);
       final actual = result.manufacturerData!;
       if (_containsSublist(actual, expected)) return true;
     }
-    // 兼容方案：部分设备固件未携带指纹时，回退到名称精确匹配
-    // 仅当扫描得到的名称与二维码中的名称一致时视为目标设备
     final d = state.deviceData;
-    if (d != null && result.name == d.deviceName) {
-      return true;
-    }
+    if (d != null && result.name == d.deviceName) return true;
     return false;
   }
 
@@ -362,286 +363,198 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       timeout: const Duration(seconds: 15),
     );
 
-      if (result != null) {
+    if (result != null) {
       state = state.copyWith(
         status: BleDeviceStatus.connected,
         progress: 0.8,
         deviceData: result,
       );
-        _t('connect.done');
-        _log('BLE 连接成功，准备发现服务并初始化');
-        final ready = await BleServiceSimple.ensureGattReady(result.bleAddress);
-        if (!ready) {
-          _log('服务发现失败，触发重连');
-          await BleServiceSimple.disconnect();
-          _setError('连接失败');
-          _nextRetryMs = (_nextRetryMs * 2).clamp(
-              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-          return;
+      _t('connect.done');
+      _log('BLE 连接成功，准备发现服务并初始化');
+
+      final ready = await BleServiceSimple.ensureGattReady(result.bleAddress);
+      if (!ready) {
+        _log('服务发现失败，触发重连');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs,
+            BleConstants.reconnectBackoffMaxMs);
+        return;
+      }
+
+      // Prefer dual-char RX/TX if available
+      final hasDual = await BleServiceSimple.hasRxTx(
+        deviceId: result.bleAddress,
+        serviceUuid: BleConstants.serviceUuid,
+        rxUuid: BleConstants.rxCharUuid,
+        txUuid: BleConstants.txCharUuid,
+      );
+
+      if (!hasDual) {
+        _log('❌ 设备不支持双特征通道 (RX/TX)，取消');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs,
+            BleConstants.reconnectBackoffMaxMs);
+        return;
+      }
+
+      // 准备可靠请求通道
+      try {
+        await _rq?.dispose();
+      } catch (_) {}
+      _rq = ReliableRequestQueue(deviceId: result.bleAddress);
+      final ts = DateTime.now();
+      await _rq!.prepare();
+      _t('dualtx.ready(+${DateTime.now().difference(ts).inMilliseconds}ms prepare)');
+      _log('✅ Dual-char RX/TX 可用，准备应用层握手');
+
+      // 应用层握手
+      state =
+          state.copyWith(status: BleDeviceStatus.authenticating, progress: 0.9);
+      _cryptoService = CryptoService();
+      await _cryptoService!.generateEphemeralKeyPair();
+      var handshakeInit = await _cryptoService!.getHandshakeInitData();
+      try {
+        final supaUserId = Supabase.instance.client.auth.currentUser?.id;
+        if (supaUserId != null && supaUserId.isNotEmpty) {
+          final obj = jsonDecode(handshakeInit) as Map<String, dynamic>;
+          obj['userId'] = supaUserId;
+          handshakeInit = jsonEncode(obj);
         }
-        // Prefer dual-char RX/TX if available
-        final hasDual = await BleServiceSimple.hasRxTx(
-          deviceId: result.bleAddress,
-          serviceUuid: BleConstants.serviceUuid,
-          rxUuid: BleConstants.rxCharUuid,
-          txUuid: BleConstants.txCharUuid,
+      } catch (_) {}
+
+      final initObj = jsonDecode(handshakeInit) as Map<String, dynamic>;
+      _t('handshake.start');
+      final resp = await _rq!.send(
+        initObj,
+        timeout: const Duration(seconds: 8),
+        retries: 1,
+        isFinal: (msg) => (msg['type']?.toString() == 'handshake_response'),
+      );
+
+      try {
+        final responseJson = jsonEncode(resp);
+        final parsed = _cryptoService!.parseHandshakeResponse(responseJson);
+        final publicKey = await _cryptoService!.getLocalPublicKey();
+        await _cryptoService!.performKeyExchange(
+          remoteEphemeralPubKey: parsed.publicKey,
+          signature: parsed.signature,
+          devicePublicKeyHex: result.publicKey,
+          clientEphemeralPubKey: publicKey,
+          timestamp: parsed.timestamp,
+          clientTimestamp: _cryptoService!.clientTimestamp!,
         );
-        if (hasDual) {
-          // 准备可靠请求通道
-          try { await _rq?.dispose(); } catch (_) {}
-          _rq = ReliableRequestQueue(deviceId: result.bleAddress);
-          final ts = DateTime.now();
-          await _rq!.prepare();
-          _t('dualtx.ready(+${DateTime.now().difference(ts).inMilliseconds}ms prepare)');
-          _log('✅ Dual-char RX/TX 可用，准备应用层握手');
+        state = state.copyWith(
+            status: BleDeviceStatus.authenticated, progress: 1.0);
+        _t('handshake.done');
+        _log('🎉 应用层握手完成');
 
-          // 应用层握手（通过 RX/TX 帧协议）
-          state = state.copyWith(status: BleDeviceStatus.authenticating, progress: 0.9);
-          _cryptoService = CryptoService();
-          await _cryptoService!.generateEphemeralKeyPair();
-          var handshakeInit = await _cryptoService!.getHandshakeInitData();
-          try {
-            final supaUserId = Supabase.instance.client.auth.currentUser?.id;
-            if (supaUserId != null && supaUserId.isNotEmpty) {
-              final obj = jsonDecode(handshakeInit) as Map<String, dynamic>;
-              obj['userId'] = supaUserId;
-              handshakeInit = jsonEncode(obj);
-            }
-          } catch (_) {}
-
-          // 发送握手请求并等待握手响应
-          final initObj = jsonDecode(handshakeInit) as Map<String, dynamic>;
-          _t('handshake.start');
-          final resp = await _rq!.send(initObj, timeout: const Duration(seconds: 8), retries: 1,
-              isFinal: (msg) => (msg['type']?.toString() == 'handshake_response'));
-          try {
-            final responseJson = jsonEncode(resp);
-            final parsed = _cryptoService!.parseHandshakeResponse(responseJson);
-            final publicKey = await _cryptoService!.getLocalPublicKey();
-            await _cryptoService!.performKeyExchange(
-              remoteEphemeralPubKey: parsed.publicKey,
-              signature: parsed.signature,
-              devicePublicKeyHex: result.publicKey,
-              clientEphemeralPubKey: publicKey,
-              timestamp: parsed.timestamp,
-              clientTimestamp: _cryptoService!.clientTimestamp!,
-            );
-            state = state.copyWith(status: BleDeviceStatus.authenticated, progress: 1.0);
-            _t('handshake.done');
-            _log('🎉 应用层握手完成');
-
-            // Install crypto handlers on reliable queue for post-handshake traffic
-          try {
-              _rq!.setCryptoHandlers(
-                encrypt: (Map<String, dynamic> plain) async {
-                  final text = jsonEncode(plain);
-                  final enc = await _cryptoService!.encrypt(text);
-                  final b64 = base64Encode(Uint8List.fromList(enc.toBytes()));
-                  return {'type': 'enc', 'data': b64};
-                },
-                decrypt: (Map<String, dynamic> msg) async {
-                  if (msg['type'] == 'enc' && msg['data'] is String) {
-                    final raw = base64Decode(msg['data'] as String);
-                    final ed = EncryptedData.fromBytes(raw);
-                    final plain = await _cryptoService!.decrypt(ed);
-                    final obj = jsonDecode(plain) as Map<String, dynamic>;
-                    // Preserve reqId/hReqId for matching and diagnostics
-                    final hReqId = msg['hReqId'];
-                    if (hReqId != null) obj['hReqId'] = hReqId;
-                    obj['reqId'] = obj['reqId'] ?? msg['reqId'] ?? hReqId;
-                    return obj;
-                  }
-                  return msg;
-                },
-              );
-            } catch (e) {
-              _log('⚠️ 安装加密处理器失败: $e');
-            }
-
-            // 订阅设备端推送事件（如 notifyBleOnly 的加密 status 事件）
-            try {
-              await _rqEventsSub?.cancel();
-              _rqEventsSub = _rq!.events.listen((evt) async {
-                final type = (evt['type'] ?? '').toString();
-                if (type == 'status') {
-                  final s = (evt['status'] ?? '').toString();
-                  _log('📣 收到设备事件: status=$s');
-                  // 依据常见状态做一些内联动作
-                  if (s == 'authenticated') {
-                    state = state.copyWith(status: BleDeviceStatus.authenticated);
-                  } else if (s == 'wifi_online') {
-                    // 不直接标记为成功，先读取网络状态并仅在 SSID 匹配时由 _doReadNetworkStatus 设置成功
-                    await _doReadNetworkStatus();
-                    _kickoffPostProvisionPolling();
-                  }
-                } else if (type == 'wifi.result') {
-                  // 处理设备端的配网最终结果事件
-                  final ok = evt['ok'] == true;
-                  final data = evt['data'];
-                  final err = evt['error'];
-                  String? status = (data is Map<String, dynamic>)
-                      ? (data['status']?.toString())
-                      : null;
-                  if (ok && status == 'connected') {
-                    _log('📣 wifi.result: connected');
-                    state = state.copyWith(
-                      provisionStatus: 'wifi_online',
-                      lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
-                    );
-                    await _doReadNetworkStatus();
-                    _kickoffPostProvisionPolling();
-                  } else {
-                    // 失败或超时：例如 error.code=incorrect_password_or_timeout
-                    final code = (err is Map<String, dynamic>) ? (err['code']?.toString()) : null;
-                    final message = (err is Map<String, dynamic>) ? (err['message']?.toString()) : null;
-                    _log('📣 wifi.result: failed code=$code message=$message');
-                    state = state.copyWith(
-                      provisionStatus: 'wifi_offline',
-                      lastProvisionDeviceId: state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
-                    );
-                    // 读取一次网络状态以同步面板显示
-                    await _doReadNetworkStatus();
-                  }
-                } else if (type == 'error') {
-                  _log('📣 设备事件错误: ${evt['error']}');
-                } else {
-                  _log('📣 收到设备事件: $evt');
-                }
-              });
-            } catch (e) {
-              _log('⚠️ 订阅设备推送事件失败: $e');
-            }
-          } catch (e) {
-            _t('handshake.error');
-            _log('❌ 应用层握手失败: $e');
-            await BleServiceSimple.disconnect();
-            _setError('连接失败');
-            _nextRetryMs = (_nextRetryMs * 2).clamp(
-                BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-            return;
-          }
-        } else {
-          _log('❌ 设备不支持双特征通道 (RX/TX)，取消');
-          await BleServiceSimple.disconnect();
-          _setError('连接失败');
-          _nextRetryMs = (_nextRetryMs * 2).clamp(
-              BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
-          return;
+        // 安装加解密处理器
+        try {
+          _rq!.setCryptoHandlers(
+            encrypt: (Map<String, dynamic> plain) async {
+              final text = jsonEncode(plain);
+              final enc = await _cryptoService!.encrypt(text);
+              final b64 = base64Encode(Uint8List.fromList(enc.toBytes()));
+              return {'type': 'enc', 'data': b64};
+            },
+            decrypt: (Map<String, dynamic> msg) async {
+              if (msg['type'] == 'enc' && msg['data'] is String) {
+                final raw = base64Decode(msg['data'] as String);
+                final ed = EncryptedData.fromBytes(raw);
+                final plain = await _cryptoService!.decrypt(ed);
+                final obj = jsonDecode(plain) as Map<String, dynamic>;
+                final hReqId = msg['hReqId'];
+                if (hReqId != null) obj['hReqId'] = hReqId;
+                obj['reqId'] = obj['reqId'] ?? msg['reqId'] ?? hReqId;
+                return obj;
+              }
+              return msg;
+            },
+          );
+        } catch (e) {
+          _log('⚠️ 安装加密处理器失败: $e');
         }
-        // Reset backoff on success
-        _nextRetryMs = BleConstants.reconnectBackoffStartMs;
+
+        // 订阅设备端事件
+        try {
+          await _rqEventsSub?.cancel();
+          _rqEventsSub = _rq!.events.listen((evt) async {
+            final type = (evt['type'] ?? '').toString();
+            if (type == 'status') {
+              final s = (evt['status'] ?? '').toString();
+              _log('📣 收到设备事件: status=$s');
+              if (s == 'authenticated') {
+                state = state.copyWith(status: BleDeviceStatus.authenticated);
+              } else if (s == 'wifi_online') {
+                await _doReadNetworkStatus();
+                _kickoffPostProvisionPolling();
+              }
+            } else if (type == 'wifi.result') {
+              final ok = evt['ok'] == true;
+              final data = evt['data'];
+              final err = evt['error'];
+              String? status = (data is Map<String, dynamic>)
+                  ? (data['status']?.toString())
+                  : null;
+              if (ok && status == 'connected') {
+                _log('📣 wifi.result: connected');
+                state = state.copyWith(
+                  provisionStatus: 'wifi_online',
+                  lastProvisionDeviceId:
+                      state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+                );
+                await _doReadNetworkStatus();
+                _kickoffPostProvisionPolling();
+              } else {
+                final code = (err is Map<String, dynamic>)
+                    ? (err['code']?.toString())
+                    : null;
+                final message = (err is Map<String, dynamic>)
+                    ? (err['message']?.toString())
+                    : null;
+                _log('📣 wifi.result: failed code=$code message=$message');
+                state = state.copyWith(
+                  provisionStatus: 'wifi_offline',
+                  lastProvisionDeviceId:
+                      state.deviceData?.deviceId ?? state.lastProvisionDeviceId,
+                );
+                await _doReadNetworkStatus();
+              }
+            } else if (type == 'error') {
+              _log('📣 设备事件错误: ${evt['error']}');
+            } else {
+              _log('📣 收到设备事件: $evt');
+            }
+          });
+        } catch (e) {
+          _log('⚠️ 订阅设备推送事件失败: $e');
+        }
+      } catch (e) {
+        _t('handshake.error');
+        _log('❌ 应用层握手失败: $e');
+        await BleServiceSimple.disconnect();
+        _setError('连接失败');
+        _nextRetryMs = (_nextRetryMs * 2).clamp(
+            BleConstants.reconnectBackoffStartMs,
+            BleConstants.reconnectBackoffMaxMs);
+        return;
+      }
+
+      _nextRetryMs = BleConstants.reconnectBackoffStartMs; // 成功重置退避
     } else {
       _setError('连接失败');
-      // Exponential backoff up to max
       _nextRetryMs = (_nextRetryMs * 2).clamp(
           BleConstants.reconnectBackoffStartMs, BleConstants.reconnectBackoffMaxMs);
     }
   }
 
-  // 旧版设备信息读取（A101）已移除；设备信息改由业务层通过命令获取（如需）。
+  // =============== 对外方法：为项目中其他页面调用保留 ===============
 
-  // 从字符串中提取常见版本号格式，例如 v1.2.3 或 1.0.0
-  String? _extractVersion(String? input) {
-    if (input == null) return null;
-    final s = input.trim();
-    if (s.isEmpty) return null;
-    // 直接匹配版本片段
-    final reg = RegExp(r'v?\d+(?:\.\d+){1,3}');
-    final m = reg.firstMatch(s);
-    if (m != null) return m.group(0);
-    return null;
-  }
-
-  // 旧版 GATT 会话/订阅（A103/A107）已移除；双特征下通过请求/响应帧传递状态与结果。
-
-  // 统一规范化 BLE 文本/JSON 状态载荷，提取 status 字段
-  String _normalizeBleStatus(String? raw) {
-    if (raw == null) return '';
-    final s = raw.trim();
-    if (s.isEmpty) return s;
-    if (s.startsWith('{')) {
-      try {
-        final obj = jsonDecode(s);
-        if (obj is Map<String, dynamic>) {
-          final st = obj['status']?.toString();
-          if (st != null && st.isNotEmpty) return st;
-        }
-      } catch (_) {
-        // ignore and fallback
-      }
-    }
-    return s;
-  }
-
-  // 当 login_success 载荷带上了设备信息/网络信息时，尽早更新本地可见状态
-  void _maybeApplyInlineDeviceAndNetwork(String? raw, {String? expectedDeviceId}) {
-    if (raw == null) return;
-    final s = raw.trim();
-    if (!s.startsWith('{')) return;
-    try {
-      final obj = jsonDecode(s);
-      if (obj is! Map<String, dynamic>) return;
-      // 如果载荷包含 deviceId 且与当前设备不一致，则忽略该通知
-      final payloadDeviceId = obj['deviceId']?.toString();
-      if (expectedDeviceId != null && expectedDeviceId.isNotEmpty) {
-        if (payloadDeviceId != null && payloadDeviceId.isNotEmpty && payloadDeviceId != expectedDeviceId) {
-          return;
-        }
-      }
-      // 设备信息字段容错：device/deviceInfo/info
-      final dinfo = (obj['device'] ?? obj['deviceInfo'] ?? obj['info']);
-      String? fwValue;
-      if (dinfo is Map<String, dynamic>) {
-        // 常见字段：version/firmwareVersion/fw
-        final fw = (dinfo['version'] ?? dinfo['firmwareVersion'] ?? dinfo['fw'] ?? dinfo['ver'])?.toString();
-        if (fw != null && fw.isNotEmpty) fwValue = _extractVersion(fw);
-      }
-      // 网络信息字段容错：network/networkStatus/net
-      final ninfo = (obj['network'] ?? obj['networkStatus'] ?? obj['net']);
-      String? networkSummary;
-      if (ninfo is Map<String, dynamic>) {
-        try {
-          final ns = NetworkStatus.fromJson(ninfo);
-          state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
-          networkSummary = ns.connected ? (ns.displaySsid ?? 'connected') : 'offline';
-        } catch (_) {}
-      }
-      // 将 BLE 获取到的信息叠加到设备列表中（基于远端同步的结果）
-      final targetId = expectedDeviceId ?? payloadDeviceId ?? state.deviceData?.deviceId;
-      if (targetId != null && targetId.isNotEmpty) {
-        _ref.read(savedDevicesProvider.notifier).overlayInlineInfo(
-              deviceId: targetId,
-              firmwareVersion: fwValue,
-              networkSummary: networkSummary,
-              lastBleAddress: state.deviceData?.bleAddress,
-            );
-      }
-    } catch (_) {}
-  }
-
-  // 从 BLE 文本/JSON 载荷中提取 deviceId（若存在）
-  String? _extractDeviceId(String? raw) {
-    if (raw == null) return null;
-    final s = raw.trim();
-    if (s.isEmpty) return null;
-    if (s.startsWith('{')) {
-      try {
-        final obj = jsonDecode(s);
-        if (obj is Map<String, dynamic>) {
-          final id = obj['deviceId']?.toString();
-          if (id != null && id.isNotEmpty) return id;
-        }
-      } catch (_) {}
-    }
-    return null;
-  }
-
-  // 旧版 A105 握手流程已移除；双特征下在连接后通过可靠队列发送 handshake_init 并等待 handshake_response。
-
-  // ======================
-  // 👉 补回你之前的全部方法
-  // ======================
-
+  /// 断开 BLE、清理会话与加密器，并重置为 disconnected
   Future<void> disconnect() async {
     _scanSubscription?.cancel();
     _timeoutTimer?.cancel();
@@ -654,16 +567,129 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     state = state.copyWith(status: BleDeviceStatus.disconnected, progress: 0.0);
   }
 
+  /// 清空内部状态（不主动断开已连接的底层；用于 UI 重置）
   void reset() {
     _timeoutTimer?.cancel();
     _scanSubscription?.cancel();
-    _rq?.dispose();
+    try {
+      _rq?.dispose();
+    } catch (_) {}
     _rq = null;
-    _cryptoService?.cleanup();
+    try {
+      _cryptoService?.cleanup();
+    } catch (_) {}
     _cryptoService = null;
     state = const DeviceConnectionState();
   }
 
+  /// 暴露当前登录用户ID（无则空串）
+  String currentUserId() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      return user?.id ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// 以“加密 JSON 指令”形式写入（映射你项目中的特征/命令）
+  Future<bool> writeEncryptedJson({
+    required String characteristicUuid,
+    required Map<String, dynamic> json,
+  }) async {
+    if (state.deviceData == null) return false;
+    try {
+      // 这里统一通过可靠队列发送业务指令，不再直接写 GATT
+      // 映射已有特征常量到队列命令
+      if (characteristicUuid == BleConstants.loginAuthCodeCharUuid) {
+        final payload = {
+          'type': 'login.auth',
+          'data': {
+            'email': json['email'] ?? '',
+            'otpToken': json['otpToken'] ?? json['code'] ?? '',
+          },
+        };
+        final resp = await _rq!.send(
+          payload,
+          timeout: const Duration(seconds: 25),
+          retries: 0,
+          isFinal: (msg) {
+            final type = (msg['type'] ?? '').toString();
+            final data = msg['data'];
+            final status = data is Map<String, dynamic>
+                ? (data['status'] ?? '').toString()
+                : (msg['status'] ?? '').toString();
+            return type == 'login.result' ||
+                status == 'login_success' ||
+                status == 'login_failed';
+          },
+        );
+
+        try {
+          final data = resp['data'];
+          final status = data is Map<String, dynamic>
+              ? (data['status'] ?? '').toString()
+              : (resp['status'] ?? '').toString();
+          if (status == 'login_success') {
+            state = state.copyWith(
+              provisionStatus: 'login_success',
+              lastProvisionDeviceId: state.deviceData?.deviceId,
+            );
+            if (!_syncedAfterLogin) {
+              _syncedAfterLogin = true;
+              try {
+                await _ref.read(savedDevicesProvider.notifier).syncFromServer();
+                final id = state.deviceData?.deviceId;
+                if (id != null && id.isNotEmpty) {
+                  await _ref.read(savedDevicesProvider.notifier).select(id);
+                }
+              } catch (_) {}
+            }
+            return true;
+          }
+          if (status == 'login_failed') {
+            _setError('设备登录失败');
+            return false;
+          }
+        } catch (_) {}
+        return resp['ok'] == true || resp['type'] == 'login.result';
+      }
+
+      if (characteristicUuid == BleConstants.logoutCharUuid) {
+        final payload = {
+          'type': 'logout',
+          'data': {'userId': json['userId'] ?? currentUserId()},
+        };
+        final resp = await _rq!.send(payload);
+        return resp['ok'] == true || resp['type'] == 'logout';
+      }
+
+      if (characteristicUuid == BleConstants.updateVersionCharUuid) {
+        final payload = {
+          'type': 'update.version',
+          'data': {'channel': json['channel']},
+        };
+        final resp = await _rq!.send(payload);
+        return resp['ok'] == true || resp['type'] == 'update.version';
+      }
+
+      _log('❌ 未知的映射特征：$characteristicUuid');
+      return false;
+    } catch (e) {
+      _log('❌ writeEncryptedJson via queue 失败: $e');
+      return false;
+    }
+  }
+
+  /// 智能处理 Wi-Fi：若离线则触发一次 wifi.scan
+  Future<void> handleWifiSmartly() async {
+    final ns = await checkNetworkStatus();
+    if (ns == null || !ns.connected) {
+      await requestWifiScan();
+    }
+  }
+
+  /// 发送 Wi-Fi 配网请求（兼容旧调用）
   Future<bool> sendWifiCredentials(String ssid, String password) async {
     return await sendProvisionRequest(ssid: ssid, password: password);
   }
@@ -674,7 +700,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
   }) async {
     if (state.deviceData == null) return false;
     try {
-      // 进入配网中状态并记录设备ID
       final currId = state.deviceData!.deviceId;
       state = state.copyWith(
         provisionStatus: 'provisioning',
@@ -683,11 +708,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       );
       final resp = await _rq!.send({
         'type': 'wifi.config',
-        'data': { 'ssid': ssid, 'password': password }
+        'data': {'ssid': ssid, 'password': password}
       });
       final ok = resp['ok'] == true;
       if (!ok) state = state.copyWith(provisionStatus: 'failed');
-      // 启动后台轮询以尽快拿到最新网络状态（若事件稍后才到也能兜底）
       _kickoffPostProvisionPolling();
       return ok;
     } catch (e) {
@@ -702,7 +726,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     try {
       final resp = await _rq!.send({
         'type': 'login.auth',
-        'data': { 'email': '', 'otpToken': code },
+        'data': {'email': '', 'otpToken': code},
       });
       return resp['ok'] == true || resp['type'] == 'login.auth';
     } catch (e) {
@@ -716,7 +740,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     try {
       final resp = await _rq!.send({
         'type': 'logout',
-        'data': { 'userId': _currentUserIdOrEmpty() },
+        'data': {'userId': currentUserId()},
       });
       return resp['ok'] == true || resp['type'] == 'logout';
     } catch (e) {
@@ -725,26 +749,11 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  // TODO: 从真实账号体系获取当前用户ID；此处占位返回空字符串
-  String _currentUserIdOrEmpty() {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      return user?.id ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  // 对外暴露：当前登录用户ID（无则空串）
-  String currentUserId() => _currentUserIdOrEmpty();
-
   Future<bool> requestWifiScan() async {
     if (state.deviceData == null) return false;
     try {
-      // 确保可信通道（支持双通道/握手后）
       var okChannel = await ensureTrustedChannel();
       if (!okChannel || _rq == null) {
-        // 等待认证完成（最多6秒），避免用户点击时通道尚未就绪导致“无反应”
         await _waitForAuthenticated(const Duration(seconds: 6));
         okChannel = _rq != null || state.status == BleDeviceStatus.authenticated;
         if (!okChannel || _rq == null) {
@@ -752,23 +761,25 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
           return false;
         }
       }
-      _log('⏳ 开始扫描附近Wi‑Fi...');
+      _log('⏳ 开始扫描附近Wi-Fi...');
       final resp = await _rq!.send(
-        { 'type': 'wifi.scan' },
+        {'type': 'wifi.scan'},
         timeout: const Duration(seconds: 3),
         retries: 0,
       );
       final data = resp['data'];
       if (data is List) {
-        final networks = data.map((e) => WifiAp(
-          ssid: (e['ssid'] ?? '').toString(),
-          rssi: int.tryParse((e['rssi'] ?? '0').toString()) ?? 0,
-          secure: (e['secure'] == true),
+        final networks = data
+            .map((e) => WifiAp(
+                  ssid: (e['ssid'] ?? '').toString(),
+                  rssi: int.tryParse((e['rssi'] ?? '0').toString()) ?? 0,
+                  secure: (e['secure'] == true),
           bssid: e['bssid']?.toString(),
           frequency: int.tryParse((e['frequency'] ?? '').toString()),
-        )).toList().cast<WifiAp>();
+                ))
+            .toList();
         state = state.copyWith(wifiNetworks: networks);
-        _log('📶 Wi‑Fi 扫描完成，发现 ${networks.length} 个网络');
+        _log('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
       }
       return true;
     } catch (e) {
@@ -785,7 +796,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
-  // 通用：带可信通道检查的写接口（供未来指令统一调用）
   Future<bool> writeWithTrustedChannel({
     required String serviceUuid,
     required String characteristicUuid,
@@ -815,98 +825,13 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     return ok;
   }
 
-  // 使用会话密钥对 JSON 负载加密并写入指定特征
-  Future<bool> writeEncryptedJson({
-    required String characteristicUuid,
-    required Map<String, dynamic> json,
-  }) async {
-    if (state.deviceData == null) return false;
-    try {
-      if (characteristicUuid == BleConstants.loginAuthCodeCharUuid) {
-        final payload = {
-          'type': 'login.auth',
-          'data': {
-            'email': json['email'] ?? '',
-            'otpToken': json['otpToken'] ?? json['code'] ?? '',
-          },
-        };
-        // 在双特征+帧协议下，将登录建模为“异步完成”的一次调用：
-        // 1) 设备可先返回 ack/accepted；
-        // 2) 登录完成后再返回 login.result 或包含 status=login_success 的事件帧（沿用同 reqId）。
-        final resp = await _rq!.send(
-          payload,
-          timeout: const Duration(seconds: 25),
-          retries: 0,
-          isFinal: (msg) {
-            final type = (msg['type'] ?? '').toString();
-            final data = msg['data'];
-            final status = data is Map<String, dynamic> ? (data['status'] ?? '').toString() : (msg['status'] ?? '').toString();
-            if (type == 'login.result') return true;
-            if (status == 'login_success' || status == 'login_failed') return true;
-            return false; // 对 ack/accepted 等中间态继续等待
-          },
-        );
-        // 同步状态，触发上层UI跳转与数据同步（与 A107 行为对齐）
-        try {
-          final data = resp['data'];
-          final status = data is Map<String, dynamic> ? (data['status'] ?? '').toString() : (resp['status'] ?? '').toString();
-          if (status == 'login_success') {
-            state = state.copyWith(provisionStatus: 'login_success', lastProvisionDeviceId: state.deviceData?.deviceId);
-            if (!_syncedAfterLogin) {
-              _syncedAfterLogin = true;
-              try {
-                await _ref.read(savedDevicesProvider.notifier).syncFromServer();
-                final id = state.deviceData?.deviceId;
-                if (id != null && id.isNotEmpty) {
-                  await _ref.read(savedDevicesProvider.notifier).select(id);
-                }
-                _maybeApplyInlineDeviceAndNetwork(data is Map<String, dynamic> ? jsonEncode(data) : null,
-                    expectedDeviceId: state.deviceData?.deviceId);
-              } catch (_) {}
-            }
-            return true;
-          }
-          if (status == 'login_failed') {
-            _setError('设备登录失败');
-            return false;
-          }
-        } catch (_) {}
-        // 若未带明确状态，依据 ok/type 回退判断
-        return resp['ok'] == true || resp['type'] == 'login.result';
-      }
-      if (characteristicUuid == BleConstants.logoutCharUuid) {
-        final payload = {
-          'type': 'logout',
-          'data': { 'userId': json['userId'] ?? _currentUserIdOrEmpty() },
-        };
-        final resp = await _rq!.send(payload);
-        return resp['ok'] == true || resp['type'] == 'logout';
-      }
-      if (characteristicUuid == BleConstants.updateVersionCharUuid) {
-        final payload = {
-          'type': 'update.version',
-          'data': { 'channel': json['channel'] },
-        };
-        final resp = await _rq!.send(payload);
-        return resp['ok'] == true || resp['type'] == 'update.version';
-      }
-      _log('❌ 未知的映射特征：$characteristicUuid');
-      return false;
-    } catch (e) {
-      _log('❌ writeEncryptedJson via queue 失败: $e');
-      return false;
-    }
-  }
-
   Future<NetworkStatus?> checkNetworkStatus() async {
     if (state.deviceData == null) return null;
-    // Throttle: if read within last 400ms, return cached value
     final now = DateTime.now();
     if (_lastNetworkStatusReadAt != null &&
         now.difference(_lastNetworkStatusReadAt!) < const Duration(milliseconds: 400)) {
       return state.networkStatus;
     }
-    // Deduplicate concurrent reads
     if (_inflightNetworkStatusRead != null) {
       return _inflightNetworkStatusRead;
     }
@@ -922,12 +847,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   Future<NetworkStatus?> _doReadNetworkStatus() async {
     try {
-      // 仅双特征通道：通过帧协议查询
       if (_rq == null) return null;
-      // 快速查询以避免首跳等待过久：1.2s 超时，不重试
       final t0 = DateTime.now();
       final resp = await _rq!.send(
-        { 'type': 'network.status' },
+        {'type': 'network.status'},
         timeout: const Duration(milliseconds: 1200),
         retries: 0,
       );
@@ -935,7 +858,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       final data = resp['data'];
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
-        // 同步网络状态；若正在配网，仅在连接成功且 SSID 匹配本次请求时切到 wifi_online，避免误判
         state = state.copyWith(networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
         if (state.provisionStatus == 'provisioning' && ns.connected) {
           final reqSsid = state.lastProvisionSsid?.trim();
@@ -961,7 +883,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   void _kickoffPostProvisionPolling() {
     if (_postProvisionPoll != null) return;
-    // 软轮询：在有限时间内重复读取网络状态，直到已连接或超时
     _postProvisionPoll = () async {
       final deadline = DateTime.now().add(const Duration(seconds: 20));
       var delay = const Duration(milliseconds: 800);
@@ -969,11 +890,9 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         final ns = await _doReadNetworkStatus();
         if (ns?.connected == true) break;
         await Future.delayed(delay);
-        // 增量退避但限制上限
         final nextMs = (delay.inMilliseconds * 1.5).toInt();
         delay = Duration(milliseconds: nextMs > 3000 ? 3000 : nextMs);
       }
-      // 若超时仍未匹配成功且仍处于配网中，则标记失败，触发页面提示
       if (state.provisionStatus == 'provisioning') {
         state = state.copyWith(
           provisionStatus: 'wifi_offline',
@@ -984,31 +903,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }();
   }
 
-  Future<void> handleWifiSmartly() async {
-    final ns = await checkNetworkStatus();
-    if (ns == null || !ns.connected) {
-      await requestWifiScan();
-    }
-  }
-
-  // ======================
-
-  List<WifiAp> _parseWifiScanJson(String json) {
-    try {
-      final list = jsonDecode(json) as List<dynamic>;
-      return list
-          .map((e) => WifiAp(
-          ssid: e['ssid'] ?? '',
-          rssi: int.tryParse(e['rssi']?.toString() ?? '') ?? 0,
-          secure: e['secure'] == true,
-          bssid: e['bssid'],
-          frequency: e['frequency']))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
+  // 杂项
   String _escapeJson(String s) => s
       .replaceAll('\\', r'\\')
       .replaceAll('"', r'\"')
@@ -1019,7 +914,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     state = state.copyWith(status: BleDeviceStatus.error, errorMessage: message);
   }
 
-  static const int _maxConnectionLogs = 200; // 限制保留的连接日志条数，避免内存与重建压力
+  static const int _maxConnectionLogs = 200;
   void _log(String msg) {
     final now = DateTime.now().toIso8601String();
     final nextLogs = [...state.connectionLogs, "[$now] $msg"];
@@ -1027,7 +922,6 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         ? nextLogs.sublist(nextLogs.length - _maxConnectionLogs)
         : nextLogs;
     state = state.copyWith(connectionLogs: trimmedLogs);
-    // print(msg);
     developer.log(msg, name: 'BLE');
   }
 
