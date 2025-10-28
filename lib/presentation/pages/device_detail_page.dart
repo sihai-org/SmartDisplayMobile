@@ -75,6 +75,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoConnectSelectedOnce());
 
     // 保留单一路径：通过参数 deviceId 触发连接（含 didUpdateWidget 变更时）
+
   }
 
   @override
@@ -209,6 +210,22 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         // 不再自动重连
       }
     });
+
+    // 监听版本检查提示（需在 build 内使用 ref.listen）
+    ref.listen<conn.DeviceConnectionState>(
+      conn.deviceConnectionProvider,
+      (prev, next) {
+        final prevFlag = prev?.lastUpdateIsUpdating;
+        final currFlag = next.lastUpdateIsUpdating;
+        if (prevFlag != currFlag && currFlag != null) {
+          if (currFlag == true) {
+            Fluttertoast.showToast(msg: '检测到新版本，正在更新...');
+          } else {
+            Fluttertoast.showToast(msg: '已是最新版本，无需更新');
+          }
+        }
+      },
+    );
 
     // 移除“自动连接上次设备”的监听逻辑
     return Scaffold(
@@ -401,15 +418,25 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   TextButton(
-                                    onPressed: () {
-                                      final rec = saved.devices.firstWhere(
-                                            (e) => e.deviceId == saved.lastSelectedId,
-                                        orElse: () => saved.devices.first,
-                                      );
-                                      _sendCheckUpdate(rec);
-                                    },
+                                    onPressed: connState.isCheckingUpdate
+                                        ? null
+                                        : () {
+                                          final rec = saved.devices.firstWhere(
+                                                (e) => e.deviceId == saved.lastSelectedId,
+                                            orElse: () => saved.devices.first,
+                                          );
+                                          _sendCheckUpdate(rec);
+                                        },
                                     child: Text(context.l10n.check_update),
                                   ),
+                                  if (connState.isCheckingUpdate) ...[
+                                    const SizedBox(width: 8),
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ],
                                 ],
                               ),
                               const SizedBox(height: 4),

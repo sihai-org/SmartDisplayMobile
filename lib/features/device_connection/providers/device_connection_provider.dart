@@ -36,6 +36,10 @@ class DeviceConnectionState {
   final String? firmwareVersion;
   final String? lastHandshakeErrorCode;
   final String? lastHandshakeErrorMessage;
+  // Update check UI state
+  final bool isCheckingUpdate;
+  // Last update result pushed by device; null means unknown
+  final bool? lastUpdateIsUpdating;
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -54,6 +58,8 @@ class DeviceConnectionState {
     this.firmwareVersion,
     this.lastHandshakeErrorCode,
     this.lastHandshakeErrorMessage,
+    this.isCheckingUpdate = false,
+    this.lastUpdateIsUpdating,
   });
 
   DeviceConnectionState copyWith({
@@ -73,6 +79,8 @@ class DeviceConnectionState {
     String? firmwareVersion,
     String? lastHandshakeErrorCode,
     String? lastHandshakeErrorMessage,
+    bool? isCheckingUpdate,
+    bool? lastUpdateIsUpdating,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -91,6 +99,8 @@ class DeviceConnectionState {
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
       lastHandshakeErrorCode: lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
       lastHandshakeErrorMessage: lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
+      isCheckingUpdate: isCheckingUpdate ?? this.isCheckingUpdate,
+      lastUpdateIsUpdating: lastUpdateIsUpdating ?? this.lastUpdateIsUpdating,
     );
   }
 }
@@ -501,6 +511,18 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
               } else if (s == 'wifi_online') {
                 await _doReadNetworkStatus();
                 _kickoffPostProvisionPolling();
+              } else if (s == 'update_updating') {
+                // Device started updating
+                state = state.copyWith(
+                  isCheckingUpdate: false,
+                  lastUpdateIsUpdating: true,
+                );
+              } else if (s == 'update_latest') {
+                // Device is already up to date
+                state = state.copyWith(
+                  isCheckingUpdate: false,
+                  lastUpdateIsUpdating: false,
+                );
               }
             } else if (type == 'wifi.result') {
               final ok = evt['ok'] == true;
@@ -686,12 +708,19 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       }
 
       if (characteristicUuid == BleConstants.updateVersionCharUuid) {
+        // Mark UI loading for update check until device pushes result
+        state = state.copyWith(isCheckingUpdate: true, lastUpdateIsUpdating: null);
         final payload = {
           'type': 'update.version',
           'data': {'channel': json['channel']},
         };
         final resp = await _rq!.send(payload);
-        return resp['ok'] == true || resp['type'] == 'update.version';
+        // Keep loading; final result arrives via status push
+        final ok = resp['ok'] == true || resp['type'] == 'update.version';
+        if (!ok) {
+          state = state.copyWith(isCheckingUpdate: false);
+        }
+        return ok;
       }
 
       _log('❌ 未知的映射特征：$characteristicUuid');
