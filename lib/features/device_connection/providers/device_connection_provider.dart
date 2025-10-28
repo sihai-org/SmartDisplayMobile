@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/ble_constants.dart';
@@ -38,8 +39,6 @@ class DeviceConnectionState {
   final String? lastHandshakeErrorMessage;
   // Update check UI state
   final bool isCheckingUpdate;
-  // Last update result pushed by device; null means unknown
-  final bool? lastUpdateIsUpdating;
 
   const DeviceConnectionState({
     this.status = BleDeviceStatus.disconnected,
@@ -59,7 +58,6 @@ class DeviceConnectionState {
     this.lastHandshakeErrorCode,
     this.lastHandshakeErrorMessage,
     this.isCheckingUpdate = false,
-    this.lastUpdateIsUpdating,
   });
 
   DeviceConnectionState copyWith({
@@ -80,7 +78,6 @@ class DeviceConnectionState {
     String? lastHandshakeErrorCode,
     String? lastHandshakeErrorMessage,
     bool? isCheckingUpdate,
-    bool? lastUpdateIsUpdating,
   }) {
     return DeviceConnectionState(
       status: status ?? this.status,
@@ -100,7 +97,6 @@ class DeviceConnectionState {
       lastHandshakeErrorCode: lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
       lastHandshakeErrorMessage: lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
       isCheckingUpdate: isCheckingUpdate ?? this.isCheckingUpdate,
-      lastUpdateIsUpdating: lastUpdateIsUpdating ?? this.lastUpdateIsUpdating,
     );
   }
 }
@@ -299,7 +295,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         }
 
         // 超过宽限期后，放宽RSSI限制
-        const grace = Duration(seconds: 6);
+        const grace = Duration(seconds: 2);
         if (now.difference(_targetFirstSeenAt!) >= grace) {
           _log('⚠️ 信号偏弱(rssi=${scanResult.rssi})，已超过${grace.inSeconds}s，尝试连接');
           _t('scan.force_connect_after_grace');
@@ -515,14 +511,20 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
                 // Device started updating
                 state = state.copyWith(
                   isCheckingUpdate: false,
-                  lastUpdateIsUpdating: true,
                 );
+                // 立即提示用户
+                try {
+                  Fluttertoast.showToast(msg: '检测到新版本，正在更新...');
+                } catch (_) {}
               } else if (s == 'update_latest') {
                 // Device is already up to date
                 state = state.copyWith(
                   isCheckingUpdate: false,
-                  lastUpdateIsUpdating: false,
                 );
+                // 立即提示用户
+                try {
+                  Fluttertoast.showToast(msg: '已是最新版本，无需更新');
+                } catch (_) {}
               }
             } else if (type == 'wifi.result') {
               final ok = evt['ok'] == true;
@@ -707,21 +709,7 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
         return resp['ok'] == true || resp['type'] == 'logout';
       }
 
-      if (characteristicUuid == BleConstants.updateVersionCharUuid) {
-        // Mark UI loading for update check until device pushes result
-        state = state.copyWith(isCheckingUpdate: true, lastUpdateIsUpdating: null);
-        final payload = {
-          'type': 'update.version',
-          'data': {'channel': json['channel']},
-        };
-        final resp = await _rq!.send(payload);
-        // Keep loading; final result arrives via status push
-        final ok = resp['ok'] == true || resp['type'] == 'update.version';
-        if (!ok) {
-          state = state.copyWith(isCheckingUpdate: false);
-        }
-        return ok;
-      }
+      // 注意：检查更新已统一到 requestUpdateCheck()，不再通过 writeEncryptedJson 走分支
 
       _log('❌ 未知的映射特征：$characteristicUuid');
       return false;
@@ -838,10 +826,53 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     }
   }
 
+  /// 检查设备固件更新（参考 requestWifiScan 的通道确保逻辑）
+  Future<bool> requestUpdateCheck({String? channel}) async {
+    if (state.deviceData == null) return false;
+    try {
+      // 1) 立即进入“检查更新中”以显示 loading（包含后续连接/握手时间）
+      state =
+          state.copyWith(isCheckingUpdate: true);
+
+      // 2) 确保建立可信加密通道（必须等待到 authenticated，而不是仅 _rq 可用）
+      var okChannel = await ensureTrustedChannel();
+      if (!okChannel ||
+          _rq == null ||
+          state.status != BleDeviceStatus.authenticated) {
+        await _waitForAuthenticated(const Duration(seconds: 10));
+        okChannel =
+            (state.status == BleDeviceStatus.authenticated) && _rq != null;
+        if (!okChannel) {
+          _log('❌ update.version 取消：通道未就绪');
+          state = state.copyWith(isCheckingUpdate: false);
+          return false;
+        }
+      }
+
+      // 3) 发送检查更新指令；设备将通过事件推送 update_updating / update_latest 来结束 loading
+      final resp = await _rq!.send({
+        'type': 'update.version',
+        'data': {'channel': channel},
+      });
+      final ok = resp['ok'] == true || resp['type'] == 'update.version';
+      if (!ok) {
+        // 若请求未被设备接受，及时结束 loading
+        state = state.copyWith(isCheckingUpdate: false);
+      }
+      return ok;
+    } catch (e) {
+      _log('❌ update.version 失败: $e');
+      // 异常时及时结束 loading
+      state = state.copyWith(isCheckingUpdate: false);
+      return false;
+    }
+  }
+
   Future<void> _waitForAuthenticated(Duration timeout) async {
     final start = DateTime.now();
     while (DateTime.now().difference(start) < timeout) {
-      if (state.status == BleDeviceStatus.authenticated || _rq != null) return;
+      // 仅在完成应用层握手（加密通道可用）时返回
+      if (state.status == BleDeviceStatus.authenticated && _rq != null) return;
       await Future.delayed(const Duration(milliseconds: 150));
     }
   }

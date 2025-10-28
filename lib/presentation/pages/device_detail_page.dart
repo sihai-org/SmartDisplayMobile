@@ -211,21 +211,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       }
     });
 
-    // 监听版本检查提示（需在 build 内使用 ref.listen）
-    ref.listen<conn.DeviceConnectionState>(
-      conn.deviceConnectionProvider,
-      (prev, next) {
-        final prevFlag = prev?.lastUpdateIsUpdating;
-        final currFlag = next.lastUpdateIsUpdating;
-        if (prevFlag != currFlag && currFlag != null) {
-          if (currFlag == true) {
-            Fluttertoast.showToast(msg: '检测到新版本，正在更新...');
-          } else {
-            Fluttertoast.showToast(msg: '已是最新版本，无需更新');
-          }
-        }
-      },
-    );
+    // 版本检查的 toast 改为在 provider 内统一触发，避免页面依赖导致漏提示
 
     // 移除“自动连接上次设备”的监听逻辑
     return Scaffold(
@@ -517,21 +503,17 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   void _sendCheckUpdate(SavedDeviceRecord device) async {
     try {
-      // 通过连接管理器加密发送（携带 deviceId）
+      // 通过连接管理器统一接口发送检查更新，并确保可信通道
       final container = ProviderScope.containerOf(context, listen: false);
       final notifier = container.read(conn.deviceConnectionProvider.notifier);
-      final ok = await notifier.writeEncryptedJson(
-        characteristicUuid: BleConstants.updateVersionCharUuid,
-        json: {
-          'deviceId': device.deviceId,
-          'userId': notifier.currentUserId(),
-          'action': 'update_version',
-        },
-      );
-      print("device_management_page: " + "writeCharacteristic ok=$ok");
-
-      if (mounted) {
+      final ok = await notifier.requestUpdateCheck();
+      print("device_management_page: requestUpdateCheck ok=$ok");
+      if (!mounted) return;
+      if (ok) {
         Fluttertoast.showToast(msg: '已发送检查更新指令');
+      } else {
+        // 失败场景（如通道未就绪/拒绝）：及时提示（loading 已由 provider 关闭）
+        Fluttertoast.showToast(msg: '发送更新请求失败');
       }
     } catch (e, st) {
       print("❌ _sendCheckUpdate 出错: $e\n$st");

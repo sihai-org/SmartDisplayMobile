@@ -24,7 +24,7 @@ class BleConstants {
   static const int postConnectStabilizeDelayMs = 200;
   static const int writeRetryDelayMs = 200;
   // Proximity & backoff
-  static const int rssiProximityThreshold = -75;
+  static const int rssiProximityThreshold = -80;
   static const int reconnectBackoffStartMs = 1000;
   static const int reconnectBackoffMaxMs = 10000;
   
