@@ -174,16 +174,17 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
         print('[DeviceConnectionPage] 认证后检查网络状态（带重试）');
         final connected = await _checkNetworkWithRetry(ref);
-        if (connected == false) {
-          // 无网优先：跳转 Wi‑Fi 配网
-          print('[DeviceConnectionPage] 📶 设备离线 → 跳转Wi‑Fi配网页面');
+        final shouldGoWifi = (connected == false) || (isUnboundScan && connected != true);
+        if (shouldGoWifi) {
+          // 无网优先（或未知但为未绑定新设备）：跳转 Wi‑Fi 配网
+          print('[DeviceConnectionPage] 📶 设备离线/未知(未绑定) → 跳转Wi‑Fi配网页面');
           if (mounted) {
             context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
           }
           return;
         }
 
-        // 已联网或未知：若未绑定则去绑定页，否则进入首页
+        // 已联网：若未绑定则去绑定页，否则进入首页
         if (isUnboundScan) {
           print('[DeviceConnectionPage] 设备未绑定 → 跳转绑定确认');
           if (mounted) {

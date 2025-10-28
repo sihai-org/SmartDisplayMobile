@@ -161,6 +161,15 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
 
   /// 开始连接流程
   Future<void> startConnection(DeviceQrData qrData) async {
+    // Reset per-session caches to avoid stale data from previous device
+    _lastNetworkStatusReadAt = null;
+    _inflightNetworkStatusRead = null;
+    _postProvisionPoll = null;
+    try {
+      await _rqEventsSub?.cancel();
+    } catch (_) {}
+    _rqEventsSub = null;
+
     // ✅ 固定硬断开 + 稳定等待
     try {
       await BleServiceSimple.disconnect();
@@ -572,6 +581,10 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
     _timeoutTimer?.cancel();
     _scanSubscription?.cancel();
     try {
+      _rqEventsSub?.cancel();
+    } catch (_) {}
+    _rqEventsSub = null;
+    try {
       _rq?.dispose();
     } catch (_) {}
     _rq = null;
@@ -579,6 +592,14 @@ class DeviceConnectionNotifier extends StateNotifier<DeviceConnectionState> {
       _cryptoService?.cleanup();
     } catch (_) {}
     _cryptoService = null;
+
+    // Clear per-session caches/state
+    _lastNetworkStatusReadAt = null;
+    _inflightNetworkStatusRead = null;
+    _postProvisionPoll = null;
+    _syncedAfterLogin = false;
+    _sessionStart = null;
+    _connectStart = null;
     state = const DeviceConnectionState();
   }
 
