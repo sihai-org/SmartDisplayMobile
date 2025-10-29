@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../../core/l10n/l10n_extensions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../data/repositories/saved_devices_repository.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
-import '../../features/device_connection/models/ble_device_data.dart';
-import '../../features/device_connection/models/network_status.dart';
-import '../../features/device_connection/services/ble_service_simple.dart';
-import '../../features/qr_scanner/models/device_qr_data.dart';
-import '../../core/constants/ble_constants.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/ble/ble_device_data.dart';
+import '../../core/network/network_status.dart';
+import '../../core/models/device_qr_data.dart';
+import '../../core/providers/ble_connection_provider.dart' as conn;
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   final VoidCallback? onBackToList;
@@ -37,15 +35,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   DeviceQrData? _qrFromRecord(SavedDeviceRecord rec) {
     // 允许缺少本地缓存的 BLE 地址：连接流程会在扫描后用发现的地址覆盖。
     // 仅当关键标识缺失时才放弃（如 deviceId/publicKey）。
-    if (rec.deviceId.isEmpty || rec.publicKey.isEmpty) {
+    if (rec.displayDeviceId.isEmpty || rec.publicKey.isEmpty) {
       Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
       return null;
     }
-    final bleAddress = rec.lastBleAddress ?? '';
+    final bleAddress = rec.lastBleDeviceId ?? '';
     return DeviceQrData(
-      deviceId: rec.deviceId,
+      displayDeviceId: rec.displayDeviceId,
       deviceName: rec.deviceName,
-      bleAddress: bleAddress,
+      bleDeviceId: bleAddress,
       publicKey: rec.publicKey,
     );
   }
@@ -116,27 +114,27 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     if (!saved.loaded) return;
     // 查找本地缓存记录
     var rec = saved.devices.firstWhere(
-      (e) => e.deviceId == targetId,
+      (e) => e.displayDeviceId == targetId,
       orElse: () => SavedDeviceRecord.empty(),
     );
     // 若本地未找到，尝试从服务器同步一次再查找
-    if (rec.deviceId.isEmpty) {
+    if (rec.displayDeviceId.isEmpty) {
       try {
         await ref.read(savedDevicesProvider.notifier).syncFromServer();
       } catch (_) {}
       final refreshed = ref.read(savedDevicesProvider);
       rec = refreshed.devices.firstWhere(
-        (e) => e.deviceId == targetId,
+        (e) => e.displayDeviceId == targetId,
         orElse: () => SavedDeviceRecord.empty(),
       );
-      if (rec.deviceId.isEmpty) return;
+      if (rec.displayDeviceId.isEmpty) return;
     }
     _paramConnectTried = true;
     // 将此设备设置为选中（以便后续 UI 与状态一致）
-    await ref.read(savedDevicesProvider.notifier).select(rec.deviceId);
+    await ref.read(savedDevicesProvider.notifier).select(rec.displayDeviceId);
     final qr = _qrFromRecord(rec);
     if (qr == null) return;
-    await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
   }
 
   // 本会话内在设备详情页只尝试一次：若存在已选中设备且当前未在连接/已连，则自动连接
@@ -161,22 +159,22 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final rec = selectedId == null
         ? const SavedDeviceRecord.empty()
         : saved.devices.firstWhere(
-            (e) => e.deviceId == selectedId,
+            (e) => e.displayDeviceId == selectedId,
             orElse: () => const SavedDeviceRecord.empty(),
           );
-    if (rec.deviceId.isEmpty) return;
+    if (rec.displayDeviceId.isEmpty) return;
 
     // 避免在已有连接流程中重复触发
-    final connState = ref.read(conn.deviceConnectionProvider);
-    final busy = connState.status == BleDeviceStatus.connecting ||
-        connState.status == BleDeviceStatus.connected ||
-        connState.status == BleDeviceStatus.authenticating ||
-        connState.status == BleDeviceStatus.authenticated;
+    final connState = ref.read(conn.bleConnectionProvider);
+    final busy = connState.bleDeviceStatus == BleDeviceStatus.connecting ||
+        connState.bleDeviceStatus == BleDeviceStatus.connected ||
+        connState.bleDeviceStatus == BleDeviceStatus.authenticating ||
+        connState.bleDeviceStatus == BleDeviceStatus.authenticated;
     if (busy) return;
 
     final qr = _qrFromRecord(rec);
     if (qr == null) return;
-    await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
     // 标记已执行，防止本会话内重复触发
     ref.read(appStateProvider.notifier).markAutoConnectOnDetailPage();
   }
@@ -187,22 +185,25 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
-    final connState = ref.watch(conn.deviceConnectionProvider);
+    final connState = ref.watch(conn.bleConnectionProvider);
 
     // login_success 同步逻辑已下沉至 deviceConnectionProvider，页面无需再监听处理
 
     // 监听连接状态变化，仅处理智能WiFi（不再做智能重连）
-    ref.listen<conn.DeviceConnectionState>(conn.deviceConnectionProvider, (previous, current) {
-      if (previous != null && previous.status != current.status) {
-        print('[HomePage] 连接状态变化: ${previous.status} -> ${current.status}');
+    ref.listen<conn.BleConnectionState>(conn.bleConnectionProvider,
+        (previous, current) {
+      if (previous != null &&
+          previous.bleDeviceStatus != current.bleDeviceStatus) {
+        print(
+            '[HomePage] 连接状态变化: ${previous.bleDeviceStatus} -> ${current.bleDeviceStatus}');
 
         // 当设备认证完成时，自动进行智能WiFi处理
-        if (current.status == BleDeviceStatus.authenticated &&
-            previous.status != BleDeviceStatus.authenticated) {
+        if (current.bleDeviceStatus == BleDeviceStatus.authenticated &&
+            previous.bleDeviceStatus != BleDeviceStatus.authenticated) {
           print('[HomePage] 设备认证完成，开始智能WiFi处理');
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
-              ref.read(conn.deviceConnectionProvider.notifier).handleWifiSmartly();
+              ref.read(conn.bleConnectionProvider.notifier).handleWifiSmartly();
             }
           });
         }
@@ -312,17 +313,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               // 选择要展示的设备及其扩展信息
               Builder(builder: (context) {
                 final rec = saved.devices.firstWhere(
-                  (e) => e.deviceId == saved.lastSelectedId,
+                  (e) => e.displayDeviceId == saved.lastSelectedId,
                   orElse: () => saved.devices.first,
                 );
-                final qrDeviceData = ref
-                    .read(appStateProvider.notifier)
-                    .getDeviceDataById(rec.deviceId);
-                final connState = ref.read(conn.deviceConnectionProvider);
+                final connState = ref.read(conn.bleConnectionProvider);
                 final String? firmwareVersion =
                     (connState.firmwareVersion != null && connState.firmwareVersion!.isNotEmpty)
                         ? connState.firmwareVersion
-                        : qrDeviceData?.firmwareVersion;
+                        : "unknown";
                 return Card(
                   elevation: 0,
                   child: Padding(
@@ -357,7 +355,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                           const SizedBox(height: 4),
                                           // 显示设备ID（替换原来的状态展示）
                                           Text(
-                                            'ID: ${rec.deviceId}',
+                                            'ID: ${rec.displayDeviceId}',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium
@@ -408,8 +406,10 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                         ? null
                                         : () {
                                           final rec = saved.devices.firstWhere(
-                                                (e) => e.deviceId == saved.lastSelectedId,
-                                            orElse: () => saved.devices.first,
+                                              (e) =>
+                                                  e.displayDeviceId ==
+                                                  saved.lastSelectedId,
+                                              orElse: () => saved.devices.first,
                                           );
                                           _sendCheckUpdate(rec);
                                         },
@@ -459,7 +459,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               _buildBLESection(context),
 
               // 显示网络状态或WiFi列表
-              if (connState.status == BleDeviceStatus.authenticated) ...[
+              if (connState.bleDeviceStatus ==
+                  BleDeviceStatus.authenticated) ...[
                 const SizedBox(height: 16),
                 _buildNetworkSection(context, connState),
               ],
@@ -482,7 +483,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 ),
                 onPressed: () {
                   final rec = saved.devices.firstWhere(
-                    (e) => e.deviceId == saved.lastSelectedId,
+                    (e) => e.displayDeviceId == saved.lastSelectedId,
                     orElse: () => saved.devices.first,
                   );
                   _showDeleteDialog(context, rec);
@@ -505,7 +506,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     try {
       // 通过连接管理器统一接口发送检查更新，并确保可信通道
       final container = ProviderScope.containerOf(context, listen: false);
-      final notifier = container.read(conn.deviceConnectionProvider.notifier);
+      final notifier = container.read(conn.bleConnectionProvider.notifier);
       final ok = await notifier.requestUpdateCheck();
       print("device_management_page: requestUpdateCheck ok=$ok");
       if (!mounted) return;
@@ -525,23 +526,26 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   // 蓝牙卡片
   Widget _buildBLESection(BuildContext context) {
-    final connState = ref.watch(conn.deviceConnectionProvider);
+    final connState = ref.watch(conn.bleConnectionProvider);
     final saved = ref.watch(savedDevicesProvider);
 
     // 当前详情页所展示的目标设备（以最后选中的设备为准）
     final currentId = saved.lastSelectedId;
     final currentRec = (currentId != null)
         ? saved.devices.firstWhere(
-            (e) => e.deviceId == currentId,
+            (e) => e.displayDeviceId == currentId,
             orElse: () => SavedDeviceRecord.empty(),
           )
         : SavedDeviceRecord.empty();
 
     // 只有当 provider 的当前连接设备等于详情页设备时，才采用其真实 BLE 状态；否则视为未连接
     final isThisDeviceActive =
-        connState.deviceData?.deviceId.isNotEmpty == true &&
-        connState.deviceData?.deviceId == currentRec.deviceId;
-    final effectiveStatus = isThisDeviceActive ? connState.status : BleDeviceStatus.disconnected;
+        connState.bleDeviceData?.displayDeviceId.isNotEmpty == true &&
+            connState.bleDeviceData?.displayDeviceId ==
+                currentRec.displayDeviceId;
+    final effectiveStatus = isThisDeviceActive
+        ? connState.bleDeviceStatus
+        : BleDeviceStatus.disconnected;
 
     Widget statusRow({required Widget leading, required String text, List<Widget> trailing = const []}) {
       return Row(
@@ -641,16 +645,20 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         final id = saved.lastSelectedId;
         if (id == null) return;
         final rec = saved.devices.firstWhere(
-          (e) => e.deviceId == id,
+          (e) => e.displayDeviceId == id,
           orElse: () => SavedDeviceRecord.empty(),
         );
-        if (rec.deviceId.isEmpty) return;
+        if (rec.displayDeviceId.isEmpty) return;
         final qr = _qrFromRecord(rec);
         if (qr == null) return;
-        await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+        await ref
+            .read(conn.bleConnectionProvider.notifier)
+            .enableBleConnection(qr);
       } else {
         // 关闭：主动断开
-        await ref.read(conn.deviceConnectionProvider.notifier).disconnect();
+        await ref
+            .read(conn.bleConnectionProvider.notifier)
+            .disconnect(shouldReset: false);
       }
       // 操作完成后，等待 provider 状态回传来纠正；这里不立即清除覆盖，交由上方过期逻辑处理
     }
@@ -685,7 +693,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   // 构建网络状态或WiFi列表部分
-  Widget _buildNetworkSection(BuildContext context, conn.DeviceConnectionState connState) {
+  Widget _buildNetworkSection(
+      BuildContext context, conn.BleConnectionState connState) {
     final l10n = context.l10n;
     return Card(
       elevation: 0,
@@ -738,7 +747,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     onPressed: connState.isCheckingNetwork
                         ? null
                         : () {
-                            ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
+                            ref
+                                .read(conn.bleConnectionProvider.notifier)
+                                .checkNetworkStatus();
                           },
                     icon: const Icon(Icons.refresh, size: 16),
                     label: const Text('刷新'),
@@ -797,7 +808,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     onPressed: connState.isCheckingNetwork
                         ? null
                         : () {
-                            ref.read(conn.deviceConnectionProvider.notifier).checkNetworkStatus();
+                            ref
+                                .read(conn.bleConnectionProvider.notifier)
+                                .checkNetworkStatus();
                           },
                     icon: const Icon(Icons.refresh, size: 16),
                     label: const Text('刷新'),
@@ -924,7 +937,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'ID: ${device.deviceId}',
+                    'ID: ${device.displayDeviceId}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontFamily: 'monospace',
                         ),
@@ -968,7 +981,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       final response = await supabase.functions.invoke(
         'account_unbind_device',
         body: {
-          'device_id': device.deviceId,
+          'device_id': device.displayDeviceId,
         },
       );
 
@@ -987,9 +1000,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       }
 
       // 2. 若正在连接该设备，优先通过 BLE 通知 TV 执行本地登出
-      final connState = ref.read(conn.deviceConnectionProvider);
-      if (connState.deviceData?.deviceId == device.deviceId) {
-        final notifier = ref.read(conn.deviceConnectionProvider.notifier);
+      final connState = ref.read(conn.bleConnectionProvider);
+      if (connState.bleDeviceData?.displayDeviceId == device.displayDeviceId) {
+        final notifier = ref.read(conn.bleConnectionProvider.notifier);
         final ok = await notifier.sendDeviceLogout();
         if (!ok) {
           // 不中断后续流程，仅记录日志
@@ -999,7 +1012,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       }
 
       // 3. 更新本地保存的设备列表（内部会在命中当前连接时断开BLE）
-      await ref.read(savedDevicesProvider.notifier).removeDevice(device.deviceId);
+      await ref
+          .read(savedDevicesProvider.notifier)
+          .removeDevice(device.displayDeviceId);
     } catch (e, st) {
       print("❌ _deleteDevice 出错: $e\n$st");
       Fluttertoast.showToast(msg: "设备删除失败");

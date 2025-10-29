@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/device_qr_data.dart';
+import '../../../core/models/device_qr_data.dart';
 
 /// QR码扫描服务
 class QrScannerService {
@@ -33,7 +33,7 @@ class QrScannerService {
       final deviceData = DeviceQrData.fromJson(jsonData);
 
       // 基本数据验证（仅关键标识）
-      if (deviceData.deviceId.isEmpty) {
+      if (deviceData.bleDeviceId.isEmpty) {
         return const QrScanResult.error('设备ID不能为空');
       }
       if (deviceData.publicKey.isEmpty) {

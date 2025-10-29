@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'network_status.freezed.dart';
-part 'network_status.g.dart';
 
 /// 设备网络连接状态
 @freezed

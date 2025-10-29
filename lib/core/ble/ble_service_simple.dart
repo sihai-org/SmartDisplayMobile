@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../models/ble_device_data.dart';
 import '../../../core/constants/ble_constants.dart';
+import 'ble_device_data.dart';
 
 /// 简化的BLE服务类，用于基本的蓝牙操作（已合并权限与就绪逻辑）
 class BleServiceSimple {
@@ -211,17 +211,14 @@ class BleServiceSimple {
 
   /// 连接设备
   static Future<BleDeviceData?> connectToDevice({
-    required BleDeviceData deviceData,
+    required BleDeviceData bleDeviceData,
     required Duration timeout,
   }) async {
     try {
       await stopScan();
-      final id = deviceData.bleAddress.isNotEmpty
-          ? deviceData.bleAddress
-          : deviceData.deviceId;
 
       final connectionStream = _ble.connectToDevice(
-        id: id,
+        id: bleDeviceData.displayDeviceId,
         connectionTimeout: timeout,
       );
 
@@ -245,7 +242,7 @@ class BleServiceSimple {
         switch (update.connectionState) {
           case DeviceConnectionState.connected:
             await Future.delayed(BleConstants.kPostConnectStabilize);
-            completeOnce(deviceData.copyWith(
+            completeOnce(bleDeviceData.copyWith(
               status: BleDeviceStatus.connected,
               connectedAt: DateTime.now(),
             ));

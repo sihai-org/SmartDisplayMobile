@@ -1,23 +1,24 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../core/models/device_qr_data.dart';
 import 'dart:convert';
 
 class SavedDeviceRecord {
-  final String deviceId;
+  final String displayDeviceId;
   final String deviceName;
   final String publicKey;
-  final String? lastBleAddress;
+
+  final String? lastBleDeviceId;
   final DateTime? lastConnectedAt;
+
   final String? firmwareVersion; // overlay from BLE when available
   final String? networkSummary;  // e.g., SSID or "offline"
 
   const SavedDeviceRecord({
-    required this.deviceId,
+    required this.displayDeviceId,
     required this.deviceName,
     required this.publicKey,
-    this.lastBleAddress,
+    this.lastBleDeviceId,
     this.lastConnectedAt,
     this.firmwareVersion,
     this.networkSummary,
@@ -25,16 +26,16 @@ class SavedDeviceRecord {
 
   // Convenient empty constructor used by UI fallbacks
   const SavedDeviceRecord.empty()
-      : deviceId = '',
+      : displayDeviceId = '',
         deviceName = '',
         publicKey = '',
-        lastBleAddress = null,
+        lastBleDeviceId = null,
         lastConnectedAt = null,
         firmwareVersion = null,
         networkSummary = null;
 
   Map<String, dynamic> toJson() => {
-        'deviceId': deviceId,
+        'deviceId': displayDeviceId,
         'deviceName': deviceName,
         'publicKey': publicKey,
         'lastConnectedAt': lastConnectedAt?.toIso8601String(),
@@ -43,10 +44,10 @@ class SavedDeviceRecord {
       };
 
   static SavedDeviceRecord fromJson(Map<String, dynamic> json) => SavedDeviceRecord(
-        deviceId: json['deviceId'] as String,
+        displayDeviceId: json['deviceId'] as String,
         deviceName: json['deviceName'] as String,
         publicKey: json['publicKey'] as String,
-        lastBleAddress: json['lastBleAddress'] as String?,
+        lastBleDeviceId: json['lastBleDeviceId'] as String?,
         lastConnectedAt: json['lastConnectedAt'] != null
             ? DateTime.tryParse(json['lastConnectedAt'] as String)
             : null,
@@ -58,16 +59,16 @@ class SavedDeviceRecord {
     String? deviceId,
     String? deviceName,
     String? publicKey,
-    String? lastBleAddress,
+    String? lastBleDeviceId,
     DateTime? lastConnectedAt,
     String? firmwareVersion,
     String? networkSummary,
   }) =>
       SavedDeviceRecord(
-        deviceId: deviceId ?? this.deviceId,
+        displayDeviceId: deviceId ?? this.displayDeviceId,
         deviceName: deviceName ?? this.deviceName,
         publicKey: publicKey ?? this.publicKey,
-        lastBleAddress: lastBleAddress ?? this.lastBleAddress,
+        lastBleDeviceId: lastBleDeviceId ?? this.lastBleDeviceId,
         lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
         firmwareVersion: firmwareVersion ?? this.firmwareVersion,
         networkSummary: networkSummary ?? this.networkSummary,
@@ -139,10 +140,10 @@ class SavedDevicesRepository {
       final publicKey = (map['device_public_key'] ?? '').toString();
       final bindTime = map['bind_time'] as String?;
       return SavedDeviceRecord(
-        deviceId: deviceId,
+        displayDeviceId: deviceId,
         deviceName: deviceName,
         publicKey: publicKey,
-        lastBleAddress: null,
+        lastBleDeviceId: null,
         lastConnectedAt: bindTime != null ? DateTime.tryParse(bindTime) : null,
       );
     }).toList();
@@ -163,8 +164,8 @@ class SavedDevicesRepository {
     await _storage.write(key: key, value: deviceId);
   }
 
-  Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
-    await saveLastSelectedId(qr.deviceId);
+  Future<void> selectFromQr(DeviceQrData qr) async {
+    await saveLastSelectedId(qr.displayDeviceId);
 
     final key = _devicesKeyForCurrentUser();
     if (key == null) {
@@ -172,7 +173,8 @@ class SavedDevicesRepository {
     }
 
     final devices = await loadLocal();
-    final idx = devices.indexWhere((e) => e.deviceId == qr.deviceId);
+    final idx =
+        devices.indexWhere((e) => e.displayDeviceId == qr.displayDeviceId);
     if (idx >= 0) {
       final current = devices[idx];
       devices[idx] = current.copyWith(
@@ -181,7 +183,7 @@ class SavedDevicesRepository {
       );
     } else {
       devices.add(SavedDeviceRecord(
-        deviceId: qr.deviceId,
+        displayDeviceId: qr.displayDeviceId,
         deviceName: qr.deviceName,
         publicKey: qr.publicKey,
         lastConnectedAt: DateTime.now(),

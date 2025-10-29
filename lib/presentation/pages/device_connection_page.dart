@@ -2,18 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
-import '../../features/device_connection/models/ble_device_data.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart';
-import '../../features/device_connection/services/ble_service_simple.dart';
-import '../../core/constants/ble_constants.dart';
-import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../core/ble/ble_device_data.dart';
+import '../../core/models/device_qr_data.dart';
+import '../../core/providers/ble_connection_provider.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
-import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.deviceId});
@@ -48,11 +45,11 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     Future.microtask(() {
       // ignore: avoid_print
       print('[DeviceConnectionPage] microtask -> start connect');
-      ref.read(deviceConnectionProvider.notifier).startConnection(deviceData);
+      ref.read(bleConnectionProvider.notifier).startConnection(deviceData);
     });
     // ignore: avoid_print
     print(
-        '[DeviceConnectionPage] didChangeDependencies scheduled auto start: ${deviceData.deviceName} (${deviceData.deviceId})');
+        '[DeviceConnectionPage] didChangeDependencies scheduled auto start: ${deviceData.deviceName} (${deviceData.bleDeviceId})');
     _autoStarted = true;
   }
 
@@ -61,8 +58,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     _networkCheckStarted = false;
     super.dispose();
   }
-
-  // 已移除手动扫描与定时扫描相关代码
 
   /// 显示无数据错误
   void _showNoDataError() {
@@ -85,54 +80,57 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final connectionState = ref.watch(deviceConnectionProvider);
-    
+    final connectionState = ref.watch(bleConnectionProvider);
+
     // 返回或手动触发时：若蓝牙已连接且设备不在已保存列表，则强制断开
     Future<void> _maybeDisconnectIfEphemeral() async {
-      final conn = ref.read(deviceConnectionProvider);
-      final devId = conn.deviceData?.deviceId;
-      final st = conn.status;
+      final conn = ref.read(bleConnectionProvider);
+      final devId = conn.bleDeviceData?.displayDeviceId;
+      final st = conn.bleDeviceStatus;
       final isBleConnected = st == BleDeviceStatus.connected ||
           st == BleDeviceStatus.authenticating ||
           st == BleDeviceStatus.authenticated;
       if (devId == null || devId.isEmpty || !isBleConnected) return;
       await ref.read(savedDevicesProvider.notifier).load();
       final saved = ref.read(savedDevicesProvider);
-      final inList = saved.devices.any((e) => e.deviceId == devId);
+      final inList = saved.devices.any((e) => e.displayDeviceId == devId);
       if (!inList) {
         // ignore: avoid_print
         print('[DeviceConnectionPage] 返回且设备不在列表，主动断开BLE: $devId');
-        await ref.read(deviceConnectionProvider.notifier).disconnect();
+        await ref.read(bleConnectionProvider.notifier).disconnect();
         Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
       }
     }
     
     // 注册状态监听器，在认证完成时跳转首页
-    ref.listen<DeviceConnectionState>(deviceConnectionProvider,
+    ref.listen<BleConnectionState>(bleConnectionProvider,
         (previous, current) async {
       if (!mounted) return; // 防止页面销毁后继续处理
-      if (previous?.status != current.status) {
+      if (previous?.bleDeviceStatus != current.bleDeviceStatus) {
         // ignore: avoid_print
-        print('[DeviceConnectionPage] 状态变化: ${previous?.status} -> ${current.status}');
+        print(
+            '[DeviceConnectionPage] 状态变化: ${previous?.bleDeviceStatus} -> ${current.bleDeviceStatus}');
       }
       // 特殊错误：设备已被其他账号绑定
-      if (current.status == BleDeviceStatus.error &&
+      if (current.bleDeviceStatus == BleDeviceStatus.error &&
           (
             current.errorMessage == '设备已被其他账号绑定' ||
             (current.errorMessage?.contains('已被其他账号绑定') ?? false) ||
             // 兜底：最近一次握手错误码为 user_mismatch
-            (ref.read(deviceConnectionProvider).lastHandshakeErrorCode == 'user_mismatch') ||
-            // 回退策略：若扫码校验结果表明已被绑定，且在握手阶段失败，也给出相同提示
-            (ref.read(appStateProvider).scannedIsBound == true &&
-             (previous?.status == BleDeviceStatus.authenticating ||
-              previous?.status == BleDeviceStatus.connected))
-          )) {
+              (ref.read(bleConnectionProvider).lastHandshakeErrorCode ==
+                  'user_mismatch') ||
+              // 回退策略：若扫码校验结果表明已被绑定，且在握手阶段失败，也给出相同提示
+              (ref.read(appStateProvider).scannedIsBound == true &&
+                  (previous?.bleDeviceStatus ==
+                          BleDeviceStatus.authenticating ||
+                      previous?.bleDeviceStatus ==
+                          BleDeviceStatus.connected)))) {
         // Toast 提示并回到扫码前的页面；没有则回到设备详情
         Fluttertoast.showToast(msg: '设备已被其他账号绑定');
         if (mounted) {
           // 清理扫描与连接状态
           ref.read(appStateProvider.notifier).clearScannedDeviceData();
-          ref.read(deviceConnectionProvider.notifier).reset();
+          ref.read(bleConnectionProvider.notifier).resetState();
           ref.read(qrScannerProvider.notifier).reset();
           if (context.canPop()) {
             context.pop();
@@ -143,13 +141,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         return;
       }
       // 其他连接相关错误：toast 并回退到扫码前页面；没有则回到设备详情
-      if (current.status == BleDeviceStatus.error ||
-          current.status == BleDeviceStatus.timeout) {
+      if (current.bleDeviceStatus == BleDeviceStatus.error ||
+          current.bleDeviceStatus == BleDeviceStatus.timeout) {
         final msg = current.errorMessage ?? '连接失败，请重试';
         Fluttertoast.showToast(msg: msg);
         if (mounted) {
           ref.read(appStateProvider.notifier).clearScannedDeviceData();
-          ref.read(deviceConnectionProvider.notifier).reset();
+          ref.read(bleConnectionProvider.notifier).resetState();
           ref.read(qrScannerProvider.notifier).reset();
           if (context.canPop()) {
             context.pop();
@@ -159,8 +157,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         }
         return;
       }
-      if (current.status == BleDeviceStatus.authenticated && current.deviceData != null) {
-        final d = current.deviceData!;
+      if (current.bleDeviceStatus == BleDeviceStatus.authenticated &&
+          current.bleDeviceData != null) {
+        final d = current.bleDeviceData!;
         print('[DeviceConnectionPage] 🎉 认证完成');
 
         // 统一在认证后先检查网络（新帧协议由 provider 内部处理）
@@ -169,7 +168,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
         final app = ref.read(appStateProvider);
         final scanned = app.scannedDeviceData;
-        final isSame = scanned?.deviceId == d.deviceId;
+        final isSame = scanned?.bleDeviceId == d.displayDeviceId;
         final isUnboundScan = isSame && (app.scannedIsBound == false);
 
         print('[DeviceConnectionPage] 认证后检查网络状态（带重试）');
@@ -179,7 +178,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           // 无网优先（或未知但为未绑定新设备）：跳转 Wi‑Fi 配网
           print('[DeviceConnectionPage] 📶 设备离线/未知(未绑定) → 跳转Wi‑Fi配网页面');
           if (mounted) {
-            context.go('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+            context.go(
+                '${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.displayDeviceId)}');
           }
           return;
         }
@@ -188,22 +188,22 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         if (isUnboundScan) {
           print('[DeviceConnectionPage] 设备未绑定 → 跳转绑定确认');
           if (mounted) {
-            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.deviceId)}');
+            context.go(
+                '${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.displayDeviceId)}');
           }
           return;
         }
 
         // 保存并进入首页（设备详情页）
         final qr = DeviceQrData(
-          deviceId: d.deviceId,
+          displayDeviceId: d.displayDeviceId,
           deviceName: d.deviceName,
-          bleAddress: d.bleAddress,
+          bleDeviceId: d.bleDeviceId,
           publicKey: d.publicKey,
         );
-        print('[DeviceConnectionPage] 保存设备数据: ${d.deviceId}');
-        await ref.read(savedDevicesProvider.notifier)
-            .selectFromQr(qr, lastBleAddress: d.bleAddress);
-        print('[DeviceConnectionPage] 选择设备: ${d.deviceId}');
+        print('[DeviceConnectionPage] 保存设备数据: ${d.displayDeviceId}');
+        await ref.read(savedDevicesProvider.notifier).selectFromQr(qr);
+        print('[DeviceConnectionPage] 选择设备: ${d.displayDeviceId}');
         if (mounted) {
           context.go(AppRoutes.home);
           print('[DeviceConnectionPage] ✅ 已执行跳转首页');
@@ -230,9 +230,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
             await _maybeDisconnectIfEphemeral();
             // 清理状态并返回扫描页面
             ref.read(appStateProvider.notifier).clearScannedDeviceData();
-            ref.read(deviceConnectionProvider.notifier).reset();
-            ref.read(qrScannerProvider.notifier).reset();
-            context.go(AppRoutes.qrScanner);
+              ref.read(bleConnectionProvider.notifier).resetState();
+              ref.read(qrScannerProvider.notifier).reset();
+              context.go(AppRoutes.qrScanner);
           },
         ),
       ),
@@ -258,11 +258,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     _buildConnectionProgress(connectionState),
                     
                     const SizedBox(height: 32),
-
-                    // 连接日志（仅显示最近10条）
-                    _buildConnectionLogs(connectionState),
-
-                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -274,10 +269,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   );
   }
 
-  // 绑定流程改为独立页面处理
-
   /// 构建设备信息卡片
-  Widget _buildDeviceInfoCard(DeviceConnectionState state) {
+  Widget _buildDeviceInfoCard(BleConnectionState state) {
     // 从全局状态获取QR扫描的设备数据
     final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.deviceId);
     
@@ -318,7 +311,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'ID: ${qrDeviceData?.deviceId ?? widget.deviceId}',
+                        'ID: ${qrDeviceData?.bleDeviceId ?? widget.deviceId}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -334,17 +327,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                 ),
               ],
             ),
-            if (qrDeviceData != null) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-              _buildDeviceDetail('设备类型', qrDeviceData.deviceType),
-              // 优先展示连接态同步到的固件版本
-              if (state.firmwareVersion != null && state.firmwareVersion!.isNotEmpty)
-                _buildDeviceDetail('固件版本', state.firmwareVersion!)
-              else if (qrDeviceData.firmwareVersion != null)
-                _buildDeviceDetail('固件版本', qrDeviceData.firmwareVersion!),
-            ],
           ],
         ),
       ),
@@ -360,7 +342,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     if (!mounted) return null;
 
     // 只在挂载时读取一次，避免在组件销毁后再次触发 ref.read
-    final connNotifier = ref.read(deviceConnectionProvider.notifier);
+    final connNotifier = ref.read(bleConnectionProvider.notifier);
     final swTotal = Stopwatch()..start();
     for (var i = 0; i < attempts; i++) {
       if (!mounted) return last;
@@ -384,38 +366,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     return last; // 可能为false或null（未知）
   }
 
-  /// 构建设备详情行
-  Widget _buildDeviceDetail(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 构建连接进度
-  Widget _buildConnectionProgress(DeviceConnectionState state) {
+  Widget _buildConnectionProgress(BleConnectionState state) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -427,20 +379,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           ],
         ),
         const SizedBox(height: 12),
-        LinearProgressIndicator(
-          value: state.progress > 0 ? state.progress.clamp(0.0, 1.0) : null,
-          backgroundColor: Colors.grey[200],
-          valueColor: AlwaysStoppedAnimation(_getStatusColor(state.status)),
-          minHeight: 6,
-        ),
-        const SizedBox(height: 16),
         _buildProgressSteps(state),
       ],
     );
   }
 
   /// 构建进度步骤
-  Widget _buildProgressSteps(DeviceConnectionState state) {
+  Widget _buildProgressSteps(BleConnectionState state) {
     final steps = [
       ('检查权限', BleDeviceStatus.disconnected),
       ('扫描设备', BleDeviceStatus.scanning),
@@ -453,8 +398,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       children: steps.asMap().entries.map((entry) {
         final index = entry.key;
         final step = entry.value;
-        final isActive = _getStepIndex(state.status) >= index;
-        final isCurrent = _getStepIndex(state.status) == index;
+        final isActive = _getStepIndex(state.bleDeviceStatus) >= index;
+        final isCurrent = _getStepIndex(state.bleDeviceStatus) == index;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -464,9 +409,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: isActive 
-                    ? _getStatusColor(state.status) 
-                    : Colors.grey[300],
+                  color: isActive
+                      ? _getStatusColor(state.bleDeviceStatus)
+                      : Colors.grey[300],
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: isActive
@@ -514,53 +459,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     }
   }
 
-  /// 连接日志
-  Widget _buildConnectionLogs(DeviceConnectionState state) {
-    return const SizedBox.shrink(); // 占位但大小为0，不渲染内容
-    if (state.connectionLogs.isEmpty) return const SizedBox.shrink();
-    final lines = state.connectionLogs.length > 10
-        ? state.connectionLogs.sublist(state.connectionLogs.length - 10)
-        : state.connectionLogs;
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('连接日志',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 18, color: Colors.blue),
-                  tooltip: "复制全部日志",
-                  onPressed: () {
-                    final allLogs = state.connectionLogs.join("\n");
-                    Clipboard.setData(ClipboardData(text: allLogs));
-                    Fluttertoast.showToast(msg: '日志已复制到剪贴板');
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            for (final l in lines)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: SelectableText(
-                  l,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// 获取状态颜色
   Color _getStatusColor(BleDeviceStatus status) {
     switch (status) {
@@ -580,59 +478,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         return Colors.red;
       case BleDeviceStatus.timeout:
         return Colors.red;
-    }
-  }
-
-  /// 获取状态图标
-  Icon _buildStatusIcon(BleDeviceStatus status) {
-    switch (status) {
-      case BleDeviceStatus.disconnected:
-        return const Icon(Icons.bluetooth_disabled, color: Colors.grey, size: 24);
-      case BleDeviceStatus.scanning:
-        return const Icon(Icons.bluetooth_searching, color: Colors.blue, size: 24);
-      case BleDeviceStatus.connecting:
-        return const Icon(Icons.bluetooth_connected, color: Colors.orange, size: 24);
-      case BleDeviceStatus.connected:
-        return const Icon(Icons.bluetooth_connected, color: Colors.orange, size: 24);
-      case BleDeviceStatus.authenticating:
-        return const Icon(Icons.security, color: Colors.purple, size: 24);
-      case BleDeviceStatus.authenticated:
-        return const Icon(Icons.check_circle, color: Colors.green, size: 24);
-      case BleDeviceStatus.error:
-        return const Icon(Icons.error, color: Colors.red, size: 24);
-      case BleDeviceStatus.timeout:
-        return const Icon(Icons.timer_off, color: Colors.red, size: 24);
-    }
-  }
-
-  /// 获取状态图标
-  Icon _getStatusIcon(BleDeviceStatus status) {
-    return _buildStatusIcon(status);
-  }
-
-  /// 获取状态消息
-  String _getStatusMessage(DeviceConnectionState state) {
-    if (state.errorMessage != null) {
-      return state.errorMessage!;
-    }
-    
-    switch (state.status) {
-      case BleDeviceStatus.disconnected:
-        return '准备开始连接...';
-      case BleDeviceStatus.scanning:
-        return '正在扫描设备...';
-      case BleDeviceStatus.connecting:
-        return '正在建立BLE连接...';
-      case BleDeviceStatus.connected:
-        return 'BLE连接已建立';
-      case BleDeviceStatus.authenticating:
-        return '正在进行设备认证...';
-      case BleDeviceStatus.authenticated:
-        return '设备连接和认证成功！';
-      case BleDeviceStatus.error:
-        return '连接失败，请重试';
-      case BleDeviceStatus.timeout:
-        return '连接超时';
     }
   }
 }

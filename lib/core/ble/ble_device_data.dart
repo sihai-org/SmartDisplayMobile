@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-import '../../qr_scanner/models/device_qr_data.dart';
+import '../models/device_qr_data.dart';
 
 part 'ble_device_data.freezed.dart';
 part 'ble_device_data.g.dart';
@@ -21,12 +21,12 @@ enum BleDeviceStatus {
 @freezed
 class BleDeviceData with _$BleDeviceData {
   const factory BleDeviceData({
-    /// 设备ID
-    required String deviceId,
+    /// 业务ID
+    required String displayDeviceId,
+    /// 蓝牙ID
+    required String bleDeviceId,
     /// 设备名称
     required String deviceName,
-    /// BLE设备地址
-    required String bleAddress,
     /// 设备公钥
     required String publicKey,
     /// 连接状态
@@ -113,9 +113,9 @@ extension BleDeviceDataExtension on BleDeviceData {
   /// 从QR码数据创建BLE设备数据
   static BleDeviceData fromQrData(DeviceQrData qrData) {
     return BleDeviceData(
-      deviceId: qrData.deviceId,
+      displayDeviceId: qrData.displayDeviceId,
+      bleDeviceId: qrData.bleDeviceId,
       deviceName: qrData.deviceName,
-      bleAddress: qrData.bleAddress,
       publicKey: qrData.publicKey,
       status: BleDeviceStatus.disconnected,
     );

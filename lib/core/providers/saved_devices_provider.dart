@@ -1,10 +1,8 @@
-import 'dart:ffi';
-
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
-import '../../features/qr_scanner/models/device_qr_data.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import '../models/device_qr_data.dart';
+import 'ble_connection_provider.dart';
 
 class SavedDevicesState {
   final List<SavedDeviceRecord> devices;
@@ -25,7 +23,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     // Load local cache first for instant UI
     final list = await _repo.loadLocal();
     final last = await _repo.loadLastSelectedId();
-    state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.deviceId : null), loaded: true);
+    state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.displayDeviceId : null), loaded: true);
   }
 
   Future<void> syncFromServer({bool allowToast = false}) async {
@@ -38,10 +36,10 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       await _repo.saveLocal(remote);
       // Preserve lastSelectedId if still valid; otherwise pick last
       final currentSelected = state.lastSelectedId;
-      final stillExists = remote.any((e) => e.deviceId == currentSelected);
+      final stillExists = remote.any((e) => e.displayDeviceId == currentSelected);
       final selected = stillExists
           ? currentSelected
-          : (remote.isNotEmpty ? remote.last.deviceId : null);
+          : (remote.isNotEmpty ? remote.last.displayDeviceId : null);
       state = state.copyWith(devices: remote, lastSelectedId: selected);
       if(allowToast) {
         Fluttertoast.showToast(msg: '设备同步成功', gravity: ToastGravity.TOP);
@@ -55,10 +53,10 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 
   // 覆盖（叠加）从 BLE 即时获取的设备信息，基于最新远端列表进行本地增强
   Future<void> overlayInlineInfo({
-    required String deviceId,
+    required String displayDeviceId,
     String? firmwareVersion,
     String? networkSummary,
-    String? lastBleAddress,
+    String? lastBleDeviceId,
   }) async {
     // 确保有最新的远端数据
     if (!state.loaded || state.devices.isEmpty) {
@@ -68,11 +66,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     }
 
     final updated = state.devices.map((e) {
-      if (e.deviceId != deviceId) return e;
+      if (e.displayDeviceId != displayDeviceId) return e;
       return e.copyWith(
         firmwareVersion: firmwareVersion ?? e.firmwareVersion,
         networkSummary: networkSummary ?? e.networkSummary,
-        lastBleAddress: lastBleAddress ?? e.lastBleAddress,
+        lastBleDeviceId: lastBleDeviceId ?? e.lastBleDeviceId,
       );
     }).toList();
 
@@ -81,31 +79,31 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     await _repo.saveLocal(updated);
   }
 
-  Future<void> selectFromQr(DeviceQrData qr, {String? lastBleAddress}) async {
-    await _repo.selectFromQr(qr, lastBleAddress: lastBleAddress);
+  Future<void> selectFromQr(DeviceQrData qr) async {
+    await _repo.selectFromQr(qr);
     // Keep behavior consistent: refresh local state and mark selection
     await load();
-    await select(qr.deviceId);
+    await select(qr.displayDeviceId);
   }
 
-  Future<void> select(String deviceId) async {
-    await _repo.saveLastSelectedId(deviceId);
-    state = state.copyWith(lastSelectedId: deviceId);
+  Future<void> select(String displayDeviceId) async {
+    await _repo.saveLastSelectedId(displayDeviceId);
+    state = state.copyWith(lastSelectedId: displayDeviceId);
   }
 
-  Future<void> removeDevice(String deviceId) async {
+  Future<void> removeDevice(String displayDeviceId) async {
     // 检查是否是当前连接的设备，如果是则先断开连接
-    final deviceConnectionNotifier = _ref.read(deviceConnectionProvider.notifier);
-    final currentConnectionState = _ref.read(deviceConnectionProvider);
+    final bleConnectionNotifier = _ref.read(bleConnectionProvider.notifier);
+    final currentConnectionState = _ref.read(bleConnectionProvider);
 
     // 如果当前有连接的设备且设备ID匹配，先断开连接
-    if (currentConnectionState.deviceData?.deviceId == deviceId) {
-      print('🔌 删除设备前先断开BLE连接: $deviceId');
-      await deviceConnectionNotifier.disconnect();
+    if (currentConnectionState.bleDeviceData?.displayDeviceId == displayDeviceId) {
+      print('🔌 删除设备前先断开BLE连接: $displayDeviceId');
+      await bleConnectionNotifier.disconnect();
       print('✅ BLE连接已断开');
     }
 
-    await _repo.removeDevice(deviceId);
+    await _repo.removeDevice(displayDeviceId);
     await load(); // 重新加载状态
   }
 
@@ -115,9 +113,9 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = const SavedDevicesState(devices: [], lastSelectedId: null, loaded: true);
   }
 
-  SavedDeviceRecord? get selected => state.devices.firstWhere((e) => e.deviceId == state.lastSelectedId, orElse: () => const SavedDeviceRecord(deviceId: '', deviceName: '', publicKey: ''));
+  SavedDeviceRecord? get selected => state.devices.firstWhere((e) => e.displayDeviceId == state.lastSelectedId, orElse: () => const SavedDeviceRecord(displayDeviceId: '', deviceName: '', publicKey: ''));
 
-  bool contains(String deviceId) => state.devices.any((e) => e.deviceId == deviceId);
+  bool contains(String deviceId) => state.devices.any((e) => e.displayDeviceId == deviceId);
 }
 
 final savedDevicesProvider = StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {

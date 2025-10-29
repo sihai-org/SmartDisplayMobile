@@ -5,8 +5,8 @@ import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../data/repositories/saved_devices_repository.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
-import '../../features/qr_scanner/models/device_qr_data.dart';
+import '../../core/providers/ble_connection_provider.dart' as conn;
+import '../../core/models/device_qr_data.dart';
 import '../../core/router/app_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -63,17 +63,17 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
   Future<bool> _connectSavedDevice(SavedDeviceRecord device) async {
     // 允许在缺少本地 BLE 地址时尝试连接：扫描流程会补上实际地址
-    if (device.deviceId.isEmpty || device.publicKey.isEmpty) {
+    if (device.displayDeviceId.isEmpty || device.publicKey.isEmpty) {
       Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
       return false;
     }
     final qr = DeviceQrData(
-      deviceId: device.deviceId,
+      displayDeviceId: device.displayDeviceId,
       deviceName: device.deviceName,
-      bleAddress: device.lastBleAddress ?? '',
+      bleDeviceId: device.lastBleDeviceId ?? '',
       publicKey: device.publicKey,
     );
-    await ref.read(conn.deviceConnectionProvider.notifier).startConnection(qr);
+    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
     return true;
   }
 
@@ -87,7 +87,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       itemCount: state.devices.length,
       itemBuilder: (context, index) {
         final device = state.devices[index];
-        final isSelected = device.deviceId == state.lastSelectedId;
+        final isSelected = device.displayDeviceId == state.lastSelectedId;
 
         return Card(
           elevation: 0,
@@ -114,11 +114,11 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                 IconButton(
                   onPressed: () async {
                     if (isSelected) return;
-                    await _selectDevice(device.deviceId);
+                    await _selectDevice(device.displayDeviceId);
                     if (!mounted) return;
                     final ok = await _connectSavedDevice(device);
                     if (ok && mounted) {
-                      context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.deviceId)}');
+                      context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.displayDeviceId)}');
                     }
                   },
                   icon: Icon(
@@ -132,11 +132,11 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
             onTap: () async {
               await ref
                   .read(savedDevicesProvider.notifier)
-                  .select(device.deviceId);
+                  .select(device.displayDeviceId);
               if (!mounted) return;
               final ok = await _connectSavedDevice(device);
               if (ok && mounted) {
-                context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.deviceId)}');
+                context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.displayDeviceId)}');
               }
             },
             subtitle: Column(
@@ -144,7 +144,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               children: [
                 const SizedBox(height: 8),
                 Text(
-                  '${context.l10n.device_id_label}: ${device.deviceId}',
+                  '${context.l10n.device_id_label}: ${device.displayDeviceId}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
                       ),
@@ -214,9 +214,9 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     context.go(AppRoutes.qrScanner);
   }
 
-  Future<void> _selectDevice(String deviceId) async {
+  Future<void> _selectDevice(String displayDeviceId) async {
     try {
-      await ref.read(savedDevicesProvider.notifier).select(deviceId);
+      await ref.read(savedDevicesProvider.notifier).select(displayDeviceId);
       if (mounted) {
         Fluttertoast.showToast(msg: context.l10n.device_switched);
       }
@@ -255,8 +255,8 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     print('[DeviceManagementPage] 当前设备数量: ${devices.length}');
     for (final device in devices) {
       final name = device.deviceName.isNotEmpty ? device.deviceName : '未命名设备';
-      final ble = device.lastBleAddress ?? '-';
-      print('[DeviceManagementPage] 设备: id=${device.deviceId}, name=$name, ble=$ble');
+      final ble = device.lastBleDeviceId ?? '-';
+      print('[DeviceManagementPage] 设备: id=${device.displayDeviceId}, name=$name, ble=$ble');
     }
   }
 }

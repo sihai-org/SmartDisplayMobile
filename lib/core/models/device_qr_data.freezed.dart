@@ -20,29 +20,27 @@ DeviceQrData _$DeviceQrDataFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$DeviceQrData {
-  /// 设备ID
-  String get deviceId => throw _privateConstructorUsedError;
+  /// 生成时间戳
+  int? get timestamp => throw _privateConstructorUsedError;
+
+  /// 业务ID
+  String get displayDeviceId => throw _privateConstructorUsedError;
+
+  /// 蓝牙ID
+  String get bleDeviceId => throw _privateConstructorUsedError;
 
   /// 设备名称
   String get deviceName => throw _privateConstructorUsedError;
 
-  /// BLE设备MAC地址
-  String get bleAddress => throw _privateConstructorUsedError;
-
   /// 设备公钥（用于加密握手）
   String get publicKey => throw _privateConstructorUsedError;
 
-  /// 设备类型
-  String get deviceType => throw _privateConstructorUsedError;
-
-  /// 固件版本
-  String? get firmwareVersion => throw _privateConstructorUsedError;
-
-  /// 生成时间戳
-  int? get timestamp => throw _privateConstructorUsedError;
-
+  /// Serializes this DeviceQrData to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of DeviceQrData
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $DeviceQrDataCopyWith<DeviceQrData> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -54,13 +52,11 @@ abstract class $DeviceQrDataCopyWith<$Res> {
       _$DeviceQrDataCopyWithImpl<$Res, DeviceQrData>;
   @useResult
   $Res call(
-      {String deviceId,
+      {int? timestamp,
+      String displayDeviceId,
+      String bleDeviceId,
       String deviceName,
-      String bleAddress,
-      String publicKey,
-      String deviceType,
-      String? firmwareVersion,
-      int? timestamp});
+      String publicKey});
 }
 
 /// @nodoc
@@ -73,46 +69,38 @@ class _$DeviceQrDataCopyWithImpl<$Res, $Val extends DeviceQrData>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of DeviceQrData
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? deviceId = null,
-    Object? deviceName = null,
-    Object? bleAddress = null,
-    Object? publicKey = null,
-    Object? deviceType = null,
-    Object? firmwareVersion = freezed,
     Object? timestamp = freezed,
+    Object? displayDeviceId = null,
+    Object? bleDeviceId = null,
+    Object? deviceName = null,
+    Object? publicKey = null,
   }) {
     return _then(_value.copyWith(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
+      timestamp: freezed == timestamp
+          ? _value.timestamp
+          : timestamp // ignore: cast_nullable_to_non_nullable
+              as int?,
+      displayDeviceId: null == displayDeviceId
+          ? _value.displayDeviceId
+          : displayDeviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      bleDeviceId: null == bleDeviceId
+          ? _value.bleDeviceId
+          : bleDeviceId // ignore: cast_nullable_to_non_nullable
               as String,
       deviceName: null == deviceName
           ? _value.deviceName
           : deviceName // ignore: cast_nullable_to_non_nullable
               as String,
-      bleAddress: null == bleAddress
-          ? _value.bleAddress
-          : bleAddress // ignore: cast_nullable_to_non_nullable
-              as String,
       publicKey: null == publicKey
           ? _value.publicKey
           : publicKey // ignore: cast_nullable_to_non_nullable
               as String,
-      deviceType: null == deviceType
-          ? _value.deviceType
-          : deviceType // ignore: cast_nullable_to_non_nullable
-              as String,
-      firmwareVersion: freezed == firmwareVersion
-          ? _value.firmwareVersion
-          : firmwareVersion // ignore: cast_nullable_to_non_nullable
-              as String?,
-      timestamp: freezed == timestamp
-          ? _value.timestamp
-          : timestamp // ignore: cast_nullable_to_non_nullable
-              as int?,
     ) as $Val);
   }
 }
@@ -126,13 +114,11 @@ abstract class _$$DeviceQrDataImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String deviceId,
+      {int? timestamp,
+      String displayDeviceId,
+      String bleDeviceId,
       String deviceName,
-      String bleAddress,
-      String publicKey,
-      String deviceType,
-      String? firmwareVersion,
-      int? timestamp});
+      String publicKey});
 }
 
 /// @nodoc
@@ -143,46 +129,38 @@ class __$$DeviceQrDataImplCopyWithImpl<$Res>
       _$DeviceQrDataImpl _value, $Res Function(_$DeviceQrDataImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of DeviceQrData
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? deviceId = null,
-    Object? deviceName = null,
-    Object? bleAddress = null,
-    Object? publicKey = null,
-    Object? deviceType = null,
-    Object? firmwareVersion = freezed,
     Object? timestamp = freezed,
+    Object? displayDeviceId = null,
+    Object? bleDeviceId = null,
+    Object? deviceName = null,
+    Object? publicKey = null,
   }) {
     return _then(_$DeviceQrDataImpl(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
+      timestamp: freezed == timestamp
+          ? _value.timestamp
+          : timestamp // ignore: cast_nullable_to_non_nullable
+              as int?,
+      displayDeviceId: null == displayDeviceId
+          ? _value.displayDeviceId
+          : displayDeviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      bleDeviceId: null == bleDeviceId
+          ? _value.bleDeviceId
+          : bleDeviceId // ignore: cast_nullable_to_non_nullable
               as String,
       deviceName: null == deviceName
           ? _value.deviceName
           : deviceName // ignore: cast_nullable_to_non_nullable
               as String,
-      bleAddress: null == bleAddress
-          ? _value.bleAddress
-          : bleAddress // ignore: cast_nullable_to_non_nullable
-              as String,
       publicKey: null == publicKey
           ? _value.publicKey
           : publicKey // ignore: cast_nullable_to_non_nullable
               as String,
-      deviceType: null == deviceType
-          ? _value.deviceType
-          : deviceType // ignore: cast_nullable_to_non_nullable
-              as String,
-      firmwareVersion: freezed == firmwareVersion
-          ? _value.firmwareVersion
-          : firmwareVersion // ignore: cast_nullable_to_non_nullable
-              as String?,
-      timestamp: freezed == timestamp
-          ? _value.timestamp
-          : timestamp // ignore: cast_nullable_to_non_nullable
-              as int?,
     ));
   }
 }
@@ -191,49 +169,38 @@ class __$$DeviceQrDataImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$DeviceQrDataImpl implements _DeviceQrData {
   const _$DeviceQrDataImpl(
-      {required this.deviceId,
+      {this.timestamp,
+      required this.displayDeviceId,
+      required this.bleDeviceId,
       required this.deviceName,
-      required this.bleAddress,
-      required this.publicKey,
-      this.deviceType = 'smart_display',
-      this.firmwareVersion,
-      this.timestamp});
+      required this.publicKey});
 
   factory _$DeviceQrDataImpl.fromJson(Map<String, dynamic> json) =>
       _$$DeviceQrDataImplFromJson(json);
-
-  /// 设备ID
-  @override
-  final String deviceId;
-
-  /// 设备名称
-  @override
-  final String deviceName;
-
-  /// BLE设备MAC地址
-  @override
-  final String bleAddress;
-
-  /// 设备公钥（用于加密握手）
-  @override
-  final String publicKey;
-
-  /// 设备类型
-  @override
-  @JsonKey()
-  final String deviceType;
-
-  /// 固件版本
-  @override
-  final String? firmwareVersion;
 
   /// 生成时间戳
   @override
   final int? timestamp;
 
+  /// 业务ID
+  @override
+  final String displayDeviceId;
+
+  /// 蓝牙ID
+  @override
+  final String bleDeviceId;
+
+  /// 设备名称
+  @override
+  final String deviceName;
+
+  /// 设备公钥（用于加密握手）
+  @override
+  final String publicKey;
+
   @override
   String toString() {
-    return 'DeviceQrData(deviceId: $deviceId, deviceName: $deviceName, bleAddress: $bleAddress, publicKey: $publicKey, deviceType: $deviceType, firmwareVersion: $firmwareVersion, timestamp: $timestamp)';
+    return 'DeviceQrData(timestamp: $timestamp, displayDeviceId: $displayDeviceId, bleDeviceId: $bleDeviceId, deviceName: $deviceName, publicKey: $publicKey)';
   }
 
   @override
@@ -241,28 +208,26 @@ class _$DeviceQrDataImpl implements _DeviceQrData {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$DeviceQrDataImpl &&
-            (identical(other.deviceId, deviceId) ||
-                other.deviceId == deviceId) &&
+            (identical(other.timestamp, timestamp) ||
+                other.timestamp == timestamp) &&
+            (identical(other.displayDeviceId, displayDeviceId) ||
+                other.displayDeviceId == displayDeviceId) &&
+            (identical(other.bleDeviceId, bleDeviceId) ||
+                other.bleDeviceId == bleDeviceId) &&
             (identical(other.deviceName, deviceName) ||
                 other.deviceName == deviceName) &&
-            (identical(other.bleAddress, bleAddress) ||
-                other.bleAddress == bleAddress) &&
             (identical(other.publicKey, publicKey) ||
-                other.publicKey == publicKey) &&
-            (identical(other.deviceType, deviceType) ||
-                other.deviceType == deviceType) &&
-            (identical(other.firmwareVersion, firmwareVersion) ||
-                other.firmwareVersion == firmwareVersion) &&
-            (identical(other.timestamp, timestamp) ||
-                other.timestamp == timestamp));
+                other.publicKey == publicKey));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, deviceId, deviceName, bleAddress,
-      publicKey, deviceType, firmwareVersion, timestamp);
+  int get hashCode => Object.hash(runtimeType, timestamp, displayDeviceId,
+      bleDeviceId, deviceName, publicKey);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of DeviceQrData
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$DeviceQrDataImplCopyWith<_$DeviceQrDataImpl> get copyWith =>
@@ -278,47 +243,39 @@ class _$DeviceQrDataImpl implements _DeviceQrData {
 
 abstract class _DeviceQrData implements DeviceQrData {
   const factory _DeviceQrData(
-      {required final String deviceId,
+      {final int? timestamp,
+      required final String displayDeviceId,
+      required final String bleDeviceId,
       required final String deviceName,
-      required final String bleAddress,
-      required final String publicKey,
-      final String deviceType,
-      final String? firmwareVersion,
-      final int? timestamp}) = _$DeviceQrDataImpl;
+      required final String publicKey}) = _$DeviceQrDataImpl;
 
   factory _DeviceQrData.fromJson(Map<String, dynamic> json) =
       _$DeviceQrDataImpl.fromJson;
 
+  /// 生成时间戳
   @override
+  int? get timestamp;
 
-  /// 设备ID
-  String get deviceId;
+  /// 业务ID
   @override
+  String get displayDeviceId;
+
+  /// 蓝牙ID
+  @override
+  String get bleDeviceId;
 
   /// 设备名称
+  @override
   String get deviceName;
-  @override
-
-  /// BLE设备MAC地址
-  String get bleAddress;
-  @override
 
   /// 设备公钥（用于加密握手）
+  @override
   String get publicKey;
-  @override
 
-  /// 设备类型
-  String get deviceType;
+  /// Create a copy of DeviceQrData
+  /// with the given fields replaced by the non-null parameter values.
   @override
-
-  /// 固件版本
-  String? get firmwareVersion;
-  @override
-
-  /// 生成时间戳
-  int? get timestamp;
-  @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$DeviceQrDataImplCopyWith<_$DeviceQrDataImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -387,6 +344,9 @@ class _$QrScanResultCopyWithImpl<$Res, $Val extends QrScanResult>
   final $Val _value;
   // ignore: unused_field
   final $Res Function($Val) _then;
+
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -408,6 +368,8 @@ class __$$SuccessImplCopyWithImpl<$Res>
       _$SuccessImpl _value, $Res Function(_$SuccessImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -421,6 +383,8 @@ class __$$SuccessImplCopyWithImpl<$Res>
     ));
   }
 
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $DeviceQrDataCopyWith<$Res> get deviceData {
@@ -455,7 +419,9 @@ class _$SuccessImpl implements _Success {
   @override
   int get hashCode => Object.hash(runtimeType, deviceData);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$SuccessImplCopyWith<_$SuccessImpl> get copyWith =>
@@ -534,7 +500,10 @@ abstract class _Success implements QrScanResult {
   const factory _Success(final DeviceQrData deviceData) = _$SuccessImpl;
 
   DeviceQrData get deviceData;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SuccessImplCopyWith<_$SuccessImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -556,6 +525,8 @@ class __$$ErrorImplCopyWithImpl<$Res>
       _$ErrorImpl _value, $Res Function(_$ErrorImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -594,7 +565,9 @@ class _$ErrorImpl implements _Error {
   @override
   int get hashCode => Object.hash(runtimeType, message);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ErrorImplCopyWith<_$ErrorImpl> get copyWith =>
@@ -673,7 +646,10 @@ abstract class _Error implements QrScanResult {
   const factory _Error(final String message) = _$ErrorImpl;
 
   String get message;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ErrorImplCopyWith<_$ErrorImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -692,6 +668,9 @@ class __$$CancelledImplCopyWithImpl<$Res>
   __$$CancelledImplCopyWithImpl(
       _$CancelledImpl _value, $Res Function(_$CancelledImpl) _then)
       : super(_value, _then);
+
+  /// Create a copy of QrScanResult
+  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc

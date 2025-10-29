@@ -26,8 +26,12 @@ mixin _$NetworkStatus {
   int? get signal => throw _privateConstructorUsedError; // RSSI值
   int? get frequency => throw _privateConstructorUsedError;
 
+  /// Serializes this NetworkStatus to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of NetworkStatus
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $NetworkStatusCopyWith<NetworkStatus> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -52,6 +56,8 @@ class _$NetworkStatusCopyWithImpl<$Res, $Val extends NetworkStatus>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of NetworkStatus
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -106,6 +112,8 @@ class __$$NetworkStatusImplCopyWithImpl<$Res>
       _$NetworkStatusImpl _value, $Res Function(_$NetworkStatusImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of NetworkStatus
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -185,12 +193,14 @@ class _$NetworkStatusImpl implements _NetworkStatus {
                 other.frequency == frequency));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode =>
       Object.hash(runtimeType, connected, ssid, ip, signal, frequency);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of NetworkStatus
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$NetworkStatusImplCopyWith<_$NetworkStatusImpl> get copyWith =>
@@ -222,11 +232,14 @@ abstract class _NetworkStatus implements NetworkStatus {
   @override
   String? get ip;
   @override
-  int? get signal;
-  @override // RSSI值
-  int? get frequency;
+  int? get signal; // RSSI值
   @override
-  @JsonKey(ignore: true)
+  int? get frequency;
+
+  /// Create a copy of NetworkStatus
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$NetworkStatusImplCopyWith<_$NetworkStatusImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

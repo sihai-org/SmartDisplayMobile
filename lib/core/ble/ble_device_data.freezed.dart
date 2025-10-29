@@ -20,14 +20,14 @@ BleDeviceData _$BleDeviceDataFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$BleDeviceData {
-  /// 设备ID
-  String get deviceId => throw _privateConstructorUsedError;
+  /// 业务ID
+  String get displayDeviceId => throw _privateConstructorUsedError;
+
+  /// 蓝牙ID
+  String get bleDeviceId => throw _privateConstructorUsedError;
 
   /// 设备名称
   String get deviceName => throw _privateConstructorUsedError;
-
-  /// BLE设备地址
-  String get bleAddress => throw _privateConstructorUsedError;
 
   /// 设备公钥
   String get publicKey => throw _privateConstructorUsedError;
@@ -47,8 +47,12 @@ mixin _$BleDeviceData {
   /// 错误信息
   String? get errorMessage => throw _privateConstructorUsedError;
 
+  /// Serializes this BleDeviceData to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of BleDeviceData
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BleDeviceDataCopyWith<BleDeviceData> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -60,9 +64,9 @@ abstract class $BleDeviceDataCopyWith<$Res> {
       _$BleDeviceDataCopyWithImpl<$Res, BleDeviceData>;
   @useResult
   $Res call(
-      {String deviceId,
+      {String displayDeviceId,
+      String bleDeviceId,
       String deviceName,
-      String bleAddress,
       String publicKey,
       BleDeviceStatus status,
       int? rssi,
@@ -81,12 +85,14 @@ class _$BleDeviceDataCopyWithImpl<$Res, $Val extends BleDeviceData>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BleDeviceData
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? deviceId = null,
+    Object? displayDeviceId = null,
+    Object? bleDeviceId = null,
     Object? deviceName = null,
-    Object? bleAddress = null,
     Object? publicKey = null,
     Object? status = null,
     Object? rssi = freezed,
@@ -95,17 +101,17 @@ class _$BleDeviceDataCopyWithImpl<$Res, $Val extends BleDeviceData>
     Object? errorMessage = freezed,
   }) {
     return _then(_value.copyWith(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
+      displayDeviceId: null == displayDeviceId
+          ? _value.displayDeviceId
+          : displayDeviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      bleDeviceId: null == bleDeviceId
+          ? _value.bleDeviceId
+          : bleDeviceId // ignore: cast_nullable_to_non_nullable
               as String,
       deviceName: null == deviceName
           ? _value.deviceName
           : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bleAddress: null == bleAddress
-          ? _value.bleAddress
-          : bleAddress // ignore: cast_nullable_to_non_nullable
               as String,
       publicKey: null == publicKey
           ? _value.publicKey
@@ -144,9 +150,9 @@ abstract class _$$BleDeviceDataImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String deviceId,
+      {String displayDeviceId,
+      String bleDeviceId,
       String deviceName,
-      String bleAddress,
       String publicKey,
       BleDeviceStatus status,
       int? rssi,
@@ -163,12 +169,14 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
       _$BleDeviceDataImpl _value, $Res Function(_$BleDeviceDataImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleDeviceData
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? deviceId = null,
+    Object? displayDeviceId = null,
+    Object? bleDeviceId = null,
     Object? deviceName = null,
-    Object? bleAddress = null,
     Object? publicKey = null,
     Object? status = null,
     Object? rssi = freezed,
@@ -177,17 +185,17 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
     Object? errorMessage = freezed,
   }) {
     return _then(_$BleDeviceDataImpl(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
+      displayDeviceId: null == displayDeviceId
+          ? _value.displayDeviceId
+          : displayDeviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      bleDeviceId: null == bleDeviceId
+          ? _value.bleDeviceId
+          : bleDeviceId // ignore: cast_nullable_to_non_nullable
               as String,
       deviceName: null == deviceName
           ? _value.deviceName
           : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      bleAddress: null == bleAddress
-          ? _value.bleAddress
-          : bleAddress // ignore: cast_nullable_to_non_nullable
               as String,
       publicKey: null == publicKey
           ? _value.publicKey
@@ -221,9 +229,9 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$BleDeviceDataImpl implements _BleDeviceData {
   const _$BleDeviceDataImpl(
-      {required this.deviceId,
+      {required this.displayDeviceId,
+      required this.bleDeviceId,
       required this.deviceName,
-      required this.bleAddress,
       required this.publicKey,
       this.status = BleDeviceStatus.disconnected,
       this.rssi,
@@ -234,17 +242,17 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
   factory _$BleDeviceDataImpl.fromJson(Map<String, dynamic> json) =>
       _$$BleDeviceDataImplFromJson(json);
 
-  /// 设备ID
+  /// 业务ID
   @override
-  final String deviceId;
+  final String displayDeviceId;
+
+  /// 蓝牙ID
+  @override
+  final String bleDeviceId;
 
   /// 设备名称
   @override
   final String deviceName;
-
-  /// BLE设备地址
-  @override
-  final String bleAddress;
 
   /// 设备公钥
   @override
@@ -274,7 +282,7 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
 
   @override
   String toString() {
-    return 'BleDeviceData(deviceId: $deviceId, deviceName: $deviceName, bleAddress: $bleAddress, publicKey: $publicKey, status: $status, rssi: $rssi, mtu: $mtu, connectedAt: $connectedAt, errorMessage: $errorMessage)';
+    return 'BleDeviceData(displayDeviceId: $displayDeviceId, bleDeviceId: $bleDeviceId, deviceName: $deviceName, publicKey: $publicKey, status: $status, rssi: $rssi, mtu: $mtu, connectedAt: $connectedAt, errorMessage: $errorMessage)';
   }
 
   @override
@@ -282,12 +290,12 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$BleDeviceDataImpl &&
-            (identical(other.deviceId, deviceId) ||
-                other.deviceId == deviceId) &&
+            (identical(other.displayDeviceId, displayDeviceId) ||
+                other.displayDeviceId == displayDeviceId) &&
+            (identical(other.bleDeviceId, bleDeviceId) ||
+                other.bleDeviceId == bleDeviceId) &&
             (identical(other.deviceName, deviceName) ||
                 other.deviceName == deviceName) &&
-            (identical(other.bleAddress, bleAddress) ||
-                other.bleAddress == bleAddress) &&
             (identical(other.publicKey, publicKey) ||
                 other.publicKey == publicKey) &&
             (identical(other.status, status) || other.status == status) &&
@@ -299,12 +307,14 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
                 other.errorMessage == errorMessage));
   }
 
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, deviceId, deviceName, bleAddress,
-      publicKey, status, rssi, mtu, connectedAt, errorMessage);
+  int get hashCode => Object.hash(runtimeType, displayDeviceId, bleDeviceId,
+      deviceName, publicKey, status, rssi, mtu, connectedAt, errorMessage);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleDeviceData
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BleDeviceDataImplCopyWith<_$BleDeviceDataImpl> get copyWith =>
@@ -320,9 +330,9 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
 
 abstract class _BleDeviceData implements BleDeviceData {
   const factory _BleDeviceData(
-      {required final String deviceId,
+      {required final String displayDeviceId,
+      required final String bleDeviceId,
       required final String deviceName,
-      required final String bleAddress,
       required final String publicKey,
       final BleDeviceStatus status,
       final int? rssi,
@@ -333,44 +343,46 @@ abstract class _BleDeviceData implements BleDeviceData {
   factory _BleDeviceData.fromJson(Map<String, dynamic> json) =
       _$BleDeviceDataImpl.fromJson;
 
+  /// 业务ID
   @override
+  String get displayDeviceId;
 
-  /// 设备ID
-  String get deviceId;
+  /// 蓝牙ID
   @override
+  String get bleDeviceId;
 
   /// 设备名称
+  @override
   String get deviceName;
-  @override
-
-  /// BLE设备地址
-  String get bleAddress;
-  @override
 
   /// 设备公钥
-  String get publicKey;
   @override
+  String get publicKey;
 
   /// 连接状态
-  BleDeviceStatus get status;
   @override
+  BleDeviceStatus get status;
 
   /// RSSI信号强度
-  int? get rssi;
   @override
+  int? get rssi;
 
   /// MTU大小
-  int get mtu;
   @override
+  int get mtu;
 
   /// 连接时间戳
-  DateTime? get connectedAt;
   @override
+  DateTime? get connectedAt;
 
   /// 错误信息
-  String? get errorMessage;
   @override
-  @JsonKey(ignore: true)
+  String? get errorMessage;
+
+  /// Create a copy of BleDeviceData
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BleDeviceDataImplCopyWith<_$BleDeviceDataImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -445,6 +457,9 @@ class _$BleConnectionResultCopyWithImpl<$Res, $Val extends BleConnectionResult>
   final $Val _value;
   // ignore: unused_field
   final $Res Function($Val) _then;
+
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -466,6 +481,8 @@ class __$$SuccessImplCopyWithImpl<$Res>
       _$SuccessImpl _value, $Res Function(_$SuccessImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -479,6 +496,8 @@ class __$$SuccessImplCopyWithImpl<$Res>
     ));
   }
 
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
   $BleDeviceDataCopyWith<$Res> get device {
@@ -512,7 +531,9 @@ class _$SuccessImpl implements _Success {
   @override
   int get hashCode => Object.hash(runtimeType, device);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$SuccessImplCopyWith<_$SuccessImpl> get copyWith =>
@@ -597,7 +618,10 @@ abstract class _Success implements BleConnectionResult {
   const factory _Success(final BleDeviceData device) = _$SuccessImpl;
 
   BleDeviceData get device;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$SuccessImplCopyWith<_$SuccessImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -619,6 +643,8 @@ class __$$ErrorImplCopyWithImpl<$Res>
       _$ErrorImpl _value, $Res Function(_$ErrorImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -657,7 +683,9 @@ class _$ErrorImpl implements _Error {
   @override
   int get hashCode => Object.hash(runtimeType, message);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ErrorImplCopyWith<_$ErrorImpl> get copyWith =>
@@ -742,7 +770,10 @@ abstract class _Error implements BleConnectionResult {
   const factory _Error(final String message) = _$ErrorImpl;
 
   String get message;
-  @JsonKey(ignore: true)
+
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ErrorImplCopyWith<_$ErrorImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -761,6 +792,9 @@ class __$$TimeoutImplCopyWithImpl<$Res>
   __$$TimeoutImplCopyWithImpl(
       _$TimeoutImpl _value, $Res Function(_$TimeoutImpl) _then)
       : super(_value, _then);
+
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -875,6 +909,9 @@ class __$$CancelledImplCopyWithImpl<$Res>
   __$$CancelledImplCopyWithImpl(
       _$CancelledImpl _value, $Res Function(_$CancelledImpl) _then)
       : super(_value, _then);
+
+  /// Create a copy of BleConnectionResult
+  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -985,7 +1022,9 @@ mixin _$BleScanResult {
   Map<String, dynamic>? get advertisementData =>
       throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BleScanResultCopyWith<BleScanResult> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1015,6 +1054,8 @@ class _$BleScanResultCopyWithImpl<$Res, $Val extends BleScanResult>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BleScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1079,6 +1120,8 @@ class __$$BleScanResultImplCopyWithImpl<$Res>
       _$BleScanResultImpl _value, $Res Function(_$BleScanResultImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1176,7 +1219,9 @@ class _$BleScanResultImpl implements _BleScanResult {
   int get hashCode => Object.hash(runtimeType, deviceId, name, address, rssi,
       timestamp, const DeepCollectionEquality().hash(_advertisementData));
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleScanResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BleScanResultImplCopyWith<_$BleScanResultImpl> get copyWith =>
@@ -1204,8 +1249,11 @@ abstract class _BleScanResult implements BleScanResult {
   DateTime get timestamp;
   @override
   Map<String, dynamic>? get advertisementData;
+
+  /// Create a copy of BleScanResult
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BleScanResultImplCopyWith<_$BleScanResultImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1216,7 +1264,9 @@ mixin _$BleServiceInfo {
   List<BleCharacteristicInfo> get characteristics =>
       throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleServiceInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BleServiceInfoCopyWith<BleServiceInfo> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1240,6 +1290,8 @@ class _$BleServiceInfoCopyWithImpl<$Res, $Val extends BleServiceInfo>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BleServiceInfo
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1278,6 +1330,8 @@ class __$$BleServiceInfoImplCopyWithImpl<$Res>
       _$BleServiceInfoImpl _value, $Res Function(_$BleServiceInfoImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleServiceInfo
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1335,7 +1389,9 @@ class _$BleServiceInfoImpl implements _BleServiceInfo {
   int get hashCode => Object.hash(runtimeType, serviceUuid,
       const DeepCollectionEquality().hash(_characteristics));
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleServiceInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BleServiceInfoImplCopyWith<_$BleServiceInfoImpl> get copyWith =>
@@ -1353,8 +1409,11 @@ abstract class _BleServiceInfo implements BleServiceInfo {
   String get serviceUuid;
   @override
   List<BleCharacteristicInfo> get characteristics;
+
+  /// Create a copy of BleServiceInfo
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BleServiceInfoImplCopyWith<_$BleServiceInfoImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1367,7 +1426,9 @@ mixin _$BleCharacteristicInfo {
   bool get canNotify => throw _privateConstructorUsedError;
   bool get canIndicate => throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleCharacteristicInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $BleCharacteristicInfoCopyWith<BleCharacteristicInfo> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1397,6 +1458,8 @@ class _$BleCharacteristicInfoCopyWithImpl<$Res,
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of BleCharacteristicInfo
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1457,6 +1520,8 @@ class __$$BleCharacteristicInfoImplCopyWithImpl<$Res>
       $Res Function(_$BleCharacteristicInfoImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of BleCharacteristicInfo
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1537,7 +1602,9 @@ class _$BleCharacteristicInfoImpl implements _BleCharacteristicInfo {
   int get hashCode => Object.hash(runtimeType, characteristicUuid, canRead,
       canWrite, canNotify, canIndicate);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of BleCharacteristicInfo
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$BleCharacteristicInfoImplCopyWith<_$BleCharacteristicInfoImpl>
@@ -1563,8 +1630,11 @@ abstract class _BleCharacteristicInfo implements BleCharacteristicInfo {
   bool get canNotify;
   @override
   bool get canIndicate;
+
+  /// Create a copy of BleCharacteristicInfo
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BleCharacteristicInfoImplCopyWith<_$BleCharacteristicInfoImpl>
       get copyWith => throw _privateConstructorUsedError;
 }

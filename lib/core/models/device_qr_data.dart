@@ -7,20 +7,16 @@ part 'device_qr_data.g.dart';
 @freezed
 class DeviceQrData with _$DeviceQrData {
   const factory DeviceQrData({
-    /// 设备ID
-    required String deviceId,
-    /// 设备名称
-    required String deviceName,
-    /// BLE设备MAC地址
-    required String bleAddress,
-    /// 设备公钥（用于加密握手）
-    required String publicKey,
-    /// 设备类型
-    @Default('smart_display') String deviceType,
-    /// 固件版本
-    String? firmwareVersion,
     /// 生成时间戳
     int? timestamp,
+    /// 业务ID
+    required String displayDeviceId,
+    /// 蓝牙ID
+    required String bleDeviceId,
+    /// 设备名称
+    required String deviceName,
+    /// 设备公钥（用于加密握手）
+    required String publicKey,
   }) = _DeviceQrData;
 
   factory DeviceQrData.fromJson(Map<String, Object?> json) =>

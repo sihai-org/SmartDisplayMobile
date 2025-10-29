@@ -9,7 +9,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart' as conn;
+import '../../core/providers/ble_connection_provider.dart' as conn;
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -32,9 +32,9 @@ class ProfilePage extends ConsumerWidget {
       // 清空本地设备列表与选择，避免不同用户设备串列表
       await ref.read(savedDevicesProvider.notifier).clearForLogout();
       // 若当前与设备已建立连接，则通过 BLE 通知 TV 执行本地登出
-      final connState = ref.read(conn.deviceConnectionProvider);
-      if (connState.deviceData != null) {
-        final notifier = ref.read(conn.deviceConnectionProvider.notifier);
+      final connState = ref.read(conn.bleConnectionProvider);
+      if (connState.bleDeviceData != null) {
+        final notifier = ref.read(conn.bleConnectionProvider.notifier);
         final ok = await notifier.sendDeviceLogout();
         if (!ok) {
           // 不中断后续流程，仅记录日志

@@ -127,7 +127,7 @@ final GoRouter appRouter = GoRouter(
       name: 'bind-confirm',
       builder: (context, state) {
         final deviceId = state.uri.queryParameters['deviceId'] ?? '';
-        return BindConfirmPage(deviceId: deviceId);
+        return BindConfirmPage(displayDeviceId: deviceId);
       },
     ),
   ],

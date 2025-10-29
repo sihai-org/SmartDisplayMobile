@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_state_provider.dart';
-import '../../features/device_connection/providers/device_connection_provider.dart';
-import '../../features/device_connection/models/network_status.dart';
-import '../../features/device_connection/models/ble_device_data.dart';
+import '../../core/providers/ble_connection_provider.dart';
+import '../../core/network/network_status.dart';
+import '../../core/ble/ble_device_data.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +35,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       if (mounted) {
         // 确保本地设备列表已加载，便于后续跳转判断
         ref.read(savedDevicesProvider.notifier).load();
-        ref.read(deviceConnectionProvider.notifier).requestWifiScan();
+        ref.read(bleConnectionProvider.notifier).requestWifiScan();
       }
     });
   }
@@ -49,14 +49,14 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final connState = ref.watch(deviceConnectionProvider);
+    final connState = ref.watch(bleConnectionProvider);
     final provisionStatus = connState.provisionStatus ?? '未开始';
 
     // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
     Future<void> _maybeDisconnectIfEphemeral() async {
-      final conn = ref.read(deviceConnectionProvider);
-      final devId = conn.deviceData?.deviceId;
-      final st = conn.status;
+      final conn = ref.read(bleConnectionProvider);
+      final devId = conn.bleDeviceData?.displayDeviceId;
+      final st = conn.bleDeviceStatus;
       final isBleConnected = st == BleDeviceStatus.connected ||
           st == BleDeviceStatus.authenticating ||
           st == BleDeviceStatus.authenticated;
@@ -64,18 +64,18 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       // 确保本地设备列表已加载
       await ref.read(savedDevicesProvider.notifier).load();
       final saved = ref.read(savedDevicesProvider);
-      final inList = saved.devices.any((e) => e.deviceId == devId);
+      final inList = saved.devices.any((e) => e.displayDeviceId == devId);
       if (!inList) {
         // 日志与用户提示
         // ignore: avoid_print
         print('[WiFiSelectionPage] 返回且设备不在列表，主动断开BLE: $devId');
-        await ref.read(deviceConnectionProvider.notifier).disconnect();
+        await ref.read(bleConnectionProvider.notifier).disconnect();
         Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
       }
     }
 
     // 监听配网结果：wifi_online/wifi_offline，若未在设备列表则跳转绑定页
-    ref.listen<DeviceConnectionState>(deviceConnectionProvider, (prev, next) {
+    ref.listen<BleConnectionState>(bleConnectionProvider, (prev, next) {
       String s = (next.provisionStatus ?? '').toLowerCase();
       final String prevS = (prev?.provisionStatus ?? '').toLowerCase();
       // 兼容设备端发送的 JSON 载荷：{"deviceId":"...","status":"wifi_online"}
@@ -111,7 +111,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         if (!_navigatedOnSuccess && id.isNotEmpty) {
           // 未绑定（设备列表中不存在）→ 跳转绑定页
           final saved = ref.read(savedDevicesProvider);
-          final inList = saved.devices.any((e) => e.deviceId == id);
+          final inList = saved.devices.any((e) => e.displayDeviceId == id);
           if (!inList) {
             _navigatedOnSuccess = true;
             context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(id)}');
@@ -207,7 +207,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: () => ref.read(deviceConnectionProvider.notifier).requestWifiScan(),
+                  onPressed: () => ref.read(bleConnectionProvider.notifier).requestWifiScan(),
                   tooltip: '重新扫描',
                 )
               ],
@@ -292,7 +292,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                       _navigatedOnSuccess = false;
                       setState(() => _sending = true);
                       final ok = await ref
-                          .read(deviceConnectionProvider.notifier)
+                          .read(bleConnectionProvider.notifier)
                           .sendProvisionRequest(ssid: ssid, password: pwd);
                       setState(() => _sending = false);
                       if (!ok) {
@@ -315,7 +315,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
               width: double.infinity,
               height: 44,
               child: OutlinedButton.icon(
-                onPressed: () => ref.read(deviceConnectionProvider.notifier).requestWifiScan(),
+                onPressed: () => ref.read(bleConnectionProvider.notifier).requestWifiScan(),
                 icon: const Icon(Icons.wifi_tethering),
                 label: const Text('扫描附近Wi‑Fi'),
               ),
@@ -333,8 +333,6 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                   backgroundColor: _statusColor(provisionStatus).withOpacity(0.15),
                   labelStyle: TextStyle(color: _statusColor(provisionStatus)),
                 ),
-                const Spacer(),
-                Text('${(connState.progress * 100).toStringAsFixed(0)}%'),
               ],
             ),
           ],

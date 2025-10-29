@@ -8,7 +8,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../../presentation/pages/qrcode_result_page.dart';
 import '../router/app_router.dart';
 import '../providers/app_state_provider.dart';
-import '../../core/providers/saved_devices_provider.dart';
+import '../providers/saved_devices_provider.dart';
 import '../../features/qr_scanner/utils/qr_data_parser.dart';
 
 /// Centralized entry for both deep links and in-app QR scan
@@ -29,18 +29,18 @@ class DeviceEntryCoordinator {
       final deviceData = QrDataParser.fromQrContent(content);
 
       // If already saved locally, select and go home
-      developer.log('entry: check saved list for ${deviceData.deviceId}', name: 'QR');
+      developer.log('entry: check saved list for ${deviceData.displayDeviceId}', name: 'QR');
       await ref.read(savedDevicesProvider.notifier).load();
       final saved = ref.read(savedDevicesProvider);
-      if (saved.loaded && saved.devices.any((e) => e.deviceId == deviceData.deviceId)) {
+      if (saved.loaded && saved.devices.any((e) => e.displayDeviceId == deviceData.displayDeviceId)) {
         developer.log('entry: already saved -> select+home', name: 'QR');
-        await ref.read(savedDevicesProvider.notifier).select(deviceData.deviceId);
+        await ref.read(savedDevicesProvider.notifier).select(deviceData.displayDeviceId);
         if (context.mounted) context.go(AppRoutes.home);
         return;
       }
 
       // Record scanned data into app state (reset binding flags)
-      developer.log('entry: record scanned data ${deviceData.deviceId}', name: 'QR');
+      developer.log('entry: record scanned data ${deviceData.bleDeviceId}', name: 'QR');
       ref.read(appStateProvider.notifier).setScannedDeviceData(deviceData);
 
       // Check binding status via Edge Function
@@ -49,7 +49,7 @@ class DeviceEntryCoordinator {
         developer.log('entry: invoke device_check_binding', name: 'QR');
         final resp = await supabase.functions.invoke(
           'device_check_binding',
-          body: {'device_id': deviceData.deviceId},
+          body: {'device_id': deviceData.bleDeviceId},
         );
         if (resp.status != 200) {
           throw Exception('device_check_binding 调用失败: ${resp.data}');
@@ -65,7 +65,7 @@ class DeviceEntryCoordinator {
           developer.log('entry: bound+owner -> selectFromQr + home', name: 'QR');
           await ref
               .read(savedDevicesProvider.notifier)
-              .selectFromQr(deviceData, lastBleAddress: deviceData.bleAddress);
+              .selectFromQr(deviceData);
           if (context.mounted) context.go(AppRoutes.home);
           return;
         }
@@ -80,13 +80,13 @@ class DeviceEntryCoordinator {
         // Unbound -> go to connection page
         if (context.mounted) {
           developer.log('entry: unbound -> go deviceConnection', name: 'QR');
-          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.bleDeviceId}');
         }
       } catch (_) {
         // Fallback: proceed to connection page
         if (context.mounted) {
           developer.log('entry: check binding failed -> fallback deviceConnection', name: 'QR');
-          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.deviceId}');
+          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.bleDeviceId}');
         }
       }
     } catch (e) {

@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 
-import '../../../core/constants/ble_constants.dart';
+import '../constants/ble_constants.dart';
 import 'ble_service_simple.dart';
 import 'frame_codec.dart';
 
