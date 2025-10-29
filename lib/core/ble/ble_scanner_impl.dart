@@ -14,11 +14,16 @@ class BleScannerImpl implements BleScanner {
   DateTime? _targetFirstSeenAt;
 
   @override
-  Future<String> findBleAddress(
+  Future<String> findBleDeviceId(
       DeviceQrData qr, {
         Duration timeout = const Duration(seconds: 30),
       }) async {
     await BleServiceSimple.stopScan().catchError((_) {});
+
+    final ok = await BleServiceSimple.ensureBleReady();
+    if (!ok) {
+      throw StateError('BLE 未就绪');
+    }
 
     final c = Completer<String>();
     final timer = Timer(timeout, () async {
@@ -31,7 +36,7 @@ class BleScannerImpl implements BleScanner {
     _sub = BleServiceSimple
         .scanForDevice(timeout: timeout)
         .listen((r) async {
-      if (_isTarget(r, qr.bleDeviceId)) {
+      if (_isTarget(r, qr.bleDeviceId, qr.deviceName)) {
         final now = DateTime.now();
         _targetFirstSeenAt ??= now;
 
@@ -63,13 +68,14 @@ class BleScannerImpl implements BleScanner {
     try { await BleServiceSimple.stopScan(); } catch (_) {}
   }
 
-  bool _isTarget(SimpleBLEScanResult r, String targetDeviceId) {
+  bool _isTarget(
+      SimpleBLEScanResult r, String targetDeviceId, String targetDeviceName) {
     // 直接复用你现在的指纹/名称匹配
     if (r.manufacturerData != null) {
       final expected = createDeviceFingerprint(targetDeviceId);
       if (_containsSublist(r.manufacturerData!, expected)) return true;
     }
-    return (r.name == null) ? false : r.name == /* 你的 deviceName */ r.name;
+    return (r.name == null) ? false : r.name == targetDeviceName;
   }
 
   bool _containsSublist(Uint8List data, Uint8List pattern) {

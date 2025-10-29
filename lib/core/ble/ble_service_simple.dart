@@ -218,7 +218,7 @@ class BleServiceSimple {
       await stopScan();
 
       final connectionStream = _ble.connectToDevice(
-        id: bleDeviceData.displayDeviceId,
+        id: bleDeviceData.bleDeviceId,
         connectionTimeout: timeout,
       );
 

@@ -23,9 +23,12 @@ class SecureChannelManager {
   /// 将全局通道切换到指定设备；相同设备则复用
   Future<void> use(DeviceQrData qrData) async {
     final targetDisplayDeviceId = qrData.displayDeviceId;
-    final targetBleDeviceId = await _scanner.findBleAddress(qrData);
-    if (targetBleDeviceId == null) {
-      // TODO: 找不到目标设备（扫描失败）
+
+    String targetBleDeviceId;
+    try {
+      targetBleDeviceId = await _scanner.findBleDeviceId(qrData);
+    } catch (_) {
+      // TODO:
       return;
     }
 

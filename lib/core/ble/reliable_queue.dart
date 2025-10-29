@@ -164,6 +164,7 @@ class ReliableRequestQueue {
     }
     final frames = encoder.encodeJson(reqId, payload);
     final completer = Completer<Map<String, dynamic>>();
+    _inflight.remove(reqId);
     _inflight[reqId] = _Pending(completer, isFinal);
 
     int attempt = 0;
@@ -193,7 +194,10 @@ class ReliableRequestQueue {
         return resp;
       } catch (_) {
         _log('Timeout waiting for resp reqId=$reqId after ${timeout.inMilliseconds}ms');
-        if (attempt > retries) rethrow;
+        if (attempt > retries) {
+          _inflight.remove(reqId);
+          rethrow;
+        }
       }
     }
     throw TimeoutException('BLE request timeout');
