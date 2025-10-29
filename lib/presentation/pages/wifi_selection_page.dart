@@ -11,9 +11,9 @@ import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
-  const WiFiSelectionPage({super.key, required this.deviceId});
+  const WiFiSelectionPage({super.key, required this.displayDeviceId});
 
-  final String deviceId;
+  final String displayDeviceId;
 
   @override
   ConsumerState<WiFiSelectionPage> createState() => _WiFiSelectionPageState();
@@ -92,7 +92,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       final provDeviceId = next.lastProvisionDeviceId;
       final isDeviceMatch = provDeviceId == null || provDeviceId.isEmpty
           ? true // 未传则放行（向后兼容）
-          : provDeviceId == widget.deviceId;
+          : provDeviceId == widget.displayDeviceId;
 
       // 成功：只在状态从非成功 -> 成功时提示一次，且必须确认网络真实连接并匹配本次 SSID
       final bool nextIsSuccess = (s == 'wifi_online' || s.contains('wifi_online'));
@@ -107,21 +107,21 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           _shownSuccessToast = true;
           Fluttertoast.showToast(msg: '配网成功，设备已联网');
         }
-        final id = widget.deviceId;
+        final id = widget.displayDeviceId;
         if (!_navigatedOnSuccess && id.isNotEmpty) {
           // 未绑定（设备列表中不存在）→ 跳转绑定页
           final saved = ref.read(savedDevicesProvider);
           final inList = saved.devices.any((e) => e.displayDeviceId == id);
           if (!inList) {
             _navigatedOnSuccess = true;
-            context.go('${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(id)}');
+            context.go('${AppRoutes.bindConfirm}?displayDeviceId=${Uri.encodeComponent(id)}');
           }
           // 已绑定 → 保持当前页面，不做跳转
         }
       } else if (nextIsSuccess && !isDeviceMatch) {
         // 设备不匹配时仅记录，不进行跳转
         // ignore: avoid_print
-        print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.deviceId}');
+        print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.displayDeviceId}');
       }
 
       // 失败：只在状态从非失败 -> 失败时提示一次
@@ -189,7 +189,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '设备: ${widget.deviceId}',
+                    '设备: ${widget.displayDeviceId}',
                     style: const TextStyle(color: Colors.grey),
                     overflow: TextOverflow.ellipsis,
                   ),

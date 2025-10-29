@@ -118,7 +118,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                     if (!mounted) return;
                     final ok = await _connectSavedDevice(device);
                     if (ok && mounted) {
-                      context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.displayDeviceId)}');
+                      context.go('${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
                     }
                   },
                   icon: Icon(
@@ -136,7 +136,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
               if (!mounted) return;
               final ok = await _connectSavedDevice(device);
               if (ok && mounted) {
-                context.go('${AppRoutes.home}?deviceId=${Uri.encodeComponent(device.displayDeviceId)}');
+                context.go('${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
               }
             },
             subtitle: Column(

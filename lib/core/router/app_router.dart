@@ -71,8 +71,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.home,
       name: 'home',
       builder: (context, state) {
-        final deviceId = state.uri.queryParameters['deviceId'];
-        return MainPage(initialDeviceId: deviceId);
+        final displayDeviceId = state.uri.queryParameters['displayDeviceId'];
+        return MainPage(initialDisplayDeviceId: displayDeviceId);
       },
     ),
 
@@ -106,8 +106,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.deviceConnection,
       name: 'device-connection',
       builder: (context, state) {
-        final deviceId = state.uri.queryParameters['deviceId'] ?? '';
-        return DeviceConnectionPage(deviceId: deviceId);
+        final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
+        return DeviceConnectionPage(displayDeviceId: displayDeviceId);
       },
     ),
 
@@ -116,8 +116,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.wifiSelection,
       name: 'wifi-selection',
       builder: (context, state) {
-        final deviceId = state.uri.queryParameters['deviceId'] ?? '';
-        return WiFiSelectionPage(deviceId: deviceId);
+        final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
+        return WiFiSelectionPage(displayDeviceId: displayDeviceId);
       },
     ),
 
@@ -126,8 +126,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.bindConfirm,
       name: 'bind-confirm',
       builder: (context, state) {
-        final deviceId = state.uri.queryParameters['deviceId'] ?? '';
-        return BindConfirmPage(displayDeviceId: deviceId);
+        final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
+        return BindConfirmPage(displayDeviceId: displayDeviceId);
       },
     ),
   ],

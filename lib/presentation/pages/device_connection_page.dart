@@ -13,9 +13,9 @@ import '../../core/providers/ble_connection_provider.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
-  const DeviceConnectionPage({super.key, required this.deviceId});
+  const DeviceConnectionPage({super.key, required this.displayDeviceId});
   
-  final String deviceId;
+  final String displayDeviceId;
 
   @override
   ConsumerState<DeviceConnectionPage> createState() => _DeviceConnectionPageState();
@@ -36,7 +36,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     super.didChangeDependencies();
     if (_autoStarted) return;
     final deviceData =
-        ref.read(appStateProvider.notifier).getDeviceDataById(widget.deviceId);
+        ref.read(appStateProvider.notifier).getDeviceDataById(widget.displayDeviceId);
     if (deviceData == null) {
       _showNoDataError();
       return;
@@ -179,7 +179,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           print('[DeviceConnectionPage] 📶 设备离线/未知(未绑定) → 跳转Wi‑Fi配网页面');
           if (mounted) {
             context.go(
-                '${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(d.displayDeviceId)}');
+                '${AppRoutes.wifiSelection}?displayDeviceId=${Uri.encodeComponent(d.displayDeviceId)}');
           }
           return;
         }
@@ -189,7 +189,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           print('[DeviceConnectionPage] 设备未绑定 → 跳转绑定确认');
           if (mounted) {
             context.go(
-                '${AppRoutes.bindConfirm}?deviceId=${Uri.encodeComponent(d.displayDeviceId)}');
+                '${AppRoutes.bindConfirm}?displayDeviceId=${Uri.encodeComponent(d.displayDeviceId)}');
           }
           return;
         }
@@ -272,7 +272,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   /// 构建设备信息卡片
   Widget _buildDeviceInfoCard(BleConnectionState state) {
     // 从全局状态获取QR扫描的设备数据
-    final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.deviceId);
+    final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.displayDeviceId);
     
     return Card(
       elevation: 2,
@@ -311,7 +311,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'ID: ${qrDeviceData?.bleDeviceId ?? widget.deviceId}',
+                        'ID: ${qrDeviceData?.bleDeviceId ?? widget.displayDeviceId}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],

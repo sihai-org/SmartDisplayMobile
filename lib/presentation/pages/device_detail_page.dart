@@ -731,7 +731,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       final saved = ref.read(savedDevicesProvider);
                       final id = saved.lastSelectedId;
                       if (id != null && id.isNotEmpty) {
-                        context.push('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(id)}');
+                        context.push('${AppRoutes.wifiSelection}?displayDeviceId=${Uri.encodeComponent(id)}');
                       } else {
                         context.push(AppRoutes.wifiSelection);
                       }
@@ -792,7 +792,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       final saved = ref.read(savedDevicesProvider);
                       final id = saved.lastSelectedId;
                       if (id != null && id.isNotEmpty) {
-                        context.push('${AppRoutes.wifiSelection}?deviceId=${Uri.encodeComponent(id)}');
+                        context.push('${AppRoutes.wifiSelection}?displayDeviceId=${Uri.encodeComponent(id)}');
                       } else {
                         context.push(AppRoutes.wifiSelection);
                       }
