@@ -38,8 +38,8 @@ class SavedDeviceRecord {
         'deviceName': deviceName,
         'publicKey': publicKey,
         'lastConnectedAt': lastConnectedAt?.toIso8601String(),
-        // 不再持久化 BLE 地址，避免因设备地址变更导致脏缓存
-        // 'lastBleAddress': lastBleAddress,
+        'firmwareVersion': firmwareVersion,
+        'networkSummary': networkSummary,
       };
 
   static SavedDeviceRecord fromJson(Map<String, dynamic> json) => SavedDeviceRecord(
