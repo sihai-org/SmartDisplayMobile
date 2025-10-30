@@ -58,6 +58,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
     try {
       final ok = await _bindViaOtp(ref, scanned);
+      Fluttertoast.showToast(msg: "绑定成功");
       if (ok && mounted) {
         // 异步后台同步（最多等待2秒），不阻塞跳转
         try {
@@ -273,7 +274,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: '下发绑定指令失败');
+        Fluttertoast.showToast(msg: '绑定失败');
         return false;
       }
       return true;

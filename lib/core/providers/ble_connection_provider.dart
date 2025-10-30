@@ -151,9 +151,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
             break;
           case 'wifi.result':
             // TODO: status: 'connected'
-          case 'login.result':
-            // TODO: status: 'login_success' | 'login_failed'
-            break;
           default:
             _log('其他事件: $evt');
         }
@@ -258,6 +255,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 绑定
   Future<bool> sendDeviceLoginCode(String email, String code) async {
+    _log('sendDeviceLoginCode email=$email');
     return await sendSimpleBleMsg(
         'login.auth', {'email': email, 'otpToken': code});
   }
