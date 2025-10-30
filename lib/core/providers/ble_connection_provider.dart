@@ -27,39 +27,31 @@ class WifiAp {
   });
 }
 
-/// 蓝牙连接状态数据
+/// 蓝牙连接相关数据
 class BleConnectionState {
-  // 蓝牙状态
+  /// 蓝牙
   final BleDeviceStatus bleDeviceStatus;
-
-  // 蓝牙信息
   final BleDeviceData? bleDeviceData;
-
-  // TODO: 暂未处理
-  // 蓝牙报错
-  final String? errorMessage;
-
+  final String? lastHandshakeErrorCode;
+  final String? lastHandshakeErrorMessage;
+  /// 配网
   final String? provisionStatus;
   final String? lastProvisionDeviceId;
   final String? lastProvisionSsid;
   final List<WifiAp> wifiNetworks;
-  final List<String> connectionLogs;
   final NetworkStatus? networkStatus;
   final bool isCheckingNetwork;
   final DateTime? networkStatusUpdatedAt;
+  /// 版本
   final String? firmwareVersion;
-  final String? lastHandshakeErrorCode;
-  final String? lastHandshakeErrorMessage;
 
   const BleConnectionState({
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.bleDeviceData,
-    this.errorMessage,
     this.provisionStatus,
     this.lastProvisionDeviceId,
     this.lastProvisionSsid,
     this.wifiNetworks = const [],
-    this.connectionLogs = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
     this.networkStatusUpdatedAt,
@@ -76,7 +68,6 @@ class BleConnectionState {
     String? lastProvisionDeviceId,
     String? lastProvisionSsid,
     List<WifiAp>? wifiNetworks,
-    List<String>? connectionLogs,
     NetworkStatus? networkStatus,
     bool? isCheckingNetwork,
     DateTime? networkStatusUpdatedAt,
@@ -87,13 +78,11 @@ class BleConnectionState {
     return BleConnectionState(
       bleDeviceStatus: status ?? this.bleDeviceStatus,
       bleDeviceData: deviceData ?? this.bleDeviceData,
-      errorMessage: errorMessage ?? this.errorMessage,
       provisionStatus: provisionStatus ?? this.provisionStatus,
       lastProvisionDeviceId:
           lastProvisionDeviceId ?? this.lastProvisionDeviceId,
       lastProvisionSsid: lastProvisionSsid ?? this.lastProvisionSsid,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
-      connectionLogs: connectionLogs ?? this.connectionLogs,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
       networkStatusUpdatedAt:
@@ -426,15 +415,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  static const int _maxConnectionLogs = 200;
-
   void _log(String msg) {
-    final now = DateTime.now().toIso8601String();
-    final nextLogs = [...state.connectionLogs, "[$now] $msg"];
-    final trimmedLogs = nextLogs.length > _maxConnectionLogs
-        ? nextLogs.sublist(nextLogs.length - _maxConnectionLogs)
-        : nextLogs;
-    state = state.copyWith(connectionLogs: trimmedLogs);
     developer.log(msg, name: 'BLE');
   }
 

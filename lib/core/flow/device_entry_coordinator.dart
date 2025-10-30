@@ -77,16 +77,16 @@ class DeviceEntryCoordinator {
           return;
         }
 
-        // Unbound -> go to connection page
+        // Unbound -> go to connection page (use displayDeviceId as param)
         if (context.mounted) {
           developer.log('entry: unbound -> go deviceConnection', name: 'QR');
-          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.bleDeviceId}');
+          context.go('${AppRoutes.deviceConnection}?displayDeviceId=${deviceData.displayDeviceId}');
         }
       } catch (_) {
-        // Fallback: proceed to connection page
+        // Fallback: proceed to connection page (use displayDeviceId)
         if (context.mounted) {
           developer.log('entry: check binding failed -> fallback deviceConnection', name: 'QR');
-          context.go('${AppRoutes.deviceConnection}?deviceId=${deviceData.bleDeviceId}');
+          context.go('${AppRoutes.deviceConnection}?displayDeviceId=${deviceData.displayDeviceId}');
         }
       }
     } catch (e) {

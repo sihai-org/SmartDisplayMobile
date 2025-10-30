@@ -56,11 +56,11 @@ class AppStateNotifier extends StateNotifier<AppState> {
     );
   }
 
-  /// 根据设备ID获取扫描数据
-  DeviceQrData? getDeviceDataById(String deviceId) {
-    if (state.scannedDeviceData?.bleDeviceId == deviceId) {
-      return state.scannedDeviceData;
-    }
+  /// 根据传入ID（displayDeviceId 或 bleDeviceId）获取扫描数据
+  DeviceQrData? getDeviceDataById(String id) {
+    final d = state.scannedDeviceData;
+    if (d == null) return null;
+    if (d.displayDeviceId == id || d.bleDeviceId == id) return d;
     return null;
   }
 

@@ -29,6 +29,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   }
 
   bool _autoStarted = false;
+  bool _noDataDialogShown = false;
   bool _networkCheckStarted = false; // 防重复触发带重试的网络检查，避免监听循环
   @override
   void didChangeDependencies() {
@@ -37,7 +38,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     final deviceData =
         ref.read(appStateProvider.notifier).getDeviceDataById(widget.displayDeviceId);
     if (deviceData == null) {
-      _showNoDataError();
+      // 在首帧后再弹窗，避免在build阶段触发导航造成 _debugLocked 断言
+      if (!_noDataDialogShown) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _noDataDialogShown) return;
+          _showNoDataError();
+        });
+      }
       return;
     }
     // 不能在build生命周期内直接改provider，使用microtask延迟到本帧结束后
@@ -60,6 +67,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
   /// 显示无数据错误
   void _showNoDataError() {
+    _noDataDialogShown = true;
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -68,7 +77,11 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         actions: [
           TextButton(
             onPressed: () {
-              context.go(AppRoutes.qrScanner);
+              // 先关闭对话框再导航，确保栈稳定
+              Navigator.of(context).pop();
+              if (mounted) {
+                context.go(AppRoutes.qrScanner);
+              }
             },
             child: const Text('重新扫描'),
           ),
@@ -112,11 +125,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       }
       // 特殊错误：设备已被其他账号绑定
       if (current.bleDeviceStatus == BleDeviceStatus.error &&
-          (
-            current.errorMessage == '设备已被其他账号绑定' ||
-            (current.errorMessage?.contains('已被其他账号绑定') ?? false) ||
-            // 兜底：最近一次握手错误码为 user_mismatch
-              (ref.read(bleConnectionProvider).lastHandshakeErrorCode ==
+          ((ref.read(bleConnectionProvider).lastHandshakeErrorCode ==
                   'user_mismatch') ||
               // 回退策略：若扫码校验结果表明已被绑定，且在握手阶段失败，也给出相同提示
               (ref.read(appStateProvider).scannedIsBound == true &&
@@ -142,8 +151,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       // 其他连接相关错误：toast 并回退到扫码前页面；没有则回到设备详情
       if (current.bleDeviceStatus == BleDeviceStatus.error ||
           current.bleDeviceStatus == BleDeviceStatus.timeout) {
-        final msg = current.errorMessage ?? '连接失败，请重试';
-        Fluttertoast.showToast(msg: msg);
+        Fluttertoast.showToast(msg: '连接失败，请重试');
         if (mounted) {
           ref.read(appStateProvider.notifier).clearScannedDeviceData();
           ref.read(bleConnectionProvider.notifier).resetState();
