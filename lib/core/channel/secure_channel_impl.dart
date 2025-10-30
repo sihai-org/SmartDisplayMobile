@@ -14,6 +14,7 @@ class SecureChannelImpl implements SecureChannel {
   SecureChannelImpl({
     required this.displayDeviceId,
     required this.bleDeviceId,
+    required this.devicePublicKeyHex,
     required this.createQueue,
     required this.crypto,
     this.connectTimeout = const Duration(seconds: 15),
@@ -24,6 +25,9 @@ class SecureChannelImpl implements SecureChannel {
 
   @override
   final String bleDeviceId;
+
+  @override
+  final String devicePublicKeyHex;
 
   final ReliableRequestQueue Function(String deviceId) createQueue;
   final CryptoService crypto;
@@ -69,7 +73,7 @@ class SecureChannelImpl implements SecureChannel {
           displayDeviceId: displayDeviceId,
           bleDeviceId: bleDeviceId,
           deviceName: '', // 可选：不需要用于连接
-          publicKey: '', // 握手里设备公钥可以通过其它来源获得/传入
+          publicKey: devicePublicKeyHex,
           status: BleDeviceStatus.connecting,
         ),
         timeout: connectTimeout,

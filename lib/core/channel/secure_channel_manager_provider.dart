@@ -1,7 +1,7 @@
 // lib/core/secure/secure_providers_single.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../channel/secure_channel_manager.dart';
-import '../channel/secure_channel_impl.dart';
+import 'secure_channel_manager.dart';
+import 'secure_channel_impl.dart';
 import '../ble/ble_scanner.dart';
 import '../ble/ble_scanner_impl.dart';
 import '../ble/reliable_queue.dart';
@@ -9,10 +9,12 @@ import '../crypto/crypto_service.dart';
 
 // 工厂：如何创建单个通道
 final secureChannelFactoryProvider = Provider<SecureChannelFactory>((ref) {
-  return (String displayDeviceId, String bleDeviceId) => SecureChannelImpl(
-    displayDeviceId: displayDeviceId,
-    bleDeviceId: bleDeviceId,
-    createQueue: (id) => ReliableRequestQueue(deviceId: id),
+  return (String displayDeviceId, String bleDeviceId, String devicePublicKeyHex) =>
+      SecureChannelImpl(
+        displayDeviceId: displayDeviceId,
+        bleDeviceId: bleDeviceId,
+        devicePublicKeyHex: devicePublicKeyHex,
+        createQueue: (id) => ReliableRequestQueue(deviceId: id),
     crypto: CryptoService(),
   );
 });

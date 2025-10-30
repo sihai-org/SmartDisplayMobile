@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_display_mobile/core/providers/secure_channel_manager_provider.dart';
+import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';

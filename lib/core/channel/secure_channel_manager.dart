@@ -6,7 +6,7 @@ import 'package:smart_display_mobile/core/models/device_qr_data.dart';
 import 'secure_channel.dart';
 
 typedef SecureChannelFactory = SecureChannel Function(
-    String displayDeviceId, String bleDeviceId);
+    String displayDeviceId, String bleDeviceId, String devicePublicKeyHex);
 
 class SecureChannelManager {
   SecureChannelManager(this._factory, this._scanner);
@@ -23,6 +23,7 @@ class SecureChannelManager {
   /// 将全局通道切换到指定设备；相同设备则复用
   Future<void> use(DeviceQrData qrData) async {
     final targetDisplayDeviceId = qrData.displayDeviceId;
+    final targetDevicePublicKeyHex = qrData.publicKey;
 
     String targetBleDeviceId;
     try {
@@ -47,7 +48,8 @@ class SecureChannelManager {
       _channel = null;
 
       // 创建新通道
-      final ch = _factory(targetDisplayDeviceId, targetBleDeviceId);
+      final ch = _factory(
+          targetDisplayDeviceId, targetBleDeviceId, targetDevicePublicKeyHex);
       _channel = ch;
       _bleDeviceId = targetBleDeviceId;
 

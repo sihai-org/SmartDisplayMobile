@@ -22,7 +22,6 @@ class DeviceConnectionPage extends ConsumerStatefulWidget {
 }
 
 class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
-
   @override
   void initState() {
     super.initState();

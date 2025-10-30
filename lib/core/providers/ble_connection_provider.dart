@@ -1,25 +1,13 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:io';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import 'package:smart_display_mobile/core/providers/secure_channel_manager_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
 import '../channel/secure_channel_manager.dart';
-import '../constants/ble_constants.dart';
-import '../crypto/crypto_service.dart';
 import '../ble/ble_device_data.dart';
 import '../network/network_status.dart';
-import '../ble/ble_service_simple.dart';
-import '../ble/reliable_queue.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
-import 'saved_devices_provider.dart';
-import 'secure_channel_manager_provider.dart';
 import '../utils/data_transformer.dart';
 
 class WifiAp {

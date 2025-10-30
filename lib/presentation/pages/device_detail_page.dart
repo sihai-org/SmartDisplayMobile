@@ -907,8 +907,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     );
   }
 
-  
-
   void _showDeleteDialog(BuildContext context, SavedDeviceRecord device) {
     showDialog(
       context: context,

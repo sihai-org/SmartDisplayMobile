@@ -1,6 +1,7 @@
 abstract class SecureChannel {
   String get displayDeviceId;
   String get bleDeviceId;
+  String get devicePublicKeyHex;
 
   /// 确保底层已连接 + GATT 就绪 + 应用层握手完成
   Future<void> ensureAuthenticated();

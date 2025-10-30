@@ -75,7 +75,7 @@ class BleScannerImpl implements BleScanner {
       final expected = createDeviceFingerprint(targetDeviceId);
       if (_containsSublist(r.manufacturerData!, expected)) return true;
     }
-    return (r.name == null) ? false : r.name == targetDeviceName;
+    return r.name == targetDeviceName;
   }
 
   bool _containsSublist(Uint8List data, Uint8List pattern) {
