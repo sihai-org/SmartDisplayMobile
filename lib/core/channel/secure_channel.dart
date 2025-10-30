@@ -4,7 +4,7 @@ abstract class SecureChannel {
   String get devicePublicKeyHex;
 
   /// 确保底层已连接 + GATT 就绪 + 应用层握手完成
-  Future<void> ensureAuthenticated();
+  Future<void> ensureAuthenticated(String userId);
 
   /// 发送一条“加密 JSON 指令”，返回设备应答（已解密解析）
   Future<Map<String, dynamic>> send(

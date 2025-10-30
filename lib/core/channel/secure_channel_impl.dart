@@ -43,9 +43,8 @@ class SecureChannelImpl implements SecureChannel {
   @override
   Stream<Map<String, dynamic>> get events => _evtCtrl.stream;
 
-  // TODO: 全链路 userId
   @override
-  Future<void> ensureAuthenticated({String? userId}) async {
+  Future<void> ensureAuthenticated(String userId) async {
     if (_authenticated) return;
     if (_preparing) {
       // 等待并发的首次准备完成
@@ -100,7 +99,7 @@ class SecureChannelImpl implements SecureChannel {
       // 6) 应用层握手（示例：与你现有逻辑一致）
       await crypto.generateEphemeralKeyPair();
       var initJson = await crypto.getHandshakeInitData();
-      if (userId != null && userId.isNotEmpty) {
+      if (userId.isNotEmpty) {
         final o = jsonDecode(initJson) as Map<String, dynamic>;
         o['userId'] = userId;
         initJson = jsonEncode(o);
@@ -166,9 +165,6 @@ class SecureChannelImpl implements SecureChannel {
         int retries = 0,
         bool Function(Map<String, dynamic>)? isFinal,
       }) async {
-    if (!_authenticated || _rq == null) {
-      await ensureAuthenticated();
-    }
     return _rq!.send(
       msg,
       timeout: timeout ?? const Duration(seconds: 5),

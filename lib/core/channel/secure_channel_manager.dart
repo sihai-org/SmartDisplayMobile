@@ -1,5 +1,6 @@
 // lib/core/secure/secure_channel_manager.dart
 import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_display_mobile/core/ble/ble_scanner.dart';
 import 'package:smart_display_mobile/core/models/device_qr_data.dart';
 
@@ -10,6 +11,8 @@ typedef SecureChannelFactory = SecureChannel Function(
 
 class SecureChannelManager {
   SecureChannelManager(this._factory, this._scanner);
+
+  String userId = Supabase.instance.client.auth.currentUser?.id ?? "";
 
   bool _switching = false;
 
@@ -54,7 +57,7 @@ class SecureChannelManager {
       _bleDeviceId = targetBleDeviceId;
 
       // 连上
-      await ch.ensureAuthenticated();
+      await ch.ensureAuthenticated(userId);
     } finally {
       _switching = false;
     }
@@ -70,7 +73,7 @@ class SecureChannelManager {
   }) async {
     final ch = _requireChannel();
     // 1. 确保连接
-    await ch.ensureAuthenticated();
+    await ch.ensureAuthenticated(userId);
     // 2. 发消息
     return ch.send(msg, timeout: timeout, retries: retries, isFinal: isFinal);
   }
