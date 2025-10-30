@@ -200,6 +200,7 @@ class ReliableRequestQueue {
         }
       }
     }
+    _inflight.remove(reqId);
     throw TimeoutException('BLE request timeout');
   }
 
