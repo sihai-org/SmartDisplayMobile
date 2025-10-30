@@ -152,7 +152,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('event $evt');
         switch (evt['type']) {
           case 'status':
-            // TODO: status: 'wifi_online' | 'update_updating' | 'update_latest'
+            // TODO: status: 'update_updating' | 'update_latest'
             break;
           case 'wifi.result':
             // TODO: status: 'connected'
