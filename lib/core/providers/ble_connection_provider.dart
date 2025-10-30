@@ -5,6 +5,7 @@ import 'package:smart_display_mobile/core/channel/secure_channel_manager_provide
 
 import '../channel/secure_channel_manager.dart';
 import '../ble/ble_device_data.dart';
+import '../constants/result.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
@@ -50,9 +51,6 @@ class BleConnectionState {
   final String? lastHandshakeErrorCode;
   final String? lastHandshakeErrorMessage;
 
-  // Update check UI state
-  final bool isCheckingUpdate;
-
   const BleConnectionState({
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.bleDeviceData,
@@ -68,7 +66,6 @@ class BleConnectionState {
     this.firmwareVersion,
     this.lastHandshakeErrorCode,
     this.lastHandshakeErrorMessage,
-    this.isCheckingUpdate = false,
   });
 
   BleConnectionState copyWith({
@@ -86,7 +83,6 @@ class BleConnectionState {
     String? firmwareVersion,
     String? lastHandshakeErrorCode,
     String? lastHandshakeErrorMessage,
-    bool? isCheckingUpdate,
   }) {
     return BleConnectionState(
       bleDeviceStatus: status ?? this.bleDeviceStatus,
@@ -107,7 +103,6 @@ class BleConnectionState {
           lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
       lastHandshakeErrorMessage:
           lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
-      isCheckingUpdate: isCheckingUpdate ?? this.isCheckingUpdate,
     );
   }
 }
@@ -152,10 +147,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('event $evt');
         switch (evt['type']) {
           case 'status':
-            // TODO: status: 'update_updating' | 'update_latest'
+            // TODO
             break;
           case 'wifi.result':
             // TODO: status: 'connected'
+          case 'login.result':
+            // TODO: status: 'login_success' | 'login_failed'
             break;
           default:
             _log('其他事件: $evt');
@@ -411,23 +408,23 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   /// 版本更新（参考 requestWifiScan 的通道确保逻辑）
-  Future<bool> requestUpdateCheck() async {
+  Future<DeviceUpdateVersionResult> requestUpdateCheck() async {
     try {
-      // 1) 立即进入“检查更新中”以显示 loading（包含后续连接/握手时间）
-      state = state.copyWith(isCheckingUpdate: true);
-
-      // 3) 发送检查更新指令；设备将通过事件推送 update_updating / update_latest 来结束 loading
-      final ok = await sendSimpleBleMsg('update.version', null);
-      if (!ok) {
-        // 若请求未被设备接受，及时结束 loading
-        state = state.copyWith(isCheckingUpdate: false);
-      }
-      return ok;
+      final res = await sendBleMsg(
+        'update.version',
+        null,
+        timeout: const Duration(seconds: 5),
+        retries: 0,
+      );
+      final s = (res is String) ? res : res?.toString();
+      _log('🔗 更新结果: $s');
+      if (s == 'update_updating') return DeviceUpdateVersionResult.updating;
+      if (s == 'update_latest') return DeviceUpdateVersionResult.latest;
+      return DeviceUpdateVersionResult.failed;
     } catch (e) {
       _log('❌ update.version 失败: $e');
       // 异常时及时结束 loading
-      state = state.copyWith(isCheckingUpdate: false);
-      return false;
+      return DeviceUpdateVersionResult.failed;
     }
   }
 

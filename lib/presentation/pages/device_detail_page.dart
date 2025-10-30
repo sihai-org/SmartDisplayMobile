@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/result.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
@@ -25,6 +26,8 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 }
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
+  bool _checkingUpdate = false;
+
   // 开关的乐观更新覆盖值（null 表示不覆盖）
   bool? _bleSwitchOverride;
   DateTime? _bleSwitchOverrideAt;
@@ -402,7 +405,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   TextButton(
-                                    onPressed: connState.isCheckingUpdate
+                                    onPressed: _checkingUpdate
                                         ? null
                                         : () {
                                           final rec = saved.devices.firstWhere(
@@ -415,7 +418,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                         },
                                     child: Text(context.l10n.check_update),
                                   ),
-                                  if (connState.isCheckingUpdate) ...[
+                                  if (_checkingUpdate) ...[
                                     const SizedBox(width: 8),
                                     const SizedBox(
                                       width: 18,
@@ -503,27 +506,33 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   void _sendCheckUpdate(SavedDeviceRecord device) async {
+    if (_checkingUpdate) return; // 简单防抖
+    setState(() => _checkingUpdate = true);
+
     try {
-      // 通过连接管理器统一接口发送检查更新，并确保可信通道
-      final container = ProviderScope.containerOf(context, listen: false);
-      final notifier = container.read(conn.bleConnectionProvider.notifier);
-      final ok = await notifier.requestUpdateCheck();
-      print("device_management_page: requestUpdateCheck ok=$ok");
+      final notifier = ref.read(conn.bleConnectionProvider.notifier);
+      final result = await notifier.requestUpdateCheck();
+
       if (!mounted) return;
-      if (ok) {
-        Fluttertoast.showToast(msg: '已发送检查更新指令');
-      } else {
-        // 失败场景（如通道未就绪/拒绝）：及时提示（loading 已由 provider 关闭）
-        Fluttertoast.showToast(msg: '发送更新请求失败');
+      switch (result) {
+        case DeviceUpdateVersionResult.updating:
+          Fluttertoast.showToast(msg: '设备开始更新，请保持电源与网络畅通');
+          break;
+        case DeviceUpdateVersionResult.latest:
+          Fluttertoast.showToast(msg: '当前已是最新版本');
+          break;
+        case DeviceUpdateVersionResult.failed:
+          Fluttertoast.showToast(msg: '检查更新失败，请稍后重试');
+          break;
       }
-    } catch (e, st) {
-      print("❌ _sendCheckUpdate 出错: $e\n$st");
+    } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: '发送更新请求失败: $e');
+        Fluttertoast.showToast(msg: '检查更新失败：$e');
       }
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
     }
   }
-
   // 蓝牙卡片
   Widget _buildBLESection(BuildContext context) {
     final connState = ref.watch(conn.bleConnectionProvider);
