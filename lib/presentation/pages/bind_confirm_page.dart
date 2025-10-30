@@ -28,10 +28,55 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   bool _navigated = false; // 防止重复跳转
   bool _sending = false;   // 按钮loading
 
+  @override
+  void initState() {
+    super.initState();
+    // 简单做法：直接用 ref.listen（Riverpod 会在 State dispose 时自动清理这次 listen）
+    ref.listen<BleConnectionState>(bleConnectionProvider, (prev, next) {
+      final s = (next.provisionStatus ?? '').toLowerCase();
+      final matchedId = next.lastProvisionDeviceId ??
+          ref.read(appStateProvider).scannedDeviceData?.displayDeviceId;
+      final isMatch = matchedId == null ||
+          matchedId.isEmpty ||
+          matchedId == widget.displayDeviceId;
+      if (isMatch && (s == 'login_success' || s.contains('login_success'))) {
+        Fluttertoast.showToast(msg: '登录成功');
+        _goHomeOnce();
+      }
+    });
+  }
+
   void _goHomeOnce() {
     if (_navigated || !mounted) return;
     _navigated = true;
     context.go(AppRoutes.home);
+  }
+
+  Future<void> handleClickBind(DeviceQrData scanned) async {
+    if (_sending) return;
+    setState(() => _sending = true);
+
+    try {
+      final ok = await _bindViaOtp(ref, scanned);
+      if (ok && mounted) {
+        // 异步后台同步（最多等待2秒），不阻塞跳转
+        try {
+          final sync = ref.read(savedDevicesProvider.notifier).syncFromServer();
+          await Future.any([
+            sync,
+            Future.delayed(const Duration(seconds: 2)),
+          ]);
+        } catch (_) {}
+        try {
+          await ref
+              .read(savedDevicesProvider.notifier)
+              .select(scanned.displayDeviceId);
+        } catch (_) {}
+        _goHomeOnce();
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
@@ -63,22 +108,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final app = ref.watch(appStateProvider);
     final scanned = app.scannedDeviceData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
-
-    // 监听设备端 login_success，确保即使未点击按钮也能自动跳转
-    ref.listen<BleConnectionState>(
-      bleConnectionProvider,
-      (prev, next) {
-        final s = (next.provisionStatus ?? '').toLowerCase();
-        final matchedId = next.lastProvisionDeviceId ??
-            scanned?.displayDeviceId;
-        final isMatch = matchedId == null || matchedId.isEmpty ||
-            matchedId == widget.displayDeviceId;
-        if (isMatch && (s == 'login_success' || s.contains('login_success'))) {
-          Fluttertoast.showToast(msg: '登录成功');
-          _goHomeOnce();
-        }
-      },
-    );
 
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
@@ -179,33 +208,12 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _sending
-                        ? null
-                        : () async {
-                            setState(() => _sending = true);
-                            final ok = await _bindViaOtp(context, ref, scanned);
-                            if (ok && mounted) {
-                              // 异步后台同步（最多等待2秒），不阻塞跳转
-                              try {
-                                final sync = ref.read(savedDevicesProvider.notifier).syncFromServer();
-                                await Future.any([
-                                  sync,
-                                  Future.delayed(const Duration(seconds: 2)),
-                                ]);
-                              } catch (_) {}
-                              try {
-                                await ref
-                                    .read(savedDevicesProvider.notifier)
-                                    .select(scanned.displayDeviceId);
-                              } catch (_) {}
-                              _goHomeOnce();
-                            }
-                            if (mounted) setState(() => _sending = false);
-                          },
-                    child: _sending
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
+                      onPressed:
+                          _sending ? null : () => handleClickBind(scanned),
+                      child: _sending
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
                             children: const [
                               SizedBox(
                                 width: 16,
@@ -231,7 +239,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   );
   }
 
-  Future<bool> _bindViaOtp(BuildContext context, WidgetRef ref, DeviceQrData device) async {
+  Future<bool> _bindViaOtp(WidgetRef ref, DeviceQrData device) async {
     try {
       final supabase = Supabase.instance.client;
       final response = await supabase.functions.invoke(
