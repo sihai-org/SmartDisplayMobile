@@ -33,9 +33,6 @@ class ReliableRequestQueue {
   }) : _ble = ble ?? FlutterReactiveBle();
 
   Future<void> prepare() async {
-    await BleServiceSimple.ensureGattReady(deviceId);
-    await BleServiceSimple.hasRxTx(deviceId: deviceId, serviceUuid: serviceUuid, rxUuid: rxUuid, txUuid: txUuid);
-    _sub?.cancel();
     _sub = BleServiceSimple.subscribeToIndications(
       deviceId: deviceId,
       serviceUuid: serviceUuid,

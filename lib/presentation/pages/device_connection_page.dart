@@ -123,8 +123,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           // ignore: avoid_print
           print('[DeviceConnectionPage] 蓝牙状态变化 $prev -> $cur');
           if (cur == BleDeviceStatus.authenticated) {
-            Fluttertoast.showToast(msg: '蓝牙已连接');
-
             final curDisplayDeviceId = current.bleDeviceData?.displayDeviceId;
             final networkStatus = await ref
                 .read(bleConnectionProvider.notifier)

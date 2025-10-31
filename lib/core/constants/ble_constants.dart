@@ -29,6 +29,8 @@ class BleConstants {
   static const int supervisionTimeoutMs = 20000;
 
   static const Duration kDisconnectStabilize = Duration(milliseconds: 500);
-  // Longer settle time helps avoid Android GATT 133/135 right after connect
-  static const Duration kPostConnectStabilize = Duration(milliseconds: 800);
+
+  static const kStabilizeAfterConnect = Duration(milliseconds: 250); // 原 800
+  static const kStabilizeBeforeDiscover = Duration(milliseconds: 200); // 原 800
+  static const kStabilizeAfterMtu = Duration(milliseconds: 200); // 原 800
 }

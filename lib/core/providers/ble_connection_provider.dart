@@ -169,13 +169,21 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 建立蓝牙连接
   Future<bool> enableBleConnection(DeviceQrData qrData) async {
+    final t0 = DateTime.now();
+    // 若尚未开始会话，设置一个基准时间用于统一打点
+    _sessionStart ??= t0;
+    _log('🔌 enableBleConnection 开始');
     try {
       await _ref.read(secureChannelManagerProvider).use(qrData);
+      final elapsed = DateTime.now().difference(t0).inMilliseconds;
+      _logWithTime('enableBleConnection.success(${elapsed}ms)');
       state = state.copyWith(
           bleDeviceStatus: BleDeviceStatus.authenticated,
           bleDeviceData: qrDataToDeviceData(qrData));
       return true;
-    } catch (_) {
+    } catch (e) {
+      final elapsed = DateTime.now().difference(t0).inMilliseconds;
+      _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       state = state.copyWith(
         bleDeviceStatus: BleDeviceStatus.error,
       );

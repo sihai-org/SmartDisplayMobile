@@ -711,25 +711,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 检查网络状态中
-            if (connState.isCheckingNetwork) ...[
-              Row(
-                children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '正在检查网络状态...',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ]
-            // 显示当前网络状态 (已连网)
-            else if (connState.networkStatus?.connected == true) ...[
+            if (connState.networkStatus?.connected == true) ...[
               _buildCurrentNetworkInfo(context, connState.networkStatus!),
               const SizedBox(height: 12),
               Row(
@@ -759,7 +741,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                 .read(conn.bleConnectionProvider.notifier)
                                 .checkNetworkStatus();
                           },
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: connState.isCheckingNetwork
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.refresh, size: 16),
                     label: const Text('刷新'),
                   ),
                 ],
@@ -820,7 +810,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                 .read(conn.bleConnectionProvider.notifier)
                                 .checkNetworkStatus();
                           },
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: connState.isCheckingNetwork
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.refresh, size: 16),
                     label: const Text('刷新'),
                   ),
                 ],
