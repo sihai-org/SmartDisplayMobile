@@ -14,6 +14,7 @@ import '../../core/models/device_qr_data.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/ble/ble_device_data.dart';
+import '../../core/l10n/l10n_extensions.dart';
 
 class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.displayDeviceId});
@@ -42,7 +43,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           matchedId.isEmpty ||
           matchedId == widget.displayDeviceId;
       if (isMatch && (s == 'login_success' || s.contains('login_success'))) {
-        Fluttertoast.showToast(msg: '登录成功');
+        Fluttertoast.showToast(msg: context.l10n.login_success);
         _goHomeOnce();
       }
     });
@@ -100,7 +101,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       print(
           '[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $displayDeviceId');
       await ref.read(bleConnectionProvider.notifier).disconnect();
-      Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
   }
 
@@ -118,16 +119,16 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('绑定设备')),
+        appBar: AppBar(title: Text(context.l10n.bind_device_title)),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('未找到设备信息，请返回重新扫码'),
+              Text(context.l10n.no_device_info_message),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => context.go(AppRoutes.qrScanner),
-                child: const Text('返回扫码'),
+                child: Text(context.l10n.back_to_scan),
               ),
             ],
           ),
@@ -147,7 +148,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       },
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('确认绑定'),
+        title: Text(context.l10n.confirm_binding_title),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
@@ -194,7 +195,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
               ],
             ),
             const SizedBox(height: 24),
-            const Text('是否将该设备绑定到当前账号？'),
+            Text(context.l10n.confirm_binding_question),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -208,7 +209,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                       ref.read(qrScannerProvider.notifier).reset();
                       context.go(AppRoutes.qrScanner);
                     },
-                    child: const Text('取消'),
+                    child: Text(context.l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -220,20 +221,20 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('绑定'),
-                            ],
-                          )
-                        : const Text('绑定'),
+                                const SizedBox(width: 8),
+                                Text(context.l10n.bind_button),
+                              ],
+                            )
+                          : Text(context.l10n.bind_button),
                   ),
                 ),
               ],
@@ -256,7 +257,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: '获取授权码失败: ${response.data}');
+        Fluttertoast.showToast(msg: context.l10n.fetch_otp_failed(response.data));
         return false;
       }
       final data = response.data as Map;
@@ -266,7 +267,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: '授权码为空');
+        Fluttertoast.showToast(msg: context.l10n.otp_empty);
         return false;
       }
 
@@ -279,10 +280,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: '绑定失败');
+        Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return false;
       } else {
-        Fluttertoast.showToast(msg: "绑定成功");
+        Fluttertoast.showToast(msg: context.l10n.bind_success);
       }
       return true;
     } catch (e) {
@@ -290,7 +291,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       final recovered = await _attemptSuccessFallback(
           ref, device.displayDeviceId);
       if (recovered) return true;
-      Fluttertoast.showToast(msg: '绑定失败: $e');
+      Fluttertoast.showToast(msg: context.l10n.bind_failed_error(e.toString()));
       return false;
     }
   }

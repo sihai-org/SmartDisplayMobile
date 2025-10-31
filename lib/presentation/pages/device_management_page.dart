@@ -153,7 +153,7 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                 if (device.lastConnectedAt != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '${context.l10n.last_connected_at}: ${_formatDateTime(device.lastConnectedAt!)}',
+                    '${context.l10n.last_connected_at}: ${_formatDateTime(context, device.lastConnectedAt!)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -229,18 +229,18 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     }
   }
 
-  String _formatDateTime(DateTime dateTime) {
+  String _formatDateTime(BuildContext context, DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
 
     if (difference.inMinutes < 1) {
-      return '刚刚';
+      return context.l10n.relative_just_now;
     } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}分钟前';
+      return context.l10n.relative_minutes_ago(difference.inMinutes);
     } else if (difference.inDays < 1) {
-      return '${difference.inHours}小时前';
+      return context.l10n.relative_hours_ago(difference.inHours);
     } else if (difference.inDays < 7) {
-      return '${difference.inDays}天前';
+      return context.l10n.relative_days_ago(difference.inDays);
     } else {
       return '${dateTime.month}/${dateTime.day} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }

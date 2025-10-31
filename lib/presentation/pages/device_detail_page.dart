@@ -264,7 +264,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       ElevatedButton.icon(
                         onPressed: () => context.push(AppRoutes.qrScanner),
                         icon: const Icon(Icons.qr_code_scanner_rounded),
-                        label: const Text('扫码添加设备'),
+                        label: Text(context.l10n.scan_qr_add_device),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               Theme.of(context).colorScheme.primary,
@@ -327,7 +327,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                           const SizedBox(height: 4),
                                           // 显示设备ID（替换原来的状态展示）
                                           Text(
-                                            'ID: ${rec.displayDeviceId}',
+                                            '${context.l10n.device_id_label}: ${rec.displayDeviceId}',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium
@@ -351,7 +351,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                               Row(
                                 children: [
                                   Text(
-                                    '固件版本: ',
+                                    '${context.l10n.firmware_version_label}: ',
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodySmall
@@ -401,7 +401,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                               Row(
                                 children: [
                                   Text(
-                                    '添加时间: ',
+                                    '${context.l10n.last_connected_at}: ',
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodySmall
@@ -460,7 +460,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   );
                   _showDeleteDialog(context, rec);
                 },
-                child: const Text("删除设备"),
+                child: Text(context.l10n.delete_device),
               ),
             ],
 
@@ -485,18 +485,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       if (!mounted) return;
       switch (result) {
         case DeviceUpdateVersionResult.updating:
-          Fluttertoast.showToast(msg: '设备开始更新，请保持电源与网络畅通');
+          Fluttertoast.showToast(msg: context.l10n.update_started);
           break;
         case DeviceUpdateVersionResult.latest:
-          Fluttertoast.showToast(msg: '当前已是最新版本');
+          Fluttertoast.showToast(msg: context.l10n.already_latest_version);
           break;
         case DeviceUpdateVersionResult.failed:
-          Fluttertoast.showToast(msg: '检查更新失败，请稍后重试');
+          Fluttertoast.showToast(msg: context.l10n.check_update_failed_retry);
           break;
       }
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(msg: '检查更新失败：$e');
+        Fluttertoast.showToast(msg: context.l10n.check_update_failed_error(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -566,16 +566,16 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       switch (effectiveStatus) {
         case BleDeviceStatus.authenticated:
         case BleDeviceStatus.connected:
-          return '蓝牙已连接';
+          return context.l10n.ble_connected_text;
         case BleDeviceStatus.scanning:
         case BleDeviceStatus.connecting:
         case BleDeviceStatus.authenticating:
-          return '蓝牙连接中';
+          return context.l10n.ble_connecting_text;
         case BleDeviceStatus.error:
         case BleDeviceStatus.timeout:
         case BleDeviceStatus.disconnected:
         default:
-          return '蓝牙未连接';
+          return context.l10n.ble_disconnected_text;
       }
     }();
 
@@ -660,7 +660,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   // 构建网络状态或WiFi列表部分
   Widget _buildNetworkSection(
       BuildContext context, conn.BleConnectionState connState) {
-    final l10n = context.l10n;
     return Card(
       elevation: 0,
       child: Padding(
@@ -684,12 +683,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       }
                     },
                     icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('管理网络'),
+                    label: Text(context.l10n.manage_network),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 6),
                   TextButton.icon(
                     onPressed: connState.isCheckingNetwork
                         ? null
@@ -707,14 +706,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                             ),
                           )
                         : const Icon(Icons.refresh, size: 16),
-                    label: const Text('刷新'),
+                    label: Text(context.l10n.refresh),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               if (connState.networkStatusUpdatedAt != null)
                 Text(
-                  '上次更新: ' + _fmtTime(connState.networkStatusUpdatedAt!),
+                  '${context.l10n.last_updated}: ' + _fmtTime(connState.networkStatusUpdatedAt!),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -731,7 +730,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '网络未连接',
+                    context.l10n.network_not_connected,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -753,12 +752,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       }
                     },
                     icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('管理网络'),
+                    label: Text(context.l10n.manage_network),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 6),
                   TextButton.icon(
                     onPressed: connState.isCheckingNetwork
                         ? null
@@ -776,7 +775,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                             ),
                           )
                         : const Icon(Icons.refresh, size: 16),
-                    label: const Text('刷新'),
+                    label: Text(context.l10n.refresh),
                   ),
                 ],
               ),
@@ -805,7 +804,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               Icon(Icons.wifi, color: Colors.green, size: 20),
               const SizedBox(width: 8),
               Text(
-                '${l10n?.connected ?? 'Connected'}: ${networkStatus.displaySsid ?? (l10n?.unknown_network ?? 'Unknown')}',
+                '${networkStatus.displaySsid ?? (l10n?.unknown_network ?? 'Unknown')}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Colors.green.shade700,
                   fontWeight: FontWeight.w600,
@@ -874,12 +873,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除设备'),
+        title: Text(context.l10n.delete_device),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('确定要删除以下设备吗？'),
+            Text(context.l10n.confirm_delete_device),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -891,14 +890,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '设备名称: ${device.deviceName}',
+                    '${context.l10n.device_name_label}: ${device.deviceName}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'ID: ${device.displayDeviceId}',
+                    '${context.l10n.device_id_label}: ${device.displayDeviceId}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontFamily: 'monospace',
                         ),
@@ -908,7 +907,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              '删除后将无法自动连接到此设备，需要重新扫描二维码添加。',
+              context.l10n.delete_consequence_hint,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -918,7 +917,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -928,7 +927,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('删除'),
+            child: Text(context.l10n.delete_device),
           ),
         ],
       ),
@@ -950,7 +949,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         throw Exception('设备删除失败: ${response.data}');
       }
 
-      Fluttertoast.showToast(msg: "设备删除成功");
+      Fluttertoast.showToast(msg: context.l10n.delete_success);
 
       // 同步远端状态，确保列表与服务器一致
       try {
@@ -978,7 +977,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           .removeDevice(device.displayDeviceId);
     } catch (e, st) {
       print("❌ _deleteDevice 出错: $e\n$st");
-      Fluttertoast.showToast(msg: "设备删除失败");
+      Fluttertoast.showToast(msg: context.l10n.delete_failed);
     }
   }
 }

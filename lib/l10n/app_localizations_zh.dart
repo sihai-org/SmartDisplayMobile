@@ -51,6 +51,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language_zh => '中文';
 
   @override
+  String get language_en => '英语';
+
+  @override
   String get bluetooth_settings => '蓝牙设置';
 
   @override
@@ -231,9 +234,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wifi_status_unknown => '无法获取网络状态，显示可用Wi‑Fi网络：';
 
   @override
-  String get connected => '网络已连接';
-
-  @override
   String get unknown_network => '未知网络';
 
   @override
@@ -356,4 +356,205 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get logout_confirm_ok => '退出';
+
+  @override
+  String get qr_content_title => '二维码内容';
+
+  @override
+  String get qr_unrecognized_hint => '未能识别为设备二维码，以下为原始内容：';
+
+  @override
+  String get copied_to_clipboard => '已复制到剪贴板';
+
+  @override
+  String get copy_text => '复制文本';
+
+  @override
+  String get ble_disconnected_ephemeral => '已断开未绑定设备的蓝牙连接';
+
+  @override
+  String get connect_success => '连接成功';
+
+  @override
+  String get connect_failed_retry => '连接失败，请重试';
+
+  @override
+  String get device_bound_elsewhere => '设备已被其他账号绑定';
+
+  @override
+  String get connect_failed_move_closer => '连接失败，请靠近重试';
+
+  @override
+  String get error_title => '错误';
+
+  @override
+  String get no_device_data_message => '未找到设备数据，请重新扫描二维码。';
+
+  @override
+  String get rescan => '重新扫描';
+
+  @override
+  String get connect_device_title => '连接设备';
+
+  @override
+  String get ble_connecting => '蓝牙连接中...';
+
+  @override
+  String get provision_success => '配网成功，设备已联网';
+
+  @override
+  String selected_network(Object ssid) {
+    return '已选择网络: $ssid';
+  }
+
+  @override
+  String get manual_wifi_entry_title => '或手动输入 Wi‑Fi 信息';
+
+  @override
+  String get wifi_name_label => 'Wi‑Fi 名称 (SSID)';
+
+  @override
+  String get wifi_password_label => 'Wi‑Fi 密码';
+
+  @override
+  String get please_enter_wifi_name => '请输入Wi‑Fi名称';
+
+  @override
+  String get provision_request_failed => '发送配网请求失败';
+
+  @override
+  String get send_provision_request => '发送配网请求';
+
+  @override
+  String get provisioning_please_wait => '正在配网，请稍候…';
+
+  @override
+  String get bind_device_title => '绑定设备';
+
+  @override
+  String get no_device_info_message => '未找到设备信息，请返回重新扫码';
+
+  @override
+  String get back_to_scan => '返回扫码';
+
+  @override
+  String get confirm_binding_title => '确认绑定';
+
+  @override
+  String get confirm_binding_question => '是否将该设备绑定到当前账号？';
+
+  @override
+  String get bind_button => '绑定';
+
+  @override
+  String fetch_otp_failed(Object error) {
+    return '获取授权码失败: $error';
+  }
+
+  @override
+  String get otp_empty => '授权码为空';
+
+  @override
+  String get bind_failed => '绑定失败';
+
+  @override
+  String get bind_success => '绑定成功';
+
+  @override
+  String bind_failed_error(Object error) {
+    return '绑定失败: $error';
+  }
+
+  @override
+  String get firmware_version_label => '固件版本';
+
+  @override
+  String get manage_network => '管理网络';
+
+  @override
+  String get refresh => '刷新';
+
+  @override
+  String get confirm_delete_device => '确定要删除以下设备吗？';
+
+  @override
+  String get device_name_label => '设备名称';
+
+  @override
+  String get delete_consequence_hint => '删除后将无法自动连接到此设备，需要重新扫描二维码添加。';
+
+  @override
+  String get delete_success => '设备删除成功';
+
+  @override
+  String get delete_failed => '设备删除失败';
+
+  @override
+  String delete_failed_error(Object error) {
+    return '设备删除失败: $error';
+  }
+
+  @override
+  String get ble_connected_text => '蓝牙已连接';
+
+  @override
+  String get ble_connecting_text => '蓝牙连接中';
+
+  @override
+  String get ble_disconnected_text => '蓝牙未连接';
+
+  @override
+  String get relative_just_now => '刚刚';
+
+  @override
+  String relative_minutes_ago(Object count) {
+    return '$count分钟前';
+  }
+
+  @override
+  String relative_hours_ago(Object count) {
+    return '$count小时前';
+  }
+
+  @override
+  String relative_days_ago(Object count) {
+    return '$count天前';
+  }
+
+  @override
+  String get sync_devices_in_progress => '正在同步设备…';
+
+  @override
+  String get sync_devices_success => '设备同步成功';
+
+  @override
+  String get sync_devices_failed => '设备同步失败';
+
+  @override
+  String get update_started => '设备开始更新，请保持电源与网络畅通';
+
+  @override
+  String get already_latest_version => '当前已是最新版本';
+
+  @override
+  String get check_update_failed_retry => '检查更新失败，请稍后重试';
+
+  @override
+  String check_update_failed_error(Object error) {
+    return '检查更新失败：$error';
+  }
+
+  @override
+  String nearby_networks_count(Object count) {
+    return '附近网络（$count）';
+  }
+
+  @override
+  String get no_scan_results_hint => '暂无扫描结果，请点击右上角刷新';
+
+  @override
+  String get last_updated => '上次更新';
+
+  @override
+  String get network_not_connected => '网络未连接';
 }

@@ -51,6 +51,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language_zh => 'Chinese';
 
   @override
+  String get language_en => 'English';
+
+  @override
   String get bluetooth_settings => 'Bluetooth Settings';
 
   @override
@@ -231,9 +234,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_status_unknown => 'Unable to get network status. Showing available Wi‑Fi networks:';
 
   @override
-  String get connected => 'Network Connected';
-
-  @override
   String get unknown_network => 'Unknown';
 
   @override
@@ -356,4 +356,205 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logout_confirm_ok => 'Logout';
+
+  @override
+  String get qr_content_title => 'QR Content';
+
+  @override
+  String get qr_unrecognized_hint => 'Unrecognized device QR. Raw content:';
+
+  @override
+  String get copied_to_clipboard => 'Copied to clipboard';
+
+  @override
+  String get copy_text => 'Copy Text';
+
+  @override
+  String get ble_disconnected_ephemeral => 'Disconnected BLE from unbound device';
+
+  @override
+  String get connect_success => 'Connected successfully';
+
+  @override
+  String get connect_failed_retry => 'Connection failed, please retry';
+
+  @override
+  String get device_bound_elsewhere => 'Device is bound to another account';
+
+  @override
+  String get connect_failed_move_closer => 'Connection failed, move closer and retry';
+
+  @override
+  String get error_title => 'Error';
+
+  @override
+  String get no_device_data_message => 'No device data found. Please rescan the QR code.';
+
+  @override
+  String get rescan => 'Rescan';
+
+  @override
+  String get connect_device_title => 'Connect Device';
+
+  @override
+  String get ble_connecting => 'Connecting via Bluetooth...';
+
+  @override
+  String get provision_success => 'Provisioning successful. Device is online';
+
+  @override
+  String selected_network(Object ssid) {
+    return 'Selected network: $ssid';
+  }
+
+  @override
+  String get manual_wifi_entry_title => 'Or enter Wi‑Fi info manually';
+
+  @override
+  String get wifi_name_label => 'Wi‑Fi Name (SSID)';
+
+  @override
+  String get wifi_password_label => 'Wi‑Fi Password';
+
+  @override
+  String get please_enter_wifi_name => 'Please enter Wi‑Fi name';
+
+  @override
+  String get provision_request_failed => 'Failed to send provisioning request';
+
+  @override
+  String get send_provision_request => 'Send Provisioning Request';
+
+  @override
+  String get provisioning_please_wait => 'Provisioning, please wait…';
+
+  @override
+  String get bind_device_title => 'Bind Device';
+
+  @override
+  String get no_device_info_message => 'No device info found. Please go back and rescan';
+
+  @override
+  String get back_to_scan => 'Back to Scan';
+
+  @override
+  String get confirm_binding_title => 'Confirm Binding';
+
+  @override
+  String get confirm_binding_question => 'Bind this device to your account?';
+
+  @override
+  String get bind_button => 'Bind';
+
+  @override
+  String fetch_otp_failed(Object error) {
+    return 'Failed to fetch authorization code: $error';
+  }
+
+  @override
+  String get otp_empty => 'Authorization code is empty';
+
+  @override
+  String get bind_failed => 'Binding failed';
+
+  @override
+  String get bind_success => 'Binding successful';
+
+  @override
+  String bind_failed_error(Object error) {
+    return 'Binding failed: $error';
+  }
+
+  @override
+  String get firmware_version_label => 'Firmware Version';
+
+  @override
+  String get manage_network => 'Manage Network';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get confirm_delete_device => 'Are you sure you want to delete this device?';
+
+  @override
+  String get device_name_label => 'Device Name';
+
+  @override
+  String get delete_consequence_hint => 'After deletion, auto-connection will be disabled. You will need to rescan the QR code to add it again.';
+
+  @override
+  String get delete_success => 'Device deleted successfully';
+
+  @override
+  String get delete_failed => 'Failed to delete device';
+
+  @override
+  String delete_failed_error(Object error) {
+    return 'Failed to delete device: $error';
+  }
+
+  @override
+  String get ble_connected_text => 'Bluetooth connected';
+
+  @override
+  String get ble_connecting_text => 'Bluetooth connecting';
+
+  @override
+  String get ble_disconnected_text => 'Bluetooth not connected';
+
+  @override
+  String get relative_just_now => 'Just now';
+
+  @override
+  String relative_minutes_ago(Object count) {
+    return '$count minutes ago';
+  }
+
+  @override
+  String relative_hours_ago(Object count) {
+    return '$count hours ago';
+  }
+
+  @override
+  String relative_days_ago(Object count) {
+    return '$count days ago';
+  }
+
+  @override
+  String get sync_devices_in_progress => 'Syncing devices…';
+
+  @override
+  String get sync_devices_success => 'Devices synced';
+
+  @override
+  String get sync_devices_failed => 'Failed to sync devices';
+
+  @override
+  String get update_started => 'Device update started. Keep power and network on';
+
+  @override
+  String get already_latest_version => 'Already on the latest version';
+
+  @override
+  String get check_update_failed_retry => 'Check for update failed, please try again later';
+
+  @override
+  String check_update_failed_error(Object error) {
+    return 'Check for update failed: $error';
+  }
+
+  @override
+  String nearby_networks_count(Object count) {
+    return 'Nearby networks ($count)';
+  }
+
+  @override
+  String get no_scan_results_hint => 'No results yet. Tap refresh at top right.';
+
+  @override
+  String get last_updated => 'Last updated';
+
+  @override
+  String get network_not_connected => 'Network not connected';
 }

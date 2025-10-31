@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
@@ -40,7 +41,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       print('[DeviceConnectionPage] 返回且设备不在列表，主动断开BLE: $devId');
       await ref.read(bleConnectionProvider.notifier).disconnect();
       _clear();
-      Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
   }
 
@@ -70,11 +71,11 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final ok = await ref
             .read(bleConnectionProvider.notifier)
             .startConnection(deviceData);
-        if (ok) Fluttertoast.showToast(msg: "连接成功");
+        if (ok) Fluttertoast.showToast(msg: context.l10n.connect_success);
       } catch (e, s) {
         // ignore: avoid_print
         print('[DeviceConnectionPage] startConnection error: $e\n$s');
-        Fluttertoast.showToast(msg: '连接失败，请重试');
+        Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
       }
     });
   }
@@ -143,7 +144,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           if (cur == BleDeviceStatus.error || cur == BleDeviceStatus.timeout) {
             final code = ref.read(bleConnectionProvider).lastHandshakeErrorCode;
             Fluttertoast.showToast(
-                msg: code == 'user_mismatch' ? '设备已被其他账号绑定' : '连接失败，请靠近重试');
+                msg: code == 'user_mismatch' ? context.l10n.device_bound_elsewhere : context.l10n.connect_failed_move_closer);
 
             if (!mounted) return;
             _clearAndBackToEntry();
@@ -160,8 +161,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('错误'),
-        content: const Text('未找到设备数据，请重新扫描二维码。'),
+        title: Text(context.l10n.error_title),
+        content: Text(context.l10n.no_device_data_message),
         actions: [
           TextButton(
             onPressed: () {
@@ -170,7 +171,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               _clear();
               context.go(AppRoutes.qrScanner);
             },
-            child: const Text('重新扫描'),
+            child: Text(context.l10n.rescan),
           ),
         ],
       ),
@@ -192,7 +193,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       child: Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('连接设备'),
+        title: Text(context.l10n.connect_device_title),
         elevation: 0,
         // 使用主题默认的 AppBar 配色，去掉硬编码的蓝色
         leading: IconButton(
@@ -225,7 +226,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     const SizedBox(height: 32),
 
                       // 连接进度
-                      const Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           SizedBox(
@@ -237,8 +238,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                           ),
                           SizedBox(width: 12),
                           Text(
-                            "蓝牙连接中...",
-                            style: TextStyle(fontSize: 16),
+                            context.l10n.ble_connecting,
+                            style: const TextStyle(fontSize: 16),
                           ),
                         ],
                       ),
@@ -289,7 +290,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        qrDeviceData?.deviceName ?? '智能显示器',
+                        qrDeviceData?.deviceName ?? context.l10n.unknown_device,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -297,7 +298,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'ID: ${qrDeviceData?.bleDeviceId ?? widget.displayDeviceId}',
+                        '${context.l10n.device_id_label}: ${qrDeviceData?.bleDeviceId ?? widget.displayDeviceId}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],

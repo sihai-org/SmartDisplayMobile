@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import '../models/device_qr_data.dart';
 import 'ble_connection_provider.dart';
+import '../providers/locale_provider.dart';
+import '../../l10n/app_localizations_en.dart';
+import '../../l10n/app_localizations_zh.dart';
 
 class SavedDevicesState {
   final List<SavedDeviceRecord> devices;
@@ -29,7 +32,9 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   Future<void> syncFromServer({bool allowToast = false}) async {
     // Show top toast for syncing
     if (allowToast) {
-      Fluttertoast.showToast(msg: '正在同步设备…', gravity: ToastGravity.TOP);
+      final locale = _ref.read(localeProvider);
+      final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
+      Fluttertoast.showToast(msg: l10n.sync_devices_in_progress, gravity: ToastGravity.TOP);
     }
     try {
       final remote = await _repo.fetchRemote();
@@ -42,11 +47,15 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
           : (remote.isNotEmpty ? remote.last.displayDeviceId : null);
       state = state.copyWith(devices: remote, lastSelectedId: selected);
       if(allowToast) {
-        Fluttertoast.showToast(msg: '设备同步成功', gravity: ToastGravity.TOP);
+        final locale = _ref.read(localeProvider);
+        final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
+        Fluttertoast.showToast(msg: l10n.sync_devices_success, gravity: ToastGravity.TOP);
       }
     } catch (e) {
       if (allowToast) {
-        Fluttertoast.showToast(msg: '设备同步失败', gravity: ToastGravity.TOP);
+        final locale = _ref.read(localeProvider);
+        final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
+        Fluttertoast.showToast(msg: l10n.sync_devices_failed, gravity: ToastGravity.TOP);
       }
     }
   }

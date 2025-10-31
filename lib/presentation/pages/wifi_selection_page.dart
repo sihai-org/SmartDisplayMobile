@@ -9,6 +9,7 @@ import '../../core/router/app_router.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../core/l10n/l10n_extensions.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
   const WiFiSelectionPage({super.key, required this.displayDeviceId});
@@ -70,7 +71,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         // ignore: avoid_print
         print('[WiFiSelectionPage] 返回且设备不在列表，主动断开BLE: $devId');
         await ref.read(bleConnectionProvider.notifier).disconnect();
-        Fluttertoast.showToast(msg: '已断开未绑定设备的蓝牙连接');
+        Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
       }
     }
 
@@ -105,7 +106,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       if (successSatisfied && (!_shownSuccessToast || !prevWasSuccess)) {
         if (!_shownSuccessToast) {
           _shownSuccessToast = true;
-          Fluttertoast.showToast(msg: '配网成功，设备已联网');
+          Fluttertoast.showToast(msg: context.l10n.provision_success);
         }
         final id = widget.displayDeviceId;
         if (!_navigatedOnSuccess && id.isNotEmpty) {
@@ -153,7 +154,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       },
       child: Scaffold(
       appBar: AppBar(
-        title: const Text('选择Wi-Fi网络'),
+        title: Text(context.l10n.wifi_selection),
         // 使用全局主题的默认配色，去掉蓝色背景
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -189,7 +190,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '设备: ${widget.displayDeviceId}',
+                    '${context.l10n.device_id_label}: ${widget.displayDeviceId}',
                     style: const TextStyle(color: Colors.grey),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -202,13 +203,13 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
               children: [
                 const Icon(Icons.wifi, size: 18),
                 const SizedBox(width: 8),
-                Text('附近网络 (${connState.wifiNetworks.length})',
+                Text(context.l10n.nearby_networks_count(connState.wifiNetworks.length),
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: () => ref.read(bleConnectionProvider.notifier).requestWifiScan(),
-                  tooltip: '重新扫描',
+                  tooltip: context.l10n.rescan,
                 )
               ],
             ),
@@ -220,7 +221,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: connState.wifiNetworks.isEmpty
-                  ? const Center(child: Text('暂无扫描结果，请点击右上角刷新'))
+                  ? Center(child: Text(context.l10n.no_scan_results_hint))
                   : ListView.separated(
                       itemCount: connState.wifiNetworks.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -246,27 +247,27 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             _ssidController.text = ap.ssid;
-                            Fluttertoast.showToast(msg: '已选择网络: ${ap.ssid}');
+                            Fluttertoast.showToast(msg: context.l10n.selected_network(ap.ssid));
                           },
                         );
                       },
                     ),
             ),
             const SizedBox(height: 16),
-            const Text('或手动输入 Wi‑Fi 信息', style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(context.l10n.manual_wifi_entry_title, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             TextField(
               controller: _ssidController,
-              decoration: const InputDecoration(
-                labelText: 'Wi‑Fi 名称 (SSID)',
+              decoration: InputDecoration(
+                labelText: context.l10n.wifi_name_label,
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _pwdController,
-              decoration: const InputDecoration(
-                labelText: 'Wi‑Fi 密码',
+              decoration: InputDecoration(
+                labelText: context.l10n.wifi_password_label,
                 border: OutlineInputBorder(),
               ),
               obscureText: true,
@@ -283,7 +284,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                       final ssid = _ssidController.text.trim();
                       final pwd = _pwdController.text;
                       if (ssid.isEmpty) {
-                        Fluttertoast.showToast(msg: '请输入Wi‑Fi名称');
+                        Fluttertoast.showToast(msg: context.l10n.please_enter_wifi_name);
                         return;
                       }
                       // 新的一次请求前，重置一次性提示标志
@@ -296,7 +297,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           .sendProvisionRequest(ssid: ssid, password: pwd);
                       setState(() => _sending = false);
                       if (!ok) {
-                        Fluttertoast.showToast(msg: '发送配网请求失败');
+                        Fluttertoast.showToast(msg: context.l10n.provision_request_failed);
                       }
                     },
                 icon: _sending
@@ -306,7 +307,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.send),
-                label: const Text('发送配网请求'),
+                label: Text(context.l10n.send_provision_request),
               ),
             ),
           ],
@@ -321,13 +322,13 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                   Positioned.fill(
                     child: Container(
                       color: Colors.black45,
-                      child: const Center(
+                      child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 12),
-                            Text('正在配网，请稍候…', style: TextStyle(color: Colors.white)),
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 12),
+                            Text(context.l10n.provisioning_please_wait, style: const TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),

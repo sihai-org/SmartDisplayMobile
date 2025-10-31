@@ -182,7 +182,7 @@ class ProfilePage extends ConsumerWidget {
                   trailing: Text(
                     locale == null
                         ? l10n.language_system
-                        : (locale.languageCode == 'zh' ? l10n.language_zh : 'English'),
+                        : (locale.languageCode == 'zh' ? l10n.language_zh : l10n.language_en),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   onTap: () async {
@@ -201,7 +201,7 @@ class ProfilePage extends ConsumerWidget {
                           ),
                           SimpleDialogOption(
                             onPressed: () => Navigator.pop(context, const Locale('en')),
-                            child: const Text('English'),
+                            child: Text(l10n.language_en),
                           ),
                           SimpleDialogOption(
                             onPressed: () => Navigator.pop(context, const Locale('zh')),

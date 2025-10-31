@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../core/l10n/l10n_extensions.dart';
 
 // TODO: 这个解析很奇怪
 /// 扫码无法解析时跳转使用（qr_scanner_page.dart）
@@ -14,16 +15,16 @@ class QrCodeResultPage extends StatelessWidget {
     final decoded = Uri.decodeComponent(text);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('二维码内容'),
+        title: Text(context.l10n.qr_content_title),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '未能识别为设备二维码，以下为原始内容：',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+            Text(
+              context.l10n.qr_unrecognized_hint,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -41,11 +42,11 @@ class QrCodeResultPage extends StatelessWidget {
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: decoded));
                   if (context.mounted) {
-                    Fluttertoast.showToast(msg: '已复制到剪贴板');
+                    Fluttertoast.showToast(msg: context.l10n.copied_to_clipboard);
                   }
                 },
                 icon: const Icon(Icons.copy),
-                label: const Text('复制文本'),
+                label: Text(context.l10n.copy_text),
               ),
             ),
           ],

@@ -1,7 +1,7 @@
 /// Application-wide constants
 class AppConstants {
   // App Info
-  static const String appName = 'ScreenGPT';
+  static const String appName = 'VznGPT';
   static const String appVersion = '1.0.0';
 
   // UI Configuration
