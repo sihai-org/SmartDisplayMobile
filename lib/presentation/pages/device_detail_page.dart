@@ -190,33 +190,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.bleConnectionProvider);
 
-    // login_success 同步逻辑已下沉至 deviceConnectionProvider，页面无需再监听处理
-
-    // 监听连接状态变化，仅处理智能WiFi（不再做智能重连）
-    ref.listen<conn.BleConnectionState>(conn.bleConnectionProvider,
-        (previous, current) {
-      if (previous != null &&
-          previous.bleDeviceStatus != current.bleDeviceStatus) {
-        print(
-            '[HomePage] 连接状态变化: ${previous.bleDeviceStatus} -> ${current.bleDeviceStatus}');
-
-        // 当设备认证完成时，自动进行智能WiFi处理
-        if (current.bleDeviceStatus == BleDeviceStatus.authenticated &&
-            previous.bleDeviceStatus != BleDeviceStatus.authenticated) {
-          print('[HomePage] 设备认证完成，开始智能WiFi处理');
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              ref.read(conn.bleConnectionProvider.notifier).handleWifiSmartly();
-            }
-          });
-        }
-
-        // 不再自动重连
-      }
-    });
-
-    // 版本检查的 toast 改为在 provider 内统一触发，避免页面依赖导致漏提示
-
     // 移除“自动连接上次设备”的监听逻辑
     return Scaffold(
       appBar: AppBar(

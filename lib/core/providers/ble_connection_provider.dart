@@ -35,6 +35,8 @@ class BleConnectionState {
   final BleDeviceData? bleDeviceData;
   final String? lastHandshakeErrorCode;
   final String? lastHandshakeErrorMessage;
+  final int authRev;
+
   /// 配网
   final String? provisionStatus;
   final String? lastProvisionDeviceId;
@@ -49,6 +51,9 @@ class BleConnectionState {
   const BleConnectionState({
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.bleDeviceData,
+    this.lastHandshakeErrorCode,
+    this.lastHandshakeErrorMessage,
+    this.authRev = 0,
     this.provisionStatus,
     this.lastProvisionDeviceId,
     this.lastProvisionSsid,
@@ -57,13 +62,14 @@ class BleConnectionState {
     this.isCheckingNetwork = false,
     this.networkStatusUpdatedAt,
     this.firmwareVersion,
-    this.lastHandshakeErrorCode,
-    this.lastHandshakeErrorMessage,
   });
 
   BleConnectionState copyWith({
     BleDeviceStatus? bleDeviceStatus,
     BleDeviceData? bleDeviceData,
+    String? lastHandshakeErrorCode,
+    String? lastHandshakeErrorMessage,
+    int? authRev,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -73,12 +79,15 @@ class BleConnectionState {
     bool? isCheckingNetwork,
     DateTime? networkStatusUpdatedAt,
     String? firmwareVersion,
-    String? lastHandshakeErrorCode,
-    String? lastHandshakeErrorMessage,
   }) {
     return BleConnectionState(
       bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
       bleDeviceData: bleDeviceData ?? this.bleDeviceData,
+      lastHandshakeErrorCode:
+          lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
+      lastHandshakeErrorMessage:
+          lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
+      authRev: authRev ?? this.authRev,
       provisionStatus: provisionStatus ?? this.provisionStatus,
       lastProvisionDeviceId:
           lastProvisionDeviceId ?? this.lastProvisionDeviceId,
@@ -89,10 +98,6 @@ class BleConnectionState {
       networkStatusUpdatedAt:
           networkStatusUpdatedAt ?? this.networkStatusUpdatedAt,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
-      lastHandshakeErrorCode:
-          lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
-      lastHandshakeErrorMessage:
-          lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
     );
   }
 }
@@ -167,6 +172,61 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 配网后轮询
   Future<void>? _postProvisionPoll;
 
+  // 每次蓝牙连接后自动同步设备信息
+  DateTime? _lastSyncAt;
+
+  Duration _minSyncGap = Duration(seconds: 1);
+
+  @override
+  set state(BleConnectionState next) {
+    final prev = super.state;
+    super.state = next;
+
+    _onStateChanged(prev, next);
+  }
+
+  void _onStateChanged(BleConnectionState prev, BleConnectionState next) {
+    final wasAuthed = prev.bleDeviceStatus == BleDeviceStatus.authenticated;
+    final nowAuthed = next.bleDeviceStatus == BleDeviceStatus.authenticated;
+    // 兜底：非 auth -> auth 过渡触发
+    if (!wasAuthed && nowAuthed) {
+      _syncWhenAuthed(reason: 'state-transition');
+    }
+  }
+
+  void _syncWhenAuthed({required String reason}) {
+    final now = DateTime.now();
+    if (_lastSyncAt != null && now.difference(_lastSyncAt!) < _minSyncGap) {
+      _log('syncDeviceInfo 被合并（$reason）');
+      return;
+    }
+    _lastSyncAt = now;
+    _log('触发 syncDeviceInfo（$reason）');
+    _syncDeviceInfo().catchError((e, st) => _log('sync 异常: $e'));
+  }
+
+  Future<void> _syncDeviceInfo() async {
+    _log('开始 syncDeviceInfo');
+    try {
+      final info = await sendBleMsg(
+        'device.info',
+        null,
+        timeout: const Duration(seconds: 3),
+        retries: 0,
+      );
+      if (info is Map<String, dynamic>) {
+        state = state.copyWith(
+          firmwareVersion: info['firmwareVersion'],
+          networkStatus: NetworkStatus.fromJson(info['network']),
+          networkStatusUpdatedAt: DateTime.now(),
+        );
+      }
+      _log('syncDeviceInfo 完成');
+    } catch (e) {
+      _log('syncDeviceInfo 失败: $e');
+    }
+  }
+
   // 建立蓝牙连接
   Future<bool> enableBleConnection(DeviceQrData qrData) async {
     final t0 = DateTime.now();
@@ -216,10 +276,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  /// 蓝牙建连后自动同步 wifi
-  Future<void> handleWifiSmartly() async {
-    await checkNetworkStatus();
-  }
+  // /// 蓝牙建连后自动同步 wifi
+  // Future<void> handleWifiSmartly() async {
+  //   await checkNetworkStatus();
+  // }
 
   /// 扫码连接
   Future<bool> startConnection(DeviceQrData qrData) async {
