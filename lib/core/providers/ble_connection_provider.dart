@@ -10,7 +10,7 @@ import '../constants/result.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
-import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
+import 'saved_devices_provider.dart';
 import '../utils/data_transformer.dart';
 
 class WifiAp {
@@ -46,8 +46,6 @@ class BleConnectionState {
   final NetworkStatus? networkStatus;
   final bool isCheckingNetwork;
   final DateTime? networkStatusUpdatedAt;
-  /// 版本
-  final String? firmwareVersion;
 
   const BleConnectionState({
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
@@ -62,7 +60,6 @@ class BleConnectionState {
     this.networkStatus,
     this.isCheckingNetwork = false,
     this.networkStatusUpdatedAt,
-    this.firmwareVersion,
   });
 
   BleConnectionState copyWith({
@@ -79,7 +76,6 @@ class BleConnectionState {
     NetworkStatus? networkStatus,
     bool? isCheckingNetwork,
     DateTime? networkStatusUpdatedAt,
-    String? firmwareVersion,
   }) {
     return BleConnectionState(
       bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
@@ -98,7 +94,6 @@ class BleConnectionState {
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
       networkStatusUpdatedAt:
           networkStatusUpdatedAt ?? this.networkStatusUpdatedAt,
-      firmwareVersion: firmwareVersion ?? this.firmwareVersion,
     );
   }
 }
@@ -215,9 +210,14 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('跳过 sync：无有效的设备ID');
         return;
       }
-      final repo = SavedDevicesRepository();
-      final localDevices = await repo.loadLocal();
-      final inList = localDevices.any((e) => e.displayDeviceId == deviceId);
+      // 使用 savedDevicesProvider 的内存状态（必要时加载本地缓存）
+      final savedNotifier = _ref.read(savedDevicesProvider.notifier);
+      var saved = _ref.read(savedDevicesProvider);
+      if (!saved.loaded) {
+        try { await savedNotifier.load(); } catch (_) {}
+        saved = _ref.read(savedDevicesProvider);
+      }
+      final inList = saved.devices.any((e) => e.displayDeviceId == deviceId);
       if (!inList) {
         _log('跳过 sync：设备不在设备列表中（$deviceId）');
         return;
@@ -235,11 +235,24 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         retries: 0,
       );
       if (info is Map<String, dynamic>) {
+        // 更新网络状态到连接状态
         state = state.copyWith(
-          firmwareVersion: info['firmwareVersion'],
           networkStatus: NetworkStatus.fromJson(info['network']),
           networkStatusUpdatedAt: DateTime.now(),
         );
+
+        // 通过 SavedDevicesNotifier 更新固件版本（仅本地与内存）
+        final deviceId = state.bleDeviceData?.displayDeviceId;
+        final fw = info['firmwareVersion']?.toString();
+        if (deviceId != null && deviceId.isNotEmpty && fw != null) {
+          try {
+            await _ref
+                .read(savedDevicesProvider.notifier)
+                .updateFields(displayDeviceId: deviceId, firmwareVersion: fw);
+          } catch (e) {
+            _log('更新 firmwareVersion 到 SavedDevicesNotifier 失败: $e');
+          }
+        }
       }
       _log('syncDeviceInfo 完成');
     } catch (e) {

@@ -79,6 +79,42 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     await _repo.saveLocal(updated);
   }
 
+  // 局部字段更新：只在本地列表与缓存中更新指定字段，不触发远端同步
+  Future<void> updateFields({
+    required String displayDeviceId,
+    String? deviceName,
+    String? publicKey,
+    String? lastBleDeviceId,
+    DateTime? lastConnectedAt,
+    String? firmwareVersion,
+    String? networkSummary,
+  }) async {
+    // 确保已加载本地数据（不访问远端）
+    if (!state.loaded) {
+      try {
+        await load();
+      } catch (_) {}
+    }
+
+    final hasDevice = state.devices.any((e) => e.displayDeviceId == displayDeviceId);
+    if (!hasDevice) return; // 若不存在则忽略
+
+    final updated = state.devices.map((e) {
+      if (e.displayDeviceId != displayDeviceId) return e;
+      return e.copyWith(
+        deviceName: deviceName ?? e.deviceName,
+        publicKey: publicKey ?? e.publicKey,
+        lastBleDeviceId: lastBleDeviceId ?? e.lastBleDeviceId,
+        lastConnectedAt: lastConnectedAt ?? e.lastConnectedAt,
+        firmwareVersion: firmwareVersion ?? e.firmwareVersion,
+        networkSummary: networkSummary ?? e.networkSummary,
+      );
+    }).toList();
+
+    state = state.copyWith(devices: updated);
+    await _repo.saveLocal(updated);
+  }
+
   Future<void> selectFromQr(DeviceQrData qr) async {
     await _repo.selectFromQr(qr);
     // Keep behavior consistent: refresh local state and mark selection
