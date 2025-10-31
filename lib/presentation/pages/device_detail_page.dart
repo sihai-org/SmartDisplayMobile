@@ -292,11 +292,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   (e) => e.displayDeviceId == saved.lastSelectedId,
                   orElse: () => saved.devices.first,
                 );
-                final connState = ref.read(conn.bleConnectionProvider);
-                final String? firmwareVersion =
-                    (connState.firmwareVersion != null && connState.firmwareVersion!.isNotEmpty)
-                        ? connState.firmwareVersion
-                        : "unknown";
+                final String? firmwareVersion = rec.firmwareVersion;
                 return Card(
                   elevation: 0,
                   child: Padding(
@@ -528,18 +524,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final effectiveStatus = isThisDeviceActive
         ? connState.bleDeviceStatus
         : BleDeviceStatus.disconnected;
-
-    Widget statusRow({required Widget leading, required String text, List<Widget> trailing = const []}) {
-      return Row(
-        children: [
-          leading,
-          const SizedBox(width: 12),
-          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
-          ...trailing,
-        ],
-      );
-    }
-
     // 目标视觉：左侧状态图标 + 文案，右侧开关
     // 三种状态：
     // - 已连接（开关开、勾选图标、蓝色）

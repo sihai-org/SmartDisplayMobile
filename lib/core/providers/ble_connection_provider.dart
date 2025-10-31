@@ -10,6 +10,7 @@ import '../constants/result.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
+import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import '../utils/data_transformer.dart';
 
 class WifiAp {
@@ -207,6 +208,25 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   Future<void> _syncDeviceInfo() async {
     _log('开始 syncDeviceInfo');
+    // 仅当当前设备存在于“设备列表”中时才进行同步（避免与绑定前扫码流程冲突）
+    try {
+      final deviceId = state.bleDeviceData?.displayDeviceId;
+      if (deviceId == null || deviceId.isEmpty) {
+        _log('跳过 sync：无有效的设备ID');
+        return;
+      }
+      final repo = SavedDevicesRepository();
+      final localDevices = await repo.loadLocal();
+      final inList = localDevices.any((e) => e.displayDeviceId == deviceId);
+      if (!inList) {
+        _log('跳过 sync：设备不在设备列表中（$deviceId）');
+        return;
+      }
+    } catch (e) {
+      // 若本地校验异常，为安全起见不继续同步
+      _log('本地设备校验异常，跳过 sync：$e');
+      return;
+    }
     try {
       final info = await sendBleMsg(
         'device.info',

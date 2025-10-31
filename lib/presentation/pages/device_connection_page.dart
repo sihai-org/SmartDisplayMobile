@@ -225,20 +225,20 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     const SizedBox(height: 32),
 
                       // 连接进度
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            "蓝牙连接中...",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(width: 12),
-                          const SizedBox(
+                          SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                             ),
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            "蓝牙连接中...",
+                            style: TextStyle(fontSize: 16),
                           ),
                         ],
                       ),

@@ -138,11 +138,13 @@ class SavedDevicesRepository {
       final deviceId = (map['device_id'] ?? '').toString();
       final deviceName = (map['device_name'] ?? '').toString();
       final publicKey = (map['device_public_key'] ?? '').toString();
+      final firmwareVersion = (map['device_firmware_version'] ?? '').toString();
       final bindTime = map['bind_time'] as String?;
       return SavedDeviceRecord(
         displayDeviceId: deviceId,
         deviceName: deviceName,
         publicKey: publicKey,
+        firmwareVersion: firmwareVersion,
         lastBleDeviceId: null,
         lastConnectedAt: bindTime != null ? DateTime.tryParse(bindTime) : null,
       );
