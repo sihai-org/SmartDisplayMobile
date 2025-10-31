@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart'; // HapticFeedback
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
 import '../../core/l10n/l10n_extensions.dart';
 import 'dart:ui' show Rect, Size;
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -17,9 +19,18 @@ class QrScannerPage extends ConsumerStatefulWidget {
 }
 
 class _QrScannerPageState extends ConsumerState<QrScannerPage> {
+  // 新增：音频播放器（低延迟、可复用）
+  late final AudioPlayer _beepPlayer;
+  bool _beepPlayedForThisSuccess = false; // 防二次触发（例如重复状态回调）
+
   @override
   void initState() {
     super.initState();
+
+    // 初始化播放器
+    _beepPlayer = AudioPlayer()..setReleaseMode(ReleaseMode.stop); // 播放完停止（不循环）
+    _beepPlayer.setSource(AssetSource('sounds/scan_success.mp3'));
+
     // 初始化扫描器
     // ignore: avoid_print
     print('[QrScannerPage] initState -> initializeController + startScanning');
@@ -41,6 +52,17 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   @override
   void dispose() {
     super.dispose();
+    _beepPlayer.dispose();
+  }
+
+  // 新增：播放提示音（失败时不抛异常）
+  Future<void> _playSuccessBeep() async {
+    try {
+      await _beepPlayer.resume();
+      await Future.delayed(const Duration(milliseconds: 30));
+    } catch (e) {
+      debugPrint('play beep error: $e');
+    }
   }
 
   @override
@@ -55,8 +77,11 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
         // ignore: avoid_print
         print('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator');
 
-        // ✅ 震一下（轻中等力度，iOS/Android 都支持）
-        HapticFeedback.mediumImpact(); // 可换成 lightImpact / heavyImpact / selectionClick / vibrate
+        // 避免重复触发（比如状态快速抖动）
+        if (_beepPlayedForThisSuccess) return;
+        _beepPlayedForThisSuccess = true;
+
+        await _playSuccessBeep();
 
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
@@ -64,6 +89,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
           Future(() {
             ref.read(qrScannerProvider.notifier).stopScanning();
           });
+
           // 统一入口：与深链相同流程
           await DeviceEntryCoordinator.handle(context, ref, current.qrContent!);
         });
