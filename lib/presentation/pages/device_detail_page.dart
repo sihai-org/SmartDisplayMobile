@@ -662,14 +662,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         if (qr == null) return;
         await ref
             .read(conn.bleConnectionProvider.notifier)
-            .enableBleConnection(qr);
+            .handleUserEnableBleConnection(qr);
       } else {
         // 关闭：主动断开
         await ref
             .read(conn.bleConnectionProvider.notifier)
-            .disconnect(shouldReset: false);
+            .handleUserDisableBleConnection();
       }
-      // 操作完成后，等待 provider 状态回传来纠正；这里不立即清除覆盖，交由上方过期逻辑处理
     }
 
     return Card(

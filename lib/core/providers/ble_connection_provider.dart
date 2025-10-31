@@ -183,12 +183,26 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
+  Future<bool> handleUserEnableBleConnection(DeviceQrData qrData) async {
+    state = state.copyWith(
+        bleDeviceStatus: BleDeviceStatus.scanning
+    );
+    return await enableBleConnection(qrData);
+  }
+
+  Future<void> handleUserDisableBleConnection() async {
+    disconnect(shouldReset: false);
+  }
+
   // 应用进入前台自动连接蓝牙
   Future<void> handleEnterForeground() async {
     if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
     final d = state.bleDeviceData;
     if (d != null) {
       try {
+        state = state.copyWith(
+            bleDeviceStatus: BleDeviceStatus.scanning
+        );
         await enableBleConnection(deviceDataToQrData(d));
       } catch (_) {}
     }

@@ -80,7 +80,7 @@
   "add_device": "Add Device",
   "wifi_not_connected": "Device not connected to network. Select a Wi‑Fi to provision:",
   "wifi_status_unknown": "Unable to get network status. Showing available Wi‑Fi networks:",
-  "connected": "Connected",
+  "connected": "Network Connected",
   "unknown_network": "Unknown",
   "band": "Band",
   "no_wifi_found": "No Wi‑Fi networks found",
@@ -114,5 +114,11 @@
   "missing_ble_params": "Missing Bluetooth parameters. Please rescan the device first."
   ,
   "no_device_title": "No device added yet",
-  "no_device_subtitle": "Power on the display, then scan the QR code shown to add a device"
+  "no_device_subtitle": "Power on the display, then scan the QR code shown to add a device",
+    "dark_env_hint": "Try to scan under better lighting",
+    "turn_on": "Turn on flashlight",
+    "user_fallback": "Anonymous user",
+    "devices_count": "You have {count} devices",
+    "logout_confirm_title": "Confirm logout",
+    "logout_confirm_ok": "Logout"
 }

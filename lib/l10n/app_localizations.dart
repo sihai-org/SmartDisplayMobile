@@ -245,6 +245,12 @@ abstract class AppLocalizations {
   /// **'Sign out'**
   String get logout;
 
+  /// No description provided for @logout_confirm_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'After signing out, all devices bound to this account will be unbound automatically.'**
+  String get logout_confirm_desc;
+
   /// No description provided for @page_not_found.
   ///
   /// In en, this message translates to:
@@ -314,7 +320,7 @@ abstract class AppLocalizations {
   /// No description provided for @device_management.
   ///
   /// In en, this message translates to:
-  /// **'Device Management'**
+  /// **'Switch Device'**
   String get device_management;
 
   /// No description provided for @device_details.
@@ -512,7 +518,7 @@ abstract class AppLocalizations {
   /// No description provided for @connected.
   ///
   /// In en, this message translates to:
-  /// **'Connected'**
+  /// **'Network Connected'**
   String get connected;
 
   /// No description provided for @unknown_network.
@@ -611,46 +617,137 @@ abstract class AppLocalizations {
   /// **'Connect failed: {error}'**
   String connect_failed(Object error);
 
-  // New strings for device list and detail
+  /// No description provided for @unknown_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Device'**
   String get unknown_device;
+
+  /// No description provided for @current_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
   String get current_selected;
+
+  /// No description provided for @set_current_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as current'**
   String get set_current_device;
+
+  /// No description provided for @check_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Update'**
   String get check_update;
+
+  /// No description provided for @delete_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Device'**
   String get delete_device;
+
+  /// No description provided for @device_id_label.
+  ///
+  /// In en, this message translates to:
+  /// **'ID'**
   String get device_id_label;
+
+  /// No description provided for @ble_label.
+  ///
+  /// In en, this message translates to:
+  /// **'BLE'**
   String get ble_label;
+
+  /// No description provided for @last_connected_at.
+  ///
+  /// In en, this message translates to:
+  /// **'Last connected'**
   String get last_connected_at;
+
+  /// No description provided for @empty_saved_devices.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved devices'**
   String get empty_saved_devices;
+
+  /// No description provided for @empty_hint_add_by_scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR on your device to add a new SmartDisplay'**
   String get empty_hint_add_by_scan;
+
+  /// No description provided for @scan_qr_add_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR to add device'**
   String get scan_qr_add_device;
+
+  /// No description provided for @device_switched.
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to current device'**
   String get device_switched;
+
+  /// No description provided for @switch_device_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to switch device: {error}'**
   String switch_device_failed(Object error);
+
+  /// No description provided for @missing_ble_params.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing Bluetooth parameters. Please rescan the device first.'**
   String get missing_ble_params;
 
-  // QR scanner localized strings
-  String get gallery_picker;
-  String get torch;
-  String get dark_env_hint;
-  String get turn_on;
-  String get scan_success;
-  String get rescan;
-  String get aim_qr;
-  String get scan_success_will_show;
-  String get status_ready;
-  String get status_scanning;
-  String get status_processing;
-  String get status_failed;
-
-  // Profile/My page additions
-  String get user_fallback;
-  String devices_count(Object count);
-  String get logout_confirm_title;
-  String get logout_confirm_ok;
-  String get logout_confirm_desc;
-
-  // Empty state on device detail
+  /// No description provided for @no_device_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No device added yet'**
   String get no_device_title;
+
+  /// No description provided for @no_device_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Power on the display, then scan the QR code shown to add a device'**
   String get no_device_subtitle;
+
+  /// No description provided for @dark_env_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try to scan under better lighting'**
+  String get dark_env_hint;
+
+  /// No description provided for @turn_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on flashlight'**
+  String get turn_on;
+
+  /// No description provided for @user_fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Anonymous user'**
+  String get user_fallback;
+
+  /// No description provided for @devices_count.
+  ///
+  /// In en, this message translates to:
+  /// **'You have {count} devices'**
+  String devices_count(Object count);
+
+  /// No description provided for @logout_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm logout'**
+  String get logout_confirm_title;
+
+  /// No description provided for @logout_confirm_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logout_confirm_ok;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

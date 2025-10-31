@@ -84,6 +84,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout => '退出登录';
 
   @override
+  String get logout_confirm_desc => '退出后，当前账号所有绑定设备将自动解除绑定';
+
+  @override
   String get page_not_found => '页面未找到';
 
   @override
@@ -228,7 +231,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wifi_status_unknown => '无法获取网络状态，显示可用Wi‑Fi网络：';
 
   @override
-  String get connected => '已连接';
+  String get connected => '网络已连接';
 
   @override
   String get unknown_network => '未知网络';
@@ -329,61 +332,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get missing_ble_params => '当前设备缺少蓝牙参数，请重新扫码或靠近设备后重试';
 
   @override
-  String get gallery_picker => '从相册选择';
-
-  @override
-  String get torch => '闪光灯';
-
-  @override
-  String get dark_env_hint => '环境较暗，建议打开闪光灯';
-
-  @override
-  String get turn_on => '开启';
-
-  @override
-  String get scan_success => '扫描成功！';
-
-  @override
-  String get rescan => '重新扫描';
-
-  @override
-  String get aim_qr => '将二维码对准扫描框';
-
-  @override
-  String get scan_success_will_show => '扫描成功后会显示二维码内容';
-
-  @override
-  String get status_ready => '准备扫描';
-
-  @override
-  String get status_scanning => '扫描中...';
-
-  @override
-  String get status_processing => '解析数据...';
-
-  @override
-  String get status_failed => '扫描失败';
-
-  @override
-  String get user_fallback => '用户';
-
-  @override
-  String devices_count(Object count) {
-    return '$count 台设备';
-  }
-
-  @override
-  String get logout_confirm_title => '退出当前账号？';
-
-  @override
-  String get logout_confirm_ok => '退出';
-
-  @override
-  String get logout_confirm_desc => '退出后，当前账号所有绑定设备将自动解除绑定';
-
-  @override
   String get no_device_title => '暂未添加设备';
 
   @override
   String get no_device_subtitle => '显示器开机后，扫描显示器屏幕上的二维码可添加设备';
+
+  @override
+  String get dark_env_hint => '请在光线更好的环境下扫码';
+
+  @override
+  String get turn_on => '打开手电筒';
+
+  @override
+  String get user_fallback => '匿名用户';
+
+  @override
+  String devices_count(Object count) {
+    return '你有 $count 个设备';
+  }
+
+  @override
+  String get logout_confirm_title => '确认退出登录';
+
+  @override
+  String get logout_confirm_ok => '退出';
 }

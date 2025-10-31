@@ -80,7 +80,7 @@
   "add_device": "添加设备",
   "wifi_not_connected": "设备未连接网络，请选择Wi‑Fi网络进行配网：",
   "wifi_status_unknown": "无法获取网络状态，显示可用Wi‑Fi网络：",
-  "connected": "已连接",
+  "connected": "网络已连接",
   "unknown_network": "未知网络",
   "band": "频段",
   "no_wifi_found": "未找到Wi‑Fi网络",
@@ -114,5 +114,11 @@
   "missing_ble_params": "当前设备缺少蓝牙参数，请重新扫码或靠近设备后重试"
   ,
   "no_device_title": "暂未添加设备",
-  "no_device_subtitle": "显示器开机后，扫描显示器屏幕上的二维码可添加设备"
+  "no_device_subtitle": "显示器开机后，扫描显示器屏幕上的二维码可添加设备",
+    "dark_env_hint": "请在光线更好的环境下扫码",
+    "turn_on": "打开手电筒",
+    "user_fallback": "匿名用户",
+    "devices_count": "你有 {count} 个设备",
+    "logout_confirm_title": "确认退出登录",
+    "logout_confirm_ok": "退出"
 }

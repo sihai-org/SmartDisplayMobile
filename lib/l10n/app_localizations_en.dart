@@ -84,6 +84,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout => 'Sign out';
 
   @override
+  String get logout_confirm_desc => 'After signing out, all devices bound to this account will be unbound automatically.';
+
+  @override
   String get page_not_found => 'Page Not Found';
 
   @override
@@ -228,7 +231,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_status_unknown => 'Unable to get network status. Showing available Wi‑Fi networks:';
 
   @override
-  String get connected => 'Connected';
+  String get connected => 'Network Connected';
 
   @override
   String get unknown_network => 'Unknown';
@@ -329,61 +332,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get missing_ble_params => 'Missing Bluetooth parameters. Please rescan the device first.';
 
   @override
-  String get gallery_picker => 'Choose from gallery';
-
-  @override
-  String get torch => 'Torch';
-
-  @override
-  String get dark_env_hint => "It's dark, turn on torch";
-
-  @override
-  String get turn_on => 'Turn on';
-
-  @override
-  String get scan_success => 'Scan succeeded!';
-
-  @override
-  String get rescan => 'Rescan';
-
-  @override
-  String get aim_qr => 'Aim the QR at the frame';
-
-  @override
-  String get scan_success_will_show => 'QR content will show after success';
-
-  @override
-  String get status_ready => 'Ready to scan';
-
-  @override
-  String get status_scanning => 'Scanning...';
-
-  @override
-  String get status_processing => 'Parsing...';
-
-  @override
-  String get status_failed => 'Scan failed';
-
-  @override
-  String get user_fallback => 'User';
-
-  @override
-  String devices_count(Object count) {
-    return '$count devices';
-  }
-
-  @override
-  String get logout_confirm_title => 'Sign out of current account?';
-
-  @override
-  String get logout_confirm_ok => 'Sign out';
-
-  @override
-  String get logout_confirm_desc => 'After signing out, all devices bound to this account will be unbound automatically.';
-
-  @override
   String get no_device_title => 'No device added yet';
 
   @override
   String get no_device_subtitle => 'Power on the display, then scan the QR code shown to add a device';
+
+  @override
+  String get dark_env_hint => 'Try to scan under better lighting';
+
+  @override
+  String get turn_on => 'Turn on flashlight';
+
+  @override
+  String get user_fallback => 'Anonymous user';
+
+  @override
+  String devices_count(Object count) {
+    return 'You have $count devices';
+  }
+
+  @override
+  String get logout_confirm_title => 'Confirm logout';
+
+  @override
+  String get logout_confirm_ok => 'Logout';
 }
