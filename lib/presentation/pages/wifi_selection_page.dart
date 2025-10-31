@@ -309,32 +309,6 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 label: const Text('发送配网请求'),
               ),
             ),
-
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () => ref.read(bleConnectionProvider.notifier).requestWifiScan(),
-                icon: const Icon(Icons.wifi_tethering),
-                label: const Text('扫描附近Wi‑Fi'),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                const Icon(Icons.info_outline, size: 18, color: Colors.grey),
-                const SizedBox(width: 8),
-                const Text('配网状态:'),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(provisionStatus),
-                  backgroundColor: _statusColor(provisionStatus).withOpacity(0.15),
-                  labelStyle: TextStyle(color: _statusColor(provisionStatus)),
-                ),
-              ],
-            ),
           ],
         ),
               ),
