@@ -31,7 +31,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   @override
   void initState() {
     super.initState();
-    // 简单做法：直接用 ref.listen（Riverpod 会在 State dispose 时自动清理这次 listen）
+  }
+
+  void _listenToBleConnectionState() {
     ref.listen<BleConnectionState>(bleConnectionProvider, (prev, next) {
       final s = (next.provisionStatus ?? '').toLowerCase();
       final matchedId = next.lastProvisionDeviceId ??
@@ -44,8 +46,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         _goHomeOnce();
       }
     });
-  }
 
+  }
   void _goHomeOnce() {
     if (_navigated || !mounted) return;
     _navigated = true;
@@ -58,7 +60,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
     try {
       final ok = await _bindViaOtp(ref, scanned);
-      Fluttertoast.showToast(msg: "绑定成功");
       if (ok && mounted) {
         // 异步后台同步（最多等待2秒），不阻塞跳转
         try {
@@ -105,11 +106,15 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
   @override
   Widget build(BuildContext context) {
+    _listenToBleConnectionState();
+
     final ref = this.ref;
     final app = ref.watch(appStateProvider);
     final scanned = app.scannedDeviceData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
+    print('[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}');
+    
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
       return Scaffold(
@@ -276,6 +281,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         if (recovered) return true;
         Fluttertoast.showToast(msg: '绑定失败');
         return false;
+      } else {
+        Fluttertoast.showToast(msg: "绑定成功");
       }
       return true;
     } catch (e) {
@@ -309,5 +316,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     } catch (_) {
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 }

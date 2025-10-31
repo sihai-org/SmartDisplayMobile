@@ -9,3 +9,12 @@ DeviceQrData deviceDataToQrData(BleDeviceData d) {
     publicKey: d.publicKey,
   );
 }
+
+BleDeviceData qrDataToDeviceData(DeviceQrData qr) {
+  return BleDeviceData(
+    displayDeviceId: qr.displayDeviceId,
+    bleDeviceId: qr.bleDeviceId,
+    deviceName: qr.deviceName,
+    publicKey: qr.publicKey,
+  );
+}

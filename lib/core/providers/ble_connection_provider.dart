@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
@@ -61,8 +62,8 @@ class BleConnectionState {
   });
 
   BleConnectionState copyWith({
-    BleDeviceStatus? status,
-    BleDeviceData? deviceData,
+    BleDeviceStatus? bleDeviceStatus,
+    BleDeviceData? bleDeviceData,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -76,8 +77,8 @@ class BleConnectionState {
     String? lastHandshakeErrorMessage,
   }) {
     return BleConnectionState(
-      bleDeviceStatus: status ?? this.bleDeviceStatus,
-      bleDeviceData: deviceData ?? this.bleDeviceData,
+      bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
+      bleDeviceData: bleDeviceData ?? this.bleDeviceData,
       provisionStatus: provisionStatus ?? this.provisionStatus,
       lastProvisionDeviceId:
           lastProvisionDeviceId ?? this.lastProvisionDeviceId,
@@ -170,9 +171,14 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   Future<bool> enableBleConnection(DeviceQrData qrData) async {
     try {
       await _ref.read(secureChannelManagerProvider).use(qrData);
+      state = state.copyWith(
+          bleDeviceStatus: BleDeviceStatus.authenticated,
+          bleDeviceData: qrDataToDeviceData(qrData));
       return true;
     } catch (_) {
-      // TODO state
+      state = state.copyWith(
+        bleDeviceStatus: BleDeviceStatus.error,
+      );
       return false;
     }
   }
@@ -194,28 +200,24 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   /// 扫码连接
-  Future<void> startConnection(DeviceQrData qrData) async {
+  Future<bool> startConnection(DeviceQrData qrData) async {
     // Reset per-session caches to avoid stale data from previous device
     _lastNetworkStatusReadAt = null;
     _inflightNetworkStatusRead = null;
     _postProvisionPoll = null;
 
-    try {
-      await enableBleConnection(qrData);
-    } catch (_) {}
+    return await enableBleConnection(qrData);
   }
 
   // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
   Future<bool> sendSimpleBleMsg(String type, dynamic? data) async {
     _log('sendPureBleMsg: $type, $data');
     try {
-      final payload = {'type': type};
-      if (data != null) {
-        payload['data'] = data;
-      }
-      final resp = await _ref.read(secureChannelManagerProvider).send(payload);
+      final resp = await _ref
+          .read(secureChannelManagerProvider)
+          .send({'type': type, 'data': data});
       _log('✅ sendPureBleMsg 成功: type=$type, resp=$resp');
-      return resp['ok'] == true || resp['type'] == type;
+      return resp['ok'] == true;
     } catch (e) {
       _log('❌ sendPureBleMsg 失败: $e');
       return false;
@@ -231,13 +233,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
     _log('sendBleMsg: $type, $data');
-    final payload = {'type': type};
-    if (data != null) {
-      payload['data'] = data;
-    }
     final resp = await _ref
-        .read(secureChannelManagerProvider)
-        .send(payload, timeout: timeout, retries: retries, isFinal: isFinal);
+        .read(secureChannelManagerProvider).send(
+        {'type': type, 'data': data},
+        timeout: timeout, retries: retries, isFinal: isFinal);
     _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
     return resp['data'];
   }
@@ -435,7 +434,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     if (shouldReset) {
       resetState();
     } else {
-      state = state.copyWith(status: BleDeviceStatus.disconnected);
+      state = state.copyWith(bleDeviceStatus: BleDeviceStatus.disconnected);
     }
   }
 

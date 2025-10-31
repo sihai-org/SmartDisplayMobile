@@ -124,15 +124,15 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         print('[WiFiSelectionPage] 忽略其他设备的 wifi_online: from=$provDeviceId, current=${widget.displayDeviceId}');
       }
 
-      // 失败：只在状态从非失败 -> 失败时提示一次
-      final bool nextIsFail = (s == 'wifi_offline' || s.contains('wifi_offline') || s == 'failed');
-      // 去掉对 prevWasFail 的限制，改为由页面内一次性标志控制每次“尝试”的 toast 频率
-      if (nextIsFail && isDeviceMatch) {
-        if (!_shownFailureToast) {
-          _shownFailureToast = true;
-          Fluttertoast.showToast(msg: '配网失败，设备未能连接网络');
-        }
-      }
+      // // 失败：只在状态从非失败 -> 失败时提示一次
+      // final bool nextIsFail = (s == 'wifi_offline' || s.contains('wifi_offline') || s == 'failed');
+      // // 去掉对 prevWasFail 的限制，改为由页面内一次性标志控制每次“尝试”的 toast 频率
+      // if (nextIsFail && isDeviceMatch) {
+      //   if (!_shownFailureToast) {
+      //     _shownFailureToast = true;
+      //     Fluttertoast.showToast(msg: '配网失败，设备未能连接网络');
+      //   }
+      // }
     });
 
     return PopScope(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart'; // HapticFeedback
 import '../../core/l10n/l10n_extensions.dart';
 import 'dart:ui' show Rect, Size;
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -53,6 +54,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
         // ignore: avoid_print
         print('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator');
+
+        // ✅ 震一下（轻中等力度，iOS/Android 都支持）
+        HapticFeedback.mediumImpact(); // 可换成 lightImpact / heavyImpact / selectionClick / vibrate
+
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           // 停止扫描 - 延迟执行避免在构建期间修改Provider
