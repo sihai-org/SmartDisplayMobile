@@ -128,7 +128,7 @@ class SavedDevicesRepository {
     }
     final List<dynamic> rows = await client
         .from('account_device_binding_log')
-        .select('device_id, device_name, device_public_key, bind_time')
+        .select('device_id, device_name, device_public_key, device_firmware_version, bind_time')
         .eq('user_id', user.id)
         .eq('bind_status', 1)
         .order('bind_time');
