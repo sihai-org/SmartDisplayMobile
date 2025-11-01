@@ -24,7 +24,7 @@ class SecureChannelManager {
   SecureChannel? _channel;
 
   /// 将全局通道切换到指定设备；相同设备则复用
-  Future<void> use(DeviceQrData qrData) async {
+  Future<bool> use(DeviceQrData qrData) async {
     final targetDisplayDeviceId = qrData.displayDeviceId;
     final targetDevicePublicKeyHex = qrData.publicKey;
 
@@ -32,13 +32,12 @@ class SecureChannelManager {
     try {
       targetBleDeviceId = await _scanner.findBleDeviceId(qrData);
     } catch (_) {
-      // TODO:
-      return;
+      return false;
     }
 
     if (_bleDeviceId == targetBleDeviceId && _channel != null) {
       // 复用原通道（可选择触发一次 ensure）
-      return;
+      return true;
     }
     // 并发保护
     while (_switching) {
@@ -58,6 +57,9 @@ class SecureChannelManager {
 
       // 连上
       await ch.ensureAuthenticated(userId);
+      return true;
+    } catch (_) {
+      return false;
     } finally {
       _switching = false;
     }

@@ -13,6 +13,7 @@ class BleServiceSimple {
 
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
   static StreamSubscription<ConnectionStateUpdate>? _deviceConnectionSubscription;
+  static StreamSubscription<BleStatus>? _bleStatusSubscription;
 
   static bool _isScanning = false;
   static StreamController<SimpleBLEScanResult>? _scanController;
@@ -48,6 +49,12 @@ class BleServiceSimple {
   // 权限就绪广播（供上层监听）
   static final _permissionStreamController = StreamController<bool>.broadcast();
   static Stream<bool> get permissionStream => _permissionStreamController.stream;
+
+  // Connection/adapter status broadcast for upper layers
+  static final _connectionEventController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  static Stream<Map<String, dynamic>> get connectionEvents =>
+      _connectionEventController.stream;
 
   // ✅ 统一的“刚就绪”时间戳 & 老安卓定位门槛缓存
   static bool _legacyNeedsLocation = false; // Android < 12 是否需要定位服务开关
@@ -160,6 +167,19 @@ class BleServiceSimple {
       _logWithTime('ensureBleReady.error(${elapsed}ms)');
       return false;
     }
+  }
+
+  // Start a single adapter status forwarder (idempotent)
+  static void _ensureBleStatusForwarder() {
+    if (_bleStatusSubscription != null) return;
+    _bleStatusSubscription = _ble.statusStream.listen((s) {
+      try {
+        _connectionEventController.add({
+          'type': 'ble_status',
+          'status': s.toString(),
+        });
+      } catch (_) {}
+    }, onError: (_) {});
   }
 
   // 老安卓门槛判断：用“是否具备 bluetoothScan 权限常量”近似判断系统代际。
@@ -282,6 +302,9 @@ class BleServiceSimple {
     try {
       await stopScan();
 
+      // Ensure adapter status forwarding is running
+      _ensureBleStatusForwarder();
+
       final connectionStream = _ble.connectToDevice(
         id: bleDeviceData.bleDeviceId,
         connectionTimeout: timeout,
@@ -313,11 +336,28 @@ class BleServiceSimple {
               status: BleDeviceStatus.connected,
               connectedAt: DateTime.now(),
             ));
+            // Broadcast connection event
+            try {
+              _connectionEventController.add({
+                'type': 'connection',
+                'state': 'connected',
+                'deviceId': update.deviceId,
+              });
+            } catch (_) {}
             break;
           case DeviceConnectionState.disconnected:
             final elapsed = DateTime.now().difference(t0).inMilliseconds;
             _logWithTime('connect.disconnected(${elapsed}ms)');
             completeOnce(null);
+            // Broadcast disconnection event
+            try {
+              _connectionEventController.add({
+                'type': 'connection',
+                'state': 'disconnected',
+                'deviceId': update.deviceId,
+                'failure': update.failure?.toString(),
+              });
+            } catch (_) {}
             break;
           default:
             break;
@@ -327,6 +367,13 @@ class BleServiceSimple {
         final elapsed = DateTime.now().difference(t0).inMilliseconds;
         _logWithTime('connect.stream.error(${elapsed}ms)');
         completeOnce(null);
+        try {
+          _connectionEventController.add({
+            'type': 'connection',
+            'state': 'error',
+            'deviceId': bleDeviceData.bleDeviceId,
+          });
+        } catch (_) {}
       });
 
       // ▼ 超时兜底（会在 completeOnce 里被 cancel）
@@ -362,6 +409,13 @@ class BleServiceSimple {
     _lastLogRssi.clear();
     final elapsed = DateTime.now().difference(t0).inMilliseconds;
     _logWithTime('disconnect.done(${elapsed}ms)');
+    // Also broadcast a disconnected state for upper layers
+    try {
+      _connectionEventController.add({
+        'type': 'connection',
+        'state': 'disconnected',
+      });
+    } catch (_) {}
   }
 
   /// 读特征
@@ -600,8 +654,11 @@ class BleServiceSimple {
     _scanSubscription = null;
     _deviceConnectionSubscription?.cancel();
     _deviceConnectionSubscription = null;
+    _bleStatusSubscription?.cancel();
+    _bleStatusSubscription = null;
     _scanController?.close();
     _scanController = null;
+    try { _connectionEventController.close(); } catch (_) {}
     _discoveredDevices.clear();
     _isScanning = false;
     _mtuByDevice.clear();

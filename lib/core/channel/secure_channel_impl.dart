@@ -35,6 +35,7 @@ class SecureChannelImpl implements SecureChannel {
 
   ReliableRequestQueue? _rq;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
+  StreamSubscription<Map<String, dynamic>>? _linkSub;
   final _evtCtrl = StreamController<Map<String, dynamic>>.broadcast();
 
   bool _authenticated = false;
@@ -152,6 +153,28 @@ class SecureChannelImpl implements SecureChannel {
       await _evtSub?.cancel();
       _evtSub = _rq!.events.listen(_evtCtrl.add);
 
+      // Forward low-level connection and adapter status to upper layer
+      await _linkSub?.cancel();
+      _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
+        final t = (e['type'] ?? '').toString();
+        if (t == 'connection') {
+          final st = (e['state'] ?? '').toString();
+          if (st == 'disconnected' || st == 'error') {
+            // Mark channel not authenticated and surface status
+            _authenticated = false;
+            try { await _rq?.dispose(); } catch (_) {}
+            _evtCtrl.add({'type': 'status', 'value': 'disconnected'});
+          }
+        } else if (t == 'ble_status') {
+          final s = (e['status'] ?? '').toString();
+          if (s.contains('poweredOff')) {
+            _authenticated = false;
+            try { await _rq?.dispose(); } catch (_) {}
+            _evtCtrl.add({'type': 'status', 'value': 'ble_powered_off'});
+          }
+        }
+      });
+
       _authenticated = true;
     } finally {
       _preparing = false;
@@ -176,6 +199,7 @@ class SecureChannelImpl implements SecureChannel {
   @override
   Future<void> dispose() async {
     await _evtSub?.cancel();
+    await _linkSub?.cancel();
     await _rq?.dispose();
     _evtCtrl.close();
     _rq = null;

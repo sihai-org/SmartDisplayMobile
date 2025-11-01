@@ -138,7 +138,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('event $evt');
         switch (evt['type']) {
           case 'status':
-            // TODO
+            final v = (evt['value'] ?? '').toString();
+            if (v == 'disconnected' || v == 'ble_powered_off') {
+              // Mark BLE as disconnected but keep last device info for context
+              state = state.copyWith(
+                bleDeviceStatus: BleDeviceStatus.disconnected,
+              );
+            }
             break;
           case 'wifi.result':
             // TODO: status: 'connected'
@@ -267,7 +273,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
     try {
-      await _ref.read(secureChannelManagerProvider).use(qrData);
+      final useRes = await _ref.read(secureChannelManagerProvider).use(qrData);
+      if (!useRes) {
+        state = state.copyWith(
+          bleDeviceStatus: BleDeviceStatus.error,
+        );
+        return useRes;
+      }
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
       state = state.copyWith(

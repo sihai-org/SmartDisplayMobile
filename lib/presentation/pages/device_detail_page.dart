@@ -524,6 +524,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final effectiveStatus = isThisDeviceActive
         ? connState.bleDeviceStatus
         : BleDeviceStatus.disconnected;
+    print('[device_detail_page] effectiveStatus=$effectiveStatus');
     // 目标视觉：左侧状态图标 + 文案，右侧开关
     // 三种状态：
     // - 已连接（开关开、勾选图标、蓝色）
@@ -542,23 +543,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         case BleDeviceStatus.disconnected:
         default:
           return false;
-      }
-    }
-
-    // 如果存在乐观覆盖且未超时，则优先使用
-    bool isOn = computedIsOn();
-    if (_bleSwitchOverride != null) {
-      final now = DateTime.now();
-      final ts = _bleSwitchOverrideAt;
-      final notExpired = ts != null && now.difference(ts) < const Duration(seconds: 5);
-      // 当状态尚未稳定（如 scanning/connecting/authenticating）时允许覆盖；
-      // 或在覆盖未过期时继续显示覆盖值。
-      if (notExpired) {
-        isOn = _bleSwitchOverride!;
-      } else {
-        // 覆盖过期，清理
-        _bleSwitchOverride = null;
-        _bleSwitchOverrideAt = null;
       }
     }
 
@@ -617,9 +601,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         if (rec.displayDeviceId.isEmpty) return;
         final qr = _qrFromRecord(rec);
         if (qr == null) return;
-        await ref
+        final res = await ref
             .read(conn.bleConnectionProvider.notifier)
             .handleUserEnableBleConnection(qr);
+        if (!res) {
+          Fluttertoast.showToast(msg: '蓝牙连接失败，请检查手机蓝牙或靠近设备');
+        }
       } else {
         // 关闭：主动断开
         await ref
@@ -646,7 +633,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ),
             ),
             Switch(
-              value: isOn,
+              value: computedIsOn(),
               onChanged: (saved.loaded && saved.lastSelectedId != null)
                   ? handleToggle
                   : null,
