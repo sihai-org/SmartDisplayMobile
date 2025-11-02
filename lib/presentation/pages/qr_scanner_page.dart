@@ -77,6 +77,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
         // ignore: avoid_print
         print('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator');
+        Fluttertoast.showToast(msg: "扫描成功，正前往下一步...");
 
         // 避免重复触发（比如状态快速抖动）
         if (_beepPlayedForThisSuccess) return;

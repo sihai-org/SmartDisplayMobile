@@ -82,14 +82,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       if (curr == true) handleEnterForeground();
     });
 
-    // 2) 监听 secureChannelManagerProvider 的变更，重绑事件
+    // 2) 只在 manager 实例变化时尝试重绑
     _managerSub = _ref.listen(
       secureChannelManagerProvider,
-      (prev, curr) => _attachChannelEvents(curr),
+      (prev, curr) {
+        if (!identical(prev, curr)) {
+          _attachChannelEvents(curr);
+        }
+      },
     );
-
-    // 3) 初始化也尝试一次（以防 provider 中已经有实例）
-    _attachChannelEvents(_ref.read(secureChannelManagerProvider));
   }
 
   final Ref _ref;
@@ -97,47 +98,51 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   ProviderSubscription<bool>? _foregroundSub;
   ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
+  Stream<Map<String, dynamic>>? _boundStream; // 记住当前已绑定的事件流
 
   void _attachChannelEvents(SecureChannelManager manager) {
-    // 先取消旧订阅
-    _evtSub?.cancel();
-    _evtSub = null;
+    final stream = manager.events;
 
-    final stream = manager.events; // 非空/可空看你的定义，下面小心判断
+    // 如果新的 manager 没有事件流：取消旧订阅并清空绑定引用
     if (stream == null) {
-      _log('事件流不存在（manager还未完成use/握手？）');
+      _evtSub?.cancel();
+      _evtSub = null;
+      _boundStream = null;
+      _log('事件流不存在（等待 manager 完成 use/握手后由 provider 通知再绑定）');
       return;
     }
 
+    // 同一条流就不重复 listen
+    if (identical(stream, _boundStream)) {
+      _log('重复的事件流，跳过重绑');
+      return;
+    }
+
+    // 切换到新流
+    _evtSub?.cancel();
+    _boundStream = stream;
     _evtSub = stream.listen(
-      (evt) {
-        _log('event $evt');
-        switch (evt['type']) {
-          case 'status':
-            final v = (evt['value'] ?? '').toString();
-            if (v == 'disconnected' || v == 'ble_powered_off') {
-              // Mark BLE as disconnected but keep last device info for context
-              state = state.copyWith(
-                bleDeviceStatus: BleDeviceStatus.disconnected,
-              );
-            }
-            break;
-          case 'wifi.result':
-            // TODO: status: 'connected'
-          default:
-            _log('其他事件: $evt');
-        }
-      },
-      onError: (e, st) {
-        _log('事件流错误: $e');
-        // 不 cancel；等待 manager 变化重绑
-      },
-      onDone: () {
-        _log('事件流结束');
-        // 不在这里重绑，等 provider/manager 变化后再 attach
-      },
+      _handleChannelEvent,
+      onError: (e, st) => _log('事件流错误: $e'),
+      onDone: () => _log('事件流结束'),
       cancelOnError: false,
     );
+
+    _log('已绑定新的事件流');
+  }
+
+  void _handleChannelEvent(Map<String, dynamic> evt) {
+    _log('event $evt');
+    switch (evt['type']) {
+      case 'status':
+        final v = (evt['value'] ?? '').toString();
+        if (v == 'disconnected' || v == 'ble_powered_off') {
+          state = state.copyWith(bleDeviceStatus: BleDeviceStatus.disconnected);
+        }
+        break;
+      default:
+        _log('其他事件: $evt');
+    }
   }
 
   // Network status read de-dup & throttle

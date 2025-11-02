@@ -13,7 +13,6 @@ class BleServiceSimple {
 
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
   static StreamSubscription<ConnectionStateUpdate>? _deviceConnectionSubscription;
-  static StreamSubscription<BleStatus>? _bleStatusSubscription;
 
   static bool _isScanning = false;
   static StreamController<SimpleBLEScanResult>? _scanController;
@@ -169,19 +168,6 @@ class BleServiceSimple {
     }
   }
 
-  // Start a single adapter status forwarder (idempotent)
-  static void _ensureBleStatusForwarder() {
-    if (_bleStatusSubscription != null) return;
-    _bleStatusSubscription = _ble.statusStream.listen((s) {
-      try {
-        _connectionEventController.add({
-          'type': 'ble_status',
-          'status': s.toString(),
-        });
-      } catch (_) {}
-    }, onError: (_) {});
-  }
-
   // 老安卓门槛判断：用“是否具备 bluetoothScan 权限常量”近似判断系统代际。
   static Future<bool> _legacyNeedsLocationGate() async {
     if (!Platform.isAndroid) return false;
@@ -302,9 +288,6 @@ class BleServiceSimple {
     try {
       await stopScan();
 
-      // Ensure adapter status forwarding is running
-      _ensureBleStatusForwarder();
-
       final connectionStream = _ble.connectToDevice(
         id: bleDeviceData.bleDeviceId,
         connectionTimeout: timeout,
@@ -347,7 +330,8 @@ class BleServiceSimple {
             break;
           case DeviceConnectionState.disconnected:
             final elapsed = DateTime.now().difference(t0).inMilliseconds;
-            _logWithTime('connect.disconnected(${elapsed}ms)');
+            _logWithTime(
+                'connect.disconnected(${elapsed}ms) failure=${update.failure?.toString()}');
             completeOnce(null);
             // Broadcast disconnection event
             try {
@@ -654,8 +638,6 @@ class BleServiceSimple {
     _scanSubscription = null;
     _deviceConnectionSubscription?.cancel();
     _deviceConnectionSubscription = null;
-    _bleStatusSubscription?.cancel();
-    _bleStatusSubscription = null;
     _scanController?.close();
     _scanController = null;
     try { _connectionEventController.close(); } catch (_) {}

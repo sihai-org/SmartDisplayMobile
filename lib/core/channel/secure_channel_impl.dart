@@ -156,6 +156,7 @@ class SecureChannelImpl implements SecureChannel {
       // Forward low-level connection and adapter status to upper layer
       await _linkSub?.cancel();
       _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
+        print("[SecureChannelImpl] e=${e.toString()}");
         final t = (e['type'] ?? '').toString();
         if (t == 'connection') {
           final st = (e['state'] ?? '').toString();
