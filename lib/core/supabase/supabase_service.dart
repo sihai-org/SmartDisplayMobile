@@ -1,13 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-enum CheckBoundRes {
-  isOwner,
-  isBound,
-  notBound,
-}
+import '../constants/enum.dart';
 
 class SupabaseService {
-  Future<CheckBoundRes> checkBound(String displayDeviceId) async {
+  static Future<CheckBoundRes> checkBound(String displayDeviceId) async {
     print('[SupabaseService] checkBound：调用');
     final supabase = Supabase.instance.client;
     final resp = await supabase.functions.invoke(

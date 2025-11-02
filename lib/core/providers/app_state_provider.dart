@@ -3,30 +3,30 @@ import '../models/device_qr_data.dart';
 
 /// 应用全局状态
 class AppState {
-  final DeviceQrData? scannedDeviceData;
-  // 扫码后从云端检查的绑定状态
-  final bool? scannedIsBound;
-  final bool? scannedIsOwner;
+  // 绑定过程中的设备
+  final DeviceQrData? scannedQrData;
+
+  // 当前选中的已绑定设备id
+  final String? selectedDisplayDeviceId;
+
   // 本应用会话内是否已在设备详情页触发过一次自动连接
   final bool didAutoConnectOnDetailPage;
 
   const AppState({
-    this.scannedDeviceData,
-    this.scannedIsBound,
-    this.scannedIsOwner,
+    this.scannedQrData,
+    this.selectedDisplayDeviceId,
     this.didAutoConnectOnDetailPage = false,
   });
 
   AppState copyWith({
-    DeviceQrData? scannedDeviceData,
-    bool? scannedIsBound,
-    bool? scannedIsOwner,
+    DeviceQrData? scannedQrData,
+    String? selectedDisplayDeviceId,
     bool? didAutoConnectOnDetailPage,
   }) {
     return AppState(
-      scannedDeviceData: scannedDeviceData ?? this.scannedDeviceData,
-      scannedIsBound: scannedIsBound ?? this.scannedIsBound,
-      scannedIsOwner: scannedIsOwner ?? this.scannedIsOwner,
+      scannedQrData: scannedQrData ?? this.scannedQrData,
+      selectedDisplayDeviceId:
+          selectedDisplayDeviceId ?? this.selectedDisplayDeviceId,
       didAutoConnectOnDetailPage:
           didAutoConnectOnDetailPage ?? this.didAutoConnectOnDetailPage,
     );
@@ -38,35 +38,17 @@ class AppStateNotifier extends StateNotifier<AppState> {
   AppStateNotifier() : super(const AppState());
 
   /// 设置扫描到的设备数据
-  void setScannedDeviceData(DeviceQrData deviceData) {
+  void setScannedData(DeviceQrData qrData) {
     state = state.copyWith(
-      scannedDeviceData: deviceData,
-      // 重置绑定检查结果，等待新检查
-      scannedIsBound: null,
-      scannedIsOwner: null,
+      scannedQrData: qrData,
     );
   }
 
   /// 清空扫描数据
-  void clearScannedDeviceData() {
+  void clearScannedData() {
     state = state.copyWith(
-      scannedDeviceData: null,
-      scannedIsBound: null,
-      scannedIsOwner: null,
+      scannedQrData: null,
     );
-  }
-
-  /// 根据传入ID（displayDeviceId 或 bleDeviceId）获取扫描数据
-  DeviceQrData? getDeviceDataById(String displayDeviceId) {
-    final d = state.scannedDeviceData;
-    if (d == null) return null;
-    if (d.displayDeviceId == displayDeviceId) return d;
-    return null;
-  }
-
-  /// 记录扫码绑定检查结果
-  void setScannedBindingStatus({required bool isBound, required bool isOwner}) {
-    state = state.copyWith(scannedIsBound: isBound, scannedIsOwner: isOwner);
   }
 
   /// 记录本会话内已在设备详情页触发过一次自动连接

@@ -34,21 +34,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     super.initState();
   }
 
-  void _listenToBleConnectionState() {
-    ref.listen<BleConnectionState>(bleConnectionProvider, (prev, next) {
-      final s = (next.provisionStatus ?? '').toLowerCase();
-      final matchedId = next.lastProvisionDeviceId ??
-          ref.read(appStateProvider).scannedDeviceData?.displayDeviceId;
-      final isMatch = matchedId == null ||
-          matchedId.isEmpty ||
-          matchedId == widget.displayDeviceId;
-      if (isMatch && (s == 'login_success' || s.contains('login_success'))) {
-        Fluttertoast.showToast(msg: context.l10n.login_success);
-        _goHomeOnce();
-      }
-    });
-
-  }
   void _goHomeOnce() {
     if (_navigated || !mounted) return;
     _navigated = true;
@@ -107,11 +92,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
   @override
   Widget build(BuildContext context) {
-    _listenToBleConnectionState();
-
     final ref = this.ref;
     final app = ref.watch(appStateProvider);
-    final scanned = app.scannedDeviceData;
+    final scanned = app.scannedQrData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
     print('[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}');
@@ -141,7 +124,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       onPopInvokedWithResult: (didPop, result) async {
         await _maybeDisconnectIfEphemeral();
         // 清理扫描与连接状态，返回扫码页后重新初始化
-        ref.read(appStateProvider.notifier).clearScannedDeviceData();
+        ref.read(appStateProvider.notifier).clearScannedData();
         ref.read(bleConnectionProvider.notifier).resetState();
         ref.read(qrScannerProvider.notifier).reset();
         if (context.mounted) context.go(AppRoutes.qrScanner);
@@ -154,7 +137,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           onPressed: () async {
             await _maybeDisconnectIfEphemeral();
             // 清理扫描与连接状态，返回扫码页后重新初始化
-            ref.read(appStateProvider.notifier).clearScannedDeviceData();
+            ref.read(appStateProvider.notifier).clearScannedData();
             ref.read(bleConnectionProvider.notifier).resetState();
             ref.read(qrScannerProvider.notifier).reset();
             context.go(AppRoutes.qrScanner);
@@ -204,7 +187,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                     onPressed: () async {
                       await _maybeDisconnectIfEphemeral();
                       // 清理扫描与连接状态，返回扫码页后重新初始化
-                      ref.read(appStateProvider.notifier).clearScannedDeviceData();
+                      ref.read(appStateProvider.notifier).clearScannedData();
                       ref.read(bleConnectionProvider.notifier).resetState();
                       ref.read(qrScannerProvider.notifier).reset();
                       context.go(AppRoutes.qrScanner);

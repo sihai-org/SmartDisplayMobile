@@ -11,7 +11,7 @@ import '../../core/deeplink/deep_link_handler.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
-import '../../core/flow/device_entry_coordinator.dart';
+import '../../core/utils/device_entry_coordinator.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});

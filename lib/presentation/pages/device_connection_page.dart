@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
@@ -23,96 +25,86 @@ class DeviceConnectionPage extends ConsumerStatefulWidget {
 
 class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   bool _noDataDialogShown = false;
+  bool _navigated = false; // 防止多次 go()
 
-  // 返回或手动触发时：若蓝牙已连接且设备不在已保存列表，则强制断开
-  Future<void> _maybeDisconnectIfEphemeral() async {
+// ===== 辅助：统一清理 =====
+  Future<void> _disconnectIfEphemeral() async {
     final conn = ref.read(bleConnectionProvider);
     final devId = conn.bleDeviceData?.displayDeviceId;
     final st = conn.bleDeviceStatus;
-    final isBleConnected = st == BleDeviceStatus.connected ||
+    final isBleConnected = st == BleDeviceStatus.scanning ||
+        st == BleDeviceStatus.connecting ||
+        st == BleDeviceStatus.connected ||
         st == BleDeviceStatus.authenticating ||
         st == BleDeviceStatus.authenticated;
+
     if (devId == null || devId.isEmpty || !isBleConnected) return;
+
+    // 设备是否在已保存列表中
     await ref.read(savedDevicesProvider.notifier).load();
     final saved = ref.read(savedDevicesProvider);
     final inList = saved.devices.any((e) => e.displayDeviceId == devId);
     if (!inList) {
-      // ignore: avoid_print
-      print('[DeviceConnectionPage] 返回且设备不在列表，主动断开BLE: $devId');
-      await ref.read(bleConnectionProvider.notifier).disconnect();
-      _clear();
+      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
+          name: 'Binding');
+      try {
+        await ref.read(bleConnectionProvider.notifier).disconnect(shouldReset: true);
+      } catch (e) {
+        developer.log('[DeviceConnectionPage] disconnect error: $e',
+            name: 'Binding');
+      }
       Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
+  }
+
+  void _clearAll() {
+    ref.read(appStateProvider.notifier).clearScannedData();
+    ref.read(qrScannerProvider.notifier).reset();
+    ref.read(bleConnectionProvider.notifier).resetState();
+  }
+
+  Future<void> _disconnectAndClearIfNeeded() async {
+    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
+        name: 'Binding');
+    await _disconnectIfEphemeral();
+    _clearAll();
   }
 
   @override
   void initState() {
     super.initState();
-    print('[DeviceConnectionPage] initState');
+    developer.log('[DeviceConnectionPage] initState', name: 'Binding');
 
     // 进入页面自动连接
-    // 延后到首帧后触发，避免在 build 同帧里改 provider
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      final deviceData = ref
-          .read(appStateProvider.notifier)
-          .getDeviceDataById(widget.displayDeviceId);
-      if (deviceData == null) {
+      // 1. 检查扫到的设备
+      final scannedQrData = ref.read(appStateProvider).scannedQrData;
+      if (scannedQrData == null) {
+        developer.log('[DeviceConnectionPage] scannedQrData is null',
+            name: 'Binding');
         if (!_noDataDialogShown) _showNoDataError();
         return;
       }
 
-      // ignore: avoid_print
-      print(
-          '[DeviceConnectionPage] start connect -> ${deviceData.deviceName} (${deviceData.bleDeviceId})');
-
+      // 2. 自动连接
+      developer.log(
+          '[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId}',
+          name: 'Binding');
       try {
         final ok = await ref
             .read(bleConnectionProvider.notifier)
-            .startConnection(deviceData);
+            .enableBleConnection(scannedQrData);
         if (ok) Fluttertoast.showToast(msg: context.l10n.connect_success);
       } catch (e, s) {
-        // ignore: avoid_print
-        print('[DeviceConnectionPage] startConnection error: $e\n$s');
+        developer.log('[DeviceConnectionPage] startConnection error: $e\n$s');
         Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
       }
     });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final deviceData =
-        ref.read(appStateProvider.notifier).getDeviceDataById(widget.displayDeviceId);
-    if (deviceData == null) {
-      // 在首帧后再弹窗，避免在build阶段触发导航造成 _debugLocked 断言
-      if (!_noDataDialogShown) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _noDataDialogShown) return;
-          _showNoDataError();
-        });
-      }
-      return;
-    }
-  }
-
-  void _clear() {
-    ref.read(appStateProvider.notifier).clearScannedDeviceData();
-    ref.read(bleConnectionProvider.notifier).resetState();
-    ref.read(qrScannerProvider.notifier).reset();
-  }
-
-  void _clearAndBackToEntry() {
-    _clear();
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(AppRoutes.home);
-    }
-  }
-
-  void _listenToBleConnectionState() {
+  void _setupBleStatusListener() {
     ref.listen<BleConnectionState>(
       bleConnectionProvider,
           (previous, current) async {
@@ -121,9 +113,12 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final prev = previous?.bleDeviceStatus;
         final cur = current.bleDeviceStatus;
         if (cur != prev) {
-          // ignore: avoid_print
-          print('[DeviceConnectionPage] 蓝牙状态变化 $prev -> $cur');
+          developer.log('[DeviceConnectionPage] 蓝牙状态变化 $prev -> $cur',
+              name: 'Binding');
           if (cur == BleDeviceStatus.authenticated) {
+            if (_navigated) return; // 防抖
+            _navigated = true;
+
             final curDisplayDeviceId = current.bleDeviceData?.displayDeviceId;
             final networkStatus = await ref
                 .read(bleConnectionProvider.notifier)
@@ -132,62 +127,45 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
             if (!mounted) return;
             final idParam = Uri.encodeComponent(curDisplayDeviceId ?? "");
 
-            print('[device_connection_page] curDisplayDeviceId=$curDisplayDeviceId');
+            developer.log(
+                '[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId',
+                name: 'Binding');
             if (networkStatus?.connected == true) {
               context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
             } else {
+
               context.go('${AppRoutes.wifiSelection}?displayDeviceId=$idParam');
             }
             return;
           }
 
           if (cur == BleDeviceStatus.error || cur == BleDeviceStatus.timeout) {
-            final code = ref.read(bleConnectionProvider).lastHandshakeErrorCode;
-            Fluttertoast.showToast(
-                msg: code == 'user_mismatch' ? context.l10n.device_bound_elsewhere : context.l10n.connect_failed_move_closer);
-
+            // TODO: error detail: maybe user_mismatch when handshake
+            Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
             if (!mounted) return;
-            _clearAndBackToEntry();
+            _clearAll();
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
           }
         }
       },
     );
   }
 
-  /// 显示无数据错误
-  void _showNoDataError() {
-    _noDataDialogShown = true;
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.error_title),
-        content: Text(context.l10n.no_device_data_message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (!mounted) return;
-              _clear();
-              context.go(AppRoutes.qrScanner);
-            },
-            child: Text(context.l10n.rescan),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    _listenToBleConnectionState();
+    // 监听蓝牙连接状态
+    _setupBleStatusListener();
 
     final connectionState = ref.watch(bleConnectionProvider);
 
     return PopScope(
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
-          await _maybeDisconnectIfEphemeral();
+          await _disconnectAndClearIfNeeded();
         }
       },
       child: Scaffold(
@@ -199,19 +177,17 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            // 返回前进行断开判断（需等待执行完成，避免在导航后错过断开时机）
-            await _maybeDisconnectIfEphemeral();
-            // 清理状态并返回扫描页面
-              _clear();
+              await _disconnectAndClearIfNeeded();
+              if (!mounted) return;
               context.go(AppRoutes.qrScanner);
           },
         ),
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(24.0),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -259,8 +235,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   /// 构建设备信息卡片
   Widget _buildDeviceInfoCard(BleConnectionState state) {
     // 从全局状态获取QR扫描的设备数据
-    final qrDeviceData = ref.read(appStateProvider.notifier).getDeviceDataById(widget.displayDeviceId);
-    
+    final app = ref.watch(appStateProvider);
+    final qrDeviceData = app.scannedQrData;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -320,15 +297,27 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     );
   }
 
-  @override
-  void dispose() {
-    // 可选兜底：避免页面异常离开时留下未绑定连接
-    // 这里注意：不要阻塞 dispose，可 fire-and-forget
-    () async {
-      try {
-        await _maybeDisconnectIfEphemeral();
-      } catch (_) {}
-    }();
-    super.dispose();
+  /// 显示无数据错误
+  void _showNoDataError() {
+    _noDataDialogShown = true;
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.error_title),
+        content: Text(context.l10n.no_device_data_message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (!mounted) return;
+              _clearAll();
+              context.go(AppRoutes.qrScanner);
+            },
+            child: Text(context.l10n.rescan),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
+import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 
 import '../channel/secure_channel_manager.dart';
 import '../ble/ble_device_data.dart';
-import '../constants/result.dart';
+import '../constants/enum.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
@@ -29,33 +29,23 @@ class WifiAp {
   });
 }
 
-/// 蓝牙连接相关数据
+/// 当前（绑定中 or 已绑定）设备的相关数据
 class BleConnectionState {
   /// 蓝牙
-  final BleDeviceStatus bleDeviceStatus;
   final BleDeviceData? bleDeviceData;
-  final String? lastHandshakeErrorCode;
-  final String? lastHandshakeErrorMessage;
-  final int authRev;
+  final BleDeviceStatus bleDeviceStatus;
 
-  /// 配网
-  final String? provisionStatus;
-  final String? lastProvisionDeviceId;
-  final String? lastProvisionSsid;
+  /// wifi
   final List<WifiAp> wifiNetworks;
-  final NetworkStatus? networkStatus;
+
+  // TODO: 放在 devicedetail 内部
   final bool isCheckingNetwork;
+  final NetworkStatus? networkStatus;
   final DateTime? networkStatusUpdatedAt;
 
   const BleConnectionState({
-    this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.bleDeviceData,
-    this.lastHandshakeErrorCode,
-    this.lastHandshakeErrorMessage,
-    this.authRev = 0,
-    this.provisionStatus,
-    this.lastProvisionDeviceId,
-    this.lastProvisionSsid,
+    this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.wifiNetworks = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
@@ -63,11 +53,8 @@ class BleConnectionState {
   });
 
   BleConnectionState copyWith({
-    BleDeviceStatus? bleDeviceStatus,
     BleDeviceData? bleDeviceData,
-    String? lastHandshakeErrorCode,
-    String? lastHandshakeErrorMessage,
-    int? authRev,
+    BleDeviceStatus? bleDeviceStatus,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -78,17 +65,8 @@ class BleConnectionState {
     DateTime? networkStatusUpdatedAt,
   }) {
     return BleConnectionState(
-      bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
       bleDeviceData: bleDeviceData ?? this.bleDeviceData,
-      lastHandshakeErrorCode:
-          lastHandshakeErrorCode ?? this.lastHandshakeErrorCode,
-      lastHandshakeErrorMessage:
-          lastHandshakeErrorMessage ?? this.lastHandshakeErrorMessage,
-      authRev: authRev ?? this.authRev,
-      provisionStatus: provisionStatus ?? this.provisionStatus,
-      lastProvisionDeviceId:
-          lastProvisionDeviceId ?? this.lastProvisionDeviceId,
-      lastProvisionSsid: lastProvisionSsid ?? this.lastProvisionSsid,
+      bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
@@ -188,15 +166,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void _onStateChanged(BleConnectionState prev, BleConnectionState next) {
+    // 当前选中设备非 auth -> auth：主动同步设备信息
+    final nowDisplayDeviceId = next.bleDeviceData?.displayDeviceId;
+    final selectedDisplayDeviceId =
+        _ref.read(appStateProvider).selectedDisplayDeviceId;
+    final nowSelected = nowDisplayDeviceId != null &&
+        nowDisplayDeviceId == selectedDisplayDeviceId;
     final wasAuthed = prev.bleDeviceStatus == BleDeviceStatus.authenticated;
     final nowAuthed = next.bleDeviceStatus == BleDeviceStatus.authenticated;
-    // 兜底：非 auth -> auth 过渡触发
-    if (!wasAuthed && nowAuthed) {
-      _syncWhenAuthed(reason: 'state-transition');
+    if (nowSelected && !wasAuthed && nowAuthed) {
+      _syncSelectedWhenAuthed(reason: 'state-transition');
     }
   }
 
-  void _syncWhenAuthed({required String reason}) {
+  void _syncSelectedWhenAuthed({required String reason}) {
     final now = DateTime.now();
     if (_lastSyncAt != null && now.difference(_lastSyncAt!) < _minSyncGap) {
       _log('syncDeviceInfo 被合并（$reason）');
@@ -283,13 +266,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
       state = state.copyWith(
-          bleDeviceStatus: BleDeviceStatus.authenticated,
-          bleDeviceData: qrDataToDeviceData(qrData));
+        bleDeviceData: qrDataToDeviceData(qrData),
+        bleDeviceStatus: BleDeviceStatus.authenticated,
+      );
       return true;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       state = state.copyWith(
+        bleDeviceData: qrDataToDeviceData(qrData),
         bleDeviceStatus: BleDeviceStatus.error,
       );
       return false;
@@ -319,21 +304,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         await enableBleConnection(deviceDataToQrData(d));
       } catch (_) {}
     }
-  }
-
-  // /// 蓝牙建连后自动同步 wifi
-  // Future<void> handleWifiSmartly() async {
-  //   await checkNetworkStatus();
-  // }
-
-  /// 扫码连接
-  Future<bool> startConnection(DeviceQrData qrData) async {
-    // Reset per-session caches to avoid stale data from previous device
-    _lastNetworkStatusReadAt = null;
-    _inflightNetworkStatusRead = null;
-    _postProvisionPoll = null;
-
-    return await enableBleConnection(qrData);
   }
 
   // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
@@ -410,114 +380,38 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  // 配网（并轮询网络连接状态）
-  Future<bool> sendProvisionRequest({
-    required String ssid,
-    required String password,
-  }) async {
-    try {
-      final currId = state.bleDeviceData!.displayDeviceId;
-      state = state.copyWith(
-        provisionStatus: 'provisioning',
-        lastProvisionDeviceId: currId,
-        lastProvisionSsid: ssid,
-      );
-      final ok = await sendSimpleBleMsg(
-          'wifi.config', {'ssid': ssid, 'password': password});
-      if (!ok) state = state.copyWith(provisionStatus: 'failed');
-      _kickoffPostProvisionPolling();
-      return ok;
-    } catch (e) {
-      _log('❌ wifi.config 失败: $e');
-      state = state.copyWith(provisionStatus: 'failed');
-      return false;
-    }
+  // 配网
+  Future<bool> sendWifiConfig(String ssid, String password) async {
+    return await sendSimpleBleMsg(
+        'wifi.config', { 'ssid': ssid, 'password': password});
   }
 
-  void _kickoffPostProvisionPolling() {
-    if (_postProvisionPoll != null) return;
-    _postProvisionPoll = () async {
-      final deadline = DateTime.now().add(const Duration(seconds: 10));
-      var delay = const Duration(milliseconds: 800);
-      while (DateTime.now().isBefore(deadline)) {
-        final ns = await _doReadNetworkStatus();
-        if (ns?.connected == true) break;
-        await Future.delayed(delay);
-        final nextMs = (delay.inMilliseconds * 1.5).toInt();
-        delay = Duration(milliseconds: nextMs > 3000 ? 3000 : nextMs);
-      }
-      if (state.provisionStatus == 'provisioning') {
-        state = state.copyWith(
-          provisionStatus: 'wifi_offline',
-          lastProvisionDeviceId: state.bleDeviceData?.displayDeviceId ??
-              state.lastProvisionDeviceId,
-        );
-      }
-      _postProvisionPoll = null;
-    }();
-  }
-
-  // 网络状态（节流 + 并发保护）
+  // 网络状态
   Future<NetworkStatus?> checkNetworkStatus() async {
-    final now = DateTime.now();
-    // 防抖
-    if (_lastNetworkStatusReadAt != null &&
-        now.difference(_lastNetworkStatusReadAt!) <
-            const Duration(milliseconds: 400)) {
-      return state.networkStatus;
-    }
-    // 并发保护
-    if (_inflightNetworkStatusRead != null) {
-      return _inflightNetworkStatusRead;
-    }
-    state = state.copyWith(isCheckingNetwork: true);
-    _lastNetworkStatusReadAt = now;
-    final future = _doReadNetworkStatus();
-    _inflightNetworkStatusRead = future;
-    final res = await future;
-    _inflightNetworkStatusRead = null;
-    state = state.copyWith(isCheckingNetwork: false);
-    return res;
-  }
+    if (state.isCheckingNetwork) return null;
 
-  Future<NetworkStatus?> _doReadNetworkStatus() async {
     try {
-      final t0 = DateTime.now();
       final data = await sendBleMsg(
         'network.status',
         null,
         timeout: const Duration(milliseconds: 1200),
         retries: 0,
       );
-      _logWithTime(
-          'network.status.rq.done(${DateTime.now().difference(t0).inMilliseconds}ms)');
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
         state = state.copyWith(
-            networkStatus: ns, networkStatusUpdatedAt: DateTime.now());
-        if (state.provisionStatus == 'provisioning' && ns.connected) {
-          final reqSsid = state.lastProvisionSsid?.trim();
-          final currSsid = ns.displaySsid?.trim() ?? ns.ssid?.trim();
-          final ssidMatches = reqSsid != null &&
-              reqSsid.isNotEmpty &&
-              currSsid != null &&
-              currSsid.isNotEmpty &&
-              currSsid == reqSsid;
-          if (ssidMatches) {
-            state = state.copyWith(
-              provisionStatus: 'wifi_online',
-              lastProvisionDeviceId: state.bleDeviceData?.displayDeviceId ??
-                  state.lastProvisionDeviceId,
-            );
-          }
-        }
+          networkStatus: ns,
+          networkStatusUpdatedAt: DateTime.now(),
+        );
         return ns;
       }
       return null;
     } catch (e) {
-      _logWithTime('network.status.error(${e.runtimeType})');
       return null;
     }
+  }
+
+  Future<NetworkStatus?> _doReadNetworkStatus() async {
   }
 
   /// 版本更新（参考 requestWifiScan 的通道确保逻辑）

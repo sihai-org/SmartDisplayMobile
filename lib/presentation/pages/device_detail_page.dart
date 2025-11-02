@@ -3,7 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/result.dart';
+import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
@@ -28,9 +28,6 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _checkingUpdate = false;
 
-  // 开关的乐观更新覆盖值（null 表示不覆盖）
-  bool? _bleSwitchOverride;
-  DateTime? _bleSwitchOverrideAt;
   bool _paramConnectTried = false; // 仅根据外部传入 deviceId 自动触发一次
   String? _lastParamDeviceId; // 记录上一次处理过的构造参数 deviceId
   // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅

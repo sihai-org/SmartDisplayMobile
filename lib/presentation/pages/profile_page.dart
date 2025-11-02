@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
@@ -9,7 +10,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
-import '../../core/providers/ble_connection_provider.dart' as conn;
+import '../../core/providers/ble_connection_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -29,23 +30,52 @@ class ProfilePage extends ConsumerWidget {
         body: {},
       );
       await supabase.auth.signOut();
-      // 清空本地设备列表与选择，避免不同用户设备串列表
-      await ref.read(savedDevicesProvider.notifier).clearForLogout();
-      // 若当前与设备已建立连接，则通过 BLE 通知 TV 执行本地登出
-      final connState = ref.read(conn.bleConnectionProvider);
+    } catch (e) {
+      if (!context.mounted) return;
+
+      final l10n = context.l10n;
+      Fluttertoast.showToast(msg: l10n.signout_failed(e.toString()));
+      // 登出失败先啥也不干
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    /**
+     * 后续清理
+     */
+    try {
+      final connState = ref.read(bleConnectionProvider);
+      // 1. 通知设备退登
       if (connState.bleDeviceData != null) {
-        final notifier = ref.read(conn.bleConnectionProvider.notifier);
+        final notifier = ref.read(bleConnectionProvider.notifier);
         final ok = await notifier.sendDeviceLogout();
         if (!ok) {
           // 不中断后续流程，仅记录日志
-          // ignore: avoid_print
           print('⚠️ BLE 登出指令发送失败，继续登出流程');
         }
       }
-      context.go(AppRoutes.login);
+
+      if (!context.mounted) return;
+
+      // 2. 蓝牙断连
+      final connNotifier = ref.read(bleConnectionProvider.notifier);
+      connNotifier.disconnect(shouldReset: true);
+
+      // 3. 清空本地设备列表与选择，避免不同用户设备串列表
+      await ref.read(savedDevicesProvider.notifier).clearForLogout();
+
+
+      ref.invalidate(appStateProvider);
+      ref.invalidate(bleConnectionProvider);
+      ref.invalidate(savedDevicesProvider);
+
     } catch (e) {
-      final l10n = context.l10n;
-      Fluttertoast.showToast(msg: l10n.signout_failed(e.toString()));
+      print('⚠️ logout 后续清理出错');
+    } finally {
+      if (!context.mounted) return;
+
+      context.go(AppRoutes.login);
     }
   }
 

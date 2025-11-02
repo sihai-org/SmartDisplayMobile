@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart'; // HapticFeedback
 import 'package:audioplayers/audioplayers.dart';
@@ -9,7 +10,7 @@ import 'dart:ui' show Rect, Size;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/router/app_router.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
-import '../../core/flow/device_entry_coordinator.dart';
+import '../../core/utils/device_entry_coordinator.dart';
 
 class QrScannerPage extends ConsumerStatefulWidget {
   const QrScannerPage({super.key});

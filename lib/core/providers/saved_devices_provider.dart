@@ -8,8 +8,11 @@ import '../../l10n/app_localizations_en.dart';
 import '../../l10n/app_localizations_zh.dart';
 
 class SavedDevicesState {
+  // 设备列表
   final List<SavedDeviceRecord> devices;
+  // 当前设备
   final String? lastSelectedId;
+
   final bool loaded;
   const SavedDevicesState({this.devices = const [], this.lastSelectedId, this.loaded = false});
 
@@ -29,6 +32,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.displayDeviceId : null), loaded: true);
   }
 
+  // TODO: 防抖
   Future<void> syncFromServer({bool allowToast = false}) async {
     // Show top toast for syncing
     if (allowToast) {
@@ -58,34 +62,6 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
         Fluttertoast.showToast(msg: l10n.sync_devices_failed, gravity: ToastGravity.TOP);
       }
     }
-  }
-
-  // 覆盖（叠加）从 BLE 即时获取的设备信息，基于最新远端列表进行本地增强
-  Future<void> overlayInlineInfo({
-    required String displayDeviceId,
-    String? firmwareVersion,
-    String? networkSummary,
-    String? lastBleDeviceId,
-  }) async {
-    // 确保有最新的远端数据
-    if (!state.loaded || state.devices.isEmpty) {
-      try {
-        await syncFromServer();
-      } catch (_) {}
-    }
-
-    final updated = state.devices.map((e) {
-      if (e.displayDeviceId != displayDeviceId) return e;
-      return e.copyWith(
-        firmwareVersion: firmwareVersion ?? e.firmwareVersion,
-        networkSummary: networkSummary ?? e.networkSummary,
-        lastBleDeviceId: lastBleDeviceId ?? e.lastBleDeviceId,
-      );
-    }).toList();
-
-    state = state.copyWith(devices: updated);
-    // 持久化本地缓存（不影响远端源）
-    await _repo.saveLocal(updated);
   }
 
   // 局部字段更新：只在本地列表与缓存中更新指定字段，不触发远端同步
