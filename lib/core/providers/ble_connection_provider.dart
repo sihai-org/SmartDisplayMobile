@@ -36,12 +36,10 @@ class BleConnectionState {
   final BleDeviceStatus bleDeviceStatus;
 
   /// wifi
-  final List<WifiAp> wifiNetworks;
-
-  // TODO: 放在 devicedetail 内部
-  final bool isCheckingNetwork;
-  final NetworkStatus? networkStatus;
-  final DateTime? networkStatusUpdatedAt;
+  final List<WifiAp> wifiNetworks; // TODO: 可以放 wifi_selection_page 内部
+  final bool isCheckingNetwork; // TODO: 可以放 device_detail_page 内部
+  final NetworkStatus? networkStatus; // TODO: 可以放 device_detail_page 内部
+  final DateTime? networkStatusUpdatedAt; // TODO: 可以放 device_detail_page 内部
 
   const BleConnectionState({
     this.bleDeviceData,

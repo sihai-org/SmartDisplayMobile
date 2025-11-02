@@ -1,12 +1,17 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/ble/ble_device_data.dart';
+import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
+import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 
-// TODO: 页面返回，记得清理scanned所有状态
 class WiFiSelectionPage extends ConsumerStatefulWidget {
   const WiFiSelectionPage({super.key, this.scannedDisplayDeviceId});
 
@@ -17,9 +22,51 @@ class WiFiSelectionPage extends ConsumerStatefulWidget {
 }
 
 class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
-  var _sendLoading = false;
   final _ssidController = TextEditingController();
   final _pwdController = TextEditingController();
+  bool _sending = false;
+
+  Future<void> _disconnectIfEphemeral() async {
+    final conn = ref.read(bleConnectionProvider);
+    final devId = conn.bleDeviceData?.displayDeviceId;
+    final st = conn.bleDeviceStatus;
+    final isBleConnected = st == BleDeviceStatus.scanning ||
+        st == BleDeviceStatus.connecting ||
+        st == BleDeviceStatus.connected ||
+        st == BleDeviceStatus.authenticating ||
+        st == BleDeviceStatus.authenticated;
+
+    if (devId == null || devId.isEmpty || !isBleConnected) return;
+
+    // 设备是否在已保存列表中
+    await ref.read(savedDevicesProvider.notifier).load();
+    final saved = ref.read(savedDevicesProvider);
+    final inList = saved.devices.any((e) => e.displayDeviceId == devId);
+    if (!inList) {
+      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
+          name: 'Binding');
+      try {
+        await ref.read(bleConnectionProvider.notifier).disconnect(shouldReset: true);
+      } catch (e) {
+        developer.log('[DeviceConnectionPage] disconnect error: $e',
+            name: 'Binding');
+      }
+      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
+    }
+  }
+
+  void _clearAll() {
+    ref.read(appStateProvider.notifier).clearScannedData();
+    ref.read(qrScannerProvider.notifier).reset();
+    ref.read(bleConnectionProvider.notifier).resetState();
+  }
+
+  Future<void> _disconnectAndClearIfNeeded() async {
+    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
+        name: 'Binding');
+    await _disconnectIfEphemeral();
+    _clearAll();
+  }
 
   @override
   void initState() {
@@ -40,7 +87,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   }
 
   void _handleSend() async {
-    if (_sendLoading) return;
+    if (_sending) return;
 
     final ssid = _ssidController.text.trim();
     final pwd = _pwdController.text;
@@ -49,11 +96,11 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       return;
     }
 
-    setState(() => _sendLoading = true);
+    setState(() => _sending = true);
     final ok = await ref
         .read(bleConnectionProvider.notifier)
         .sendWifiConfig(ssid, pwd);
-    setState(() => _sendLoading = false);
+    setState(() => _sending = false);
 
     if (ok) {
       Fluttertoast.showToast(msg: context.l10n.provision_success);
@@ -76,7 +123,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       // 允许系统返回手势/按钮先尝试出栈
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
-        // didPop 为 true 时已由框架完成出栈，这里不再强制跳转
+        if (didPop && widget.scannedDisplayDeviceId != null) {
+          unawaited(_disconnectAndClearIfNeeded());
+        }
+
         if (!didPop && context.mounted) {
           if (context.canPop()) {
             context.pop();
@@ -93,6 +143,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
+              if (widget.scannedDisplayDeviceId != null) {
+                await _disconnectAndClearIfNeeded();
+              }
               if (!context.mounted) return;
               if (context.canPop()) {
                 context.pop();
@@ -171,7 +224,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
               return Stack(
                 children: [
                   content,
-                  if (_sendLoading)
+                  if (_sending)
                     Positioned.fill(
                       child: Container(
                         color: Colors.black45,
@@ -204,7 +257,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       height: 48,
       child: ElevatedButton.icon(
         onPressed: _handleSend,
-        icon: _sendLoading
+        icon: _sending
             ? const SizedBox(
                 width: 18,
                 height: 18,

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
@@ -27,7 +26,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   bool _noDataDialogShown = false;
   bool _navigated = false; // 防止多次 go()
 
-// ===== 辅助：统一清理 =====
   Future<void> _disconnectIfEphemeral() async {
     final conn = ref.read(bleConnectionProvider);
     final devId = conn.bleDeviceData?.displayDeviceId;
@@ -163,9 +161,11 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     final connectionState = ref.watch(bleConnectionProvider);
 
     return PopScope(
+      // 允许系统返回手势/按钮先尝试出栈
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
-          await _disconnectAndClearIfNeeded();
+          unawaited(_disconnectAndClearIfNeeded());
         }
       },
       child: Scaffold(

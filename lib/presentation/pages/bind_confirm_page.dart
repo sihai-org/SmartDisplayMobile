@@ -1,18 +1,16 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
-import '../../core/constants/ble_constants.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 
@@ -28,6 +26,50 @@ class BindConfirmPage extends ConsumerStatefulWidget {
 class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   bool _navigated = false; // 防止重复跳转
   bool _sending = false;   // 按钮loading
+
+  Future<void> _disconnectIfEphemeral() async {
+    final conn = ref.read(bleConnectionProvider);
+    final devId = conn.bleDeviceData?.displayDeviceId;
+    final st = conn.bleDeviceStatus;
+    final isBleConnected = st == BleDeviceStatus.scanning ||
+        st == BleDeviceStatus.connecting ||
+        st == BleDeviceStatus.connected ||
+        st == BleDeviceStatus.authenticating ||
+        st == BleDeviceStatus.authenticated;
+
+    if (devId == null || devId.isEmpty || !isBleConnected) return;
+
+    // 设备是否在已保存列表中
+    await ref.read(savedDevicesProvider.notifier).load();
+    final saved = ref.read(savedDevicesProvider);
+    final inList = saved.devices.any((e) => e.displayDeviceId == devId);
+    if (!inList) {
+      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
+          name: 'Binding');
+      try {
+        await ref
+            .read(bleConnectionProvider.notifier)
+            .disconnect(shouldReset: true);
+      } catch (e) {
+        developer.log('[DeviceConnectionPage] disconnect error: $e',
+            name: 'Binding');
+      }
+      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
+    }
+  }
+
+  void _clearAll() {
+    ref.read(appStateProvider.notifier).clearScannedData();
+    ref.read(qrScannerProvider.notifier).reset();
+    ref.read(bleConnectionProvider.notifier).resetState();
+  }
+
+  Future<void> _disconnectAndClearIfNeeded() async {
+    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
+        name: 'Binding');
+    await _disconnectIfEphemeral();
+    _clearAll();
+  }
 
   @override
   void initState() {
@@ -120,13 +162,12 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     }
 
     return PopScope(
-      canPop: false,
+      // 允许系统返回手势/按钮先尝试出栈
+      canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
-        await _maybeDisconnectIfEphemeral();
-        // 清理扫描与连接状态，返回扫码页后重新初始化
-        ref.read(appStateProvider.notifier).clearScannedData();
-        ref.read(bleConnectionProvider.notifier).resetState();
-        ref.read(qrScannerProvider.notifier).reset();
+        if (didPop) {
+          unawaited(_disconnectAndClearIfNeeded());
+        }
         if (context.mounted) context.go(AppRoutes.qrScanner);
       },
       child: Scaffold(
@@ -135,11 +176,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            await _maybeDisconnectIfEphemeral();
-            // 清理扫描与连接状态，返回扫码页后重新初始化
-            ref.read(appStateProvider.notifier).clearScannedData();
-            ref.read(bleConnectionProvider.notifier).resetState();
-            ref.read(qrScannerProvider.notifier).reset();
+            await _disconnectAndClearIfNeeded();
+            if (!context.mounted) return;
             context.go(AppRoutes.qrScanner);
           },
         ),
