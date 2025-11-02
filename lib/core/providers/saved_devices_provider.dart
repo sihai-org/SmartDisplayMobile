@@ -100,13 +100,6 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     await _repo.saveLocal(updated);
   }
 
-  Future<void> selectFromQr(DeviceQrData qr) async {
-    await _repo.selectFromQr(qr);
-    // Keep behavior consistent: refresh local state and mark selection
-    await load();
-    await select(qr.displayDeviceId);
-  }
-
   Future<void> select(String displayDeviceId) async {
     await _repo.saveLastSelectedId(displayDeviceId);
     state = state.copyWith(lastSelectedId: displayDeviceId);

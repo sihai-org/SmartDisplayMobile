@@ -61,6 +61,10 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     );
   }
 
+  void _handleSelectDevice(SavedDeviceRecord device) {
+    // TODO: ===================
+  }
+
   Future<bool> _connectSavedDevice(SavedDeviceRecord device) async {
     // 允许在缺少本地 BLE 地址时尝试连接：扫描流程会补上实际地址
     if (device.displayDeviceId.isEmpty || device.publicKey.isEmpty) {

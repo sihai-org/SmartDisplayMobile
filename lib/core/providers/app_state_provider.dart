@@ -6,15 +6,11 @@ class AppState {
   // 绑定过程中的设备
   final DeviceQrData? scannedQrData;
 
-  // 当前选中的已绑定设备id
-  final String? selectedDisplayDeviceId;
-
   // 本应用会话内是否已在设备详情页触发过一次自动连接
   final bool didAutoConnectOnDetailPage;
 
   const AppState({
     this.scannedQrData,
-    this.selectedDisplayDeviceId,
     this.didAutoConnectOnDetailPage = false,
   });
 
@@ -25,8 +21,6 @@ class AppState {
   }) {
     return AppState(
       scannedQrData: scannedQrData ?? this.scannedQrData,
-      selectedDisplayDeviceId:
-          selectedDisplayDeviceId ?? this.selectedDisplayDeviceId,
       didAutoConnectOnDetailPage:
           didAutoConnectOnDetailPage ?? this.didAutoConnectOnDetailPage,
     );

@@ -167,7 +167,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 当前选中设备非 auth -> auth：主动同步设备信息
     final nowDisplayDeviceId = next.bleDeviceData?.displayDeviceId;
     final selectedDisplayDeviceId =
-        _ref.read(appStateProvider).selectedDisplayDeviceId;
+        _ref.read(savedDevicesProvider).lastSelectedId;
     final nowSelected = nowDisplayDeviceId != null &&
         nowDisplayDeviceId == selectedDisplayDeviceId;
     final wasAuthed = prev.bleDeviceStatus == BleDeviceStatus.authenticated;
@@ -247,6 +247,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
+  // TODO: 目前 send 没有 ensure
   // 建立蓝牙连接
   Future<bool> enableBleConnection(DeviceQrData qrData) async {
     final t0 = DateTime.now();
