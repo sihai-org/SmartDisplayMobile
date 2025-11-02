@@ -134,7 +134,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
               context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
             } else {
 
-              context.go('${AppRoutes.wifiSelection}?displayDeviceId=$idParam');
+              context.go('${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam');
             }
             return;
           }

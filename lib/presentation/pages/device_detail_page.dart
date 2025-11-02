@@ -582,11 +582,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }();
 
     void handleToggle(bool value) async {
-      // 开关先乐观更新
-      setState(() {
-        _bleSwitchOverride = value;
-        _bleSwitchOverrideAt = DateTime.now();
-      });
       if (value) {
         // 打开：尝试连接到当前选中设备
         final id = saved.lastSelectedId;
@@ -658,13 +653,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
-                      final saved = ref.read(savedDevicesProvider);
-                      final id = saved.lastSelectedId;
-                      if (id != null && id.isNotEmpty) {
-                        context.push('${AppRoutes.wifiSelection}?displayDeviceId=${Uri.encodeComponent(id)}');
-                      } else {
-                        context.push(AppRoutes.wifiSelection);
-                      }
+                      context.push(AppRoutes.wifiSelection);
                     },
                     icon: const Icon(Icons.settings, size: 16),
                     label: Text(context.l10n.manage_network),
@@ -727,13 +716,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
-                      final saved = ref.read(savedDevicesProvider);
-                      final id = saved.lastSelectedId;
-                      if (id != null && id.isNotEmpty) {
-                        context.push('${AppRoutes.wifiSelection}?displayDeviceId=${Uri.encodeComponent(id)}');
-                      } else {
-                        context.push(AppRoutes.wifiSelection);
-                      }
+                      context.push(AppRoutes.wifiSelection);
                     },
                     icon: const Icon(Icons.settings, size: 16),
                     label: Text(context.l10n.manage_network),

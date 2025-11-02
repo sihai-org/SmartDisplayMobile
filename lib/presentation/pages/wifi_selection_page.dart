@@ -8,7 +8,9 @@ import '../../core/l10n/l10n_extensions.dart';
 
 // TODO: 页面返回，记得清理scanned所有状态
 class WiFiSelectionPage extends ConsumerStatefulWidget {
-  const WiFiSelectionPage({super.key});
+  const WiFiSelectionPage({super.key, this.scannedDisplayDeviceId});
+
+  final String? scannedDisplayDeviceId;
 
   @override
   ConsumerState<WiFiSelectionPage> createState() => _WiFiSelectionPageState();
@@ -55,6 +57,12 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
     if (ok) {
       Fluttertoast.showToast(msg: context.l10n.provision_success);
+
+      if (!mounted) return;
+
+      if (widget.scannedDisplayDeviceId != null) {
+        context.go(AppRoutes.bindConfirm);
+      }
     } else {
       Fluttertoast.showToast(msg: context.l10n.provision_request_failed);
     }
