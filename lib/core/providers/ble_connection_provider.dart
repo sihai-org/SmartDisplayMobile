@@ -138,6 +138,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         final v = (evt['value'] ?? '').toString();
         if (v == 'disconnected' || v == 'ble_powered_off') {
           state = state.copyWith(bleDeviceStatus: BleDeviceStatus.disconnected);
+          // 确保彻底中止扫描/连接，防止 UI 退出后仍继续连接
+          try { _ref.read(secureChannelManagerProvider).dispose(); } catch (_) {}
+          try { _ref.read(bleScannerProvider).stop(); } catch (_) {}
         }
         break;
       default:
@@ -289,15 +292,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  Future<bool> handleUserEnableBleConnection(DeviceQrData qrData) async {
-    state = state.copyWith(
-        bleDeviceStatus: BleDeviceStatus.scanning
-    );
-    return await enableBleConnection(qrData);
-  }
-
   Future<void> handleUserDisableBleConnection() async {
-    disconnect(shouldReset: false);
+    // 用户显式关闭：中止进行中的连接并清空状态，避免后续自动重连
+    await disconnect(shouldReset: true);
   }
 
   // 应用进入前台自动连接蓝牙

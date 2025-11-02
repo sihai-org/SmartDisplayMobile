@@ -27,6 +27,8 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   bool _checkingUpdate = false;
+  // TODO: 缺 toggle 关闭的 loading
+  bool _isLinking = false;
 
   bool _paramConnectTried = false; // 仅根据外部传入 deviceId 自动触发一次
   String? _lastParamDeviceId; // 记录上一次处理过的构造参数 deviceId
@@ -544,6 +546,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }
 
     final titleText = () {
+      if (_isLinking) {
+        return context.l10n.ble_connecting_text;
+      }
       switch (effectiveStatus) {
         case BleDeviceStatus.authenticated:
         case BleDeviceStatus.connected:
@@ -561,6 +566,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }();
 
     final leadingIcon = () {
+      if (_isLinking) {
+        return const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2.2),
+        );
+      }
       switch (effectiveStatus) {
         case BleDeviceStatus.authenticated:
         case BleDeviceStatus.connected:
@@ -593,9 +605,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         if (rec.displayDeviceId.isEmpty) return;
         final qr = _qrFromRecord(rec);
         if (qr == null) return;
+
+        setState(() => _isLinking = true);
         final res = await ref
             .read(conn.bleConnectionProvider.notifier)
-            .handleUserEnableBleConnection(qr);
+            .enableBleConnection(qr);
+        setState(() => _isLinking = false);
         if (!res) {
           Fluttertoast.showToast(msg: '蓝牙连接失败，请检查手机蓝牙或靠近设备');
         }
@@ -625,8 +640,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ),
             ),
             Switch(
-              value: computedIsOn(),
-              onChanged: (saved.loaded && saved.lastSelectedId != null)
+              value: _isLinking || computedIsOn(),
+              onChanged: (!_isLinking && saved.loaded && saved.lastSelectedId != null)
                   ? handleToggle
                   : null,
             ),

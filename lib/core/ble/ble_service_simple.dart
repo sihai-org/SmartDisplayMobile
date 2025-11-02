@@ -55,6 +55,25 @@ class BleServiceSimple {
   static Stream<Map<String, dynamic>> get connectionEvents =>
       _connectionEventController.stream;
 
+  // Forward adapter status to upper layers
+  static StreamSubscription<BleStatus>? _bleStatusSub;
+  static void _ensureBleStatusForwarder() {
+    if (_bleStatusSub != null) return;
+    _bleStatusSub = _ble.statusStream.listen((status) async {
+      try {
+        _connectionEventController.add({
+          'type': 'ble_status',
+          'status': status.toString(),
+        });
+        if (status == BleStatus.poweredOff) {
+          // Stop ongoing BLE work when adapter is off
+          try { await stopScan(); } catch (_) {}
+          try { await disconnect(); } catch (_) {}
+        }
+      } catch (_) {}
+    });
+  }
+
   // ✅ 统一的“刚就绪”时间戳 & 老安卓定位门槛缓存
   static bool _legacyNeedsLocation = false; // Android < 12 是否需要定位服务开关
 
@@ -105,6 +124,7 @@ class BleServiceSimple {
     _sessionStart ??= t0;
     _log('🚦 ensureBleReady 开始');
     try {
+      _ensureBleStatusForwarder();
       final status = await checkBleStatus();
       if (status == BleStatus.unsupported || status == BleStatus.poweredOff)
         return false;
@@ -640,6 +660,8 @@ class BleServiceSimple {
     _deviceConnectionSubscription = null;
     _scanController?.close();
     _scanController = null;
+    try { _bleStatusSub?.cancel(); } catch (_) {}
+    _bleStatusSub = null;
     try { _connectionEventController.close(); } catch (_) {}
     _discoveredDevices.clear();
     _isScanning = false;
