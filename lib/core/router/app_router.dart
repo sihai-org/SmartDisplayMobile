@@ -116,7 +116,7 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.wifiSelection,
       name: 'wifi-selection',
       builder: (context, state) {
-        final scannedDisplayDeviceId = state.uri.queryParameters['scannedDisplayDeviceId'] ?? '';
+        final scannedDisplayDeviceId = state.uri.queryParameters['scannedDisplayDeviceId'];
         return WiFiSelectionPage(scannedDisplayDeviceId: scannedDisplayDeviceId);
       },
     ),

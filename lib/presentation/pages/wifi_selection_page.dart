@@ -115,6 +115,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     }
   }
 
+  bool getIsScanned() {
+    return widget.scannedDisplayDeviceId != null && widget.scannedDisplayDeviceId!.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final wifiNetworks = ref.watch(bleConnectionProvider).wifiNetworks;
@@ -123,7 +127,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       // 允许系统返回手势/按钮先尝试出栈
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop && widget.scannedDisplayDeviceId != null) {
+        if (didPop && getIsScanned()) {
           unawaited(_disconnectAndClearIfNeeded());
         }
 
@@ -143,7 +147,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
-              if (widget.scannedDisplayDeviceId != null) {
+              if (getIsScanned()) {
                 await _disconnectAndClearIfNeeded();
               }
               if (!context.mounted) return;
