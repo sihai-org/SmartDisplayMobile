@@ -260,13 +260,17 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
     try {
-      final useRes = await _ref.read(secureChannelManagerProvider).use(qrData);
+      // 先通过 manager.use 建立通道
+      final mgr = _ref.read(secureChannelManagerProvider);
+      final useRes = await mgr.use(qrData);
       if (!useRes) {
         state = state.copyWith(
           bleDeviceStatus: BleDeviceStatus.error,
         );
         return useRes;
       }
+      // use() 成功后显式绑定一次事件流，避免因 provider 不变而错过绑定
+      _attachChannelEvents(mgr);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
       state = state.copyWith(
