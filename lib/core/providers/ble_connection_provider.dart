@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
-import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 
 import '../channel/secure_channel_manager.dart';
 import '../ble/ble_device_data.dart';
@@ -34,6 +33,7 @@ class BleConnectionState {
   /// 蓝牙
   final BleDeviceData? bleDeviceData;
   final BleDeviceStatus bleDeviceStatus;
+  final bool enableBleConnectionLoading;
 
   /// wifi
   final List<WifiAp> wifiNetworks; // TODO: 可以放 wifi_selection_page 内部
@@ -44,6 +44,7 @@ class BleConnectionState {
   const BleConnectionState({
     this.bleDeviceData,
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
+    this.enableBleConnectionLoading = false,
     this.wifiNetworks = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
@@ -53,6 +54,7 @@ class BleConnectionState {
   BleConnectionState copyWith({
     BleDeviceData? bleDeviceData,
     BleDeviceStatus? bleDeviceStatus,
+    bool? enableBleConnectionLoading,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -65,6 +67,8 @@ class BleConnectionState {
     return BleConnectionState(
       bleDeviceData: bleDeviceData ?? this.bleDeviceData,
       bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
+      enableBleConnectionLoading:
+          enableBleConnectionLoading ?? this.enableBleConnectionLoading,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
@@ -262,6 +266,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 若尚未开始会话，设置一个基准时间用于统一打点
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
+    state = state.copyWith(enableBleConnectionLoading: true);
     try {
       // 先通过 manager.use 建立通道
       final mgr = _ref.read(secureChannelManagerProvider);
@@ -289,23 +294,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         bleDeviceStatus: BleDeviceStatus.error,
       );
       return false;
+    } finally {
+      state = state.copyWith(enableBleConnectionLoading: false);
     }
-  }
-
-  Future<void> handleUserDisableBleConnection() async {
-    // 用户显式关闭：中止进行中的连接并清空状态，避免后续自动重连
-    await disconnect(shouldReset: true);
   }
 
   // 应用进入前台自动连接蓝牙
   Future<void> handleEnterForeground() async {
+    print("[BleConnectionPage] handleEnterForeground ${state.bleDeviceStatus} ${state.bleDeviceData}");
     if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
     final d = state.bleDeviceData;
     if (d != null) {
       try {
-        state = state.copyWith(
-            bleDeviceStatus: BleDeviceStatus.scanning
-        );
         await enableBleConnection(deviceDataToQrData(d));
       } catch (_) {}
     }
