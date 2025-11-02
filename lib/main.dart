@@ -99,8 +99,8 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     final locale = ref.watch(localeProvider);
     // Sync devices when app becomes visible (foreground). Keeping it in build
     // satisfies Riverpod's requirement for ref.listen in Consumer widgets.
-    ref.listen<bool>(isForegroundProvider, (prev, isFg) {
-      if (isFg == true) {
+    ref.listen<bool>(isForegroundProvider, (prev, curr) {
+      if (prev == false && curr == true) {
         Future.microtask(() =>
             ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true));
       }

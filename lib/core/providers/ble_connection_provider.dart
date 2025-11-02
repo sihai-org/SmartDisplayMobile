@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
+import '../../data/repositories/saved_devices_repository.dart';
 import '../channel/secure_channel_manager.dart';
 import '../ble/ble_device_data.dart';
 import '../constants/enum.dart';
@@ -83,7 +84,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   BleConnectionNotifier(this._ref) : super(const BleConnectionState()) {
     // 1) 前后台监听（回到前台时尝试确保可信通道）
     _foregroundSub = _ref.listen<bool>(isForegroundProvider, (prev, curr) {
-      if (curr == true) handleEnterForeground();
+      if (prev == false && curr == true) {
+        handleEnterForeground();
+      }
     });
 
     // 2) 只在 manager 实例变化时尝试重绑
@@ -178,10 +181,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   void _onStateChanged(BleConnectionState prev, BleConnectionState next) {
     // 当前选中设备非 auth -> auth：主动同步设备信息
     final nowDisplayDeviceId = next.bleDeviceData?.displayDeviceId;
-    final selectedDisplayDeviceId =
-        _ref.read(savedDevicesProvider).lastSelectedId;
-    final nowSelected = nowDisplayDeviceId != null &&
-        nowDisplayDeviceId == selectedDisplayDeviceId;
+    final lastSelectedId = _ref.read(savedDevicesProvider).lastSelectedId;
+    final nowSelected = nowDisplayDeviceId != null && nowDisplayDeviceId == lastSelectedId;
     final wasAuthed = prev.bleDeviceStatus == BleDeviceStatus.authenticated;
     final nowAuthed = next.bleDeviceStatus == BleDeviceStatus.authenticated;
     if (nowSelected && !wasAuthed && nowAuthed) {
@@ -303,7 +304,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   Future<void> handleEnterForeground() async {
     print("[BleConnectionPage] handleEnterForeground ${state.bleDeviceStatus} ${state.bleDeviceData}");
     if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
-    final d = state.bleDeviceData;
+    BleDeviceData? d = state.bleDeviceData;
+    if (d == null) {
+      final selectedId = _ref.read(savedDevicesProvider).lastSelectedId;
+      if (selectedId != null && selectedId.isNotEmpty) {
+        final selectedRec = _ref
+            .read(savedDevicesProvider)
+            .devices
+            .firstWhere((e) => e.displayDeviceId == selectedId);
+        if (selectedRec != null) {
+          d = savedDeviceRecordToDeviceData(selectedRec);
+        }
+      }
+    }
+
     if (d != null) {
       try {
         await enableBleConnection(deviceDataToQrData(d));

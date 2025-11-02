@@ -1,7 +1,6 @@
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
-import '../models/device_qr_data.dart';
 import 'ble_connection_provider.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
@@ -10,7 +9,7 @@ import '../../l10n/app_localizations_zh.dart';
 class SavedDevicesState {
   // 设备列表
   final List<SavedDeviceRecord> devices;
-  // 当前设备
+  // TODO: 当前设备（校验）
   final String? lastSelectedId;
 
   final bool loaded;

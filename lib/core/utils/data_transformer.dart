@@ -1,3 +1,5 @@
+import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
+
 import '../ble/ble_device_data.dart';
 import '../models/device_qr_data.dart';
 
@@ -16,5 +18,14 @@ BleDeviceData qrDataToDeviceData(DeviceQrData qr) {
     bleDeviceId: qr.bleDeviceId,
     deviceName: qr.deviceName,
     publicKey: qr.publicKey,
+  );
+}
+
+BleDeviceData savedDeviceRecordToDeviceData(SavedDeviceRecord rec) {
+  return BleDeviceData(
+    displayDeviceId: rec.displayDeviceId,
+    bleDeviceId: rec.lastBleDeviceId ?? "",
+    deviceName: rec.deviceName,
+    publicKey: rec.publicKey,
   );
 }
