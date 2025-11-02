@@ -380,10 +380,25 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  // 配网
+  // 配网：等待同一通道的最终 wifi.config 响应（设备端直接回最终结果）
   Future<bool> sendWifiConfig(String ssid, String password) async {
-    return await sendSimpleBleMsg(
-        'wifi.config', { 'ssid': ssid, 'password': password});
+    _log('sendWifiConfig: ssid=$ssid');
+    try {
+      final data = await sendBleMsg(
+        'wifi.config',
+        {'ssid': ssid, 'password': password},
+        timeout: const Duration(seconds: 10),
+      );
+      // 成功时设备返回 data: {status: 'connected'}
+      if (data is Map<String, dynamic>) {
+        final s = data['status']?.toString();
+        return s == 'connected';
+      }
+      return false;
+    } catch (e) {
+      _log('❌ sendWifiConfig failed: $e');
+      return false;
+    }
   }
 
   // 网络状态
@@ -409,9 +424,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     } catch (e) {
       return null;
     }
-  }
-
-  Future<NetworkStatus?> _doReadNetworkStatus() async {
   }
 
   /// 版本更新（参考 requestWifiScan 的通道确保逻辑）
