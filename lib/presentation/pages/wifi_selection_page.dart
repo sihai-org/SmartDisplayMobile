@@ -107,8 +107,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
       if (!mounted) return;
 
-      if (widget.scannedDisplayDeviceId != null) {
-        context.go(AppRoutes.bindConfirm);
+      if (widget.scannedDisplayDeviceId != null &&
+          widget.scannedDisplayDeviceId!.isNotEmpty) {
+        final idParam = Uri.encodeComponent(widget.scannedDisplayDeviceId ?? "");
+        context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
       }
     } else {
       Fluttertoast.showToast(msg: context.l10n.provision_request_failed);
