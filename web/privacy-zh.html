@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>大头智显手机应用（SmartDisplay Mobile）— 隐私政策</title>
+  <meta name="description" content="大头智显手机应用（SmartDisplay Mobile）的隐私政策">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root { --fg:#1f2937; --muted:#6b7280; --bg:#ffffff; --card:#ffffff; --border:#e5e7eb; --accent:#2563eb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fg:#e5e7eb; --muted:#9ca3af; --bg:#0b0f14; --card:#0f141a; --border:#1f2937; --accent:#60a5fa; }
+    }
+    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, Noto Sans SC, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 64px; }
+    h1 { font-size: 28px; margin: 0 0 12px; }
+    h2 { font-size: 18px; margin: 28px 0 10px; }
+    p { line-height: 1.8; margin: 10px 0; color: var(--fg); }
+    ul { margin: 8px 0 8px 18px; }
+    li { margin: 6px 0; color: var(--fg); }
+    .muted { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { margin-bottom: 18px; }
+    .app { font-weight: 600; }
+    .footer { margin-top: 36px; font-size: 13px; color: var(--muted); }
+  </style>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="smart_display_mobile">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <!-- 本页面为静态文档，不加载或运行 Flutter。 -->
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0f141a">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>隐私政策</h1>
+      <p class="muted">最近更新：2025-11-03</p>
+      <p>本隐私政策旨在说明您使用 <span class="app">大头智显手机应用（SmartDisplay Mobile）</span>（下称“本应用”）时，我们如何处理与保护您的信息，包括扫描设备二维码、通过蓝牙低功耗（BLE）连接设备以及进行网络配置等场景。</p>
+    </header>
+
+    <section class="card">
+      <h2>总体说明</h2>
+      <p>本应用以“最小化数据收集”为原则，仅为实现核心功能而处理必要信息：与设备配对、执行安全握手、并将 Wi‑Fi 凭据安全传输至设备。敏感凭据仅在传输过程中加密处理，不会被本应用持久化存储。</p>
+    </section>
+
+    <h2>我们收集的信息</h2>
+    <p>根据您的使用方式，我们可能会处理以下信息：</p>
+    <ul>
+      <li><strong>账号信息（可选）</strong>：当您登录时，我们会通过身份认证服务商（Supabase）处理您的邮箱地址及基础账号标识。</li>
+      <li><strong>设备绑定元数据</strong>：设备标识、设备名称、设备公钥、固件版本及与账号绑定的相关时间信息。为实现账号下多端访问，上述信息可能会同步至后端。</li>
+      <li><strong>诊断数据（有限）</strong>：在必要时记录非个人化日志或错误代码，用于排查连接问题。</li>
+    </ul>
+
+    <h2>敏感数据处理</h2>
+    <ul>
+      <li><strong>Wi‑Fi 凭据</strong>：通过端到端加密通道（X25519 ECDH + AES‑GCM）发送到您的设备，不在本应用中持久化保存。</li>
+      <li><strong>加密材料</strong>：会话密钥仅在内存中生成与使用，完成后会清理。</li>
+    </ul>
+
+    <h2>权限使用与设备访问</h2>
+    <ul>
+      <li><strong>相机</strong>：用于扫描设备二维码。本应用不保存图像或视频内容。</li>
+      <li><strong>蓝牙</strong>：用于发现并通过 BLE 与您的设备连接。</li>
+      <li><strong>位置（Android BLE 要求）</strong>：在部分 Android 版本上，为进行 BLE 扫描需要位置权限。本应用不采集也不存储您的位置信息。</li>
+      <li><strong>照片/媒体（可选）</strong>：仅在您选择从相册选取图片进行二维码解码或设置设备头像等场景下使用；未经您的主动操作不会上传。</li>
+    </ul>
+
+    <h2>我们如何使用信息</h2>
+    <ul>
+      <li>用于实现应用核心功能（二维码扫描、BLE 配对、安全配置）。</li>
+      <li>在您登录的前提下，同步设备绑定记录以支持多端使用与会话恢复。</li>
+      <li>用于保障安全、防止滥用并提升稳定性。</li>
+    </ul>
+
+    <h2>数据存储与安全</h2>
+    <ul>
+      <li><strong>本地存储</strong>：如“已保存设备列表”“上次选择的设备”等，可能以当前登录账号为作用域，安全地存储在您的设备上。</li>
+      <li><strong>云端存储</strong>：账号及设备绑定记录可能托管在我们的服务提供商（Supabase）。我们实施访问控制，确保仅您的账号可访问自身数据。</li>
+      <li><strong>加密保护</strong>：敏感网络凭据不做持久化，并在传输链路中以现代密码学进行保护。</li>
+    </ul>
+
+    <h2>共享与披露</h2>
+    <p>我们不会出售您的个人信息。为运营本应用之目的，我们可能与服务提供商共享必要数据（例如通过 Supabase 进行认证与数据存储），该等提供商会依据适当协议代表我们处理数据。</p>
+
+    <h2>未成年人保护</h2>
+    <p>本应用并非面向 13 周岁以下的儿童，我们不会有意收集儿童的个人信息。</p>
+
+    <h2>您的权利与选择</h2>
+    <ul>
+      <li><strong>退出登录</strong>：您可随时在“个人/我的”页面退出登录。</li>
+      <li><strong>访问与删除</strong>：如需访问或删除您的账号数据，请与我们联系。</li>
+      <li><strong>权限管理</strong>：您可在系统设置中撤回相机、蓝牙、位置等权限；撤回后相应功能可能无法使用。</li>
+    </ul>
+
+    <h2>本政策的变更</h2>
+    <p>我们可能会根据应用功能或法律法规的变化更新本政策，并在页面顶部更新“最近更新”日期；重大变更时将于应用内或版本发布说明中进行提示。</p>
+
+    <h2>联系我们</h2>
+    <p>如对本隐私政策或您的数据有任何疑问，欢迎通过问题反馈渠道联系：
+      <a href="#" rel="noopener">contact@datouai.cn</a>。
+    </p>
+
+    <p class="footer">应用：心显智联· 组织：武汉市大头人工智能科技有限公司</p>
+  </main>
+</body>
+</html>
