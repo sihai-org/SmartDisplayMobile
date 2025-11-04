@@ -379,7 +379,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect_failed_retry => 'Connection failed, please retry';
 
   @override
-  String get device_bound_elsewhere => 'Device is bound to another account';
+  String get device_bound_elsewhere => 'The user bound to the device does not match with you';
 
   @override
   String get connect_failed_move_closer => 'Connection failed, move closer and retry';

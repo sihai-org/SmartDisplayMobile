@@ -794,7 +794,7 @@ abstract class AppLocalizations {
   /// No description provided for @device_bound_elsewhere.
   ///
   /// In en, this message translates to:
-  /// **'Device is bound to another account'**
+  /// **'The user bound to the device does not match with you'**
   String get device_bound_elsewhere;
 
   /// No description provided for @connect_failed_move_closer.

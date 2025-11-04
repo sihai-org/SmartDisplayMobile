@@ -130,7 +130,7 @@
   "ble_disconnected_ephemeral": "已断开未绑定设备的蓝牙连接",
   "connect_success": "连接成功",
   "connect_failed_retry": "连接失败，请重试",
-  "device_bound_elsewhere": "设备已被其他账号绑定",
+  "device_bound_elsewhere": "您与设备绑定用户不匹配",
   "connect_failed_move_closer": "连接失败，请靠近重试",
   "error_title": "错误",
   "no_device_data_message": "未找到设备数据，请重新扫描二维码。",

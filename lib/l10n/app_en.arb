@@ -130,7 +130,7 @@
   "ble_disconnected_ephemeral": "Disconnected BLE from unbound device",
   "connect_success": "Connected successfully",
   "connect_failed_retry": "Connection failed, please retry",
-  "device_bound_elsewhere": "Device is bound to another account",
+  "device_bound_elsewhere": "The user bound to the device does not match with you",
   "connect_failed_move_closer": "Connection failed, move closer and retry",
   "error_title": "Error",
   "no_device_data_message": "No device data found. Please rescan the QR code.",

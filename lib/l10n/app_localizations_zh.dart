@@ -379,7 +379,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connect_failed_retry => '连接失败，请重试';
 
   @override
-  String get device_bound_elsewhere => '设备已被其他账号绑定';
+  String get device_bound_elsewhere => '您与设备绑定用户不匹配';
 
   @override
   String get connect_failed_move_closer => '连接失败，请靠近重试';
