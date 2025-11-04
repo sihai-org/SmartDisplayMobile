@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/router/app_router.dart';
 
 // TODO: 缺少返回按钮
 // TODO: 这个解析很奇怪
@@ -17,6 +19,15 @@ class QrCodeResultPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.qr_content_title),
+        leading: BackButton(
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

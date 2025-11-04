@@ -73,7 +73,8 @@ class DeviceEntryCoordinator {
       // Parsing failed -> show raw content page for copy/reference
       if (context.mounted) {
         final raw = Uri.encodeComponent(content);
-        context.go('${AppRoutes.qrCodeResult}?text=$raw');
+        // 使用 push 保留返回栈，支持返回按钮与手势返回
+        context.push('${AppRoutes.qrCodeResult}?text=$raw');
       }
     }
   }
