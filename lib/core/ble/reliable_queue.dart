@@ -114,6 +114,22 @@ class ReliableRequestQueue {
             // Fallback: if only one inflight, attribute to it
             pending = _inflight.values.first;
           }
+
+          // Early-fail specific binding error to avoid pointless handshake timeout
+          try {
+            final ok = (msg['ok'] == true);
+            final err = msg['error'];
+            final code = (err is Map && err['code'] is String)
+                ? (err['code'] as String)
+                : null;
+            if (pending != null && !ok && code == 'user_mismatch') {
+              if (reqId != null) _inflight.remove(reqId);
+              pending.completer.completeError(UserMismatchException());
+              return; // stop further processing for this fragment
+            }
+          } catch (_) {
+            // best effort; fall through
+          }
           if (pending != null && !pending.completer.isCompleted) {
             final done = pending.isFinal == null ? true : pending.isFinal!(msg);
             if (done) {
@@ -189,12 +205,17 @@ class ReliableRequestQueue {
         final resp = await completer.future.timeout(timeout);
         resp['reqId'] = reqId;
         return resp;
-      } catch (_) {
+      } on TimeoutException {
         _log('Timeout waiting for resp reqId=$reqId after ${timeout.inMilliseconds}ms');
         if (attempt > retries) {
           _inflight.remove(reqId);
           rethrow;
         }
+        // continue retry loop
+      } catch (e) {
+        // Propagate non-timeout errors (e.g., UserMismatchException) to caller immediately
+        _inflight.remove(reqId);
+        rethrow;
       }
     }
     _inflight.remove(reqId);
@@ -227,4 +248,10 @@ void _log(Object msg) {
   // minimal logging util to avoid importing app logger here
   // ignore: avoid_print
   print('[RQ] $msg');
+}
+
+/// Specific error to indicate device is already bound to another user
+class UserMismatchException implements Exception {
+  @override
+  String toString() => 'user_mismatch';
 }

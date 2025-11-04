@@ -137,8 +137,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           }
 
           if (cur == BleDeviceStatus.error || cur == BleDeviceStatus.timeout) {
-            // TODO: error detail: maybe user_mismatch when handshake
-            Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
+            // Show specific reason when available (e.g., device already bound elsewhere)
+            final code = current.lastErrorCode;
+            if (code == 'user_mismatch') {
+              Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+            } else {
+              Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
+            }
             if (!mounted) return;
             _clearAll();
             if (context.canPop()) {

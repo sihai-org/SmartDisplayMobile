@@ -3,12 +3,13 @@ import '../constants/enum.dart';
 
 class SupabaseService {
   static Future<CheckBoundRes> checkBound(String displayDeviceId) async {
-    print('[SupabaseService] checkBound：调用');
+    print('[SupabaseService] checkBound：调用 $displayDeviceId');
     final supabase = Supabase.instance.client;
     final resp = await supabase.functions.invoke(
       'device_check_binding',
       body: {'device_id': displayDeviceId},
     );
+    print('[SupabaseService] checkBound：resp ${resp.data.toString()}');
     if (resp.status != 200) {
       print('[SupabaseService] checkBound：调用失败 ${resp.data}');
       throw Exception('[SupabaseService] checkBound：调用失败 ${resp.data}');

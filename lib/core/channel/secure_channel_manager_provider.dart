@@ -8,7 +8,7 @@ import '../ble/reliable_queue.dart';
 import '../crypto/crypto_service.dart';
 
 // 工厂：如何创建单个通道
-final secureChannelFactoryProvider = Provider<SecureChannelFactory>((ref) {
+final _secureChannelFactoryProvider = Provider<SecureChannelFactory>((ref) {
   return (String displayDeviceId, String bleDeviceId, String devicePublicKeyHex) =>
       SecureChannelImpl(
         displayDeviceId: displayDeviceId,
@@ -19,7 +19,7 @@ final secureChannelFactoryProvider = Provider<SecureChannelFactory>((ref) {
   );
 });
 
-final bleScannerProvider = Provider<BleScanner>((ref) {
+final _bleScannerProvider = Provider<BleScanner>((ref) {
   final scanner = BleScannerImpl();
   ref.onDispose(() => scanner.stop());
   return scanner;
@@ -27,8 +27,8 @@ final bleScannerProvider = Provider<BleScanner>((ref) {
 
 // 扫描→建连→握手
 final secureChannelManagerProvider = Provider<SecureChannelManager>((ref) {
-  final factory = ref.read(secureChannelFactoryProvider);
-  final scanner = ref.read(bleScannerProvider);
+  final factory = ref.read(_secureChannelFactoryProvider);
+  final scanner = ref.read(_bleScannerProvider);
   final mgr = SecureChannelManager(factory, scanner); // 构造函数加上 scanner
   ref.onDispose(() => (mgr as SecureChannelManager).dispose());
   return mgr;

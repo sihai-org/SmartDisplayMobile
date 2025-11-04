@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
 
+// TODO: 缺少返回按钮
 // TODO: 这个解析很奇怪
 /// 扫码无法解析时跳转使用（qr_scanner_page.dart）
 /// 启动页兜底也会用到（splash_page.dart）

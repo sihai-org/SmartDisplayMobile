@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
-import '../../data/repositories/saved_devices_repository.dart';
 import '../channel/secure_channel_manager.dart';
+import '../ble/reliable_queue.dart';
 import '../ble/ble_device_data.dart';
 import '../constants/enum.dart';
 import '../network/network_status.dart';
@@ -35,6 +35,7 @@ class BleConnectionState {
   final BleDeviceData? bleDeviceData;
   final BleDeviceStatus bleDeviceStatus;
   final bool enableBleConnectionLoading;
+  final String? lastErrorCode; // e.g., 'user_mismatch'
 
   /// wifi
   final List<WifiAp> wifiNetworks; // TODO: 可以放 wifi_selection_page 内部
@@ -46,6 +47,7 @@ class BleConnectionState {
     this.bleDeviceData,
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.enableBleConnectionLoading = false,
+    this.lastErrorCode,
     this.wifiNetworks = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
@@ -56,6 +58,7 @@ class BleConnectionState {
     BleDeviceData? bleDeviceData,
     BleDeviceStatus? bleDeviceStatus,
     bool? enableBleConnectionLoading,
+    String? lastErrorCode,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -70,6 +73,7 @@ class BleConnectionState {
       bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
       enableBleConnectionLoading:
           enableBleConnectionLoading ?? this.enableBleConnectionLoading,
+      lastErrorCode: lastErrorCode ?? this.lastErrorCode,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
@@ -139,7 +143,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void _handleChannelEvent(Map<String, dynamic> evt) {
-    _log('event $evt');
+    _log('=============[_handleChannelEvent] event $evt');
     switch (evt['type']) {
       case 'status':
         final v = (evt['value'] ?? '').toString();
@@ -147,7 +151,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           state = state.copyWith(bleDeviceStatus: BleDeviceStatus.disconnected);
           // 确保彻底中止扫描/连接，防止 UI 退出后仍继续连接
           try { _ref.read(secureChannelManagerProvider).dispose(); } catch (_) {}
-          try { _ref.read(bleScannerProvider).stop(); } catch (_) {}
         }
         break;
       default:
@@ -271,13 +274,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     try {
       // 先通过 manager.use 建立通道
       final mgr = _ref.read(secureChannelManagerProvider);
-      final useRes = await mgr.use(qrData);
-      if (!useRes) {
-        state = state.copyWith(
-          bleDeviceStatus: BleDeviceStatus.error,
-        );
-        return useRes;
-      }
+      await mgr.use(qrData);
       // use() 成功后显式绑定一次事件流，避免因 provider 不变而错过绑定
       _attachChannelEvents(mgr);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
@@ -285,15 +282,25 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       state = state.copyWith(
         bleDeviceData: qrDataToDeviceData(qrData),
         bleDeviceStatus: BleDeviceStatus.authenticated,
+        lastErrorCode: null,
       );
       return true;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
-      state = state.copyWith(
-        bleDeviceData: qrDataToDeviceData(qrData),
-        bleDeviceStatus: BleDeviceStatus.error,
-      );
+      if (e is UserMismatchException) {
+        state = state.copyWith(
+          bleDeviceData: qrDataToDeviceData(qrData),
+          bleDeviceStatus: BleDeviceStatus.error,
+          lastErrorCode: 'user_mismatch',
+        );
+      } else {
+        state = state.copyWith(
+          bleDeviceData: qrDataToDeviceData(qrData),
+          bleDeviceStatus: BleDeviceStatus.error,
+          lastErrorCode: null,
+        );
+      }
       return false;
     } finally {
       state = state.copyWith(enableBleConnectionLoading: false);

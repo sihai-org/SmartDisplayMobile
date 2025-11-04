@@ -25,7 +25,18 @@ class DeviceEntryCoordinator {
 
       // 2. 检查是否绑定
       developer.log('[DeviceEntryCoordinator.handle] check bound', name: 'Binding');
-      final checkBoundRes = await SupabaseService.checkBound(qrData.displayDeviceId);
+      CheckBoundRes checkBoundRes = CheckBoundRes.notBound;
+      try {
+        checkBoundRes =
+            await SupabaseService.checkBound(qrData.displayDeviceId);
+      } catch (e) {
+        developer.log('[DeviceEntryCoordinator.handle] checkBound err=$e', name: 'Binding');
+        Fluttertoast.showToast(msg: "系统繁忙，请稍后再试");
+        if (context.mounted) {
+          context.pop();
+        }
+        return;
+      }
       developer.log('[DeviceEntryCoordinator.handle] checkBoundRes=$checkBoundRes', name: 'Binding');
       if (checkBoundRes == CheckBoundRes.isOwner) {
         // 2.1 自己绑：直接跳
@@ -44,6 +55,9 @@ class DeviceEntryCoordinator {
       } else if (checkBoundRes == CheckBoundRes.isBound) {
         // 2.2 别人绑：给提示
         Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+        if (context.mounted) {
+          context.pop();
+        }
       } else {
         // 2.3 没人绑：去绑定
         developer.log('[DeviceEntryCoordinator.handle] go binding', name: 'Binding');
@@ -52,9 +66,10 @@ class DeviceEntryCoordinator {
           context.go('${AppRoutes.deviceConnection}?displayDeviceId=${qrData.displayDeviceId}');
         }
       }
-
     } catch (e) {
-      developer.log('[DeviceEntryCoordinator.handle] parse failed -> show raw content page', name: 'Binding');
+      developer.log(
+          '[DeviceEntryCoordinator.handle] parse failed -> show raw content page e=$e',
+          name: 'Binding');
       // Parsing failed -> show raw content page for copy/reference
       if (context.mounted) {
         final raw = Uri.encodeComponent(content);
