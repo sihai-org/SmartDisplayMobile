@@ -71,6 +71,16 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     final scannerState = ref.watch(qrScannerProvider);
     final scannerNotifier = ref.read(qrScannerProvider.notifier);
 
+    // 当从其他页面返回且当前处于 idle 时，自动重启扫描
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final isCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+      if (isCurrent && scannerState.status == QrScannerStatus.idle && scannerNotifier.controller != null) {
+        _beepPlayedForThisSuccess = false; // 重置提示音触发标记
+        scannerNotifier.startScanning();
+      }
+    });
+
     // 监听扫描成功状态，跳转到设备连接页面显示信息（加 mounted 防护，并在帧回调中导航）
     ref.listen<QrScannerState>(qrScannerProvider, (previous, current) async {
       if (!mounted) return;
