@@ -251,12 +251,6 @@ abstract class AppLocalizations {
   /// **'Sign out'**
   String get logout;
 
-  /// No description provided for @logout_confirm_desc.
-  ///
-  /// In en, this message translates to:
-  /// **'After signing out, all devices bound to this account will be unbound automatically.'**
-  String get logout_confirm_desc;
-
   /// No description provided for @page_not_found.
   ///
   /// In en, this message translates to:

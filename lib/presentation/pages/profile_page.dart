@@ -22,14 +22,10 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  // 只退出，不解绑（暂不调用 edge function: account_signout）
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     try {
-      final supabase = Supabase.instance.client;
-      await supabase.functions.invoke(
-        'account_signout',
-        body: {},
-      );
-      await supabase.auth.signOut();
+      await Supabase.instance.client.auth.signOut();
     } catch (e) {
       if (!context.mounted) return;
 
@@ -45,26 +41,12 @@ class ProfilePage extends ConsumerWidget {
      * 后续清理
      */
     try {
-      final connState = ref.read(bleConnectionProvider);
-      // 1. 通知设备退登
-      if (connState.bleDeviceData != null) {
-        final notifier = ref.read(bleConnectionProvider.notifier);
-        final ok = await notifier.sendDeviceLogout();
-        if (!ok) {
-          // 不中断后续流程，仅记录日志
-          print('⚠️ BLE 登出指令发送失败，继续登出流程');
-        }
-      }
-
-      if (!context.mounted) return;
-
-      // 2. 蓝牙断连
+      // 1. 蓝牙断连
       final connNotifier = ref.read(bleConnectionProvider.notifier);
       connNotifier.disconnect(shouldReset: true);
 
-      // 3. 清空本地设备列表与选择，避免不同用户设备串列表
+      // 2. 清空本地设备列表与选择，避免不同用户设备串列表
       await ref.read(savedDevicesProvider.notifier).clearForLogout();
-
 
       ref.invalidate(appStateProvider);
       ref.invalidate(bleConnectionProvider);
@@ -73,9 +55,9 @@ class ProfilePage extends ConsumerWidget {
     } catch (e) {
       print('⚠️ logout 后续清理出错');
     } finally {
-      if (!context.mounted) return;
-
-      context.go(AppRoutes.login);
+      if (context.mounted) {
+        context.go(AppRoutes.login);
+      }
     }
   }
 
@@ -318,7 +300,6 @@ class ProfilePage extends ConsumerWidget {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: Text(l10n.logout_confirm_title),
-                      content: Text(l10n.logout_confirm_desc),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),

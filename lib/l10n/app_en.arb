@@ -27,10 +27,7 @@
   "feedback_desc": "Report issues or suggestions"
   ,
   "profile_title": "Profile",
-  "logout": "Sign out"
-  ,
-  "logout_confirm_desc": "After signing out, all devices bound to this account will be unbound automatically.",
-  
+  "logout": "Sign out",
   "page_not_found": "Page Not Found",
   "page_not_exist": "Requested page does not exist: {path}",
   "back_to_home": "Back to Home",

@@ -432,33 +432,28 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   BleDeviceStatus.authenticated) ...[
                 const SizedBox(height: 16),
                 _buildNetworkSection(context, connState),
-              ],
-
-              // 删除设备按钮
-              const SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme
-                      .of(context)
-                      .cardColor, // 背景颜色
-                  foregroundColor: Theme
-                      .of(context)
-                      .colorScheme
-                      .error, // 文字颜色
-                  elevation: 0, // 阴影高度
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12), // 圆角
+                // 删除设备按钮
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).cardColor, // 背景颜色
+                    foregroundColor:
+                        Theme.of(context).colorScheme.error, // 文字颜色
+                    elevation: 0, // 阴影高度
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12), // 圆角
+                    ),
                   ),
-                ),
-                onPressed: () {
-                  final rec = saved.devices.firstWhere(
-                    (e) => e.displayDeviceId == saved.lastSelectedId,
-                    orElse: () => saved.devices.first,
-                  );
-                  _showDeleteDialog(context, rec);
-                },
-                child: Text(context.l10n.delete_device),
-              ),
+                  onPressed: () {
+                    final rec = saved.devices.firstWhere(
+                      (e) => e.displayDeviceId == saved.lastSelectedId,
+                      orElse: () => saved.devices.first,
+                    );
+                    _showDeleteDialog(context, rec);
+                  },
+                  child: Text(context.l10n.delete_device),
+                )
+              ],
             ],
 
             const SizedBox(height: 32),
@@ -916,45 +911,26 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   Future<void> _deleteDevice(SavedDeviceRecord device) async {
     try {
-      // 1. 调用 Supabase Edge Function 解绑
-      final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke(
-        'account_unbind_device',
-        body: {
-          'device_id': device.displayDeviceId,
-        },
-      );
-
-      if (response.status != 200) {
-        throw Exception('设备删除失败: ${response.data}');
-      }
-
-      Fluttertoast.showToast(msg: context.l10n.delete_success);
-
-      // 同步远端状态，确保列表与服务器一致
-      try {
-        // Silent refresh after deletion to avoid duplicate toast
-        await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      } catch (_) {
-        // 同步失败不阻塞后续逻辑，保持静默以免打断用户流程
-      }
-
-      // 2. 若正在连接该设备，优先通过 BLE 通知 TV 执行本地登出
       final connState = ref.read(conn.bleConnectionProvider);
       if (connState.bleDeviceData?.displayDeviceId == device.displayDeviceId) {
-        final notifier = ref.read(conn.bleConnectionProvider.notifier);
-        final ok = await notifier.sendDeviceLogout();
+        final bleNotifier = ref.read(conn.bleConnectionProvider.notifier);
+        // 1. 蓝牙通知设备删除
+        final ok = await bleNotifier.sendDeviceLogout();
         if (!ok) {
-          // 不中断后续流程，仅记录日志
-          // ignore: avoid_print
-          print('⚠️ BLE 登出指令发送失败，继续删除本地记录');
+          Fluttertoast.showToast(msg: context.l10n.delete_failed);
+          return;
         }
+        Fluttertoast.showToast(msg: context.l10n.delete_success);
+        // 2. 断开蓝牙
+        await ref.read(conn.bleConnectionProvider.notifier).disconnect();
+        final deviceNotifier = ref.read(savedDevicesProvider.notifier);
+        // 3. 同步远端状态，确保列表与服务器一致
+        await deviceNotifier.syncFromServer();
+        // 4. 更新本地保存的设备列表
+        await deviceNotifier.removeDevice(device.displayDeviceId);
+      } else {
+        Fluttertoast.showToast(msg: context.l10n.delete_failed);
       }
-
-      // 3. 更新本地保存的设备列表（内部会在命中当前连接时断开BLE）
-      await ref
-          .read(savedDevicesProvider.notifier)
-          .removeDevice(device.displayDeviceId);
     } catch (e, st) {
       print("❌ _deleteDevice 出错: $e\n$st");
       Fluttertoast.showToast(msg: context.l10n.delete_failed);

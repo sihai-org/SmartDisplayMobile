@@ -87,9 +87,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logout => 'Sign out';
 
   @override
-  String get logout_confirm_desc => 'After signing out, all devices bound to this account will be unbound automatically.';
-
-  @override
   String get page_not_found => 'Page Not Found';
 
   @override

@@ -87,9 +87,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get logout => '退出登录';
 
   @override
-  String get logout_confirm_desc => '退出后，当前账号所有绑定设备将自动解除绑定';
-
-  @override
   String get page_not_found => '页面未找到';
 
   @override
