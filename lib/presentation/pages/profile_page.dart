@@ -26,6 +26,8 @@ class ProfilePage extends ConsumerWidget {
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     try {
       await Supabase.instance.client.auth.signOut();
+      print("~~~~~~~~~~after logout: 退登成功");
+      // 登出成功走 main.dart 的统一清理
     } catch (e) {
       if (!context.mounted) return;
 
@@ -33,31 +35,6 @@ class ProfilePage extends ConsumerWidget {
       Fluttertoast.showToast(msg: l10n.signout_failed(e.toString()));
       // 登出失败先啥也不干
       return;
-    }
-
-    if (!context.mounted) return;
-
-    /**
-     * 后续清理
-     */
-    try {
-      // 1. 蓝牙断连
-      final connNotifier = ref.read(bleConnectionProvider.notifier);
-      connNotifier.disconnect(shouldReset: true);
-
-      // 2. 清空本地设备列表与选择，避免不同用户设备串列表
-      await ref.read(savedDevicesProvider.notifier).clearForLogout();
-
-      ref.invalidate(appStateProvider);
-      ref.invalidate(bleConnectionProvider);
-      ref.invalidate(savedDevicesProvider);
-
-    } catch (e) {
-      print('⚠️ logout 后续清理出错');
-    } finally {
-      if (context.mounted) {
-        context.go(AppRoutes.login);
-      }
     }
   }
 

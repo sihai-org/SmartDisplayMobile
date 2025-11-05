@@ -108,12 +108,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           (previous, current) async {
         if (!mounted) return;
 
-        final prev = previous?.bleDeviceStatus;
-        final cur = current.bleDeviceStatus;
-        if (cur != prev) {
-          developer.log('[DeviceConnectionPage] 蓝牙状态变化 $prev -> $cur',
+        final prevBleStatus = previous?.bleDeviceStatus;
+        final curBleStatus = current.bleDeviceStatus;
+        if (curBleStatus != prevBleStatus) {
+          developer.log(
+              '[DeviceConnectionPage] 蓝牙状态变化 $prevBleStatus -> $curBleStatus',
               name: 'Binding');
-          if (cur == BleDeviceStatus.authenticated) {
+          if (curBleStatus == BleDeviceStatus.authenticated) {
             if (_navigated) return; // 防抖
             _navigated = true;
 
@@ -125,18 +126,28 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
             if (!mounted) return;
             final idParam = Uri.encodeComponent(curDisplayDeviceId ?? "");
 
+            final curEmptyBound = current.emptyBound;
             developer.log(
-                '[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId',
+                '[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId, emptyBound=${curEmptyBound}',
                 name: 'Binding');
             if (networkStatus?.connected == true) {
-              context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
+              // 设备有网
+              if (curEmptyBound) {
+                // 设备要绑定
+                context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
+              } else {
+                // 设备已绑定
+                context.go('${AppRoutes.home}?displayDeviceId=$idParam');
+              }
             } else {
+              // 设备无网
               context.go('${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam');
             }
             return;
           }
 
-          if (cur == BleDeviceStatus.error || cur == BleDeviceStatus.timeout) {
+          if (curBleStatus == BleDeviceStatus.error ||
+              curBleStatus == BleDeviceStatus.timeout) {
             // Show specific reason when available (e.g., device already bound elsewhere)
             final code = current.lastErrorCode;
             if (code == 'user_mismatch') {

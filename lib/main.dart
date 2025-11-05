@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/providers/app_state_provider.dart';
+import 'core/providers/ble_connection_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/constants/app_constants.dart';
@@ -14,6 +15,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'core/l10n/l10n_extensions.dart';
 import 'core/providers/lifecycle_provider.dart';
 import 'core/providers/saved_devices_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 如果你要清 SharedPreferences
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,17 +57,60 @@ class SmartDisplayApp extends ConsumerStatefulWidget {
 class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
   StreamSubscription<AuthState>? _authSub;
 
+  bool _isCleaningUp = false; // 防止重复清理
+
+  /// 所有登出后的清理都放这里
+  Future<void> _performGlobalCleanup() async {
+    print("~~~~~~~~~~_performGlobalCleanup start");
+
+    // 1. 蓝牙断连
+    final connNotifier = ref.read(bleConnectionProvider.notifier);
+    await connNotifier.disconnect();
+
+    // 2. 失效 Riverpod 的状态（把内存里的缓存都打掉）
+    ref.invalidate(savedDevicesProvider);
+    ref.invalidate(isForegroundProvider);
+    ref.invalidate(appStateProvider);
+    ref.invalidate(bleConnectionProvider);
+
+    // 3) 清理本地缓存/偏好（按你的项目来定）
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // 举例：如果你把设备列表、本地 flags 持久化了，就删掉或重置
+      // await prefs.remove('saved_devices');
+      // await prefs.clear(); // 如果你想一把全清
+    } catch (_) {}
+
+    // 4) 解绑/停止其它前台监听（如有）
+    try {
+      // 比如：DeepLinkHandler 有 dispose 能力就调用
+      // await DeepLinkHandler.dispose();
+    } catch (_) {}
+
+    print("~~~~~~~~~~_performGlobalCleanup end");
+  }
+
   @override
   void initState() {
     super.initState();
     // Listen to Supabase auth state changes
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSub =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       if (event == AuthChangeEvent.signedOut) {
-        if (!mounted) return;
-        // Show localized toast and navigate to login
-        Fluttertoast.showToast(msg: context.l10n.login_expired);
-        appRouter.go(AppRoutes.login);
+        if (!mounted || _isCleaningUp) return;
+        _isCleaningUp = true;
+        try {
+          // **关键：先清理**
+          await _performGlobalCleanup();
+        } finally {
+          // 再提示 + 跳转
+          if (mounted) {
+            Fluttertoast.showToast(msg: context.l10n.login_expired);
+            appRouter.go(AppRoutes.login);
+          }
+          _isCleaningUp = false;
+        }
       } else if (event == AuthChangeEvent.signedIn ||
           event == AuthChangeEvent.tokenRefreshed) {
         // After sign-in or token refresh, sync devices from server

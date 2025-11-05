@@ -14,6 +14,9 @@ abstract class SecureChannel {
         bool Function(Map<String, dynamic>)? isFinal,
       });
 
+  /// 最近一次握手返回的状态（例如: 'empty_bound'），若设备未提供则为 null
+  String? get lastHandshakeStatus;
+
   /// 设备侧推送事件（已解密）
   Stream<Map<String, dynamic>> get events;
 

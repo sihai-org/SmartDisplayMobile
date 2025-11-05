@@ -23,6 +23,7 @@ class SecureChannelManager {
   String? _bleDeviceId; //  标记 channel 的 bleDeviceId
   SecureChannel? _channel;
   StreamSubscription<Map<String, dynamic>>? _channelEvtSub;
+  String? _lastHandshakeStatus;
 
   Future<void> clearScannerAndChannel() async {
     try {
@@ -37,6 +38,7 @@ class SecureChannelManager {
     } catch (_) {}
     _channel = null;
     _bleDeviceId = null;
+    _lastHandshakeStatus = null;
   }
 
   /// 将全局通道切换到指定设备；相同设备则复用
@@ -71,6 +73,12 @@ class SecureChannelManager {
       // 连上（读取最新 userId，避免缓存过期）
       final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? "";
       await ch.ensureAuthenticated(currentUserId);
+      // 读取握手阶段状态（例如 empty_bound）
+      try {
+        _lastHandshakeStatus = ch.lastHandshakeStatus;
+      } catch (_) {
+        _lastHandshakeStatus = null;
+      }
 
       // 赋值前先解绑旧监听（保证一致性）
       try {
@@ -112,6 +120,9 @@ class SecureChannelManager {
   }
 
   Stream<Map<String, dynamic>>? get events => _channel?.events;
+
+  /// 最近一次 use()/握手阶段得到的状态（例如：'empty_bound'），否则为 null
+  String? get lastHandshakeStatus => _lastHandshakeStatus;
 
   Future<Map<String, dynamic>> send(
     Map<String, dynamic> msg, {

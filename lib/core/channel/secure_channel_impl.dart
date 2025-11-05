@@ -40,9 +40,13 @@ class SecureChannelImpl implements SecureChannel {
 
   bool _authenticated = false;
   bool _preparing = false;
+  String? _lastHandshakeStatus;
 
   @override
   Stream<Map<String, dynamic>> get events => _evtCtrl.stream;
+
+  @override
+  String? get lastHandshakeStatus => _lastHandshakeStatus;
 
   @override
   Future<void> ensureAuthenticated(String userId) async {
@@ -113,6 +117,18 @@ class SecureChannelImpl implements SecureChannel {
         retries: 1,
         isFinal: (m) => (m['type']?.toString() == 'handshake_response'),
       );
+
+      // 记录设备在握手响应中返回的状态（例如：empty_bound）
+      try {
+        final st = resp['status'];
+        if (st != null) {
+          _lastHandshakeStatus = st.toString();
+        } else {
+          _lastHandshakeStatus = null;
+        }
+      } catch (_) {
+        _lastHandshakeStatus = null;
+      }
 
       final parsed = crypto.parseHandshakeResponse(jsonEncode(resp));
       final localPub = await crypto.getLocalPublicKey();
@@ -207,5 +223,6 @@ class SecureChannelImpl implements SecureChannel {
     _authenticated = false;
     await BleServiceSimple.disconnect();
     crypto.cleanup();
+    _lastHandshakeStatus = null;
   }
 }

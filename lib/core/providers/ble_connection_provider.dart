@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:ffi';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
@@ -36,6 +37,7 @@ class BleConnectionState {
   final BleDeviceStatus bleDeviceStatus;
   final bool enableBleConnectionLoading;
   final String? lastErrorCode; // e.g., 'user_mismatch'
+  final bool emptyBound; // 握手后设备同步自身状态
 
   /// wifi
   final List<WifiAp> wifiNetworks; // TODO: 可以放 wifi_selection_page 内部
@@ -48,6 +50,7 @@ class BleConnectionState {
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.enableBleConnectionLoading = false,
     this.lastErrorCode,
+    this.emptyBound = false,
     this.wifiNetworks = const [],
     this.networkStatus,
     this.isCheckingNetwork = false,
@@ -59,6 +62,7 @@ class BleConnectionState {
     BleDeviceStatus? bleDeviceStatus,
     bool? enableBleConnectionLoading,
     String? lastErrorCode,
+    bool? emptyBound,
     String? errorMessage,
     String? provisionStatus,
     String? lastProvisionDeviceId,
@@ -74,6 +78,7 @@ class BleConnectionState {
       enableBleConnectionLoading:
           enableBleConnectionLoading ?? this.enableBleConnectionLoading,
       lastErrorCode: lastErrorCode ?? this.lastErrorCode,
+      emptyBound: emptyBound ?? this.emptyBound,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
@@ -157,16 +162,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('其他事件: $evt');
     }
   }
-
-  // Network status read de-dup & throttle
-  DateTime? _lastNetworkStatusReadAt;
-  Future<NetworkStatus?>? _inflightNetworkStatusRead;
-
   // 打点
   DateTime? _sessionStart;
-
-  // 配网后轮询
-  Future<void>? _postProvisionPoll;
 
   // 每次蓝牙连接后自动同步设备信息
   DateTime? _lastSyncAt;
@@ -276,6 +273,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final mgr = _ref.read(secureChannelManagerProvider);
       await mgr.use(qrData);
       // use() 成功后显式绑定一次事件流，避免因 provider 不变而错过绑定
+      // 读取握手阶段的状态：需在设置 bleDeviceStatus 之前更新 emptyBound
+      final hs = mgr.lastHandshakeStatus;
+      print("~~~~~~~~~~~~~~~~~~hs $hs");
+      if (hs != null && hs == 'empty_bound') {
+        state = state.copyWith(emptyBound: true);
+      } else {
+        // 未返回或不同状态时，确保为 false
+        state = state.copyWith(emptyBound: false);
+      }
       _attachChannelEvents(mgr);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
@@ -498,10 +504,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void resetState() {
-    // Clear per-session caches/state
-    _lastNetworkStatusReadAt = null;
-    _inflightNetworkStatusRead = null;
-    _postProvisionPoll = null;
     _sessionStart = null;
     state = const BleConnectionState();
   }
