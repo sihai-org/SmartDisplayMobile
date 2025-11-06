@@ -167,6 +167,12 @@ class ProfilePage extends ConsumerWidget {
               tiles: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.account_security),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.accountSecurity),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.language),
                   trailing: Text(
                     locale == null

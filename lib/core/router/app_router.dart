@@ -11,6 +11,7 @@ import '../../presentation/pages/wifi_selection_page.dart';
 import '../../presentation/pages/bind_confirm_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
+import '../../presentation/pages/account_security_page.dart';
 
 /// App routes
 class AppRoutes {
@@ -23,6 +24,7 @@ class AppRoutes {
   static const String bindConfirm = '/bind-confirm';
   static const String qrCodeResult = '/qrcode_res';
   static const String deviceManagement = '/device-management';
+  static const String accountSecurity = '/account-security';
 }
 
 /// Router configuration
@@ -99,6 +101,13 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.deviceManagement,
       name: 'device-management',
       builder: (context, state) => const DeviceManagementPage(),
+    ),
+
+    // Account & Security Page
+    GoRoute(
+      path: AppRoutes.accountSecurity,
+      name: 'account-security',
+      builder: (context, state) => const AccountSecurityPage(),
     ),
 
     // Device Connection Page

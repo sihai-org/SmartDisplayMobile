@@ -81,6 +81,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get feedback_desc => '报告问题或提出建议';
 
   @override
+  String get account_security => '账号与安全';
+
+  @override
+  String get delete_account => '注销账号';
+
+  @override
   String get profile_title => '我的';
 
   @override

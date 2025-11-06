@@ -26,6 +26,8 @@
   "feedback": "问题反馈",
   "feedback_desc": "报告问题或提出建议"
   ,
+  "account_security": "账号与安全",
+  "delete_account": "注销账号",
   "profile_title": "我的",
   "logout": "退出登录",
   "page_not_found": "页面未找到",

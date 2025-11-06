@@ -81,6 +81,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get feedback_desc => 'Report issues or suggestions';
 
   @override
+  String get account_security => 'Account & Security';
+
+  @override
+  String get delete_account => 'Delete Account';
+
+  @override
   String get profile_title => 'Profile';
 
   @override

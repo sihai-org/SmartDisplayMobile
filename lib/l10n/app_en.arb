@@ -26,6 +26,8 @@
   "feedback": "Feedback",
   "feedback_desc": "Report issues or suggestions"
   ,
+  "account_security": "Account & Security",
+  "delete_account": "Delete Account",
   "profile_title": "Profile",
   "logout": "Sign out",
   "page_not_found": "Page Not Found",

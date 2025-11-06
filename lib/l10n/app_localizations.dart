@@ -239,6 +239,18 @@ abstract class AppLocalizations {
   /// **'Report issues or suggestions'**
   String get feedback_desc;
 
+  /// No description provided for @account_security.
+  ///
+  /// In en, this message translates to:
+  /// **'Account & Security'**
+  String get account_security;
+
+  /// No description provided for @delete_account.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get delete_account;
+
   /// No description provided for @profile_title.
   ///
   /// In en, this message translates to:
