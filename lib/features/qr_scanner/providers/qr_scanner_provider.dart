@@ -199,52 +199,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
     }
   }
 
-  /// 从相册扫描图片
-  Future<void> scanFromImage() async {
-    _log('scanFromImage: start');
-    // 设置为处理状态
-    if (mounted) {
-      state = state.copyWith(status: QrScannerStatus.processing);
-    }
-
-    try {
-      // 调用服务扫描图片（简化版）
-      final result = await QrScannerService.scanQrFromImageSimple();
-      
-      if (result.isNotEmpty) {
-        _log('scanFromImage: success length=${result.length}');
-        // 振动反馈
-        QrScannerService.vibrate();
-        
-        if (mounted) {
-          state = state.copyWith(
-            status: QrScannerStatus.success,
-            qrContent: result,
-            errorMessage: null,
-          );
-        }
-      } else {
-        _log('scanFromImage: no result');
-        if (mounted) {
-          state = state.copyWith(status: QrScannerStatus.scanning);
-        }
-      }
-    } catch (e) {
-      _log('scanFromImage: error $e');
-      if (mounted) {
-        state = state.copyWith(
-          status: QrScannerStatus.error,
-          errorMessage: '扫描图片时发生错误: $e',
-        );
-      }
-      // 2秒后重新开始扫描
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          startScanning();
-        }
-      });
-    }
-  }
+  // 已移除：从相册扫描图片相关方法（不再使用相册权限）
 
   /// 重置状态
   void reset() {

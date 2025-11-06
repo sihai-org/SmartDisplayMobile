@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../../core/models/device_qr_data.dart';
 
 /// QR码扫描服务
@@ -68,58 +67,7 @@ class QrScannerService {
     }
   }
 
-  /// 从相册选择图片并扫描QR码
-  static Future<QrScanResult> scanQrFromImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      
-      // 选择图片
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
-      );
-      
-      if (image == null) {
-        return const QrScanResult.cancelled();
-      }
-
-      // TODO: 实现图片QR码扫描
-      // 目前mobile_scanner包对图片扫描的支持有限
-      // 可以考虑集成其他图片QR识别库
-      
-      return const QrScanResult.error('图片扫描功能正在开发中，请使用摄像头扫描QR码');
-      
-    } catch (e) {
-      return QrScanResult.error('选择图片时发生错误: $e');
-    }
-  }
-
-  /// 简化版：从相册选择图片并返回原始二维码内容
-  static Future<String> scanQrFromImageSimple() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      
-      // 选择图片
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
-      );
-      
-      if (image == null) {
-        return ''; // 用户取消选择
-      }
-
-      // TODO: 实现图片QR码扫描，暂时返回空字符串
-      return '';
-      
-    } catch (e) {
-      throw Exception('选择图片时发生错误: $e');
-    }
-  }
+  // 已移除：相册图片选择与扫描相关逻辑（不再使用相册权限）
 }
 
 /// QR码扫描器控制器扩展

@@ -138,16 +138,6 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             },
           ),
           actions: [
-            // cc暂未实现，先注释掉
-            // // 相册选择按钮
-            // IconButton(
-            //   onPressed: () => scannerNotifier.scanFromImage(),
-            //   icon: const Icon(
-            //     Icons.photo_library,
-            //     color: Colors.white,
-            //   ),
-            //   tooltip: context.l10n.gallery_picker,
-            // ),
             // 顶部右侧闪光灯按钮暂时移除（点击无效问题）
           ],
         ),

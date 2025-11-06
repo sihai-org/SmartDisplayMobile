@@ -18,9 +18,7 @@
     <!-- Camera permission for QR code scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Storage permissions for image picker -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Storage permissions removed: no gallery usage -->
 
     <!-- Internet permission for future use -->
     <uses-permission android:name="android.permission.INTERNET" />

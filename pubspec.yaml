@@ -51,7 +51,6 @@ dependencies:
   
   # QR Code Scanning
   mobile_scanner: ^3.5.6
-  image_picker: ^1.0.4
   
   # Permissions
   permission_handler: ^11.0.1

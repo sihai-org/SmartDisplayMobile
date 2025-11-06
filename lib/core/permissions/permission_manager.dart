@@ -12,25 +12,6 @@ class PermissionManager {
     return result.isGranted;
   }
 
-  static Future<bool> ensureGalleryReadIfNeeded() async {
-    // Only when using gallery-based scanning. Optional here.
-    if (Platform.isIOS) {
-      final s = await Permission.photos.status;
-      if (s.isGranted) return true;
-      if (s.isPermanentlyDenied) return false;
-      final r = await Permission.photos.request();
-      return r.isGranted;
-    }
-
-    // Android 13+: READ_MEDIA_IMAGES, older: READ_EXTERNAL_STORAGE
-    final photos = Permission.photos; // permission_handler maps correctly per-API
-    final s = await photos.status;
-    if (s.isGranted) return true;
-    if (s.isPermanentlyDenied) return false;
-    final r = await photos.request();
-    return r.isGranted;
-  }
-
   static Future<bool> ensureBleScanAndConnect() async {
     // Handle platform and API differences
     final perms = <Permission>[];
@@ -67,4 +48,3 @@ class PermissionManager {
 
   static Future<bool> openSettings() => openAppSettings();
 }
-
