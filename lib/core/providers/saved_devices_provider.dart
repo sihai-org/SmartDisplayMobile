@@ -1,6 +1,7 @@
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'ble_connection_provider.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
@@ -33,6 +34,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 
   // TODO: 防抖
   Future<void> syncFromServer({bool allowToast = false}) async {
+    // Require login session; skip if not logged in
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      return;
+    }
     // Show top toast for syncing
     if (allowToast) {
       final locale = _ref.read(localeProvider);
