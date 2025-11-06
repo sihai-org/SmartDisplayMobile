@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:ffi';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
@@ -276,12 +275,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       // 读取握手阶段的状态：需在设置 bleDeviceStatus 之前更新 emptyBound
       final hs = mgr.lastHandshakeStatus;
       print("~~~~~~~~~~~~~~~~~~hs $hs");
-      if (hs != null && hs == 'empty_bound') {
-        state = state.copyWith(emptyBound: true);
-      } else {
-        // 未返回或不同状态时，确保为 false
-        state = state.copyWith(emptyBound: false);
-      }
+      bool treatAsEmptyBound = hs == 'empty_bound';
+      state = state.copyWith(emptyBound: treatAsEmptyBound);
       _attachChannelEvents(mgr);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');

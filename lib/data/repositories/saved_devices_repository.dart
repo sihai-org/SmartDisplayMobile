@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/device_qr_data.dart';
 import 'dart:convert';
+import '../../core/audit/audit_mode.dart';
 
 class SavedDeviceRecord {
   final String displayDeviceId;
@@ -81,7 +82,10 @@ class SavedDevicesRepository {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  String? _currentUserId() => Supabase.instance.client.auth.currentUser?.id;
+  String? _currentUserId() {
+    if (AuditMode.enabled) return AuditMode.auditUserId;
+    return Supabase.instance.client.auth.currentUser?.id;
+  }
 
   String? _devicesKeyForCurrentUser() {
     final uid = _currentUserId();
@@ -121,6 +125,11 @@ class SavedDevicesRepository {
 
   // Fetch device list from Supabase
   Future<List<SavedDeviceRecord>> fetchRemote() async {
+    // In audit mode, treat remote list as local cache to avoid any network
+    if (AuditMode.enabled) {
+      return await loadLocal();
+    }
+
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
     if (user == null) {
@@ -196,7 +205,11 @@ class SavedDevicesRepository {
   }
 
   Future<void> removeDevice(String deviceId) async {
-    // Do not modify remote data here. Just clear last selected if it matches.
+    // Remove from local cached list and clear last selected if needed.
+    final devices = await loadLocal();
+    final updated = devices.where((e) => e.displayDeviceId != deviceId).toList();
+    await saveLocal(updated);
+
     final currentLastSelected = await loadLastSelectedId();
     if (currentLastSelected == deviceId) {
       final key = _lastSelectedKeyForCurrentUser();

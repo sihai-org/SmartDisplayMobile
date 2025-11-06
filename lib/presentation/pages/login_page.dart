@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/app_router.dart';
 import '../../l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/providers/audit_mode_provider.dart';
+ 
 
 class LoginPage extends StatefulWidget {
   @override
@@ -21,6 +24,10 @@ class _LoginPageState extends State<LoginPage> {
 
   int _secondsRemaining = 0;
   Timer? _timer;
+
+  // Audit trigger: 5 taps in 3 seconds
+  int _logoTapCount = 0;
+  DateTime? _firstTapAt;
 
   bool _isSendingOtp = false; // 发送验证码按钮 loading
   bool _isLoading = false;    // 登录按钮 loading
@@ -101,6 +108,28 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _handleLogoTap(BuildContext context) async {
+    final now = DateTime.now();
+    if (_firstTapAt == null || now.difference(_firstTapAt!) > const Duration(seconds: 3)) {
+      _firstTapAt = now;
+      _logoTapCount = 1;
+      return;
+    }
+    _logoTapCount += 1;
+    if (_logoTapCount >= 5) {
+      // Enter audit mode via provider (handles seeding + state refresh)
+      try {
+        final container = ProviderScope.containerOf(context, listen: false);
+        await container.read(auditModeProvider.notifier).enable();
+      } catch (_) {}
+      Fluttertoast.showToast(msg: 'Audit/Review 模式已开启');
+      // Navigate after mock device is seeded and state loaded
+      if (context.mounted) {
+        context.go(AppRoutes.home);
+      }
+    }
+  }
+
   /// 验证验证码（登录）
   Future<void> _verifyOtp() async {
     final l10n = context.l10n;
@@ -164,11 +193,14 @@ class _LoginPageState extends State<LoginPage> {
                       child: SizedBox(
                         width: 96,
                         height: 96,
-                        child: ClipRRect(
+                        child: GestureDetector(
+                          onTap: () => _handleLogoTap(context),
+                          child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
                             'assets/images/logo.png',
                             fit: BoxFit.contain,
+                          ),
                           ),
                         ),
                       ),

@@ -13,6 +13,8 @@ import '../../core/models/device_qr_data.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/audit/audit_mode.dart';
+import '../../data/repositories/saved_devices_repository.dart';
 
 class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.displayDeviceId});
@@ -269,6 +271,25 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
   Future<bool> _bindViaOtp(WidgetRef ref, DeviceQrData device) async {
     try {
+      // In audit mode, fully mock binding flow: skip network OTP, send mock login,
+      // then persist device locally so later syncFromServer() sees it.
+      if (AuditMode.enabled) {
+        final notifier = ref.read(bleConnectionProvider.notifier);
+        final ok = await notifier.sendDeviceLoginCode('audit@example.com', '000000');
+        if (!ok) {
+          Fluttertoast.showToast(msg: context.l10n.bind_failed);
+          return false;
+        }
+        try {
+          final repo = SavedDevicesRepository();
+          await repo.selectFromQr(device);
+          // Refresh provider state to include the device immediately
+          await ref.read(savedDevicesProvider.notifier).load();
+        } catch (_) {}
+        Fluttertoast.showToast(msg: context.l10n.bind_success);
+        return true;
+      }
+
       final supabase = Supabase.instance.client;
       final response = await supabase.functions.invoke(
         'pairing-otp',

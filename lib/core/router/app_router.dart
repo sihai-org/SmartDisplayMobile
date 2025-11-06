@@ -12,6 +12,8 @@ import '../../presentation/pages/bind_confirm_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../audit/audit_mode.dart';
 
 /// App routes
 class AppRoutes {
@@ -33,7 +35,7 @@ final GoRouter appRouter = GoRouter(
   debugLogDiagnostics: true,
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
-    final loggedIn = session != null;
+    final loggedIn = session != null || AuditMode.enabled;
     final loggingIn = state.uri.path == AppRoutes.login;
     final isSplash = state.uri.path == AppRoutes.splash;
 

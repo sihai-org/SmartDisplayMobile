@@ -11,6 +11,8 @@ import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/ble_connection_provider.dart';
+import '../../core/audit/audit_mode.dart';
+import '../../core/providers/audit_mode_provider.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -24,6 +26,22 @@ class ProfilePage extends ConsumerWidget {
 
   // 只退出，不解绑（暂不调用 edge function: account_signout）
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    if (AuditMode.enabled) {
+      // Local audit mode: clear local state and exit audit mode
+      try {
+        await ref.read(bleConnectionProvider.notifier).disconnect();
+      } catch (_) {}
+      try {
+        await ref.read(savedDevicesProvider.notifier).clearForLogout();
+      } catch (_) {}
+      try {
+        ref.read(appStateProvider.notifier).clearScannedData();
+      } catch (_) {}
+      ref.read(auditModeProvider.notifier).disable();
+      if (!context.mounted) return;
+      context.go(AppRoutes.login);
+      return;
+    }
     try {
       await Supabase.instance.client.auth.signOut();
       print("~~~~~~~~~~after logout: 退登成功");
