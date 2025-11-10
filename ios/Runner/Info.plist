@@ -6,8 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key>
-    <string>VznGPT</string>
+	<key>CFBundleDisplayName</key>
+	<string>VznGPT</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,6 +22,17 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>smartdisplay</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -32,8 +43,8 @@
 	<string>此应用需要使用蓝牙来连接和配置智能显示器设备</string>
 	<key>NSCameraUsageDescription</key>
 	<string>此应用需要访问相机来扫描设备上的二维码</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>需要访问本地网络以与设备建立连接</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>需要访问本地网络以与设备建立连接</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>此应用需要位置权限来扫描蓝牙设备</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -57,18 +68,5 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-    
-    <!-- URL Schemes: only smartdisplay:// -->
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>smartdisplay</string>
-            </array>
-        </dict>
-    </array>
 </dict>
 </plist>
