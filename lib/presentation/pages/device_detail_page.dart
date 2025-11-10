@@ -370,27 +370,34 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  TextButton(
-                                    onPressed: _checkingUpdate
-                                        ? null
-                                        : () {
-                                          final rec = saved.devices.firstWhere(
-                                              (e) =>
-                                                  e.displayDeviceId ==
-                                                  saved.lastSelectedId,
-                                              orElse: () => saved.devices.first,
-                                          );
-                                          _sendCheckUpdate(rec);
-                                        },
-                                    child: Text(context.l10n.check_update),
-                                  ),
-                                  if (_checkingUpdate) ...[
-                                    const SizedBox(width: 8),
-                                    const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                  // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
+                                  if (connState.bleDeviceStatus ==
+                                      BleDeviceStatus.authenticated) ...[
+                                    TextButton(
+                                      onPressed: _checkingUpdate
+                                          ? null
+                                          : () {
+                                              final rec =
+                                                  saved.devices.firstWhere(
+                                                (e) =>
+                                                    e.displayDeviceId ==
+                                                    saved.lastSelectedId,
+                                                orElse: () =>
+                                                    saved.devices.first,
+                                              );
+                                              _sendCheckUpdate(rec);
+                                            },
+                                      child: Text(context.l10n.check_update),
                                     ),
+                                    if (_checkingUpdate) ...[
+                                      const SizedBox(width: 8),
+                                      const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    ],
                                   ],
                                 ],
                               ),

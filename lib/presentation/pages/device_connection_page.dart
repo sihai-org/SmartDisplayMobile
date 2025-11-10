@@ -290,7 +290,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${context.l10n.device_id_label}: ${qrDeviceData?.bleDeviceId ?? widget.displayDeviceId}',
+                        '${context.l10n.device_id_label}: ${widget.displayDeviceId}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
