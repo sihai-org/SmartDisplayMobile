@@ -1,11 +1,11 @@
 {
-    "name": "smart_display_mobile",
-    "short_name": "smart_display_mobile",
+    "name": "VznGPT",
+    "short_name": "VznGPT",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "VznGPT mobile app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

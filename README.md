@@ -1,4 +1,4 @@
-# SmartDisplay Mobile App
+# VznGPT (心显智联)
 
 🎯 **智能显示器配网手机应用** - 基于Flutter开发的跨平台配网应用，通过BLE和二维码技术为无输入智能显示器提供安全的Wi-Fi配置功能。
 
