@@ -93,9 +93,16 @@ dev_dependencies:
   mockito: ^5.4.4
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/logo.png   # 你的 1024x1024 PNG
+  remove_alpha_ios: true                  # iOS 图标不能带透明通道
 
 # The following section is specific to Flutter packages.
 flutter:

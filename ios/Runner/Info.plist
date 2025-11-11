@@ -51,10 +51,7 @@
 	<string>此应用需要位置权限来扫描蓝牙设备</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-central</string>
-	</array>
+    <!-- Temporarily disable Bluetooth background mode to rule out launch crashes on state restoration. -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -63,13 +60,6 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-	    <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationPortraitUpsideDown</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>ITSAppUsesNonExemptEncryption</key><true/>
+	<key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict>
 </plist>
