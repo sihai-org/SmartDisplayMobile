@@ -18,12 +18,16 @@ pluginManagement {
 
     plugins {
         id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
+        // （可选）这里也可以再声明一次 Kotlin 插件版本：
+        id "org.jetbrains.kotlin.android" version "2.2.0" apply false
     }
 }
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "8.6.0" apply false
+    // 关键：在这个 plugins block 里声明 Kotlin 版本
+    id "org.jetbrains.kotlin.android" version "2.2.0" apply false
 }
 
 include ":app"

@@ -140,6 +140,83 @@ graph TD
 - ✅ 端到端测试：完整用户流程验证
 - ✅ 兼容性测试：多设备多系统验证
 
+## 🧭 日志与崩溃监控（Sentry）
+
+项目已集成 Sentry（Flutter SDK），默认从编译参数读取 DSN 与环境：
+
+- 入口初始化：`lib/main.dart:1`
+- 路由导航监控：`lib/core/router/app_router.dart:1`
+
+运行/构建时通过 `--dart-define` 传入环境变量：
+
+- `SENTRY_DSN`：你的 Sentry DSN
+- `SENTRY_ENV`：环境名（如 `development` / `staging` / `production`）。未设置时，调试构建为 `development`，发布构建为 `production`。
+
+示例命令：
+
+- Android 调试：
+  `flutter run -d android --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=development`
+
+- iOS 调试：
+  `flutter run -d ios --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=development`
+
+- Android Release 构建：
+  `flutter build apk --release --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=production`
+
+- iOS Release 构建：
+  `flutter build ipa --release --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=production`
+
+SDK 配置要点：
+
+- 在 `lib/main.dart:1` 中使用 `SentryFlutter.init` 初始化，开启了会话跟踪与部分性能采样（可按需调整采样率）。
+- 在 `lib/core/router/app_router.dart:1` 中通过 `SentryNavigatorObserver` 采集导航面包屑与性能数据。
+- 登录成功后会将 Supabase 用户写入 Sentry Scope（仅包含 id/email），退出登录时清空。
+
+可选增强（建议后续配置）：
+
+- Android 原生崩溃与符号表上传：已集成 `io.sentry.android.gradle` 插件，release 构建将自动上传 mapping/native 符号。
+- iOS 原生崩溃与符号表上传：已提供上传脚本（`ios/scripts/upload-symbols.sh`），在 Xcode 添加一个 Run Script Phase 即可自动上传 dSYM。
+- Web Source Map 上传：使用 `sentry_dart_plugin` 在构建后上传 source maps（按需）。
+
+### 原生符号自动上传配置
+
+所需凭据（CI 环境变量，推荐）：
+
+- `SENTRY_AUTH_TOKEN`：Sentry Auth Token（需有 `project:releases` 权限）
+- `SENTRY_ORG`：组织 slug
+- `SENTRY_PROJECT`：项目 slug
+
+也可以在根目录放置 `sentry.properties`（示例见 `sentry.properties.example`），但不建议提交包含密钥的文件到版本库。
+
+#### Android（已就绪）
+
+- 已在 `android/build.gradle` 注入插件类路径，并在 `android/app/build.gradle` 应用插件与默认配置：
+  - 自动上传 release 的 ProGuard/R8 `mapping.txt`（若启用混淆）
+  - 忽略 debug 构建
+  - 依赖 `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` 或 `sentry.properties`
+- 如需生成 `mapping.txt`，可在 `android/app/build.gradle` 的 `release` 中启用：
+  - `minifyEnabled true` 与（可选）`shrinkResources true`
+
+构建示例（CI）：
+
+```
+export SENTRY_AUTH_TOKEN=***
+export SENTRY_ORG=your-org
+export SENTRY_PROJECT=your-project
+flutter build apk --release
+```
+
+#### iOS（添加一次 Xcode 脚本）
+
+- 已提供脚本：`ios/scripts/upload-symbols.sh`（调用 CocoaPods 的 `${PODS_ROOT}/Sentry/upload-symbols`）
+- 在 Xcode 中为 Runner target 新增一个 Run Script Phase（建议放在 `[CP] Embed Pods Frameworks` 之后）：
+  - Script 内容：`"${SRCROOT}/scripts/upload-symbols.sh"`
+  - 输入环境变量：`SENTRY_AUTH_TOKEN`、`SENTRY_ORG`、`SENTRY_PROJECT`
+
+归档/构建时会自动上传当前构建的 dSYM 到 Sentry。
+
+如需我帮你完成原生侧符号化与 CI/CD 上传脚本配置，请告知打包流程（本地/Xcode/Gradle/CI）。
+
 ## 📞 支持与反馈
 
 - **🐛 问题反馈** - [GitHub Issues](https://github.com/sihai-org/SmartDisplayMobile/issues)

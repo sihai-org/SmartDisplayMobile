@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/device_qr_data.dart';
 import 'dart:convert';
 import '../../core/audit/audit_mode.dart';
+import '../../core/log/app_log.dart';
 
 class SavedDeviceRecord {
   final String displayDeviceId;
@@ -135,12 +136,24 @@ class SavedDevicesRepository {
     if (user == null) {
       return [];
     }
-    final List<dynamic> rows = await client
-        .from('account_device_binding_log')
-        .select('device_id, device_name, device_public_key, device_firmware_version, bind_time')
-        .eq('user_id', user.id)
-        .eq('bind_status', 1)
-        .order('bind_time');
+    List<dynamic> rows = const [];
+    try {
+      rows = await client
+          .from('account_device_binding_log')
+          .select('device_id, device_name, device_public_key, device_firmware_version, bind_time')
+          .eq('user_id', user.id)
+          .eq('bind_status', 1)
+          .order('bind_time');
+    } catch (e, st) {
+      // Report Supabase query error to Sentry via AppLog
+      AppLog.instance.error(
+        'Supabase fetchRemote failed',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
 
     return rows.map((row) {
       final map = row as Map<String, dynamic>;

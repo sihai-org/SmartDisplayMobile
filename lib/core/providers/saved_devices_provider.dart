@@ -6,6 +6,7 @@ import 'ble_connection_provider.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
 import '../../l10n/app_localizations_zh.dart';
+import '../log/app_log.dart';
 
 class SavedDevicesState {
   // 设备列表
@@ -60,7 +61,13 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
         final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
         Fluttertoast.showToast(msg: l10n.sync_devices_success, gravity: ToastGravity.TOP);
       }
-    } catch (e) {
+    } catch (e, st) {
+      AppLog.instance.warning(
+        'syncFromServer failed',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
       if (allowToast) {
         final locale = _ref.read(localeProvider);
         final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
@@ -117,9 +124,9 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
 
     // 如果当前有连接的设备且设备ID匹配，先断开连接
     if (currentConnectionState.bleDeviceData?.displayDeviceId == displayDeviceId) {
-      print('🔌 删除设备前先断开BLE连接: $displayDeviceId');
+      AppLog.instance.info('🔌 删除设备前先断开BLE连接: $displayDeviceId', tag: 'DeviceList');
       await bleConnectionNotifier.disconnect();
-      print('✅ BLE连接已断开');
+      AppLog.instance.info('✅ BLE连接已断开', tag: 'DeviceList');
     }
 
     await _repo.removeDevice(displayDeviceId);

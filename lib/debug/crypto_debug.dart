@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../core/log/app_log.dart';
 
 /// 加密调试工具
 class CryptoDebug {
@@ -8,15 +9,15 @@ class CryptoDebug {
     required String actualKey,
     String context = "公钥验证",
   }) {
-    print('🔍 $context 调试信息:');
-    print('   期望公钥: $expectedKey');
-    print('   实际公钥: $actualKey');
-    print('   长度对比: ${expectedKey.length} vs ${actualKey.length}');
+    AppLog.instance.debug('🔍 $context 调试信息:', tag: 'Crypto');
+    AppLog.instance.debug('   期望公钥: $expectedKey', tag: 'Crypto');
+    AppLog.instance.debug('   实际公钥: $actualKey', tag: 'Crypto');
+    AppLog.instance.debug('   长度对比: ${expectedKey.length} vs ${actualKey.length}', tag: 'Crypto');
 
     if (expectedKey == actualKey) {
-      print('   ✅ 公钥完全匹配');
+      AppLog.instance.info('   ✅ 公钥完全匹配', tag: 'Crypto');
     } else {
-      print('   ❌ 公钥不匹配');
+      AppLog.instance.warning('   ❌ 公钥不匹配', tag: 'Crypto');
 
       // 查找第一个不同的字符位置
       int diffIndex = -1;
@@ -32,46 +33,46 @@ class CryptoDebug {
       }
 
       if (diffIndex >= 0) {
-        print('   首次差异位置: $diffIndex');
-        print('   期望字符: "${expectedKey[diffIndex]}"');
-        print('   实际字符: "${actualKey[diffIndex]}"');
+        AppLog.instance.debug('   首次差异位置: $diffIndex', tag: 'Crypto');
+        AppLog.instance.debug('   期望字符: "${expectedKey[diffIndex]}"', tag: 'Crypto');
+        AppLog.instance.debug('   实际字符: "${actualKey[diffIndex]}"', tag: 'Crypto');
 
         // 显示差异周围的上下文
         final start = (diffIndex - 8).clamp(0, expectedKey.length);
         final end = (diffIndex + 8).clamp(0, expectedKey.length);
 
         if (start < expectedKey.length && end <= expectedKey.length) {
-          print('   期望上下文: "${expectedKey.substring(start, end)}"');
+          AppLog.instance.debug('   期望上下文: "${expectedKey.substring(start, end)}"', tag: 'Crypto');
         }
         if (start < actualKey.length && end <= actualKey.length) {
-          print('   实际上下文: "${actualKey.substring(start, end)}"');
+          AppLog.instance.debug('   实际上下文: "${actualKey.substring(start, end)}"', tag: 'Crypto');
         }
       }
     }
-    print('');
+    AppLog.instance.debug('', tag: 'Crypto');
   }
 
   /// 分析握手数据
   static void analyzeHandshakeData(String jsonData) {
     try {
       final data = jsonDecode(jsonData);
-      print('🤝 握手数据分析:');
-      print('   类型: ${data['type']}');
-      print('   版本: ${data['version']}');
-      print('   时间戳: ${data['timestamp']}');
+      AppLog.instance.debug('🤝 握手数据分析:', tag: 'Crypto');
+      AppLog.instance.debug('   类型: ${data['type']}', tag: 'Crypto');
+      AppLog.instance.debug('   版本: ${data['version']}', tag: 'Crypto');
+      AppLog.instance.debug('   时间戳: ${data['timestamp']}', tag: 'Crypto');
 
       if (data['public_key'] != null) {
         final publicKey = data['public_key'] as String;
-        print('   公钥长度: ${publicKey.length}');
-        print('   公钥前16字符: ${publicKey.substring(0, 16.clamp(0, publicKey.length))}...');
-        print('   公钥后16字符: ...${publicKey.substring((publicKey.length - 16).clamp(0, publicKey.length))}');
+        AppLog.instance.debug('   公钥长度: ${publicKey.length}', tag: 'Crypto');
+        AppLog.instance.debug('   公钥前16字符: ${publicKey.substring(0, 16.clamp(0, publicKey.length))}...', tag: 'Crypto');
+        AppLog.instance.debug('   公钥后16字符: ...${publicKey.substring((publicKey.length - 16).clamp(0, publicKey.length))}', tag: 'Crypto');
       }
 
-      print('');
+      AppLog.instance.debug('', tag: 'Crypto');
     } catch (e) {
-      print('❌ 握手数据解析失败: $e');
-      print('   原始数据: ${jsonData.substring(0, 100.clamp(0, jsonData.length))}...');
-      print('');
+      AppLog.instance.error('❌ 握手数据解析失败', tag: 'Crypto', error: e);
+      AppLog.instance.debug('   原始数据: ${jsonData.substring(0, 100.clamp(0, jsonData.length))}...', tag: 'Crypto');
+      AppLog.instance.debug('', tag: 'Crypto');
     }
   }
 
@@ -94,9 +95,9 @@ class CryptoDebug {
     required String deviceId,
     required String publicKey,
   }) {
-    print('🔑 设备密钥一致性分析:');
-    print('   设备ID: $deviceId');
-    print('   公钥: $publicKey');
+    AppLog.instance.debug('🔑 设备密钥一致性分析:', tag: 'Crypto');
+    AppLog.instance.debug('   设备ID: $deviceId', tag: 'Crypto');
+    AppLog.instance.debug('   公钥: $publicKey', tag: 'Crypto');
 
     try {
       // 模拟Android端的密钥生成逻辑
@@ -109,12 +110,12 @@ class CryptoDebug {
       }
 
       final expectedHex = bytesToHex(expectedPublicKey);
-      print('   期望公钥: $expectedHex');
+      AppLog.instance.debug('   期望公钥: $expectedHex', tag: 'Crypto');
 
       if (publicKey.toLowerCase() == expectedHex.toLowerCase()) {
-        print('   ✅ 密钥生成算法一致');
+        AppLog.instance.info('   ✅ 密钥生成算法一致', tag: 'Crypto');
       } else {
-        print('   ❌ 密钥生成算法不一致');
+        AppLog.instance.warning('   ❌ 密钥生成算法不一致', tag: 'Crypto');
         comparePublicKeys(
           expectedKey: expectedHex,
           actualKey: publicKey.toLowerCase(),
@@ -123,10 +124,10 @@ class CryptoDebug {
       }
 
     } catch (e) {
-      print('   ❌ 分析失败: $e');
+      AppLog.instance.error('   ❌ 分析失败', tag: 'Crypto', error: e);
     }
 
-    print('');
+    AppLog.instance.debug('', tag: 'Crypto');
   }
 
   /// 简化的SHA256实现（仅用于调试对比）

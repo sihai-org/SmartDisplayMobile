@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:developer' as developer;
+import '../log/app_log.dart';
 import 'dart:typed_data';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -31,9 +31,7 @@ class BleServiceSimple {
   // 打点：统一会话起点
   static DateTime? _sessionStart;
 
-  static void _log(String msg) {
-    developer.log(msg, name: 'BLE_SIMPLE');
-  }
+  static void _log(String msg) => AppLog.instance.debug(msg, tag: 'BLE_SIMPLE');
 
   static void _logWithTime(String label) {
     final now = DateTime.now();
@@ -290,10 +288,10 @@ class BleServiceSimple {
       _lastLogRssi[r.deviceId] = r.rssi;
 
       // 这里按需打印你想看的字段
-      print('🔍 发现设备: ${r.name}');
-      print('  id=${r.deviceId}, rssi=${r.rssi}');
-      print('  serviceUuids=${r.serviceUuids}');
-      print('  manufacturerData=${r.manufacturerData}');
+      AppLog.instance.debug('🔍 发现设备: ${r.name}', tag: 'BLE_SIMPLE');
+      AppLog.instance.debug('  id=${r.deviceId}, rssi=${r.rssi}', tag: 'BLE_SIMPLE');
+      AppLog.instance.debug('  serviceUuids=${r.serviceUuids}', tag: 'BLE_SIMPLE');
+      AppLog.instance.debug('  manufacturerData=${r.manufacturerData}', tag: 'BLE_SIMPLE');
     }
   }
 

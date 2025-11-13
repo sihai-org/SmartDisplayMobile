@@ -53,3 +53,6 @@ app.*.map.json
 
 # Claude Code settings - commented out to track settings
 # .claude/
+.env
+
+sentry.properties

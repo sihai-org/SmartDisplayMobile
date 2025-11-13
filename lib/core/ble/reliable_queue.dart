@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../log/app_log.dart';
 import 'dart:typed_data';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
@@ -245,9 +246,7 @@ class _Pending {
 }
 
 void _log(Object msg) {
-  // minimal logging util to avoid importing app logger here
-  // ignore: avoid_print
-  print('[RQ] $msg');
+  AppLog.instance.debug('$msg', tag: 'RQ');
 }
 
 /// Specific error to indicate device is already bound to another user

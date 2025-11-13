@@ -13,6 +13,7 @@ import '../../core/router/app_router.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/providers/audit_mode_provider.dart';
+import '../../core/log/app_log.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -44,9 +45,15 @@ class ProfilePage extends ConsumerWidget {
     }
     try {
       await Supabase.instance.client.auth.signOut();
-      print("~~~~~~~~~~after logout: 退登成功");
+      AppLog.instance.info('after logout: 退登成功', tag: 'Auth');
       // 登出成功走 main.dart 的统一清理
-    } catch (e) {
+    } catch (e, st) {
+      AppLog.instance.error(
+        'Supabase signOut failed',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
       if (!context.mounted) return;
 
       final l10n = context.l10n;

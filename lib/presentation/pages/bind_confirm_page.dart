@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,15 +46,15 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final saved = ref.read(savedDevicesProvider);
     final inList = saved.devices.any((e) => e.displayDeviceId == devId);
     if (!inList) {
-      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
-          name: 'Binding');
+      AppLog.instance.info('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
+          tag: 'Binding');
       try {
         await ref
             .read(bleConnectionProvider.notifier)
             .disconnect(shouldReset: true);
       } catch (e) {
-        developer.log('[DeviceConnectionPage] disconnect error: $e',
-            name: 'Binding');
+        AppLog.instance.warning('[DeviceConnectionPage] disconnect error: $e',
+            tag: 'Binding', error: e);
       }
       Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
@@ -67,8 +67,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   }
 
   Future<void> _disconnectAndClearIfNeeded() async {
-    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
-        name: 'Binding');
+    AppLog.instance.debug('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
+        tag: 'Binding');
     await _disconnectIfEphemeral();
     _clearAll();
   }
@@ -126,9 +126,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final inList = saved.devices.any((e) =>
     e.displayDeviceId == displayDeviceId);
     if (!inList) {
-      // ignore: avoid_print
-      print(
-          '[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $displayDeviceId');
+      AppLog.instance.info(
+          '[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $displayDeviceId',
+          tag: 'Binding');
       await ref.read(bleConnectionProvider.notifier).disconnect();
       Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
@@ -141,8 +141,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final scanned = app.scannedQrData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
-    print('[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}');
-    
+    AppLog.instance.debug(
+        '[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}',
+        tag: 'Binding');
+
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
       return Scaffold(
@@ -209,9 +211,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                         scanned.deviceName,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 4),
-                      Text('ID: ${scanned.displayDeviceId}',
-                          style: const TextStyle(fontFamily: 'monospace')),
                     ],
                   ),
                 )
@@ -296,6 +295,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         body: {'device_id': device.displayDeviceId},
       );
       if (response.status != 200) {
+        AppLog.instance.warning(
+          '[bindViaOtp] edge function pairing-otp non-200: ${response.status} ${response.data}',
+          tag: 'Supabase',
+        );
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
@@ -328,7 +331,13 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         Fluttertoast.showToast(msg: context.l10n.bind_success);
       }
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[bindViaOtp] exception during pairing-otp + sendDeviceLoginCode',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
       // 发生异常时也尝试兜底验证是否已绑定成功
       final recovered = await _attemptSuccessFallback(
           ref, device.displayDeviceId);

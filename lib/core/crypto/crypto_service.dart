@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
+import '../log/app_log.dart';
 
 /// BLE认证加密服务
 /// 实现X25519 ECDH密钥交换 + AES-256-GCM加密
@@ -23,7 +24,7 @@ class CryptoService {
   /// 生成临时密钥对
   Future<void> generateEphemeralKeyPair() async {
     _ephemeralKeyPair = await _x25519.newKeyPair();
-    print('🔐 生成临时密钥对完成');
+    AppLog.instance.debug('🔐 生成临时密钥对完成', tag: 'Crypto');
   }
 
   /// 获取本地公钥 (32字节)
@@ -49,7 +50,7 @@ class CryptoService {
     }
 
     try {
-      print('🔑 开始执行密钥交换 + 公钥认证');
+      AppLog.instance.info('🔑 开始执行密钥交换 + 公钥认证', tag: 'Crypto');
 
       // 1. 验证设备长期公钥签名
       final deviceLongtermPk = SimplePublicKey(
@@ -74,7 +75,7 @@ class CryptoService {
       if (!ok) {
         throw Exception('❌ 设备公钥签名验证失败');
       }
-      print('✅ 设备公钥签名验证通过');
+      AppLog.instance.info('✅ 设备公钥签名验证通过', tag: 'Crypto');
 
       // 2. 构建远程 ephemeral 公钥
       final remoteEphemeralKey = SimplePublicKey(
@@ -88,12 +89,12 @@ class CryptoService {
         remotePublicKey: remoteEphemeralKey,
       );
       _sharedSecret = await sharedSecretKey.extractBytes();
-      print('🤝 ECDH密钥交换完成，共享密钥长度: ${_sharedSecret!.length}');
+      AppLog.instance.debug('🤝 ECDH密钥交换完成，共享密钥长度: ${_sharedSecret!.length}', tag: 'Crypto');
 
       // 4. 派生会话密钥
       await _deriveSessionKey();
     } catch (e) {
-      print('❌ performKeyExchange 失败: $e');
+      AppLog.instance.error('❌ performKeyExchange 失败', tag: 'Crypto', error: e);
       rethrow;
     }
   }
@@ -133,7 +134,7 @@ class CryptoService {
     );
 
     _sessionKey = await sessionKeyObject.extractBytes();
-    print('🔑 会话密钥派生完成，长度: ${_sessionKey!.length}');
+    AppLog.instance.debug('🔑 会话密钥派生完成，长度: ${_sessionKey!.length}', tag: 'Crypto');
   }
 
   /// 加密数据 (AES-256-GCM)
@@ -187,7 +188,7 @@ class CryptoService {
     _ephemeralKeyPair = null;
     _sharedSecret = null;
     _sessionKey = null;
-    print('🧹 密钥材料已清理');
+    AppLog.instance.debug('🧹 密钥材料已清理', tag: 'Crypto');
   }
 
   /// 获取握手初始化数据 (JSON格式)

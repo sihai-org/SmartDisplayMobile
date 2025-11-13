@@ -3,6 +3,7 @@ import '../audit/audit_mode.dart';
 import '../models/device_qr_data.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import 'saved_devices_provider.dart';
+import '../log/app_log.dart';
 
 class AuditState {
   final bool enabled;
@@ -33,7 +34,7 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
 
   Future<void> _seedMockDeviceIfNeeded() async {
     try {
-      print("~~~~~~~~~~~~~~_seedMockDeviceIfNeeded");
+      AppLog.instance.debug('_seedMockDeviceIfNeeded', tag: 'Audit');
       final repo = SavedDevicesRepository();
       final list = await repo.loadLocal();
       final exists = list.any((e) => e.displayDeviceId == AuditMode.mockDisplayDeviceId);

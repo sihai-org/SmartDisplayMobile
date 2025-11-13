@@ -16,7 +16,7 @@ class BleScannerImpl implements BleScanner {
   @override
   Future<String> findBleDeviceId(
       DeviceQrData qr, {
-        Duration timeout = const Duration(seconds: 30),
+        Duration timeout = const Duration(seconds: 10),
       }) async {
     await BleServiceSimple.stopScan().catchError((_) {});
 

@@ -1,5 +1,5 @@
 import 'dart:ui' show Rect;
-import 'dart:developer' as developer;
+import '../../../core/log/app_log.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -67,9 +67,7 @@ class QrScannerNotifier extends StateNotifier<QrScannerState> {
   final _tracker = _CandidateTracker();
   DateTime? _lastAnyDetectAt;
 
-  void _log(String msg) {
-    developer.log(msg, name: 'QR');
-  }
+  void _log(String msg) => AppLog.instance.debug(msg, tag: 'QR');
 
   /// 初始化控制器 (不更新状态)
   void initializeController() {

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import '../log/app_log.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
@@ -274,7 +274,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       // use() 成功后显式绑定一次事件流，避免因 provider 不变而错过绑定
       // 读取握手阶段的状态：需在设置 bleDeviceStatus 之前更新 emptyBound
       final hs = mgr.lastHandshakeStatus;
-      print("~~~~~~~~~~~~~~~~~~hs $hs");
+      AppLog.instance.debug('handshakeStatus=$hs', tag: 'BLE');
       bool treatAsEmptyBound = hs == 'empty_bound';
       state = state.copyWith(emptyBound: treatAsEmptyBound);
       _attachChannelEvents(mgr);
@@ -310,7 +310,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 应用进入前台自动连接蓝牙
   Future<void> handleEnterForeground() async {
-    print("[BleConnectionPage] handleEnterForeground ${state.bleDeviceStatus} ${state.bleDeviceData}");
+    AppLog.instance.info(
+      'handleEnterForeground ${state.bleDeviceStatus} ${state.bleDeviceData}',
+      tag: 'BLE',
+    );
     if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
     BleDeviceData? d = state.bleDeviceData;
     if (d == null) {
@@ -474,9 +477,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  void _log(String msg) {
-    developer.log(msg, name: 'BLE');
-  }
+  void _log(String msg) => AppLog.instance.debug(msg, tag: 'BLE');
 
   void _logWithTime(String label) {
     final now = DateTime.now();

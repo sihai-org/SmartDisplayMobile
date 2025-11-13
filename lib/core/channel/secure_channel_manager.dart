@@ -1,6 +1,7 @@
 // lib/core/secure/secure_channel_manager.dart
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../log/app_log.dart';
 import 'package:smart_display_mobile/core/ble/ble_scanner.dart';
 import 'package:smart_display_mobile/core/models/device_qr_data.dart';
 
@@ -90,7 +91,7 @@ class SecureChannelManager {
       _channel = ch;
       // 监听断开/蓝牙关闭，立刻清理引用
       _channelEvtSub = ch.events.listen((e) async {
-        print("=============设备测推送事件 ${e.toString()}");
+        AppLog.instance.debug("=============设备测推送事件 ${e.toString()}", tag: 'Channel');
         final t = (e['type'] ?? '').toString();
         if (t == 'status') {
           final v = (e['value'] ?? '').toString();

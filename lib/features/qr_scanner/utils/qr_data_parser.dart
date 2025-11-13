@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/models/device_qr_data.dart';
+import '../../../core/log/app_log.dart';
 
 /// QR码数据解析工具
 class QrDataParser {
@@ -8,7 +9,7 @@ class QrDataParser {
   /// 紧凑URL格式：https://m.smartdisplay.mareo.ai/launch.html?ts=...&id=...&n=...&fv=...&ba=...&pk=...
   static DeviceQrData fromQrContent(String qrContent) {
     final trimmed = qrContent.trim();
-    print("📷 QrDataParser 收到内容(${trimmed.length}): $trimmed");
+    AppLog.instance.debug("📷 QrDataParser 收到内容(${trimmed.length}): $trimmed", tag: 'QR');
 
     // 紧凑URL（含自定义 scheme）
     try {
@@ -34,7 +35,7 @@ class QrDataParser {
               timestamp: ts,
             );
             if (kDebugMode) {
-              print('✅ 紧凑URL解析成功: id=$id, name=$name');
+              AppLog.instance.debug('✅ 紧凑URL解析成功: id=$id, name=$name', tag: 'QR');
             }
             return data;
           } else {
@@ -63,7 +64,7 @@ class QrDataParser {
               timestamp: ts,
             );
             if (kDebugMode) {
-              print('✅ 自定义scheme解析成功: id=$id, name=$name');
+              AppLog.instance.debug('✅ 自定义scheme解析成功: id=$id, name=$name', tag: 'QR');
             }
             return data;
           } else {

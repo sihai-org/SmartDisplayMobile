@@ -14,6 +14,7 @@ import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../audit/audit_mode.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// App routes
 class AppRoutes {
@@ -33,6 +34,10 @@ class AppRoutes {
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
+  // 采集导航面包屑/性能
+  observers: <NavigatorObserver>[
+    SentryNavigatorObserver(),
+  ],
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final loggedIn = session != null || AuditMode.enabled;

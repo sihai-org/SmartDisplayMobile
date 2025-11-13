@@ -11,6 +11,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/router/app_router.dart';
 import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import '../../core/utils/device_entry_coordinator.dart';
+import '../../core/log/app_log.dart';
 
 class QrScannerPage extends ConsumerStatefulWidget {
   const QrScannerPage({super.key});
@@ -33,8 +34,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     _beepPlayer.setSource(AssetSource('sounds/scan_success.mp3'));
 
     // 初始化扫描器
-    // ignore: avoid_print
-    print('[QrScannerPage] initState -> initializeController + startScanning');
+    AppLog.instance.debug('[QrScannerPage] initState -> initializeController + startScanning', tag: 'QR');
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final notifier = ref.read(qrScannerProvider.notifier);
@@ -85,8 +85,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     ref.listen<QrScannerState>(qrScannerProvider, (previous, current) async {
       if (!mounted) return;
       if (current.status == QrScannerStatus.success && current.qrContent != null) {
-        // ignore: avoid_print
-        print('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator');
+        AppLog.instance.info('[QrScannerPage] detect SUCCESS -> navigate via DeviceEntryCoordinator', tag: 'QR');
         Fluttertoast.showToast(msg: "扫描成功，正前往下一步...");
 
         // 避免重复触发（比如状态快速抖动）
@@ -129,8 +128,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             onPressed: () {
               // 停止扫描并清理资源 - 延迟执行避免在构建期间修改Provider
               Future(() {
-                // ignore: avoid_print
-                print('[QrScannerPage] back pressed -> stopScanning and go home');
+                AppLog.instance.debug('[QrScannerPage] back pressed -> stopScanning and go home', tag: 'QR');
                 ref.read(qrScannerProvider.notifier).stopScanning();
               });
               // 返回主页

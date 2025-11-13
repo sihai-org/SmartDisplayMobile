@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,13 +43,11 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     final saved = ref.read(savedDevicesProvider);
     final inList = saved.devices.any((e) => e.displayDeviceId == devId);
     if (!inList) {
-      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
-          name: 'Binding');
+      AppLog.instance.info('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId', tag: 'Binding');
       try {
         await ref.read(bleConnectionProvider.notifier).disconnect(shouldReset: true);
       } catch (e) {
-        developer.log('[DeviceConnectionPage] disconnect error: $e',
-            name: 'Binding');
+        AppLog.instance.warning('[DeviceConnectionPage] disconnect error: $e', tag: 'Binding', error: e);
       }
       Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
@@ -62,8 +60,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   }
 
   Future<void> _disconnectAndClearIfNeeded() async {
-    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
-        name: 'Binding');
+    AppLog.instance.debug('[DeviceConnectionPage] _disconnectAndClearIfNeeded', tag: 'Binding');
     await _disconnectIfEphemeral();
     _clearAll();
   }
@@ -71,7 +68,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   @override
   void initState() {
     super.initState();
-    developer.log('[DeviceConnectionPage] initState', name: 'Binding');
+    AppLog.instance.debug('[DeviceConnectionPage] initState', tag: 'Binding');
 
     // 进入页面自动连接
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -80,23 +77,20 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       // 1. 检查扫到的设备
       final scannedQrData = ref.read(appStateProvider).scannedQrData;
       if (scannedQrData == null) {
-        developer.log('[DeviceConnectionPage] scannedQrData is null',
-            name: 'Binding');
+        AppLog.instance.debug('[DeviceConnectionPage] scannedQrData is null', tag: 'Binding');
         if (!_noDataDialogShown) _showNoDataError();
         return;
       }
 
       // 2. 自动连接
-      developer.log(
-          '[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId}',
-          name: 'Binding');
+      AppLog.instance.info('[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId}', tag: 'Binding');
       try {
         final ok = await ref
             .read(bleConnectionProvider.notifier)
             .enableBleConnection(scannedQrData);
         if (ok) Fluttertoast.showToast(msg: context.l10n.connect_success);
       } catch (e, s) {
-        developer.log('[DeviceConnectionPage] startConnection error: $e\n$s');
+        AppLog.instance.error('[DeviceConnectionPage] startConnection error', tag: 'Binding', error: e, stackTrace: s);
         Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
       }
     });
@@ -111,9 +105,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final prevBleStatus = previous?.bleDeviceStatus;
         final curBleStatus = current.bleDeviceStatus;
         if (curBleStatus != prevBleStatus) {
-          developer.log(
-              '[DeviceConnectionPage] 蓝牙状态变化 $prevBleStatus -> $curBleStatus',
-              name: 'Binding');
+          AppLog.instance.debug('[DeviceConnectionPage] 蓝牙状态变化 $prevBleStatus -> $curBleStatus', tag: 'Binding');
           if (curBleStatus == BleDeviceStatus.authenticated) {
             if (_navigated) return; // 防抖
             _navigated = true;
@@ -127,9 +119,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
             final idParam = Uri.encodeComponent(curDisplayDeviceId ?? "");
 
             final curEmptyBound = current.emptyBound;
-            developer.log(
-                '[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId, emptyBound=${curEmptyBound}',
-                name: 'Binding');
+            AppLog.instance.debug('[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId, emptyBound=${curEmptyBound}', tag: 'Binding');
             if (networkStatus?.connected == true) {
               // 设备有网
               if (curEmptyBound) {
@@ -286,14 +276,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${context.l10n.device_id_label}: ${widget.displayDeviceId}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
                         ),
                       ),
                     ],

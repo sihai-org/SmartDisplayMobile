@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../log/app_log.dart';
 
 part 'network_status.freezed.dart';
 part 'network_status.g.dart';
@@ -59,7 +60,7 @@ class NetworkStatusParser {
       final jsonMap = json.decode(jsonString) as Map<String, dynamic>;
       return NetworkStatus.fromJson(jsonMap);
     } catch (e) {
-      print('解析网络状态数据失败: $e');
+      AppLog.instance.warning('解析网络状态数据失败', tag: 'Network', error: e);
       return null;
     }
   }

@@ -1,4 +1,4 @@
-import 'dart:developer' as developer;
+import '../log/app_log.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -13,11 +13,7 @@ extension L10nX on BuildContext {
     if (l10n != null) return l10n;
     if (!_l10nFallbackLogged) {
       _l10nFallbackLogged = true;
-      developer.log(
-        'AppLocalizations not ready in this BuildContext; using English fallback.',
-        name: 'l10n',
-        level: 1000, // SEVERE
-      );
+      AppLog.instance.warning('AppLocalizations not ready in this BuildContext; using English fallback.', tag: 'l10n');
     }
     return AppLocalizationsEn();
   }

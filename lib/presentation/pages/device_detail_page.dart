@@ -13,6 +13,7 @@ import '../../data/repositories/saved_devices_repository.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/network/network_status.dart';
 import '../../core/models/device_qr_data.dart';
+import '../../core/log/app_log.dart';
 import '../../core/providers/ble_connection_provider.dart' as conn;
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
@@ -524,7 +525,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final effectiveStatus = isThisDeviceActive
         ? connState.bleDeviceStatus
         : BleDeviceStatus.disconnected;
-    print('[device_detail_page] effectiveStatus=$effectiveStatus');
+    AppLog.instance.debug('[device_detail_page] effectiveStatus=$effectiveStatus', tag: 'DeviceDetail');
     // 目标视觉：左侧状态图标 + 文案，右侧开关
     // 三种状态：
     // - 已连接（开关开、勾选图标、蓝色）
@@ -611,6 +612,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             .enableBleConnection(qr);
         if (!res) {
           Fluttertoast.showToast(msg: '蓝牙连接失败，请检查手机蓝牙或靠近设备');
+          AppLog.instance.error("蓝牙连接失败，请检查手机蓝牙或靠近设备");
         }
       } else {
         // 关闭：主动断开
@@ -939,7 +941,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         Fluttertoast.showToast(msg: context.l10n.delete_failed);
       }
     } catch (e, st) {
-      print("❌ _deleteDevice 出错: $e\n$st");
+      AppLog.instance.error('❌ _deleteDevice 出错', tag: 'DeviceDetail', error: e, stackTrace: st);
       Fluttertoast.showToast(msg: context.l10n.delete_failed);
     }
   }

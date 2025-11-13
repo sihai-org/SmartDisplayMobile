@@ -9,6 +9,7 @@ import '../../core/providers/ble_connection_provider.dart' as conn;
 import '../../core/models/device_qr_data.dart';
 import '../../core/router/app_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../core/log/app_log.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
   const DeviceManagementPage({super.key});
@@ -253,14 +254,14 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   void _logDeviceList(SavedDevicesState state) {
     final devices = state.devices;
     if (devices.isEmpty) {
-      print('[DeviceManagementPage] 设备列表为空');
+      AppLog.instance.debug('[DeviceManagementPage] 设备列表为空', tag: 'DeviceList');
       return;
     }
-    print('[DeviceManagementPage] 当前设备数量: ${devices.length}');
+    AppLog.instance.debug('[DeviceManagementPage] 当前设备数量: ${devices.length}', tag: 'DeviceList');
     for (final device in devices) {
       final name = device.deviceName.isNotEmpty ? device.deviceName : '未命名设备';
       final ble = device.lastBleDeviceId ?? '-';
-      print('[DeviceManagementPage] 设备: id=${device.displayDeviceId}, name=$name, ble=$ble');
+      AppLog.instance.debug('[DeviceManagementPage] 设备: id=${device.displayDeviceId}, name=$name, ble=$ble', tag: 'DeviceList');
     }
   }
 }

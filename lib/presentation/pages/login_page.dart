@@ -4,6 +4,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/log/app_log.dart';
 
 import '../../core/router/app_router.dart';
 import '../../l10n/app_localizations.dart';
@@ -99,8 +100,13 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       _startCountdown();
-    } catch (e) {
-      debugPrint('Unexpected error during signInWithOtp: $e');
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[signInWithOtp] failed',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
       Fluttertoast.showToast(msg: l10n.send_failed(e.toString()));
       setState(() => _error = e.toString());
     } finally {
@@ -154,7 +160,13 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         Fluttertoast.showToast(msg: l10n.otp_invalid);
       }
-    } catch (e) {
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[verifyOTP] failed',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
       setState(() => _error = e.toString());
       Fluttertoast.showToast(msg: l10n.login_failed(e.toString()));
     } finally {

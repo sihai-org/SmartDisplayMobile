@@ -1,6 +1,8 @@
+import java.util.Properties   // 👈 就加这一句
+
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"   // ✅ 新写法，替代 kotlin-android
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -36,13 +38,15 @@ android {
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "27.0.12077973"
 
+    // ✅ 全部用 Java 17
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
+    // ✅ Kotlin 也跑在 17 上
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 
     sourceSets {

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:developer' as developer;
+import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ble/ble_device_data.dart';
@@ -43,13 +43,11 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     final saved = ref.read(savedDevicesProvider);
     final inList = saved.devices.any((e) => e.displayDeviceId == devId);
     if (!inList) {
-      developer.log('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
-          name: 'Binding');
+      AppLog.instance.info('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId', tag: 'Binding');
       try {
         await ref.read(bleConnectionProvider.notifier).disconnect(shouldReset: true);
       } catch (e) {
-        developer.log('[DeviceConnectionPage] disconnect error: $e',
-            name: 'Binding');
+        AppLog.instance.warning('[DeviceConnectionPage] disconnect error: $e', tag: 'Binding', error: e);
       }
       Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
     }
@@ -62,8 +60,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   }
 
   Future<void> _disconnectAndClearIfNeeded() async {
-    developer.log('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
-        name: 'Binding');
+    AppLog.instance.debug('[DeviceConnectionPage] _disconnectAndClearIfNeeded', tag: 'Binding');
     await _disconnectIfEphemeral();
     _clearAll();
   }

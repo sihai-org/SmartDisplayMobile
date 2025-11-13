@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import '../log/app_log.dart';
 
 import '../ble/ble_service_simple.dart';
 import '../ble/reliable_queue.dart';
@@ -172,7 +173,7 @@ class SecureChannelImpl implements SecureChannel {
       // Forward low-level connection and adapter status to upper layer
       await _linkSub?.cancel();
       _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
-        print("[SecureChannelImpl] e=${e.toString()}");
+        AppLog.instance.debug("[SecureChannelImpl] e=${e.toString()}", tag: 'Channel');
         final t = (e['type'] ?? '').toString();
         if (t == 'connection') {
           final st = (e['state'] ?? '').toString();
