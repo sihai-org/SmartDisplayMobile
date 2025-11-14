@@ -31,7 +31,6 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
     // 初始化播放器
     _beepPlayer = AudioPlayer()..setReleaseMode(ReleaseMode.stop); // 播放完停止（不循环）
-    _beepPlayer.setSource(AssetSource('sounds/scan_success.mp3'));
 
     // 初始化扫描器
     AppLog.instance.debug('[QrScannerPage] initState -> initializeController + startScanning', tag: 'QR');
@@ -59,8 +58,9 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   // 新增：播放提示音（失败时不抛异常）
   Future<void> _playSuccessBeep() async {
     try {
-      await _beepPlayer.resume();
-      await Future.delayed(const Duration(milliseconds: 30));
+      // 保守一点：先停掉上一次，避免状态乱
+      await _beepPlayer.stop();
+      await _beepPlayer.play(AssetSource('sounds/scan_success.mp3'));
     } catch (e) {
       debugPrint('play beep error: $e');
     }
@@ -92,7 +92,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
         if (_beepPlayedForThisSuccess) return;
         _beepPlayedForThisSuccess = true;
 
-        await _playSuccessBeep();
+        unawaited(_playSuccessBeep());
 
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;

@@ -40,10 +40,32 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    
-    # Fix deployment target warnings
+
     target.build_configurations.each do |config|
+      # 你的最低系统版本
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+
+      # 👇 关键：给 permission_handler 开启 iOS 权限
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+
+        # 相机（扫码）
+        'PERMISSION_CAMERA=1',
+
+        # 蓝牙（iOS 13+ 一般建议开这两个）
+        'PERMISSION_BLUETOOTH=1',
+        'PERMISSION_BLUETOOTH_LE=1',
+
+        # 位置信息（很多 BLE 扫描在 iOS/Android 都会要求定位）
+        'PERMISSION_LOCATION=1',
+        'PERMISSION_LOCATION_ALWAYS=1',
+        'PERMISSION_LOCATION_WHEN_IN_USE=1',
+
+        # 如果你后面会用到照片/相册、通知等等可以继续加：
+        # 'PERMISSION_PHOTOS=1',
+        # 'PERMISSION_NOTIFICATIONS=1',
+      ]
     end
   end
 end
+
