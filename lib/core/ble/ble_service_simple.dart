@@ -295,6 +295,61 @@ class BleServiceSimple {
     }
   }
 
+  // ========= UUID 辅助函数开始 =========
+
+  // 标准 BLE Base UUID: 0000xxxx-0000-1000-8000-00805f9b34fb
+  static bool _isBaseBle128(String s) {
+    s = s.toLowerCase();
+    return s.endsWith('-0000-1000-8000-00805f9b34fb') && s.length == 36;
+  }
+
+  // 从标准 Base UUID 里提取 16-bit 部分:
+  // 0000a100-0000-1000-8000-00805f9b34fb -> a100
+  static String _extract16(String s) {
+    final head = s.split('-').first; // 0000a100
+    return head.substring(head.length - 4);
+  }
+
+  static bool _isShort16(String s) {
+    s = s.toLowerCase();
+    return s.length == 4 && RegExp(r'^[0-9a-f]{4}$').hasMatch(s);
+  }
+
+  /// 宽松 UUID 比较:
+  /// - 完全一样 => 相等
+  /// - 都是 BLE Base UUID => 比较 16-bit
+  /// - 一边 Base UUID, 一边短 16-bit => 比较 16-bit
+  /// - 其他情况 => 要求完整字符串相等
+  static bool _uuidEqualsLoose(String a, String b) {
+    a = a.toLowerCase();
+    b = b.toLowerCase();
+
+    if (a == b) return true;
+
+    final aBase = _isBaseBle128(a);
+    final bBase = _isBaseBle128(b);
+    final aShort = _isShort16(a);
+    final bShort = _isShort16(b);
+
+    // 两边都是 Base UUID
+    if (aBase && bBase) {
+      return _extract16(a) == _extract16(b);
+    }
+
+    // Base UUID vs 16-bit
+    if (aBase && bShort) {
+      return _extract16(a) == b;
+    }
+    if (bBase && aShort) {
+      return _extract16(b) == a;
+    }
+
+    // 其他情况：只能完全一样才算
+    return false;
+  }
+
+  // ========= UUID 辅助函数结束 =========
+
   /// 连接设备
   static Future<BleDeviceData?> connectToDevice({
     required BleDeviceData bleDeviceData,
@@ -622,25 +677,45 @@ class BleServiceSimple {
     _log('🔎 hasRxTx 开始: svc=$serviceUuid, rx=$rxUuid, tx=$txUuid');
     try {
       final services = await _ble.discoverServices(deviceId);
-      final s = services.firstWhere(
-        (e) =>
-            e.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
-        orElse: () => DiscoveredService(
-          serviceId: Uuid.parse('00000000-0000-0000-0000-000000000000'),
-          serviceInstanceId: '',
-          characteristicIds: const [],
-          characteristics: const [],
-          includedServices: const [],
-        ),
-      );
-      if (s.characteristicIds.isEmpty) return false;
-      final hasRx = s.characteristicIds
-          .any((c) => c.toString().toLowerCase() == rxUuid.toLowerCase());
-      final hasTx = s.characteristicIds
-          .any((c) => c.toString().toLowerCase() == txUuid.toLowerCase());
+
+      // 调试用：打印出来看设备实际暴露的服务
+      _log('~~~~~~~~services=$services');
+
+      // 1. 先找到匹配的 service
+      DiscoveredService? s;
+      for (final svc in services) {
+        final sid = svc.serviceId.toString();
+        if (_uuidEqualsLoose(sid, serviceUuid)) {
+          s = svc;
+          break;
+        }
+      }
+
+      if (s == null) {
+        _log('hasRxTx: service not found on device');
+        final elapsed = DateTime.now().difference(t0).inMilliseconds;
+        _logWithTime('hasRxTx.result(${elapsed}ms) -> false (no service)');
+        return false;
+      }
+
+      // 2. 在该 service 下查 RX/TX 特征
+      bool hasRx = false;
+      bool hasTx = false;
+
+      for (final c in s.characteristics) {
+        final cid = c.characteristicId.toString();
+        if (_uuidEqualsLoose(cid, rxUuid)) {
+          hasRx = true;
+        }
+        if (_uuidEqualsLoose(cid, txUuid)) {
+          hasTx = true;
+        }
+      }
+
       final ok = hasRx && hasTx;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('hasRxTx.result(${elapsed}ms) -> $ok');
+      _logWithTime(
+          'hasRxTx.result(${elapsed}ms) -> $ok (hasRx=$hasRx, hasTx=$hasTx)');
       return ok;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
@@ -648,6 +723,7 @@ class BleServiceSimple {
       return false;
     }
   }
+
 
   /// 清理
   static void dispose() {
