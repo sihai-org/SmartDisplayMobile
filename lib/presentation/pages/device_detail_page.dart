@@ -854,66 +854,96 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   void _showDeleteDialog(BuildContext context, SavedDeviceRecord device) {
+    bool deleting = false;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.delete_device),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.l10n.confirm_delete_device),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setSBState) {
+          return AlertDialog(
+            title: Text(ctx.l10n.delete_device),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(ctx.l10n.confirm_delete_device),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${ctx.l10n.device_name_label}: ${device.deviceName}',
+                        style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${ctx.l10n.device_id_label}: ${device.displayDeviceId}',
+                        style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  ctx.l10n.delete_consequence_hint,
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(ctx).colorScheme.error,
+                      ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: deleting ? null : () => Navigator.of(ctx).pop(),
+                child: Text(ctx.l10n.cancel),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${context.l10n.device_name_label}: ${device.deviceName}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${context.l10n.device_id_label}: ${device.displayDeviceId}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
-                        ),
-                  ),
-                ],
+              FilledButton(
+                onPressed: deleting
+                    ? null
+                    : () async {
+                        setSBState(() => deleting = true);
+                        try {
+                          await _deleteDevice(device);
+                        } finally {
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                child: deleting
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(ctx).colorScheme.onPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(ctx.l10n.splash_loading),
+                        ],
+                      )
+                    : Text(ctx.l10n.delete_device),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.delete_consequence_hint,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _deleteDevice(device);
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(context.l10n.delete_device),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -925,24 +955,28 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         final bleNotifier = ref.read(conn.bleConnectionProvider.notifier);
         // 1. 蓝牙通知设备删除
         final ok = await bleNotifier.sendDeviceLogout();
-        if (!ok) {
+        if (!ok && context.mounted) {
           Fluttertoast.showToast(msg: context.l10n.delete_failed);
           return;
         }
-        Fluttertoast.showToast(msg: context.l10n.delete_success);
+        if (context.mounted) {
+          Fluttertoast.showToast(msg: context.l10n.delete_success);
+        }
         // 2. 断开蓝牙
         await ref.read(conn.bleConnectionProvider.notifier).disconnect();
         final deviceNotifier = ref.read(savedDevicesProvider.notifier);
         // 3. 同步远端状态，确保列表与服务器一致
         await deviceNotifier.syncFromServer();
-        // 4. 更新本地保存的设备列表
-        await deviceNotifier.removeDevice(device.displayDeviceId);
       } else {
-        Fluttertoast.showToast(msg: context.l10n.delete_failed);
+        if (context.mounted) {
+          Fluttertoast.showToast(msg: context.l10n.delete_failed);
+        }
       }
     } catch (e, st) {
       AppLog.instance.error('❌ _deleteDevice 出错', tag: 'DeviceDetail', error: e, stackTrace: st);
-      Fluttertoast.showToast(msg: context.l10n.delete_failed);
+      if (context.mounted) {
+        Fluttertoast.showToast(msg: context.l10n.delete_failed);
+      }
     }
   }
 }

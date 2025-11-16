@@ -117,22 +117,6 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = state.copyWith(lastSelectedId: displayDeviceId);
   }
 
-  Future<void> removeDevice(String displayDeviceId) async {
-    // 检查是否是当前连接的设备，如果是则先断开连接
-    final bleConnectionNotifier = _ref.read(bleConnectionProvider.notifier);
-    final currentConnectionState = _ref.read(bleConnectionProvider);
-
-    // 如果当前有连接的设备且设备ID匹配，先断开连接
-    if (currentConnectionState.bleDeviceData?.displayDeviceId == displayDeviceId) {
-      AppLog.instance.info('🔌 删除设备前先断开BLE连接: $displayDeviceId', tag: 'DeviceList');
-      await bleConnectionNotifier.disconnect();
-      AppLog.instance.info('✅ BLE连接已断开', tag: 'DeviceList');
-    }
-
-    await _repo.removeDevice(displayDeviceId);
-    await load(); // 重新加载状态
-  }
-
   // 清空当前用户的本地设备列表与选择（用于登出）
   Future<void> clearForLogout() async {
     await _repo.clearCurrentUserData();

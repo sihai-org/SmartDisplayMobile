@@ -217,21 +217,6 @@ class SavedDevicesRepository {
     await saveLocal(devices);
   }
 
-  Future<void> removeDevice(String deviceId) async {
-    // Remove from local cached list and clear last selected if needed.
-    final devices = await loadLocal();
-    final updated = devices.where((e) => e.displayDeviceId != deviceId).toList();
-    await saveLocal(updated);
-
-    final currentLastSelected = await loadLastSelectedId();
-    if (currentLastSelected == deviceId) {
-      final key = _lastSelectedKeyForCurrentUser();
-      if (key != null) {
-        await _storage.delete(key: key);
-      }
-    }
-  }
-
   // Clear all local cached device data for the current user
   Future<void> clearCurrentUserData() async {
     final devicesKey = _devicesKeyForCurrentUser();
