@@ -119,10 +119,16 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       child: Scaffold(
         backgroundColor: Colors.black,
       appBar: AppBar(
-          title: Text(context.l10n.qr_scanner_title),
+          title: Text(
+            context.l10n.qr_scanner_title,
+            // 明确指定白色标题，避免被全局 AppBarTheme 覆盖
+            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+          ),
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
+          // 确保状态栏图标为浅色（适配黑色背景）
+          systemOverlayStyle: SystemUiOverlayStyle.light,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
