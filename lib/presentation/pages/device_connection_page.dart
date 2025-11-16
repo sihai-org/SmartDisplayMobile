@@ -176,7 +176,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         }
       },
       child: Scaffold(
-      backgroundColor: Colors.grey[50],
+      // Use themed background to support dark mode
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(context.l10n.connect_device_title),
         elevation: 0,
@@ -215,14 +216,14 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                           SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(
+                            child: const CircularProgressIndicator(
                               strokeWidth: 2,
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Text(
                             context.l10n.ble_connecting,
-                            style: const TextStyle(fontSize: 16),
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
                       ),
@@ -245,6 +246,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     final app = ref.watch(appStateProvider);
     final qrDeviceData = app.scannedQrData;
 
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -259,12 +263,12 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.tv,
-                    color: Colors.grey,
+                    color: colorScheme.onSurfaceVariant,
                     size: 24,
                   ),
                 ),
@@ -275,17 +279,14 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     children: [
                       Text(
                         qrDeviceData?.deviceName ?? context.l10n.unknown_device,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: theme.textTheme.titleMedium,
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.info_outline,
-                  color: Colors.blue,
+                  color: colorScheme.primary,
                   size: 24,
                 ),
               ],
