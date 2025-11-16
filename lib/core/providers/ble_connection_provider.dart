@@ -106,12 +106,28 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         }
       },
     );
+
+    // 3) 监听 savedDevicesProvider 的 lastSelectedId 变化
+    _savedDevicesSub = _ref.listen(savedDevicesProvider, (prev, curr) {
+      final prevId = prev?.lastSelectedId;
+      final currId = curr.lastSelectedId;
+      if (prevId == currId) return; // lastSelectedId 没变，跳过
+
+      final nowAuthed = state.bleDeviceStatus == BleDeviceStatus.authenticated;
+      final nowDeviceId = state.bleDeviceData?.displayDeviceId;
+
+      // 只有当当前连接的设备已认证且被选中时才 sync
+      if (nowAuthed && nowDeviceId != null && nowDeviceId == currId) {
+        _syncSelectedWhenAuthed(reason: 'savedDevices.lastSelectedId-changed');
+      }
+    });
   }
 
   final Ref _ref;
 
   ProviderSubscription<bool>? _foregroundSub;
   ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
+  ProviderSubscription<dynamic /*SavedDevicesState*/ >? _savedDevicesSub;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
   Stream<Map<String, dynamic>>? _boundStream; // 记住当前已绑定的事件流
 
@@ -171,25 +187,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   @override
   set state(BleConnectionState next) {
-    final prev = super.state;
     super.state = next;
-
-    _onStateChanged(prev, next);
-  }
-
-  void _onStateChanged(BleConnectionState prev, BleConnectionState next) {
-    // 当前选中设备非 auth -> auth：主动同步设备信息
-    final nowDisplayDeviceId = next.bleDeviceData?.displayDeviceId;
-    final lastSelectedId = _ref.read(savedDevicesProvider).lastSelectedId;
-    final nowSelected = nowDisplayDeviceId != null && nowDisplayDeviceId == lastSelectedId;
-    final wasAuthed = prev.bleDeviceStatus == BleDeviceStatus.authenticated;
-    final nowAuthed = next.bleDeviceStatus == BleDeviceStatus.authenticated;
-    if (nowSelected && !wasAuthed && nowAuthed) {
-      _syncSelectedWhenAuthed(reason: 'state-transition');
-    }
   }
 
   void _syncSelectedWhenAuthed({required String reason}) {
+    _log('call _syncSelectedWhenAuthed');
     final now = DateTime.now();
     if (_lastSyncAt != null && now.difference(_lastSyncAt!) < _minSyncGap) {
       _log('syncDeviceInfo 被合并（$reason）');
