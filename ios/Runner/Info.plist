@@ -38,17 +38,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>此应用需要使用蓝牙来连接和配置智能显示器设备</string>
+	<string>This app uses Bluetooth to connect and configure your smart display device.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>此应用需要使用蓝牙来连接和配置智能显示器设备</string>
+	<string>This app uses Bluetooth to connect and configure your smart display device.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>此应用需要访问相机来扫描设备上的二维码</string>
+	<string>This app uses the camera to scan QR codes on your device.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>需要访问本地网络以与设备建立连接</string>
+	<string>This app needs local network access to connect to your device.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>此应用需要位置权限来扫描蓝牙设备</string>
+	<string>This app needs location access to scan for nearby Bluetooth devices.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>此应用需要位置权限来扫描蓝牙设备</string>
+	<string>This app needs location access to scan for nearby Bluetooth devices.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
     <!-- Temporarily disable Bluetooth background mode to rule out launch crashes on state restoration. -->
