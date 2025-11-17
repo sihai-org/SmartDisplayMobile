@@ -10,7 +10,6 @@ import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
-import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
   const WiFiSelectionPage({super.key, this.scannedDisplayDeviceId});
@@ -55,7 +54,6 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
   void _clearAll() {
     ref.read(appStateProvider.notifier).clearScannedData();
-    ref.read(qrScannerProvider.notifier).reset();
     ref.read(bleConnectionProvider.notifier).resetState();
   }
 

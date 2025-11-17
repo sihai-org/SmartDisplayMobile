@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../../../core/models/device_qr_data.dart';
-import '../../../core/log/app_log.dart';
+import '../models/device_qr_data.dart';
+import '../log/app_log.dart';
 
 /// QR码数据解析工具
 class QrDataParser {

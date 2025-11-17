@@ -3,7 +3,6 @@ import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
@@ -11,7 +10,6 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/providers/ble_connection_provider.dart';
-import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.displayDeviceId});
@@ -55,7 +53,6 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
   void _clearAll() {
     ref.read(appStateProvider.notifier).clearScannedData();
-    ref.read(qrScannerProvider.notifier).reset();
     ref.read(bleConnectionProvider.notifier).resetState();
   }
 

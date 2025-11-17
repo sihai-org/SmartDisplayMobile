@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
+import 'package:smart_display_mobile/core/log/app_log.dart';
 
-import '../../features/qr_scanner/utils/device_fingerprint.dart';
+import '../utils/device_fingerprint.dart';
 import '../constants/ble_constants.dart';
 import '../models/device_qr_data.dart';
 import 'ble_service_simple.dart';
@@ -47,6 +48,8 @@ class BleScannerImpl implements BleScanner {
           await stop();
           if (!c.isCompleted) c.complete(addr);
         }
+      } else {
+        AppLog.instance.info("~~~~~~~~~~not target ${qr.deviceName}");
       }
     }, onError: (e) async {
       await stop();

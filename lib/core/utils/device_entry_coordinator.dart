@@ -12,7 +12,7 @@ import '../audit/audit_mode.dart';
 import '../router/app_router.dart';
 import '../providers/app_state_provider.dart';
 import '../providers/saved_devices_provider.dart';
-import '../../features/qr_scanner/utils/qr_data_parser.dart';
+import 'qr_data_parser.dart';
 import '../models/device_qr_data.dart';
 
 /// Centralized entry for both deep links and in-app QR scan

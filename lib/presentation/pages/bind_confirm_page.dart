@@ -10,7 +10,6 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/models/device_qr_data.dart';
-import '../../features/qr_scanner/providers/qr_scanner_provider.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
@@ -62,7 +61,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
   void _clearAll() {
     ref.read(appStateProvider.notifier).clearScannedData();
-    ref.read(qrScannerProvider.notifier).reset();
     ref.read(bleConnectionProvider.notifier).resetState();
   }
 
@@ -228,7 +226,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                       // 清理扫描与连接状态，返回扫码页后重新初始化
                       ref.read(appStateProvider.notifier).clearScannedData();
                       ref.read(bleConnectionProvider.notifier).resetState();
-                      ref.read(qrScannerProvider.notifier).reset();
                       context.go(AppRoutes.qrScanner);
                     },
                     child: Text(context.l10n.cancel),
