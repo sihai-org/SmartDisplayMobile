@@ -268,7 +268,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 若尚未开始会话，设置一个基准时间用于统一打点
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
-    state = state.copyWith(enableBleConnectionLoading: true);
+    // 在尝试建立连接前，就先记录这次目标设备，方便 UI 精准匹配“当前设备”的连接状态
+    state = state.copyWith(
+      enableBleConnectionLoading: true,
+      bleDeviceData: qrDataToDeviceData(qrData),
+    );
     try {
       // 先通过 manager.use 建立通道
       final mgr = _ref.read(secureChannelManagerProvider);
@@ -283,7 +287,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
       state = state.copyWith(
-        bleDeviceData: qrDataToDeviceData(qrData),
         bleDeviceStatus: BleDeviceStatus.authenticated,
         lastErrorCode: null,
       );
@@ -293,13 +296,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       if (e is UserMismatchException) {
         state = state.copyWith(
-          bleDeviceData: qrDataToDeviceData(qrData),
           bleDeviceStatus: BleDeviceStatus.error,
           lastErrorCode: 'user_mismatch',
         );
       } else {
         state = state.copyWith(
-          bleDeviceData: qrDataToDeviceData(qrData),
           bleDeviceStatus: BleDeviceStatus.error,
           lastErrorCode: null,
         );

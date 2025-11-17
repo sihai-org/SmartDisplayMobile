@@ -15,6 +15,7 @@ import '../../core/network/network_status.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../core/log/app_log.dart';
 import '../../core/providers/ble_connection_provider.dart' as conn;
+import '../../core/providers/device_ble_view_state.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   final VoidCallback? onBackToList;
@@ -188,7 +189,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.bleConnectionProvider);
 
-    // 移除“自动连接上次设备”的监听逻辑
+    // 针对“当前详情设备”的 BLE 状态（避免被其他设备的全局状态干扰）
+    final bleView = buildDeviceBleViewStateForCurrent(saved, connState);
+
     return Scaffold(
       appBar: AppBar(
         leading: widget.onBackToList != null
@@ -286,10 +289,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ] else ...[
               // 选择要展示的设备及其扩展信息
               Builder(builder: (context) {
-                final rec = saved.devices.firstWhere(
-                  (e) => e.displayDeviceId == saved.lastSelectedId,
-                  orElse: () => saved.devices.first,
-                );
+                final rec = bleView.currentDevice;
                 final String? firmwareVersion = rec.firmwareVersion;
                 return Card(
                   elevation: 0,
@@ -372,20 +372,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
-                                  if (connState.bleDeviceStatus ==
+                                  if (bleView.bleStatus ==
                                       BleDeviceStatus.authenticated) ...[
                                     TextButton(
                                       onPressed: _checkingUpdate
                                           ? null
                                           : () {
-                                              final rec =
-                                                  saved.devices.firstWhere(
-                                                (e) =>
-                                                    e.displayDeviceId ==
-                                                    saved.lastSelectedId,
-                                                orElse: () =>
-                                                    saved.devices.first,
-                                              );
                                               _sendCheckUpdate(rec);
                                             },
                                       child: Text(context.l10n.check_update),
@@ -433,10 +425,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               }),
 
               const SizedBox(height: 16),
-              _buildBLESection(context),
+              _buildBLESection(
+                context,
+                uiStatus: bleView.uiStatus,
+                bleOnLoadingForCurrent: bleView.isLoadingForCurrent,
+              ),
 
               // 显示网络状态或WiFi列表
-              if (connState.bleDeviceStatus ==
+              if (bleView.bleStatus ==
                   BleDeviceStatus.authenticated) ...[
                 const SizedBox(height: 16),
                 _buildNetworkSection(context, connState),
@@ -453,11 +449,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     ),
                   ),
                   onPressed: () {
-                    final rec = saved.devices.firstWhere(
-                      (e) => e.displayDeviceId == saved.lastSelectedId,
-                      orElse: () => saved.devices.first,
-                    );
-                    _showDeleteDialog(context, rec);
+                    _showDeleteDialog(context, bleView.currentDevice);
                   },
                   child: Text(context.l10n.delete_device),
                 )
@@ -502,37 +494,22 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       if (mounted) setState(() => _checkingUpdate = false);
     }
   }
-  // 蓝牙卡片
-  Widget _buildBLESection(BuildContext context) {
+  // 蓝牙卡片（所有状态统一在 build() 中按当前设备计算，这里只负责展示）
+  Widget _buildBLESection(
+    BuildContext context, {
+    required BleDeviceStatus uiStatus,
+    required bool bleOnLoadingForCurrent,
+  }) {
     final connState = ref.watch(conn.bleConnectionProvider);
     final saved = ref.watch(savedDevicesProvider);
-    final bleOnLoading = connState.enableBleConnectionLoading;
 
-    // 当前详情页所展示的目标设备（以最后选中的设备为准）
-    final currentId = saved.lastSelectedId;
-    final currentRec = (currentId != null)
-        ? saved.devices.firstWhere(
-            (e) => e.displayDeviceId == currentId,
-            orElse: () => SavedDeviceRecord.empty(),
-          )
-        : SavedDeviceRecord.empty();
-
-    // 只有当 provider 的当前连接设备等于详情页设备时，才采用其真实 BLE 状态；否则视为未连接
-    final isThisDeviceActive =
-        connState.bleDeviceData?.displayDeviceId.isNotEmpty == true &&
-            connState.bleDeviceData?.displayDeviceId ==
-                currentRec.displayDeviceId;
-    final effectiveStatus = isThisDeviceActive
-        ? connState.bleDeviceStatus
-        : BleDeviceStatus.disconnected;
-    AppLog.instance.debug('[device_detail_page] effectiveStatus=$effectiveStatus', tag: 'DeviceDetail');
     // 目标视觉：左侧状态图标 + 文案，右侧开关
     // 三种状态：
     // - 已连接（开关开、勾选图标、蓝色）
     // - 连接中（开关开、扫描图标、蓝色）
     // - 未开启/未连接（开关关、提示图标、灰色）
     bool computedIsOn() {
-      switch (effectiveStatus) {
+      switch (uiStatus) {
         case BleDeviceStatus.scanning:
         case BleDeviceStatus.connecting:
         case BleDeviceStatus.connected:
@@ -548,10 +525,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }
 
     final titleText = () {
-      if (bleOnLoading) {
-        return context.l10n.ble_connecting_text;
-      }
-      switch (effectiveStatus) {
+      switch (uiStatus) {
         case BleDeviceStatus.authenticated:
         case BleDeviceStatus.connected:
           return context.l10n.ble_connected_text;
@@ -568,14 +542,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }();
 
     final leadingIcon = () {
-      if (bleOnLoading) {
-        return const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2.2),
-        );
-      }
-      switch (effectiveStatus) {
+      switch (uiStatus) {
         case BleDeviceStatus.authenticated:
         case BleDeviceStatus.connected:
           return const Icon(Icons.check_circle, color: Colors.blue);
@@ -640,8 +607,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ),
             ),
             Switch(
-              value: bleOnLoading || computedIsOn(),
-              onChanged: (!bleOnLoading &&
+              value: computedIsOn(),
+              onChanged: (!bleOnLoadingForCurrent &&
                       saved.loaded &&
                       saved.lastSelectedId != null)
                   ? handleToggle
