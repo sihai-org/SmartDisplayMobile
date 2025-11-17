@@ -313,6 +313,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       );
       return true;
     } catch (e) {
+      AppLog.instance.error("enableBleConnection failed", error: e);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       if (e is UserMismatchException) {
