@@ -190,6 +190,28 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     super.state = next;
   }
 
+  /// 针对指定设备开启一个全新的 BLE 会话。
+  /// 这里是唯一允许修改 bleDeviceData 的入口，保证：
+  /// - bleDeviceData 与其余会话相关字段（状态 / loading / 错误 / 网络信息）保持原子一致
+  /// - 不会出现“新设备 + 旧状态”的组合
+  void _startSessionStateForDevice(DeviceQrData qrData) {
+    final d = qrDataToDeviceData(qrData);
+    state = BleConnectionState(
+      // 会话设备
+      bleDeviceData: d,
+      // 新会话从“连接中”开始
+      bleDeviceStatus: BleDeviceStatus.connecting,
+      enableBleConnectionLoading: true,
+      // 清理上一台设备残留的派生状态
+      lastErrorCode: null,
+      emptyBound: false,
+      wifiNetworks: const [],
+      networkStatus: null,
+      isCheckingNetwork: false,
+      networkStatusUpdatedAt: null,
+    );
+  }
+
   void _syncSelectedWhenAuthed({required String reason}) {
     _log('call _syncSelectedWhenAuthed');
     final now = DateTime.now();
@@ -268,11 +290,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 若尚未开始会话，设置一个基准时间用于统一打点
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
-    // 在尝试建立连接前，就先记录这次目标设备，方便 UI 精准匹配“当前设备”的连接状态
-    state = state.copyWith(
-      enableBleConnectionLoading: true,
-      bleDeviceData: qrDataToDeviceData(qrData),
-    );
+    // 在尝试建立连接前，开启针对此设备的全新会话：
+    // - 绑定 bleDeviceData
+    // - 将上一台设备的状态/错误/网络等派生信息一并清理
+    _startSessionStateForDevice(qrData);
     try {
       // 先通过 manager.use 建立通道
       final mgr = _ref.read(secureChannelManagerProvider);
