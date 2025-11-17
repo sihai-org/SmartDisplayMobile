@@ -779,11 +779,11 @@ abstract class AppLocalizations {
   /// **'Copy Text'**
   String get copy_text;
 
-  /// No description provided for @ble_disconnected_ephemeral.
+  /// No description provided for @ble_disconnected_on_exit.
   ///
   /// In en, this message translates to:
-  /// **'Disconnected BLE from unbound device'**
-  String get ble_disconnected_ephemeral;
+  /// **'Bluetooth disconnected because you exited the binding flow'**
+  String get ble_disconnected_on_exit;
 
   /// No description provided for @connect_success.
   ///

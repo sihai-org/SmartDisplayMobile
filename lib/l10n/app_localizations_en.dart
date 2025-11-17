@@ -373,7 +373,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copy_text => 'Copy Text';
 
   @override
-  String get ble_disconnected_ephemeral => 'Disconnected BLE from unbound device';
+  String get ble_disconnected_on_exit => 'Bluetooth disconnected because you exited the binding flow';
 
   @override
   String get connect_success => 'Connected successfully';

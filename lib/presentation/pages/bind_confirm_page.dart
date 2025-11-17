@@ -14,6 +14,7 @@ import '../../core/ble/ble_device_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../data/repositories/saved_devices_repository.dart';
+import '../../core/utils/binding_flow_utils.dart';
 
 class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.displayDeviceId});
@@ -27,48 +28,8 @@ class BindConfirmPage extends ConsumerStatefulWidget {
 class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   bool _navigated = false; // 防止重复跳转
   bool _sending = false;   // 按钮loading
-
-  Future<void> _disconnectIfEphemeral() async {
-    final conn = ref.read(bleConnectionProvider);
-    final devId = conn.bleDeviceData?.displayDeviceId;
-    final st = conn.bleDeviceStatus;
-    final isBleConnected = st == BleDeviceStatus.scanning ||
-        st == BleDeviceStatus.connecting ||
-        st == BleDeviceStatus.connected ||
-        st == BleDeviceStatus.authenticating ||
-        st == BleDeviceStatus.authenticated;
-
-    if (devId == null || devId.isEmpty || !isBleConnected) return;
-
-    // 设备是否在已保存列表中
-    await ref.read(savedDevicesProvider.notifier).load();
-    final saved = ref.read(savedDevicesProvider);
-    final inList = saved.devices.any((e) => e.displayDeviceId == devId);
-    if (!inList) {
-      AppLog.instance.info('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId',
-          tag: 'Binding');
-      try {
-        await ref
-            .read(bleConnectionProvider.notifier)
-            .disconnect(shouldReset: true);
-      } catch (e) {
-        AppLog.instance.warning('[DeviceConnectionPage] disconnect error: $e',
-            tag: 'Binding', error: e);
-      }
-      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
-    }
-  }
-
-  void _clearAll() {
-    ref.read(appStateProvider.notifier).clearScannedData();
-    ref.read(bleConnectionProvider.notifier).resetState();
-  }
-
-  Future<void> _disconnectAndClearIfNeeded() async {
-    AppLog.instance.debug('[DeviceConnectionPage] _disconnectAndClearIfNeeded',
-        tag: 'Binding');
-    await _disconnectIfEphemeral();
-    _clearAll();
+  Future<void> _disconnectAndClearOnUserExit() async {
+    await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
 
   @override
@@ -111,25 +72,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
   // 返回时：若当前设备不在设备列表且蓝牙已连接，则断开
   Future<void> _maybeDisconnectIfEphemeral() async {
-    final conn = ref.read(bleConnectionProvider);
-    final displayDeviceId = conn.bleDeviceData?.displayDeviceId;
-    final st = conn.bleDeviceStatus;
-    final isBleConnected = st == BleDeviceStatus.connected ||
-        st == BleDeviceStatus.authenticating ||
-        st == BleDeviceStatus.authenticated;
-    if (displayDeviceId == null || displayDeviceId.isEmpty || !isBleConnected)
-      return;
-    await ref.read(savedDevicesProvider.notifier).load();
-    final saved = ref.read(savedDevicesProvider);
-    final inList = saved.devices.any((e) =>
-    e.displayDeviceId == displayDeviceId);
-    if (!inList) {
-      AppLog.instance.info(
-          '[BindConfirmPage] 返回且设备不在列表，主动断开BLE: $displayDeviceId',
-          tag: 'Binding');
-      await ref.read(bleConnectionProvider.notifier).disconnect();
-      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
-    }
+    await _disconnectAndClearOnUserExit();
   }
 
   @override
@@ -168,7 +111,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
-          unawaited(_disconnectAndClearIfNeeded());
+          unawaited(_disconnectAndClearOnUserExit());
         }
         if (context.mounted) context.go(AppRoutes.qrScanner);
       },
@@ -178,7 +121,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-            await _disconnectAndClearIfNeeded();
+            await _disconnectAndClearOnUserExit();
             if (!context.mounted) return;
             context.go(AppRoutes.qrScanner);
           },

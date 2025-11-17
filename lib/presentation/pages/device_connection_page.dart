@@ -10,6 +10,7 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/providers/ble_connection_provider.dart';
+import '../../core/utils/binding_flow_utils.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.displayDeviceId});
@@ -24,42 +25,12 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   bool _noDataDialogShown = false;
   bool _navigated = false; // 防止多次 go()
 
-  Future<void> _disconnectIfEphemeral() async {
-    final conn = ref.read(bleConnectionProvider);
-    final devId = conn.bleDeviceData?.displayDeviceId;
-    final st = conn.bleDeviceStatus;
-    final isBleConnected = st == BleDeviceStatus.scanning ||
-        st == BleDeviceStatus.connecting ||
-        st == BleDeviceStatus.connected ||
-        st == BleDeviceStatus.authenticating ||
-        st == BleDeviceStatus.authenticated;
-
-    if (devId == null || devId.isEmpty || !isBleConnected) return;
-
-    // 设备是否在已保存列表中
-    await ref.read(savedDevicesProvider.notifier).load();
-    final saved = ref.read(savedDevicesProvider);
-    final inList = saved.devices.any((e) => e.displayDeviceId == devId);
-    if (!inList) {
-      AppLog.instance.info('[DeviceConnectionPage] 离开且设备不在列表，主动断开: $devId', tag: 'Binding');
-      try {
-        await ref.read(bleConnectionProvider.notifier).disconnect(shouldReset: true);
-      } catch (e) {
-        AppLog.instance.warning('[DeviceConnectionPage] disconnect error: $e', tag: 'Binding', error: e);
-      }
-      Fluttertoast.showToast(msg: context.l10n.ble_disconnected_ephemeral);
-    }
-  }
-
   void _clearAll() {
     ref.read(appStateProvider.notifier).clearScannedData();
     ref.read(bleConnectionProvider.notifier).resetState();
   }
-
-  Future<void> _disconnectAndClearIfNeeded() async {
-    AppLog.instance.debug('[DeviceConnectionPage] _disconnectAndClearIfNeeded', tag: 'Binding');
-    await _disconnectIfEphemeral();
-    _clearAll();
+  Future<void> _disconnectAndClearOnUserExit() async {
+    await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
 
   @override
@@ -169,7 +140,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) {
-          unawaited(_disconnectAndClearIfNeeded());
+          unawaited(_disconnectAndClearOnUserExit());
         }
       },
       child: Scaffold(
@@ -182,7 +153,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
-              await _disconnectAndClearIfNeeded();
+              await _disconnectAndClearOnUserExit();
               if (!mounted) return;
               context.go(AppRoutes.qrScanner);
           },

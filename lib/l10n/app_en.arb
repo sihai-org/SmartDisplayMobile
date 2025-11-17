@@ -126,7 +126,7 @@
   "copied_to_clipboard": "Copied to clipboard",
   "copy_text": "Copy Text",
   
-  "ble_disconnected_ephemeral": "Disconnected BLE from unbound device",
+  "ble_disconnected_on_exit": "Bluetooth disconnected because you exited the binding flow",
   "connect_success": "Connected successfully",
   "connect_failed_retry": "Connection failed, please retry",
   "device_bound_elsewhere": "The user bound to the device does not match with you",

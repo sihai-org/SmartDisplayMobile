@@ -373,7 +373,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copy_text => '复制文本';
 
   @override
-  String get ble_disconnected_ephemeral => '已断开未绑定设备的蓝牙连接';
+  String get ble_disconnected_on_exit => '已断开绑定流程中的蓝牙连接';
 
   @override
   String get connect_success => '连接成功';

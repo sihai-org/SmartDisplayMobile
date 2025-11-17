@@ -126,7 +126,7 @@
   "copied_to_clipboard": "已复制到剪贴板",
   "copy_text": "复制文本",
   
-  "ble_disconnected_ephemeral": "已断开未绑定设备的蓝牙连接",
+  "ble_disconnected_on_exit": "已断开绑定流程中的蓝牙连接",
   "connect_success": "连接成功",
   "connect_failed_retry": "连接失败，请重试",
   "device_bound_elsewhere": "您与设备绑定用户不匹配",
