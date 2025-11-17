@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
 
 class AccountSecurityPage extends ConsumerWidget {
@@ -7,7 +8,8 @@ class AccountSecurityPage extends ConsumerWidget {
 
   // 占位空函数（实际逻辑待实现）
   void _onDeleteAccountConfirmed(BuildContext context, WidgetRef ref) {
-    // TODO: implement delete account flow
+    final l10n = context.l10n;
+    Fluttertoast.showToast(msg: l10n.google_signin_placeholder);
   }
 
   @override
