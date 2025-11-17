@@ -290,6 +290,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 若尚未开始会话，设置一个基准时间用于统一打点
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
+    // 为确保全局任意时刻只有一个物理 BLE 连接：
+    // 在尝试对新设备建立会话前，先显式断开现有通道和连接。
+    try {
+      await _ref.read(secureChannelManagerProvider).dispose();
+    } catch (_) {}
     // 在尝试建立连接前，开启针对此设备的全新会话：
     // - 绑定 bleDeviceData
     // - 将上一台设备的状态/错误/网络等派生信息一并清理
