@@ -70,7 +70,8 @@
   "signin_with_google": "使用 Google 登录",
   "signout_failed": "退出失败: {error}"
   ,
-  "google_signin_placeholder": "敬请期待"
+  "google_signin_placeholder": "敬请期待",
+  "audit_mode_enabled": "Audit/Review 模式已开启"
   ,
   "login_expired": "登录已过期",
   
@@ -125,6 +126,7 @@
   "qr_unrecognized_hint": "未能识别为设备二维码，以下为原始内容：",
   "copied_to_clipboard": "已复制到剪贴板",
   "copy_text": "复制文本",
+  "qr_scan_success": "扫描成功，跳转中...",
   
   "ble_disconnected_on_exit": "已断开绑定流程中的蓝牙连接",
   "connect_success": "连接成功",
@@ -143,6 +145,9 @@
   "wifi_name_label": "Wi‑Fi 名称 (SSID)",
   "wifi_password_label": "Wi‑Fi 密码",
   "please_enter_wifi_name": "请输入Wi‑Fi名称",
+  "wifi_bssid_label": "BSSID: {bssid}",
+  "wifi_frequency_mhz_label": "频率: {mhz} MHz",
+  "wifi_rssi_percent_label": "RSSI: {percent}%",
   "provision_request_failed": "发送配网请求失败",
   "send_provision_request": "发送配网请求",
   "provisioning_please_wait": "正在配网，请稍候…",

@@ -216,6 +216,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get google_signin_placeholder => '敬请期待';
 
   @override
+  String get audit_mode_enabled => 'Audit/Review 模式已开启';
+
+  @override
   String get login_expired => '登录已过期';
 
   @override
@@ -373,6 +376,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copy_text => '复制文本';
 
   @override
+  String get qr_scan_success => '扫描成功，跳转中...';
+
+  @override
   String get ble_disconnected_on_exit => '已断开绑定流程中的蓝牙连接';
 
   @override
@@ -421,6 +427,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get please_enter_wifi_name => '请输入Wi‑Fi名称';
+
+  @override
+  String wifi_bssid_label(Object bssid) {
+    return 'BSSID: $bssid';
+  }
+
+  @override
+  String wifi_frequency_mhz_label(Object mhz) {
+    return '频率: ${mhz} MHz';
+  }
+
+  @override
+  String wifi_rssi_percent_label(Object percent) {
+    return 'RSSI: ${percent}%';
+  }
 
   @override
   String get provision_request_failed => '发送配网请求失败';

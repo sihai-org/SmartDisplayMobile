@@ -183,7 +183,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     });
 
     // 导航：和之前 ref.listen 中的逻辑类似
-    Fluttertoast.showToast(msg: "扫描成功，跳转中...");
+    Fluttertoast.showToast(msg: context.l10n.qr_scan_success);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _qrContent == null) return;

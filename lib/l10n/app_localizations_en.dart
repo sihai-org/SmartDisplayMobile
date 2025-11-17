@@ -216,6 +216,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get google_signin_placeholder => 'Coming soon';
 
   @override
+  String get audit_mode_enabled => 'Audit/Review mode enabled';
+
+  @override
   String get login_expired => 'Login session expired';
 
   @override
@@ -373,6 +376,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copy_text => 'Copy Text';
 
   @override
+  String get qr_scan_success => 'Scan successful, navigating...';
+
+  @override
   String get ble_disconnected_on_exit => 'Bluetooth disconnected because you exited the binding flow';
 
   @override
@@ -421,6 +427,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get please_enter_wifi_name => 'Please enter Wi‑Fi name';
+
+  @override
+  String wifi_bssid_label(Object bssid) {
+    return 'BSSID: $bssid';
+  }
+
+  @override
+  String wifi_frequency_mhz_label(Object mhz) {
+    return 'Frequency: ${mhz} MHz';
+  }
+
+  @override
+  String wifi_rssi_percent_label(Object percent) {
+    return 'RSSI: ${percent}%';
+  }
 
   @override
   String get provision_request_failed => 'Failed to send provisioning request';

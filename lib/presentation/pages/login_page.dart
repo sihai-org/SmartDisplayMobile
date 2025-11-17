@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
 
     setState(() => _isSendingOtp = true);
-    Fluttertoast.showToast(msg: l10n!.sending_otp);
+    Fluttertoast.showToast(msg: l10n.sending_otp);
 
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
@@ -128,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
         final container = ProviderScope.containerOf(context, listen: false);
         await container.read(auditModeProvider.notifier).enable();
       } catch (_) {}
-      Fluttertoast.showToast(msg: 'Audit/Review 模式已开启');
+      Fluttertoast.showToast(msg: context.l10n.audit_mode_enabled);
       // Navigate after mock device is seeded and state loaded
       if (context.mounted) {
         context.go(AppRoutes.home);
@@ -145,7 +145,7 @@ class _LoginPageState extends State<LoginPage> {
     final otp = _otpController.text.trim();
 
     setState(() => _isLoading = true);
-    Fluttertoast.showToast(msg: l10n!.signing_in);
+    Fluttertoast.showToast(msg: l10n.signing_in);
 
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
@@ -184,9 +184,6 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final isCountingDown = _secondsRemaining > 0;
     final l10n = context.l10n;
-    if (l10n == null) {
-      return const Scaffold(body: SizedBox());
-    }
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: GestureDetector(
@@ -286,10 +283,12 @@ class _LoginPageState extends State<LoginPage> {
                           valueColor:
                           AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
-                      )
-                          : Text(isCountingDown
-                              ? (l10n?.resend_in(_secondsRemaining)) ?? 'Resend in ${_secondsRemaining}s'
-                              : (l10n?.send_otp ?? 'Send Code')),
+                          )
+                          : Text(
+                              isCountingDown
+                                  ? l10n.resend_in(_secondsRemaining)
+                                  : l10n.send_otp,
+                            ),
                     ),
 
                     const SizedBox(height: 12),
@@ -313,7 +312,7 @@ class _LoginPageState extends State<LoginPage> {
                             AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                            : Text(l10n?.login_button ?? 'Log in'),
+                            : Text(l10n.login_button),
                       ),
 
                     // Google 登录按钮

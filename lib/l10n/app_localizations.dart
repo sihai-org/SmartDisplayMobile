@@ -485,6 +485,12 @@ abstract class AppLocalizations {
   /// **'Coming soon'**
   String get google_signin_placeholder;
 
+  /// No description provided for @audit_mode_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit/Review mode enabled'**
+  String get audit_mode_enabled;
+
   /// No description provided for @login_expired.
   ///
   /// In en, this message translates to:
@@ -779,6 +785,12 @@ abstract class AppLocalizations {
   /// **'Copy Text'**
   String get copy_text;
 
+  /// No description provided for @qr_scan_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan successful, navigating...'**
+  String get qr_scan_success;
+
   /// No description provided for @ble_disconnected_on_exit.
   ///
   /// In en, this message translates to:
@@ -874,6 +886,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please enter Wi‑Fi name'**
   String get please_enter_wifi_name;
+
+  /// No description provided for @wifi_bssid_label.
+  ///
+  /// In en, this message translates to:
+  /// **'BSSID: {bssid}'**
+  String wifi_bssid_label(Object bssid);
+
+  /// No description provided for @wifi_frequency_mhz_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequency: {mhz} MHz'**
+  String wifi_frequency_mhz_label(Object mhz);
+
+  /// No description provided for @wifi_rssi_percent_label.
+  ///
+  /// In en, this message translates to:
+  /// **'RSSI: {percent}%'**
+  String wifi_rssi_percent_label(Object percent);
 
   /// No description provided for @provision_request_failed.
   ///

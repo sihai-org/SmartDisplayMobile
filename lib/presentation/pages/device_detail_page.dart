@@ -578,7 +578,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             .read(conn.bleConnectionProvider.notifier)
             .enableBleConnection(qr);
         if (!res) {
-          Fluttertoast.showToast(msg: '蓝牙连接失败，请检查手机蓝牙或靠近设备');
+          Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
           AppLog.instance.error("蓝牙连接失败，请检查手机蓝牙或靠近设备");
         }
       } else {

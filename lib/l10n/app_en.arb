@@ -70,7 +70,8 @@
   "signin_with_google": "Sign in with Google",
   "signout_failed": "Sign out failed: {error}"
   ,
-  "google_signin_placeholder": "Coming soon"
+  "google_signin_placeholder": "Coming soon",
+  "audit_mode_enabled": "Audit/Review mode enabled"
   ,
   "login_expired": "Login session expired",
   
@@ -125,6 +126,7 @@
   "qr_unrecognized_hint": "Unrecognized device QR. Raw content:",
   "copied_to_clipboard": "Copied to clipboard",
   "copy_text": "Copy Text",
+  "qr_scan_success": "Scan successful, navigating...",
   
   "ble_disconnected_on_exit": "Bluetooth disconnected because you exited the binding flow",
   "connect_success": "Connected successfully",
@@ -143,6 +145,9 @@
   "wifi_name_label": "Wi‑Fi Name (SSID)",
   "wifi_password_label": "Wi‑Fi Password",
   "please_enter_wifi_name": "Please enter Wi‑Fi name",
+  "wifi_bssid_label": "BSSID: {bssid}",
+  "wifi_frequency_mhz_label": "Frequency: {mhz} MHz",
+  "wifi_rssi_percent_label": "RSSI: {percent}%",
   "provision_request_failed": "Failed to send provisioning request",
   "send_provision_request": "Send Provisioning Request",
   "provisioning_please_wait": "Provisioning, please wait…",

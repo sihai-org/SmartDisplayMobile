@@ -269,10 +269,11 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           (ap.rssi > 0)
                       ? Text([
                           if (ap.bssid != null && ap.bssid!.isNotEmpty)
-                            'BSSID: ${ap.bssid}',
+                            context.l10n.wifi_bssid_label(ap.bssid!),
                           if (ap.frequency != null && ap.frequency! > 0)
-                            '${ap.frequency} MHz',
-                          if (ap.rssi > 0) 'RSSI: ${ap.rssi}%',
+                            context.l10n.wifi_frequency_mhz_label(ap.frequency!),
+                          if (ap.rssi > 0)
+                            context.l10n.wifi_rssi_percent_label(ap.rssi),
                         ].join(' · '))
                       : null,
                   trailing: const Icon(Icons.chevron_right),
