@@ -85,10 +85,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         final ok = await ref
             .read(bleConnectionProvider.notifier)
             .enableBleConnection(scannedQrData);
-        if (ok && context.mounted) Fluttertoast.showToast(msg: context.l10n.connect_success);
+        if (ok && mounted) Fluttertoast.showToast(msg: context.l10n.connect_success);
       } catch (e, s) {
         AppLog.instance.error('[DeviceConnectionPage] startConnection error', tag: 'Binding', error: e, stackTrace: s);
-        if (context.mounted) {
+        if (mounted) {
           Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
         }
       }
