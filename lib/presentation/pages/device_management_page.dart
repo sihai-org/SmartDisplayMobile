@@ -30,10 +30,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
       (previous, next) => _logDeviceList(next),
       fireImmediately: true,
     );
-    // 确保加载最新的设备列表
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(savedDevicesProvider.notifier).load();
-    });
   }
 
   @override

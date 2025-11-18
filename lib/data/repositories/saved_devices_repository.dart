@@ -173,9 +173,6 @@ class SavedDevicesRepository {
     }).toList();
   }
 
-  // For backward compatibility with callers expecting loadAll
-  Future<List<SavedDeviceRecord>> loadAll() => loadLocal();
-
   Future<String?> loadLastSelectedId() async {
     final key = _lastSelectedKeyForCurrentUser();
     if (key == null) return null;

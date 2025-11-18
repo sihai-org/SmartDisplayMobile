@@ -34,16 +34,10 @@ class DeviceBleViewState {
 
 /// 基于当前 SavedDevicesState 和 BleConnectionState，计算“当前选中设备”的 BLE 视图状态
 DeviceBleViewState buildDeviceBleViewStateForCurrent(
-  SavedDevicesState saved,
+  SavedDevicesNotifier savedNotifier,
   BleConnectionState connState,
 ) {
-  final currentId = saved.lastSelectedId;
-  final currentRec = (currentId != null)
-      ? saved.devices.firstWhere(
-          (e) => e.displayDeviceId == currentId,
-          orElse: () => const SavedDeviceRecord.empty(),
-        )
-      : const SavedDeviceRecord.empty();
+  final currentRec = savedNotifier.getSelectedRec();
 
   final isActive =
       connState.bleDeviceData?.displayDeviceId.isNotEmpty == true &&

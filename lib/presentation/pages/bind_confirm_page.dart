@@ -222,8 +222,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         try {
           final repo = SavedDevicesRepository();
           await repo.selectFromQr(device);
-          // Refresh provider state to include the device immediately
-          await ref.read(savedDevicesProvider.notifier).load();
         } catch (_) {}
         Fluttertoast.showToast(msg: context.l10n.bind_success);
         return true;

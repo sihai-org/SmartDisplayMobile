@@ -26,11 +26,19 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   final SavedDevicesRepository _repo;
   final Ref _ref;
 
-  Future<void> load() async {
+  Future<void> _load() async {
     // Load local cache first for instant UI
     final list = await _repo.loadLocal();
     final last = await _repo.loadLastSelectedId();
     state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.displayDeviceId : null), loaded: true);
+  }
+
+  /// 确保本地缓存已加载（仅访问本地，不触发远端同步）
+  Future<void> ensureLoaded() async {
+    if (state.loaded) return;
+    try {
+      await _load();
+    } catch (_) {}
   }
 
   // TODO: 防抖
@@ -86,13 +94,6 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     String? firmwareVersion,
     String? networkSummary,
   }) async {
-    // 确保已加载本地数据（不访问远端）
-    if (!state.loaded) {
-      try {
-        await load();
-      } catch (_) {}
-    }
-
     final hasDevice = state.devices.any((e) => e.displayDeviceId == displayDeviceId);
     if (!hasDevice) return; // 若不存在则忽略
 
@@ -117,15 +118,28 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     state = state.copyWith(lastSelectedId: displayDeviceId);
   }
 
+  SavedDeviceRecord getSelectedRec() {
+    var res = SavedDeviceRecord.empty();
+    if (state.lastSelectedId == null || state.lastSelectedId!.isEmpty) {
+      return res;
+    }
+    res = state.devices.firstWhere(
+          (e) => e.displayDeviceId == state.lastSelectedId,
+      orElse: () => res,
+    );
+    return res;
+  }
+
+  /// 判断某设备 ID 是否存在于本地缓存
+  bool existsLocally(String displayDeviceId) {
+    return state.devices.any((e) => e.displayDeviceId == displayDeviceId);
+  }
+
   // 清空当前用户的本地设备列表与选择（用于登出）
   Future<void> clearForLogout() async {
     await _repo.clearCurrentUserData();
     state = const SavedDevicesState(devices: [], lastSelectedId: null, loaded: true);
   }
-
-  SavedDeviceRecord? get selected => state.devices.firstWhere((e) => e.displayDeviceId == state.lastSelectedId, orElse: () => const SavedDeviceRecord(displayDeviceId: '', deviceName: '', publicKey: ''));
-
-  bool contains(String deviceId) => state.devices.any((e) => e.displayDeviceId == deviceId);
 }
 
 final savedDevicesProvider = StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {

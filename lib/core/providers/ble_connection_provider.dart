@@ -217,13 +217,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         _log('跳过 sync：无有效的设备ID');
         return;
       }
-      // 使用 savedDevicesProvider 的内存状态（必要时加载本地缓存）
-      final savedNotifier = _ref.read(savedDevicesProvider.notifier);
-      var saved = _ref.read(savedDevicesProvider);
-      if (!saved.loaded) {
-        try { await savedNotifier.load(); } catch (_) {}
-        saved = _ref.read(savedDevicesProvider);
-      }
+      final saved = _ref.read(savedDevicesProvider);
       final inList = saved.devices.any((e) => e.displayDeviceId == deviceId);
       if (!inList) {
         _log('跳过 sync：设备不在设备列表中（$deviceId）');
@@ -270,6 +264,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // TODO: 目前 send 没有 ensure
   // 建立蓝牙连接
   Future<bool> enableBleConnection(DeviceQrData qrData) async {
+    if (state.bleDeviceData != null &&
+        state.bleDeviceData!.displayDeviceId == qrData.displayDeviceId &&
+        state.bleDeviceStatus == BleDeviceStatus.authenticated) {
+      AppLog.instance.info("~~~~~~~enableBleConnection already connected");
+      return true;
+    }
     final t0 = DateTime.now();
     // 若尚未开始会话，设置一个基准时间用于统一打点
     _sessionStart ??= t0;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/enum.dart';
@@ -8,7 +7,6 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/saved_devices_provider.dart';
-import '../../core/providers/app_state_provider.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../core/ble/ble_device_data.dart';
 import '../../core/network/network_status.dart';
@@ -28,11 +26,8 @@ class DeviceDetailPage extends ConsumerStatefulWidget {
 }
 
 class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
+  bool _paramSelectTried = false; // 仅根据外部传入 deviceId 自动选中一次
   bool _checkingUpdate = false;
-
-  bool _paramConnectTried = false; // 仅根据外部传入 deviceId 自动触发一次
-  String? _lastParamDeviceId; // 记录上一次处理过的构造参数 deviceId
-  // 使用 ref.listen 绑定到 widget 生命周期，无需手动管理订阅
 
   DeviceQrData? _qrFromRecord(SavedDeviceRecord rec) {
     // 允许缺少本地缓存的 BLE 地址：连接流程会在扫描后用发现的地址覆盖。
@@ -65,17 +60,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   @override
   void initState() {
     super.initState();
-    // 加载已保存设备
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(savedDevicesProvider.notifier).load();
-    });
-    // 根据外部传入的 deviceId（若有）自动触发连接（只触发一次）
-    WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
-    // 首次进入设备详情页（本会话）时，若存在选中设备且未连接，自动尝试一次连接
-    WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoConnectSelectedOnce());
-
-    // 保留单一路径：通过参数 deviceId 触发连接（含 didUpdateWidget 变更时）
-
+    // 根据param选中（仅一次）
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _trySelectByParamOnce());
   }
 
   @override
@@ -86,111 +73,45 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   @override
   void didUpdateWidget(covariant DeviceDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 当父组件传入的 deviceId 发生变化时，重新尝试基于参数的自动连接
+    // 当父组件传入的 deviceId 发生变化时，尝试选中
     final prev = oldWidget.deviceId ?? '';
     final curr = widget.deviceId ?? '';
     if (curr.isNotEmpty && curr != prev) {
-      _paramConnectTried = false; // 允许对新的参数再次尝试
-      _lastParamDeviceId = curr;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _tryConnectByParam());
+      _paramSelectTried = false; // 允许对新的参数再次尝试
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _trySelectByParamOnce());
     }
   }
 
-  // 如果通过 MainPage 传入了 deviceId，则优先使用它进行一次性自动连接
-  Future<void> _tryConnectByParam() async {
-    if (_paramConnectTried) return;
+  // 如果通过 MainPage 传入了 deviceId，尝试选中它（仅一次）
+  Future<void> _trySelectByParamOnce() async {
+    // 仅一次
+    if (_paramSelectTried) return;
+    _paramSelectTried = true;
+
+    AppLog.instance.info("~~~~_trySelectByParamOnce ${widget.deviceId}");
+
+    // 空就保持现状
     final targetId = widget.deviceId;
     if (targetId == null || targetId.isEmpty) return;
-    // 同一参数重复进入时避免多次触发
-    if (_lastParamDeviceId == targetId) {
-      // 已进入过一次但未成功时也允许再次尝试，这里不提前 return
-    } else {
-      _lastParamDeviceId = targetId;
+
+    // 尝试选中
+    final notifier = ref.read(savedDevicesProvider.notifier);
+    if (notifier.existsLocally(targetId)) {
+      AppLog.instance.info("~~~~_trySelectByParamOnce select ${widget.deviceId}");
+      await notifier.select(targetId);
     }
-    var saved = ref.read(savedDevicesProvider);
-    // 若尚未加载完成，先等待加载
-    if (!saved.loaded) {
-      try { await ref.read(savedDevicesProvider.notifier).load(); } catch (_) {}
-      saved = ref.read(savedDevicesProvider);
-    }
-    if (!saved.loaded) return;
-    // 查找本地缓存记录
-    var rec = saved.devices.firstWhere(
-      (e) => e.displayDeviceId == targetId,
-      orElse: () => SavedDeviceRecord.empty(),
-    );
-    // 若本地未找到，尝试从服务器同步一次再查找
-    if (rec.displayDeviceId.isEmpty) {
-      try {
-        await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      } catch (_) {}
-      final refreshed = ref.read(savedDevicesProvider);
-      rec = refreshed.devices.firstWhere(
-        (e) => e.displayDeviceId == targetId,
-        orElse: () => SavedDeviceRecord.empty(),
-      );
-      if (rec.displayDeviceId.isEmpty) return;
-    }
-    _paramConnectTried = true;
-    // 将此设备设置为选中（以便后续 UI 与状态一致）
-    await ref.read(savedDevicesProvider.notifier).select(rec.displayDeviceId);
-    final qr = _qrFromRecord(rec);
-    if (qr == null) return;
-    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
   }
-
-  // 本会话内在设备详情页只尝试一次：若存在已选中设备且当前未在连接/已连，则自动连接
-  Future<void> _tryAutoConnectSelectedOnce() async {
-    // 若通过参数触发了特定设备的连接，则不再做兜底自动连接
-    if (_paramConnectTried) return;
-    // 已在本会话内做过自动连接则跳过
-    final appState = ref.read(appStateProvider);
-    if (appState.didAutoConnectOnDetailPage) return;
-
-    // 确保已加载设备列表
-    final savedNotifier = ref.read(savedDevicesProvider.notifier);
-    var saved = ref.read(savedDevicesProvider);
-    if (!saved.loaded) {
-      try { await savedNotifier.load(); } catch (_) {}
-      saved = ref.read(savedDevicesProvider);
-    }
-    if (!saved.loaded) return;
-
-    // 获取当前选中设备
-    final selectedId = saved.lastSelectedId;
-    final rec = selectedId == null
-        ? const SavedDeviceRecord.empty()
-        : saved.devices.firstWhere(
-            (e) => e.displayDeviceId == selectedId,
-            orElse: () => const SavedDeviceRecord.empty(),
-          );
-    if (rec.displayDeviceId.isEmpty) return;
-
-    // 避免在已有连接流程中重复触发
-    final connState = ref.read(conn.bleConnectionProvider);
-    final busy = connState.bleDeviceStatus == BleDeviceStatus.connecting ||
-        connState.bleDeviceStatus == BleDeviceStatus.connected ||
-        connState.bleDeviceStatus == BleDeviceStatus.authenticating ||
-        connState.bleDeviceStatus == BleDeviceStatus.authenticated;
-    if (busy) return;
-
-    final qr = _qrFromRecord(rec);
-    if (qr == null) return;
-    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
-    // 标记已执行，防止本会话内重复触发
-    ref.read(appStateProvider.notifier).markAutoConnectOnDetailPage();
-  }
-
-  // 已移除“自动连接上次设备”和“智能重连”实现
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final savedNotifier = ref.read(savedDevicesProvider.notifier);
     final saved = ref.watch(savedDevicesProvider);
     final connState = ref.watch(conn.bleConnectionProvider);
 
     // 针对“当前详情设备”的 BLE 状态（避免被其他设备的全局状态干扰）
-    final bleView = buildDeviceBleViewStateForCurrent(saved, connState);
+    final bleView = buildDeviceBleViewStateForCurrent(savedNotifier, connState);
 
     return Scaffold(
       appBar: AppBar(
@@ -500,8 +421,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     required BleDeviceStatus uiStatus,
     required bool bleOnLoadingForCurrent,
   }) {
-    final connState = ref.watch(conn.bleConnectionProvider);
     final saved = ref.watch(savedDevicesProvider);
+    final savedNotifier = ref.read(savedDevicesProvider.notifier);
 
     // 目标视觉：左侧状态图标 + 文案，右侧开关
     // 三种状态：
@@ -565,12 +486,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     void handleToggle(bool value) async {
       if (value) {
         // 打开：尝试连接到当前选中设备
-        final id = saved.lastSelectedId;
-        if (id == null) return;
-        final rec = saved.devices.firstWhere(
-          (e) => e.displayDeviceId == id,
-          orElse: () => SavedDeviceRecord.empty(),
-        );
+        final rec = savedNotifier.getSelectedRec();
         if (rec.displayDeviceId.isEmpty) return;
         final qr = _qrFromRecord(rec);
         if (qr == null) return;

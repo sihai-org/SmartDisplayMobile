@@ -153,10 +153,12 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       }
     });
 
-    // Initial sync on first frame if already signed in
+    // Initial local load + sync on first frame（仅在已登录时）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
+        // 先确保本地缓存已加载，再做远端同步
+        ref.read(savedDevicesProvider.notifier).ensureLoaded();
         // First open: allow a single toast
         ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true);
       }
