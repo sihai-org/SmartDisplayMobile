@@ -29,3 +29,12 @@ BleDeviceData savedDeviceRecordToDeviceData(SavedDeviceRecord rec) {
     publicKey: rec.publicKey,
   );
 }
+
+DeviceQrData savedDeviceRecordToQrData(SavedDeviceRecord rec) {
+  return DeviceQrData(
+    displayDeviceId: rec.displayDeviceId,
+    bleDeviceId: rec.lastBleDeviceId ?? "",
+    deviceName: rec.deviceName,
+    publicKey: rec.publicKey,
+  );
+}

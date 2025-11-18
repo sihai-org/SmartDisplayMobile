@@ -148,8 +148,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
           });
         }
         // Silent sync on auth events (default is silent)
-        Future.microtask(() =>
-            ref.read(savedDevicesProvider.notifier).syncFromServer());
+        Future.microtask(() => ref
+            .read(savedDevicesProvider.notifier)
+            .syncFromServer());
       }
     });
 
@@ -157,14 +158,11 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
-        // 先确保本地缓存已加载，再做远端同步
-        ref.read(savedDevicesProvider.notifier).ensureLoaded();
-        // First open: allow a single toast
-        ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true);
+        ref
+            .read(savedDevicesProvider.notifier)
+            .syncFromServer(allowToast: true);
       }
     });
-
-    // moved: foreground listen should be in build for Consumer widgets
   }
 
   @override

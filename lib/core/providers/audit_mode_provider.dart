@@ -24,7 +24,7 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
     // Seed a mock device for audit mode if none exists yet
     await _seedMockDeviceIfNeeded();
     // Ensure provider state reflects saved list immediately（仅本地加载）
-    await _ref.read(savedDevicesProvider.notifier).ensureLoaded();
+    await _ref.read(savedDevicesProvider.notifier).ensureLocalLoaded();
   }
 
   void disable() {

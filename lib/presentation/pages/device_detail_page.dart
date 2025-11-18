@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:smart_display_mobile/core/utils/data_transformer.dart';
 import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
@@ -62,7 +63,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     super.initState();
     // 根据param选中（仅一次）
     WidgetsBinding.instance
-        .addPostFrameCallback((_) => _trySelectByParamOnce());
+        .addPostFrameCallback((_) => _trySelectAndConnectByParam());
   }
 
   @override
@@ -79,12 +80,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     if (curr.isNotEmpty && curr != prev) {
       _paramSelectTried = false; // 允许对新的参数再次尝试
       WidgetsBinding.instance
-          .addPostFrameCallback((_) => _trySelectByParamOnce());
+          .addPostFrameCallback((_) => _trySelectAndConnectByParam());
     }
   }
 
-  // 如果通过 MainPage 传入了 deviceId，尝试选中它（仅一次）
-  Future<void> _trySelectByParamOnce() async {
+  // 如果通过 MainPage 传入了 deviceId，尝试选中
+  Future<void> _trySelectAndConnectByParam() async {
     // 仅一次
     if (_paramSelectTried) return;
     _paramSelectTried = true;
@@ -95,11 +96,13 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final targetId = widget.deviceId;
     if (targetId == null || targetId.isEmpty) return;
 
-    // 尝试选中
+    // 尝试选中并连接
     final notifier = ref.read(savedDevicesProvider.notifier);
-    if (notifier.existsLocally(targetId)) {
-      AppLog.instance.info("~~~~_trySelectByParamOnce select ${widget.deviceId}");
+    final rec = notifier.findById(targetId);
+    if (rec!= null) {
+      AppLog.instance.info("~~~~_trySelectByParamOnce select ${targetId}");
       await notifier.select(targetId);
+      await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(savedDeviceRecordToQrData(rec));
     }
   }
 

@@ -4,11 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
-import '../../data/repositories/saved_devices_repository.dart';
-import '../../core/providers/ble_connection_provider.dart' as conn;
-import '../../core/models/device_qr_data.dart';
 import '../../core/router/app_router.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/log/app_log.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
@@ -58,22 +54,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
     );
   }
 
-  Future<bool> _connectSavedDevice(SavedDeviceRecord device) async {
-    // 允许在缺少本地 BLE 地址时尝试连接：扫描流程会补上实际地址
-    if (device.displayDeviceId.isEmpty || device.publicKey.isEmpty) {
-      Fluttertoast.showToast(msg: context.l10n.missing_ble_params);
-      return false;
-    }
-    final qr = DeviceQrData(
-      displayDeviceId: device.displayDeviceId,
-      deviceName: device.deviceName,
-      bleDeviceId: device.lastBleDeviceId ?? '',
-      publicKey: device.publicKey,
-    );
-    await ref.read(conn.bleConnectionProvider.notifier).enableBleConnection(qr);
-    return true;
-  }
-
   Widget _buildDeviceList(BuildContext context, SavedDevicesState state) {
     if (state.devices.isEmpty) {
       return _buildEmptyState(context);
@@ -108,33 +88,17 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
                         ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () async {
-                    if (isSelected) return;
-                    await _selectDevice(device.displayDeviceId);
-                    if (!mounted) return;
-                    final ok = await _connectSavedDevice(device);
-                    if (ok && mounted) {
-                      context.go('${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
-                    }
-                  },
-                  icon: Icon(
-                    isSelected ? Icons.task_alt : Icons.radio_button_unchecked,
-                  ),
+
+                /// 仅展示状态，不可点击
+                Icon(
+                  isSelected ? Icons.task_alt : Icons.radio_button_unchecked,
                   color: isSelected ? Colors.green : Colors.grey,
-                  tooltip: isSelected ? null : context.l10n.set_current_device,
                 ),
               ],
             ),
-            onTap: () async {
-              await ref
-                  .read(savedDevicesProvider.notifier)
-                  .select(device.displayDeviceId);
-              if (!mounted) return;
-              final ok = await _connectSavedDevice(device);
-              if (ok && mounted) {
-                context.go('${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
-              }
+            onTap: () {
+              context.go(
+                  '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
             },
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,21 +173,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
   void _addNewDevice() {
     context.go(AppRoutes.qrScanner);
-  }
-
-  Future<void> _selectDevice(String displayDeviceId) async {
-    try {
-      await ref.read(savedDevicesProvider.notifier).select(displayDeviceId);
-      if (mounted) {
-        Fluttertoast.showToast(msg: context.l10n.device_switched);
-      }
-    } catch (e) {
-      if (mounted) {
-        Fluttertoast.showToast(
-          msg: context.l10n.switch_device_failed(e.toString()),
-        );
-      }
-    }
   }
 
   String _formatDateTime(BuildContext context, DateTime dateTime) {

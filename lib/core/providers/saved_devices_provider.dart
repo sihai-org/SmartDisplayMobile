@@ -26,23 +26,25 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   final SavedDevicesRepository _repo;
   final Ref _ref;
 
-  Future<void> _load() async {
-    // Load local cache first for instant UI
-    final list = await _repo.loadLocal();
-    final last = await _repo.loadLastSelectedId();
-    state = SavedDevicesState(devices: list, lastSelectedId: last ?? (list.isNotEmpty ? list.last.displayDeviceId : null), loaded: true);
-  }
-
   /// 确保本地缓存已加载（仅访问本地，不触发远端同步）
-  Future<void> ensureLoaded() async {
+  Future<void> ensureLocalLoaded() async {
     if (state.loaded) return;
     try {
-      await _load();
+      final list = await _repo.loadLocal();
+      final last = await _repo.loadLastSelectedId();
+      state = SavedDevicesState(
+          devices: list,
+          lastSelectedId:
+              last ?? (list.isNotEmpty ? list.last.displayDeviceId : null),
+          loaded: true);
     } catch (_) {}
   }
 
   // TODO: 防抖
   Future<void> syncFromServer({bool allowToast = false}) async {
+    // 保证本地已加载
+    await ensureLocalLoaded();
+
     // Require login session; skip if not logged in
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
@@ -130,9 +132,15 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     return res;
   }
 
-  /// 判断某设备 ID 是否存在于本地缓存
-  bool existsLocally(String displayDeviceId) {
-    return state.devices.any((e) => e.displayDeviceId == displayDeviceId);
+  /// 根据 ID 查找 SavedDeviceRecord，不存在返回 null
+  SavedDeviceRecord? findById(String displayDeviceId) {
+    try {
+      return state.devices.firstWhere(
+        (e) => e.displayDeviceId == displayDeviceId,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   // 清空当前用户的本地设备列表与选择（用于登出）
