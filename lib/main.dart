@@ -160,7 +160,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       if (user != null && mounted) {
         ref
             .read(savedDevicesProvider.notifier)
-            .syncFromServer(allowToast: true);
+            .syncFromServer();
       }
     });
   }
@@ -179,7 +179,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     ref.listen<bool>(isForegroundProvider, (prev, curr) {
       if (prev == false && curr == true) {
         Future.microtask(() =>
-            ref.read(savedDevicesProvider.notifier).syncFromServer(allowToast: true));
+            ref.read(savedDevicesProvider.notifier).syncFromServer());
       }
     });
     return MaterialApp.router(
