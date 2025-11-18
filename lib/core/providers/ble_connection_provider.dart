@@ -106,28 +106,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         }
       },
     );
-
-    // 3) 监听 savedDevicesProvider 的 lastSelectedId 变化
-    _savedDevicesSub = _ref.listen(savedDevicesProvider, (prev, curr) {
-      final prevId = prev?.lastSelectedId;
-      final currId = curr.lastSelectedId;
-      if (prevId == currId) return; // lastSelectedId 没变，跳过
-
-      final nowAuthed = state.bleDeviceStatus == BleDeviceStatus.authenticated;
-      final nowDeviceId = state.bleDeviceData?.displayDeviceId;
-
-      // 只有当当前连接的设备已认证且被选中时才 sync
-      if (nowAuthed && nowDeviceId != null && nowDeviceId == currId) {
-        _syncSelectedWhenAuthed(reason: 'savedDevices.lastSelectedId-changed');
-      }
-    });
   }
 
   final Ref _ref;
 
   ProviderSubscription<bool>? _foregroundSub;
   ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
-  ProviderSubscription<dynamic /*SavedDevicesState*/ >? _savedDevicesSub;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
   Stream<Map<String, dynamic>>? _boundStream; // 记住当前已绑定的事件流
 
@@ -212,8 +196,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     );
   }
 
-  void _syncSelectedWhenAuthed({required String reason}) {
-    _log('call _syncSelectedWhenAuthed');
+  void _syncWhenAuthed({required String reason}) {
+    _log('call _syncWhenAuthed');
     final now = DateTime.now();
     if (_lastSyncAt != null && now.difference(_lastSyncAt!) < _minSyncGap) {
       _log('syncDeviceInfo 被合并（$reason）');
@@ -316,6 +300,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         bleDeviceStatus: BleDeviceStatus.authenticated,
         lastErrorCode: null,
       );
+
+      // 认证成功时，sync 一次
+      _syncWhenAuthed(reason: 'enableBleConnection-authenticated');
+
       return true;
     } catch (e) {
       AppLog.instance.error("enableBleConnection failed", error: e);
