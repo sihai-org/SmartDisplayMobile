@@ -333,17 +333,14 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       tag: 'BLE',
     );
     if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
+
     BleDeviceData? d = state.bleDeviceData;
+
     if (d == null) {
-      final selectedId = _ref.read(savedDevicesProvider).lastSelectedId;
-      if (selectedId != null && selectedId.isNotEmpty) {
-        final selectedRec = _ref
-            .read(savedDevicesProvider)
-            .devices
-            .firstWhere((e) => e.displayDeviceId == selectedId);
-        if (selectedRec != null) {
-          d = savedDeviceRecordToDeviceData(selectedRec);
-        }
+      final selectedRec =
+          _ref.read(savedDevicesProvider.notifier).getSelectedRec();
+      if (selectedRec.displayDeviceId.isNotEmpty) {
+        d = savedDeviceRecordToDeviceData(selectedRec);
       }
     }
 
