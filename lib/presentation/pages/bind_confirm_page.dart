@@ -10,7 +10,6 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/models/device_qr_data.dart';
-import '../../core/ble/ble_device_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../data/repositories/saved_devices_repository.dart';
@@ -26,7 +25,6 @@ class BindConfirmPage extends ConsumerStatefulWidget {
 }
 
 class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
-  bool _navigated = false; // 防止重复跳转
   bool _sending = false;   // 按钮loading
   Future<void> _disconnectAndClearOnUserExit() async {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
@@ -37,36 +35,22 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     super.initState();
   }
 
-  void _goHomeOnce() {
-    if (_navigated || !mounted) return;
-    _navigated = true;
-    context.go(AppRoutes.home);
-  }
-
   Future<void> handleClickBind(DeviceQrData scanned) async {
     if (_sending) return;
     setState(() => _sending = true);
 
     try {
       final ok = await _bindViaOtp(ref, scanned);
-      if (ok && mounted) {
-        // 异步后台同步（最多等待2秒），不阻塞跳转
-        try {
-          final sync = ref.read(savedDevicesProvider.notifier).syncFromServer();
-          await Future.any([
-            sync,
-            Future.delayed(const Duration(seconds: 2)),
-          ]);
-        } catch (_) {}
-        try {
-          await ref
-              .read(savedDevicesProvider.notifier)
-              .select(scanned.displayDeviceId);
-        } catch (_) {}
-        _goHomeOnce();
+      if (!mounted) return;
+      if (ok) {
+        await ref.read(savedDevicesProvider.notifier).syncFromServer();
+        if (!mounted) return;
+        context.go(
+            '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(scanned.displayDeviceId)}');
       }
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (!mounted) return;
+      setState(() => _sending = false);
     }
   }
 
