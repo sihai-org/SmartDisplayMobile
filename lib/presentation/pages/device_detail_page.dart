@@ -493,12 +493,23 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         if (rec.displayDeviceId.isEmpty) return;
         final qr = _qrFromRecord(rec);
         if (qr == null) return;
-        final res = await ref
+        final result = await ref
             .read(conn.bleConnectionProvider.notifier)
             .enableBleConnection(qr);
-        if (!res) {
-          Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
-          AppLog.instance.error("蓝牙连接失败，请检查手机蓝牙或靠近设备");
+        if (!mounted) return;
+        switch (result) {
+          case BleConnectResult.success:
+          case BleConnectResult.alreadyConnected:
+          case BleConnectResult.cancelled:
+            // 成功或被新会话覆盖的旧请求，都无需在此处提示
+            break;
+          case BleConnectResult.userMismatch:
+            Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+            break;
+          case BleConnectResult.failed:
+            Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
+            AppLog.instance.error("蓝牙连接失败，请检查手机蓝牙或靠近设备");
+            break;
         }
       } else {
         // 关闭：主动断开

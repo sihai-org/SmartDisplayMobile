@@ -350,14 +350,19 @@ class BleServiceSimple {
 
   // ========= UUID 辅助函数结束 =========
 
-  /// 连接设备
+  /// 连接设备（内置一次 GATT 135 自愈重试）
+  /// [attempt] 用于内部递归时标记第几次尝试，外部调用不要传
   static Future<BleDeviceData?> connectToDevice({
     required BleDeviceData bleDeviceData,
     required Duration timeout,
+    int attempt = 1,
   }) async {
     final t0 = DateTime.now();
     _sessionStart ??= t0;
     _log('🔗 connectToDevice 开始: id=${bleDeviceData.bleDeviceId}, timeout=${timeout.inSeconds}s');
+
+    bool sawGatt135 = false; // 👈 这一轮有没有遇到 135
+
     try {
       await stopScan();
 
@@ -383,6 +388,14 @@ class BleServiceSimple {
         // Minimal connection state logging to aid field debugging
         // ignore: avoid_print
         _log('connection.update state=${update.connectionState} device=${update.deviceId} failure=${update.failure}');
+
+        // 👇 这里解析一下 failure 里有没有 135
+        final failureStr = update.failure?.toString() ?? '';
+        if (failureStr.contains('status 135') ||
+            failureStr.contains('GATT_ILLEGAL_PARAMETER')) {
+          sawGatt135 = true;
+        }
+
         switch (update.connectionState) {
           case DeviceConnectionState.connected:
             final connectedAtMs = DateTime.now().difference(t0).inMilliseconds;
@@ -440,7 +453,23 @@ class BleServiceSimple {
       final res = await completer.future;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('connect.complete(${elapsed}ms) -> ${res != null}');
-      // 保持连接订阅存活，直至显式调用 disconnect()
+
+
+      // ⚠️ 关键逻辑：这一轮没连上 + 确认是 135 → 认为是“残留连接”，做一次彻底冷却 + 重试
+      if (res == null && sawGatt135 && attempt == 1) {
+        _log('⚠️ 本轮连接失败且检测到 GATT 135，执行一次冷却重试');
+        try {
+          await disconnect(); // 把所有 subscription / state 清理掉
+        } catch (_) {}
+        // 冷却时间可以视设备情况调整，1~2 秒比较常见
+        await Future.delayed(const Duration(seconds: 2));
+        return connectToDevice(
+          bleDeviceData: bleDeviceData,
+          timeout: timeout,
+          attempt: 2,
+        );
+      }
+
       return res;
     } catch (_) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;

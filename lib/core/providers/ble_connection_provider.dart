@@ -109,6 +109,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   final Ref _ref;
+  int _sessionCount = 0;
 
   ProviderSubscription<bool>? _foregroundSub;
   ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
@@ -154,7 +155,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         if (v == 'disconnected' || v == 'ble_powered_off') {
           state = state.copyWith(bleDeviceStatus: BleDeviceStatus.disconnected);
           // 确保彻底中止扫描/连接，防止 UI 退出后仍继续连接
-          try { _ref.read(secureChannelManagerProvider).dispose(); } catch (_) {}
+          // try { _ref.read(secureChannelManagerProvider).dispose(); } catch (_) {}
         }
         break;
       default:
@@ -263,66 +264,97 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // TODO: 目前 send 没有 ensure
   // 建立蓝牙连接
-  Future<bool> enableBleConnection(DeviceQrData qrData) async {
+  Future<BleConnectResult> enableBleConnection(DeviceQrData qrData) async {
+    /// 1. 检查当前（已连上啥也不做）
     if (state.bleDeviceData != null &&
         state.bleDeviceData!.displayDeviceId == qrData.displayDeviceId &&
         state.bleDeviceStatus == BleDeviceStatus.authenticated) {
       AppLog.instance.info("~~~~~~~enableBleConnection already connected");
-      return true;
+      return BleConnectResult.alreadyConnected;
     }
-    final t0 = DateTime.now();
+
+    /// --- 会话计数（race condition）---
+    final int session = ++_sessionCount;
+
     // 若尚未开始会话，设置一个基准时间用于统一打点
+    final t0 = DateTime.now();
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
-    // 为确保全局任意时刻只有一个物理 BLE 连接：
-    // 在尝试对新设备建立会话前，先显式断开现有通道和连接。
+
+    /// 2. 断开连接
     try {
       await _ref.read(secureChannelManagerProvider).dispose();
     } catch (_) {}
-    // 在尝试建立连接前，开启针对此设备的全新会话：
-    // - 绑定 bleDeviceData
-    // - 将上一台设备的状态/错误/网络等派生信息一并清理
+
+    /// --- 已取消 ---
+    if (session != _sessionCount) {
+      return BleConnectResult.cancelled;
+    }
+
+    /// 3. 重置 UI state
     _startSessionStateForDevice(qrData);
     try {
-      // 先通过 manager.use 建立通道
+      /// 4. 建连
       final mgr = _ref.read(secureChannelManagerProvider);
-      await mgr.use(qrData);
-      // use() 成功后显式绑定一次事件流，避免因 provider 不变而错过绑定
-      // 读取握手阶段的状态：需在设置 bleDeviceStatus 之前更新 emptyBound
+      final ok = await mgr.use(qrData);
+
+      /// --- 已取消 ---
+      if (session != _sessionCount) {
+        return BleConnectResult.cancelled;
+      }
+
+      if (!ok) {
+        // Manager 这一层认为自己被 cancel 了（可能是 disconnect / 其他 use）
+        return BleConnectResult.cancelled;
+      }
+
+      /// 5. 握手状态
       final hs = mgr.lastHandshakeStatus;
       AppLog.instance.debug('handshakeStatus=$hs', tag: 'BLE');
       bool treatAsEmptyBound = hs == 'empty_bound';
       state = state.copyWith(emptyBound: treatAsEmptyBound);
+
+      /// 6. 绑定事件流
       _attachChannelEvents(mgr);
+
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
+
+      /// 7. 更新 UI state
       state = state.copyWith(
         bleDeviceStatus: BleDeviceStatus.authenticated,
         lastErrorCode: null,
       );
 
-      // 认证成功时，sync 一次
+      /// 8. 认证成功时，sync 一次
       _syncWhenAuthed(reason: 'enableBleConnection-authenticated');
 
-      return true;
+      /// 9. 返回结果
+      return BleConnectResult.success;
     } catch (e) {
       AppLog.instance.error("enableBleConnection failed", error: e);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
-      if (e is UserMismatchException) {
-        state = state.copyWith(
-          bleDeviceStatus: BleDeviceStatus.error,
-          lastErrorCode: 'user_mismatch',
-        );
-      } else {
-        state = state.copyWith(
-          bleDeviceStatus: BleDeviceStatus.error,
-          lastErrorCode: null,
-        );
+      BleConnectResult result = BleConnectResult.failed;
+      if (session == _sessionCount) {
+        if (e is UserMismatchException) {
+          state = state.copyWith(
+            bleDeviceStatus: BleDeviceStatus.error,
+            lastErrorCode: 'user_mismatch',
+          );
+          result = BleConnectResult.userMismatch;
+        } else {
+          state = state.copyWith(
+            bleDeviceStatus: BleDeviceStatus.error,
+            lastErrorCode: null,
+          );
+        }
       }
-      return false;
+      return result;
     } finally {
-      state = state.copyWith(enableBleConnectionLoading: false);
+      if (session == _sessionCount) {
+        state = state.copyWith(enableBleConnectionLoading: false);
+      }
     }
   }
 
@@ -506,7 +538,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   /// 断开 BLE、清理会话与加密器，并重置为 disconnected
   Future<void> disconnect({shouldReset = true}) async {
+    /// --- 会话计数 ---
+    final int session = ++_sessionCount;
     await _ref.read(secureChannelManagerProvider).dispose();
+    if (session != _sessionCount) {
+      return;
+    }
     if (shouldReset) {
       resetState();
     } else {
@@ -515,6 +552,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void resetState() {
+    // 重置状态时，同样提升会话计数，确保旧会话不再更新状态
+    _sessionCount++;
     _sessionStart = null;
     state = const BleConnectionState();
   }

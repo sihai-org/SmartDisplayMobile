@@ -46,8 +46,6 @@ class BindingFlowUtils {
         msg: context.l10n.ble_disconnected_on_exit,
       );
     }
-
     ref.read(appStateProvider.notifier).clearScannedData();
-    ref.read(bleConnectionProvider.notifier).resetState();
   }
 }

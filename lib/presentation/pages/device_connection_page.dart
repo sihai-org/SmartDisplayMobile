@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/constants/enum.dart';
 import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,10 +54,14 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       // 2. 自动连接
       AppLog.instance.info('[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId}', tag: 'Binding');
       try {
-        final ok = await ref
+        final result = await ref
             .read(bleConnectionProvider.notifier)
             .enableBleConnection(scannedQrData);
-        if (ok && mounted) Fluttertoast.showToast(msg: context.l10n.connect_success);
+        if (!mounted) return;
+        if (result == BleConnectResult.success ||
+            result == BleConnectResult.alreadyConnected) {
+          Fluttertoast.showToast(msg: context.l10n.connect_success);
+        }
       } catch (e, s) {
         AppLog.instance.error('[DeviceConnectionPage] startConnection error', tag: 'Binding', error: e, stackTrace: s);
         if (mounted) {
@@ -71,6 +76,14 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       bleConnectionProvider,
           (previous, current) async {
         if (!mounted) return;
+
+        // 仅处理当前页面目标设备的状态变化，避免其他设备的旧会话干扰
+        final curDeviceId = current.bleDeviceData?.displayDeviceId ?? '';
+        if (widget.displayDeviceId.isNotEmpty &&
+            curDeviceId.isNotEmpty &&
+            curDeviceId != widget.displayDeviceId) {
+          return;
+        }
 
         final prevBleStatus = previous?.bleDeviceStatus;
         final curBleStatus = current.bleDeviceStatus;

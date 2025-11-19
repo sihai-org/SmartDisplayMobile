@@ -43,18 +43,28 @@ class SecureChannelImpl implements SecureChannel {
   bool _preparing = false;
   String? _lastHandshakeStatus;
 
+  bool _disposed = false; // 👈 新增：标记这个实例是否已被释放
+
   @override
   Stream<Map<String, dynamic>> get events => _evtCtrl.stream;
 
   @override
   String? get lastHandshakeStatus => _lastHandshakeStatus;
 
+  void _ensureNotDisposed(String phase) {
+    if (_disposed) {
+      throw StateError('SecureChannel 已释放（$phase）');
+    }
+  }
+
   @override
   Future<void> ensureAuthenticated(String userId) async {
+    _ensureNotDisposed('ensureAuthenticated-入口');
+
     if (_authenticated) return;
     if (_preparing) {
       // 等待并发的首次准备完成
-      while (_preparing && !_authenticated) {
+      while (_preparing && !_authenticated && !_disposed) {
         await Future.delayed(const Duration(milliseconds: 80));
       }
       if (_authenticated) return;
@@ -62,17 +72,21 @@ class SecureChannelImpl implements SecureChannel {
 
     _preparing = true;
     try {
+      _ensureNotDisposed('准备阶段前');
+
       // 1) 保守断开以稳定状态
       await BleServiceSimple.disconnect();
       await Future.delayed(BleConstants.kDisconnectStabilize);
 
       // 2) BLE 就绪
+      _ensureNotDisposed('disconnect 之后');
       final ok = await BleServiceSimple.ensureBleReady();
       if (!ok) {
         throw StateError('BLE 未就绪');
       }
 
       // 3) 连接 + GATT
+      _ensureNotDisposed('ensureBleReady 之后');
       final data = await BleServiceSimple.connectToDevice(
         bleDeviceData: BleDeviceData(
           displayDeviceId: displayDeviceId,
@@ -98,11 +112,13 @@ class SecureChannelImpl implements SecureChannel {
       if (!hasDual) throw StateError('设备不支持双特征通道');
 
       // 5) 准备可靠队列
+      _ensureNotDisposed('connectToDevice + ensureGattReady + hasRxTx 之后');
       await _rq?.dispose();
       _rq = createQueue(data.bleDeviceId);
       await _rq!.prepare();
 
       // 6) 应用层握手（示例：与你现有逻辑一致）
+      _ensureNotDisposed('队列准备完成');
       await crypto.generateEphemeralKeyPair();
       var initJson = await crypto.getHandshakeInitData();
       if (userId.isNotEmpty) {
@@ -131,6 +147,7 @@ class SecureChannelImpl implements SecureChannel {
         _lastHandshakeStatus = null;
       }
 
+      _ensureNotDisposed('握手完成（resp 收到）');
       final parsed = crypto.parseHandshakeResponse(jsonEncode(resp));
       final localPub = await crypto.getLocalPublicKey();
       await crypto.performKeyExchange(
@@ -143,6 +160,7 @@ class SecureChannelImpl implements SecureChannel {
       );
 
       // 7) 安装加解密处理器
+      _ensureNotDisposed('密钥交换完成');
       _rq!.setCryptoHandlers(
         encrypt: (Map<String, dynamic> plain) async {
           final text = jsonEncode(plain);
@@ -216,6 +234,7 @@ class SecureChannelImpl implements SecureChannel {
 
   @override
   Future<void> dispose() async {
+    _disposed = true; // 👈 先打上“已释放”标记
     await _evtSub?.cancel();
     await _linkSub?.cancel();
     await _rq?.dispose();
