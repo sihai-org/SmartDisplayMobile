@@ -93,7 +93,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 1) 前后台监听（回到前台时尝试确保可信通道）
     _foregroundSub = _ref.listen<bool>(isForegroundProvider, (prev, curr) {
       if (prev == false && curr == true) {
-        handleEnterForeground();
+        // 先不自动连接了
       }
     });
 
@@ -355,31 +355,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       if (session == _sessionCount) {
         state = state.copyWith(enableBleConnectionLoading: false);
       }
-    }
-  }
-
-  // 应用进入前台自动连接蓝牙
-  Future<void> handleEnterForeground() async {
-    AppLog.instance.info(
-      'handleEnterForeground ${state.bleDeviceStatus} ${state.bleDeviceData}',
-      tag: 'BLE',
-    );
-    if (state.bleDeviceStatus == BleDeviceStatus.authenticated) return;
-
-    BleDeviceData? d = state.bleDeviceData;
-
-    if (d == null) {
-      final selectedRec =
-          _ref.read(savedDevicesProvider.notifier).getSelectedRec();
-      if (selectedRec.displayDeviceId.isNotEmpty) {
-        d = savedDeviceRecordToDeviceData(selectedRec);
-      }
-    }
-
-    if (d != null) {
-      try {
-        await enableBleConnection(deviceDataToQrData(d));
-      } catch (_) {}
     }
   }
 
