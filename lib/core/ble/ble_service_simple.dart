@@ -279,11 +279,14 @@ class BleServiceSimple {
     final lastAt = _lastLogAt[r.deviceId];
     final lastRssi = _lastLogRssi[r.deviceId];
 
+    final hasLast = lastAt != null && lastRssi != null;
     final rssiChanged = lastRssi == null || (r.rssi - lastRssi).abs() >= 5;
     final timeOk =
         lastAt == null || now.difference(lastAt) >= _perDeviceLogInterval;
 
-    if (timeOk || rssiChanged) {
+    // 首次看到这个设备：直接打
+    // 之后：必须时间到了 && rssi 变化够大才打
+    if (!hasLast || (timeOk && rssiChanged)) {
       _lastLogAt[r.deviceId] = now;
       _lastLogRssi[r.deviceId] = r.rssi;
 

@@ -61,6 +61,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         if (result == BleConnectResult.success ||
             result == BleConnectResult.alreadyConnected) {
           Fluttertoast.showToast(msg: context.l10n.connect_success);
+        } else {
+          if (mounted) {
+            Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
+          }
         }
       } catch (e, s) {
         AppLog.instance.error('[DeviceConnectionPage] startConnection error', tag: 'Binding', error: e, stackTrace: s);

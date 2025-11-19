@@ -332,7 +332,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       /// 9. 返回结果
       return BleConnectResult.success;
     } catch (e) {
-      AppLog.instance.error("enableBleConnection failed", error: e);
+      AppLog.instance.error("enableBleConnection failed ${session}, ${_sessionCount}", error: e);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       BleConnectResult result = BleConnectResult.failed;

@@ -48,8 +48,6 @@ class BleScannerImpl implements BleScanner {
           await stop();
           if (!c.isCompleted) c.complete(addr);
         }
-      } else {
-        AppLog.instance.info("~~~~~~~~~~not target ${qr.deviceName}");
       }
     }, onError: (e) async {
       await stop();
