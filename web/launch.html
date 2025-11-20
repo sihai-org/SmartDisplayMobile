@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Smart Display App</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            background: #f8f8f8;
+            margin: 0;
+            text-align: center;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            background: #007aff;
+            color: white;
+            cursor: pointer;
+        }
+
+        p {
+            font-size: 16px;
+            margin: 0 20px 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <img class="logo" src="https://m.vzngpt.com/images/logo.png" alt="logo" />
+    <h2>Open VznGPT</h2>
+    <p>If the app doesn't open automatically, <br />please tap the button below</p>
+    <button id="openAppBtn">Tap to Open VznGPT</button>
+
+    <script>
+        const openBtn = document.getElementById('openAppBtn');
+        // 直接透传当前页面 URL 参数
+        const queryString = window.location.search.substring(1); // 去掉 '?'
+
+        /**
+         * 苹果手机
+         */
+        const universalLink = `https://m.smartdisplay.mareo.ai/connect?${queryString}`;
+        const schemeLink = `smartdisplay://connect?${queryString}`;
+        const iosAppId = "id6755098905"
+        const appStoreLink = `https://apps.apple.com/cn/app/${iosAppId}`;
+
+        /**
+         * 安卓手机
+         */
+        const intentUrl = `intent://connect?${queryString}#Intent;scheme=smartdisplay;package=com.datou.smart_display_mobile;end`;
+        const androidAppId = "com.datou.smart_display_mobile"
+        const playStoreLink = `https://play.google.com/store/apps/details?id=${androidAppId}`;
+
+        function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+        function isSafari() {
+            return /^((?!chrome|crios|fxios|edgios|ucbrowser|qqbrowser|qihoobrowser).)*safari/i.test(navigator.userAgent);
+        }
+        function isAndroid() { return /android/i.test(navigator.userAgent); }
+
+        function openApp() {
+            if (isIOS()) {
+                // ios
+                if (isSafari()) {
+                    // safari
+                    window.location.href = universalLink;
+                } else {
+                    // 非 safari
+                    window.location.href = schemeLink;
+                }
+                setTimeout(() => { window.location.href = appStoreLink; }, 1500);
+                return;
+            }
+
+            if (isAndroid()) {
+                // 安卓
+                window.location.href = intentUrl;
+                setTimeout(() => { window.location.href = playStoreLink; }, 1500);
+                return;
+            }
+
+            alert("Please open this page on a mobile device.");
+        }
+
+
+        if (isAndroid()) {
+            window.onload = openApp;
+        }
+
+        openBtn.addEventListener('click', openApp);
+    </script>
+</body>
+
+</html>

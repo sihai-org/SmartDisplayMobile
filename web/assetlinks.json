@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.datou.smart_display_mobile",
+      "sha256_cert_fingerprints": [
+        "EE:04:70:AC:D7:53:A2:52:BF:EA:1D:18:33:AE:F8:09:91:B4:20:66:DA:51:29:F0:DF:16:1C:C5:32:8E:46:92"
+      ]
+    }
+  }
+]

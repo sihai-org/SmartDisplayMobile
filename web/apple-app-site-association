@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "C43B3NC6ZG.com.datou.smartDisplayMobile",
+        "paths": [
+          "/connect",
+          "*"
+        ]
+      }
+    ]
+  }
+}
