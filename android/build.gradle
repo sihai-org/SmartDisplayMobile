@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 buildscript {
     ext.kotlin_version = '2.2.0'
     repositories {
@@ -18,6 +20,12 @@ allprojects {
         google()
         mavenCentral()
     }
+    configurations.all {
+        resolutionStrategy {
+            force "androidx.core:core-ktx:1.13.1"
+            force "androidx.core:core:1.13.1"
+        }
+    }
 }
 
 rootProject.buildDir = '../build'
@@ -26,6 +34,15 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
+}
+subprojects { subproject ->
+    subproject.tasks.withType(KotlinCompile).configureEach { task ->
+        task.kotlinOptions {
+            // 👇 关键：把语言版本从 1.6 拉到 >= 1.8
+            languageVersion = "1.9"
+            apiVersion = "1.9"
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

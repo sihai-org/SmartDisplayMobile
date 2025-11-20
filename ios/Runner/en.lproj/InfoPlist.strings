@@ -1,8 +1,0 @@
-/* Localized InfoPlist keys for Simplified Chinese */
-"CFBundleDisplayName" = "心显智联";
-"NSBluetoothAlwaysUsageDescription" = "此应用需要使用蓝牙来连接和配置智能显示器设备";
-"NSBluetoothPeripheralUsageDescription" = "此应用需要使用蓝牙来连接和配置智能显示器设备";
-"NSCameraUsageDescription" = "此应用需要访问相机来扫描设备上的二维码";
-"NSLocalNetworkUsageDescription" = "需要访问本地网络以与设备建立连接";
-"NSLocationAlwaysAndWhenInUseUsageDescription" = "此应用需要位置权限来扫描蓝牙设备";
-"NSLocationWhenInUseUsageDescription" = "此应用需要位置权限来扫描蓝牙设备";

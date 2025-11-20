@@ -38,15 +38,19 @@ android {
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion "27.0.12077973"
 
-    // ✅ 全部用 Java 17
+
+    // ✅ app 模块统一到 Java 11
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
-    // ✅ Kotlin 也跑在 17 上
+    // ✅ app 模块的 Kotlin 也编译成 JVM 11
     kotlinOptions {
-        jvmTarget = '17'
+        jvmTarget = '11'
+        // 这两行可加可不加，如果你想写上也可以：
+        // languageVersion = '1.9'
+        // apiVersion = '1.9'
     }
 
     sourceSets {
@@ -104,4 +108,9 @@ flutter {
 dependencies {
     // Needed for RxJavaPlugins global error handler used in MainApplication
     implementation 'io.reactivex.rxjava2:rxjava:2.2.21'
+
+
+    // 🔒 强制使用一个和 AGP 8.6.0 兼容的 androidx.core 版本
+    implementation "androidx.core:core-ktx:1.13.1"
+    implementation "androidx.core:core:1.13.1"
 }
