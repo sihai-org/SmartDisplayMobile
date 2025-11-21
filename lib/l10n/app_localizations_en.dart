@@ -63,6 +63,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get camera_permission => 'Camera Permission';
 
   @override
+  String get camera_permission_denied => 'Camera permission denied. Please enable it in Settings.';
+
+  @override
   String get manage_qr_permission => 'Manage QR scanning permission';
 
   @override
@@ -435,12 +438,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String wifi_frequency_mhz_label(Object mhz) {
-    return 'Frequency: ${mhz} MHz';
+    return 'Frequency: $mhz MHz';
   }
 
   @override
   String wifi_rssi_percent_label(Object percent) {
-    return 'RSSI: ${percent}%';
+    return 'RSSI: $percent%';
   }
 
   @override

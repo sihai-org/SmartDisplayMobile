@@ -19,6 +19,7 @@
   "bluetooth_settings": "蓝牙设置",
   "manage_bluetooth": "管理蓝牙连接和权限",
   "camera_permission": "相机权限",
+  "camera_permission_denied": "相机权限被拒绝，请在系统设置中开启。",
   "manage_qr_permission": "管理二维码扫描权限",
   "about": "关于",
   "help": "使用帮助",

@@ -7,7 +7,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'dart:async';
 import '../../core/l10n/l10n_extensions.dart';
 import 'dart:ui' show Rect, Size;
-import 'package:mobile_scanner/mobile_scanner.dart';
+
+// 替换：不再使用 mobile_scanner
+// import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/device_entry_coordinator.dart';
 import '../../core/log/app_log.dart';
@@ -20,13 +23,15 @@ class QrScannerPage extends ConsumerStatefulWidget {
 }
 
 class _QrScannerPageState extends ConsumerState<QrScannerPage> {
-  // 新增：音频播放器（低延迟、可复用）
+  // 音频播放器（低延迟、可复用）
   late final AudioPlayer _beepPlayer;
+  late final Future<void> _beepReady;
   bool _beepPlayedForThisSuccess = false; // 防二次触发（例如重复状态回调）
 
+  // ZXing 相机控制器（支持 Android + iOS）
+  QRViewController? _controller;
+  final GlobalKey _qrKey = GlobalKey(debugLabel: 'QR');
 
-  // ✅ 新增：本地相机&扫描状态
-  late final MobileScannerController _controller;
   QrScannerStatus _status = QrScannerStatus.idle;
   String? _qrContent;
   bool _isTorchOn = false;
@@ -40,19 +45,18 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     super.initState();
 
     // 初始化播放器
-    _beepPlayer = AudioPlayer()..setReleaseMode(ReleaseMode.stop); // 播放完停止（不循环）
+    _beepPlayer = AudioPlayer(
+      playerId: 'qr_beep',
+    );
+    _beepPlayer.setPlayerMode(PlayerMode.lowLatency);
+    _beepReady = _warmUpBeepPlayer();
 
-    // ✅ 初始化相机控制器（和页面同生共死）
-    _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-      torchEnabled: false,
-      formats: const [BarcodeFormat.qrCode],
+    AppLog.instance.debug(
+      '[QrScannerPage] initState -> wait for QRView create',
+      tag: 'QR',
     );
 
-    AppLog.instance.debug('[QrScannerPage] initState -> create controller + startScanning', tag: 'QR');
-
-    // 首帧后开始扫描
+    // 首帧后标记为可扫描（控制器会在 onQRViewCreated 里赋值）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _startScanning();
@@ -61,19 +65,34 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     _beepPlayer.dispose();
     super.dispose();
   }
 
-  // 新增：播放提示音（失败时不抛异常）
+  // 播放提示音（失败时不抛异常）
   Future<void> _playSuccessBeep() async {
     try {
-      // 保守一点：先停掉上一次，避免状态乱
-      await _beepPlayer.stop();
-      await _beepPlayer.play(AssetSource('sounds/scan_success.mp3'));
+      await _beepReady; // 确保已预热，避免第一次播放丢失
+      await _beepPlayer.seek(Duration.zero);
+      await _beepPlayer.resume();
     } catch (e) {
       debugPrint('play beep error: $e');
+    }
+  }
+
+  // 预热播放器，避免首次播放冷启动没有声音
+  Future<void> _warmUpBeepPlayer() async {
+    try {
+      await _beepPlayer.setReleaseMode(ReleaseMode.stop);
+      await _beepPlayer.setSourceAsset('sounds/scan_success.mp3');
+      await _beepPlayer.setVolume(0); // 静音播放以拉起音频 Session
+      await _beepPlayer.resume();
+      await _beepPlayer.pause();
+      await _beepPlayer.seek(Duration.zero);
+      await _beepPlayer.setVolume(1);
+    } catch (e) {
+      debugPrint('warm up beep error: $e');
     }
   }
 
@@ -88,13 +107,16 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     _tracker.reset();
     _lastAnyDetectAt = null;
     _beepPlayedForThisSuccess = false;
+
+    // ZXing：恢复相机预览
+    _controller?.resumeCamera();
   }
 
   void _stopScanning() {
     AppLog.instance.debug('[QrScannerPage] stopScanning', tag: 'QR');
 
     if (_status == QrScannerStatus.scanning) {
-      _controller.stop();
+      _controller?.pauseCamera();
     }
 
     if (!mounted) return;
@@ -104,10 +126,15 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     });
   }
 
-  void _toggleTorch() {
-    _controller.toggleTorch();
-    final currentTorchState = _controller.torchState.value == TorchState.on;
-    AppLog.instance.debug('[QrScannerPage] toggleTorch -> isOn=$currentTorchState', tag: 'QR');
+  Future<void> _toggleTorch() async {
+    await _controller?.toggleFlash();
+    final flashStatus = await _controller?.getFlashStatus();
+    final currentTorchState = flashStatus == true;
+    AppLog.instance.debug(
+      '[QrScannerPage] toggleTorch -> isOn=$currentTorchState',
+      tag: 'QR',
+    );
+    if (!mounted) return;
     setState(() {
       _isTorchOn = currentTorchState;
       _suggestTorch = false;
@@ -120,55 +147,44 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     final now = DateTime.now();
     if (last == null || now.difference(last).inSeconds > 2) {
       AppLog.instance.debug('[QrScannerPage] suggestTorch: true', tag: 'QR');
+      if (!mounted) return;
       setState(() {
         _suggestTorch = true;
       });
     }
   }
 
-  void _onDetect(BarcodeCapture capture) async {
-    AppLog.instance.debug('[QrScannerPage] onDetect: status=$_status', tag: 'QR');
+  /// ZXing 扫描结果回调（只给你一个字符串）
+  void _onDetectText(String value) async {
+    AppLog.instance.debug(
+      '[QrScannerPage] onDetectText: status=$_status',
+      tag: 'QR',
+    );
 
     if (_status != QrScannerStatus.scanning) return;
 
-    final barcodes = capture.barcodes;
-    if (barcodes.isEmpty) {
-      AppLog.instance.debug('[QrScannerPage] onDetect: no barcodes', tag: 'QR');
+    if (value.isEmpty) {
       _updateSuggestTorch();
       return;
     }
 
     _lastAnyDetectAt = DateTime.now();
 
-    final candidates = barcodes
-        .where((b) => b.format == BarcodeFormat.qrCode && (b.rawValue?.isNotEmpty ?? false))
-        .toList();
-    AppLog.instance.debug(
-      '[QrScannerPage] onDetect: barcodes=${barcodes.length}, qrCandidates=${candidates.length}',
-      tag: 'QR',
-    );
-    if (candidates.isEmpty) return;
-
-    final best = candidates.first;
-
-    if (_candidateRect != null) {
-      if (!mounted) return;
-      setState(() {
-        _candidateRect = null;
-      });
-    }
-
-    final stable = _tracker.update(best.rawValue!);
+    // 使用你原来的稳定追踪逻辑
+    final stable = _tracker.update(value);
     if (!stable.isStable) {
       AppLog.instance.debug(
-        '[QrScannerPage] onDetect: candidate unstable hits=${stable.hitCount} elapsedMs=${stable.elapsedMs}',
+        '[QrScannerPage] onDetectText: candidate unstable hits=${stable.hitCount} elapsedMs=${stable.elapsedMs}',
         tag: 'QR',
       );
       return;
     }
 
     // 稳定成功
-    AppLog.instance.info('[QrScannerPage] onDetect: STABLE success, contentLen=${best.rawValue?.length ?? 0}', tag: 'QR');
+    AppLog.instance.info(
+      '[QrScannerPage] onDetectText: STABLE success, contentLen=${value.length}',
+      tag: 'QR',
+    );
 
     if (_beepPlayedForThisSuccess) return;
     _beepPlayedForThisSuccess = true;
@@ -179,7 +195,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     if (!mounted) return;
     setState(() {
       _status = QrScannerStatus.success;
-      _qrContent = best.rawValue;
+      _qrContent = value;
     });
 
     // 导航：和之前 ref.listen 中的逻辑类似
@@ -190,11 +206,28 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
       _stopScanning();
 
-      // 这里仍然可以用 ref，因为我们保留了 ConsumerState
       await DeviceEntryCoordinator.handle(context, ref, _qrContent!);
     });
   }
 
+  /// QRView 创建时回调，绑定控制器并监听流
+  void _onQRViewCreated(QRViewController controller) {
+    AppLog.instance.debug('[QrScannerPage] QRView created', tag: 'QR');
+    _controller = controller;
+
+    // 开始预览和扫描
+    _controller?.resumeCamera();
+    _startScanning();
+
+    controller.scannedDataStream.listen((scanData) {
+      final text = scanData.code;
+      if (text == null || text.isEmpty) {
+        _updateSuggestTorch();
+        return;
+      }
+      _onDetectText(text);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -206,26 +239,27 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-      appBar: AppBar(
+        appBar: AppBar(
           title: Text(
             context.l10n.qr_scanner_title,
-            // 明确指定白色标题，避免被全局 AppBarTheme 覆盖
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
-          // 确保状态栏图标为浅色（适配黑色背景）
           systemOverlayStyle: SystemUiOverlayStyle.light,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               _stopScanning();
-              // 返回主页
               context.go(AppRoutes.home);
             },
           ),
-          actions: [
+          actions: const [
             // 顶部右侧闪光灯按钮暂时移除（点击无效问题）
           ],
         ),
@@ -236,25 +270,35 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             final double top = (constraints.maxHeight - boxSize) / 2;
             final Rect scanRect = Rect.fromLTWH(left, top, boxSize, boxSize);
 
-            // 直接将 ROI 传给 MobileScanner，避免在 build 周期修改 Provider
-
             return Stack(
               children: [
-                // 相机预览
-                MobileScanner(
-                  controller: _controller,
-                  onDetect: _onDetect,
-                  scanWindow: scanRect,
-                  errorBuilder: (context, error, child) {
-                    AppLog.instance.error('[QrScannerPage] MobileScanner error: $error', tag: 'QR');
-                    return const Center(
-                      child: Icon(Icons.error, color: Colors.red, size: 48),
+                // 相机预览：改用 QRView（ZXing）
+                QRView(
+                  key: _qrKey,
+                  onQRViewCreated: _onQRViewCreated,
+                  // overlay 我们自己画，所以这里用默认/不额外绘制也行
+                  onPermissionSet: (ctrl, p) {
+                    AppLog.instance.debug(
+                      '[QrScannerPage] permissionSet: $p',
+                      tag: 'QR',
                     );
+                    if (!p && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            context.l10n.camera_permission_denied, // 自己的文案 key
+                          ),
+                        ),
+                      );
+                    }
                   },
                 ),
 
                 // 扫描框覆盖层（ROI 镂空 + 候选框）
-                _buildScannerOverlay(scanRect: scanRect, candidate: _candidateRect),
+                _buildScannerOverlay(
+                  scanRect: scanRect,
+                  candidate: _candidateRect,
+                ),
 
                 // 提示开启闪光灯
                 if (_suggestTorch && !_isTorchOn)
@@ -264,7 +308,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.6),
                           borderRadius: BorderRadius.circular(16),
@@ -272,21 +319,34 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.light_mode, color: Colors.yellow, size: 16),
+                            const Icon(
+                              Icons.light_mode,
+                              color: Colors.yellow,
+                              size: 16,
+                            ),
                             const SizedBox(width: 6),
-                            Text(context.l10n.dark_env_hint, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            Text(
+                              context.l10n.dark_env_hint,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             TextButton(
                               onPressed: _toggleTorch,
-                              child: Text(context.l10n.turn_on, style: const TextStyle(color: Colors.yellow)),
+                              child: Text(
+                                context.l10n.turn_on,
+                                style: const TextStyle(
+                                  color: Colors.yellow,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-
-                // 已按需求移除上下方的文案提示（状态指示器与底部提示信息）
               ],
             );
           },
@@ -296,7 +356,10 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   }
 
   /// 构建扫描框覆盖层（含 ROI 镂空与候选框）
-  Widget _buildScannerOverlay({required Rect scanRect, Rect? candidate}) {
+  Widget _buildScannerOverlay({
+    required Rect scanRect,
+    Rect? candidate,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
@@ -318,7 +381,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
               ),
             ),
 
-            // 关闭候选框高亮，避免扫描时绿色闪烁
+            // 这里原来有候选框高亮，现在关闭避免闪烁
           ],
         );
       },
@@ -329,7 +392,6 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   List<Widget> _buildCornerDecorations() {
     const cornerSize = 20.0;
     const cornerWidth = 3.0;
-    // Use neutral color to avoid green flicker perception
     const color = Colors.white;
 
     return [
@@ -406,13 +468,20 @@ class _OverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = const Color(0x88000000);
     final bg = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final hole = Path()..addRRect(RRect.fromRectAndRadius(scanRect, const Radius.circular(16)));
+    final hole = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          scanRect,
+          const Radius.circular(16),
+        ),
+      );
     final overlay = Path.combine(PathOperation.difference, bg, hole);
     canvas.drawPath(overlay, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _OverlayPainter oldDelegate) => oldDelegate.scanRect != scanRect;
+  bool shouldRepaint(covariant _OverlayPainter oldDelegate) =>
+      oldDelegate.scanRect != scanRect;
 }
 
 /// QR扫描状态
@@ -428,7 +497,12 @@ class _CandidateUpdateResult {
   final bool isStable;
   final int hitCount;
   final int elapsedMs;
-  const _CandidateUpdateResult(this.isStable, this.hitCount, this.elapsedMs);
+
+  const _CandidateUpdateResult(
+    this.isStable,
+    this.hitCount,
+    this.elapsedMs,
+  );
 }
 
 /// 候选追踪：多帧一致性与位置稳定
@@ -442,7 +516,7 @@ class _CandidateTracker {
 
   _CandidateUpdateResult update(String value) {
     final now = DateTime.now();
-    if (_firstAt == null) _firstAt = now;
+    _firstAt ??= now;
 
     if (_lastValue == value) {
       _hits += 1;
@@ -452,7 +526,7 @@ class _CandidateTracker {
     }
 
     _lastValue = value;
-    final inWindow = now.difference(_firstAt!) <= _window;
+    final inWindow = now.difference(_firstAt!).compareTo(_window) <= 0;
     final ok = _hits >= _minHits && inWindow;
     final elapsed = now.difference(_firstAt!).inMilliseconds;
     return _CandidateUpdateResult(ok, _hits, elapsed);

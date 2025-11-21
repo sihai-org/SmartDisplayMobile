@@ -203,6 +203,12 @@ abstract class AppLocalizations {
   /// **'Camera Permission'**
   String get camera_permission;
 
+  /// No description provided for @camera_permission_denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera permission denied. Please enable it in Settings.'**
+  String get camera_permission_denied;
+
   /// No description provided for @manage_qr_permission.
   ///
   /// In en, this message translates to:

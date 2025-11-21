@@ -63,6 +63,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get camera_permission => '相机权限';
 
   @override
+  String get camera_permission_denied => '相机权限被拒绝，请在系统设置中开启。';
+
+  @override
   String get manage_qr_permission => '管理二维码扫描权限';
 
   @override
@@ -435,12 +438,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String wifi_frequency_mhz_label(Object mhz) {
-    return '频率: ${mhz} MHz';
+    return '频率: $mhz MHz';
   }
 
   @override
   String wifi_rssi_percent_label(Object percent) {
-    return 'RSSI: ${percent}%';
+    return 'RSSI: $percent%';
   }
 
   @override

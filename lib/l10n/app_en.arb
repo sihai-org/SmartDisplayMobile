@@ -19,6 +19,7 @@
   "bluetooth_settings": "Bluetooth Settings",
   "manage_bluetooth": "Manage Bluetooth connection and permissions",
   "camera_permission": "Camera Permission",
+  "camera_permission_denied": "Camera permission denied. Please enable it in Settings.",
   "manage_qr_permission": "Manage QR scanning permission",
   "about": "About",
   "help": "Help",
