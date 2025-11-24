@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Open Smart Display App</title>
+    <title>Open VznGPT App</title>
     <style>
         body {
             display: flex;
@@ -22,6 +22,12 @@
             width: 100px;
             height: 100px;
             border-radius: 12px;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         button {
@@ -45,10 +51,14 @@
     <img class="logo" src="https://m.vzngpt.com/images/logo.png" alt="logo" />
     <h2>Open VznGPT</h2>
     <p>If the app doesn't open automatically, <br />please tap the button below</p>
-    <button id="openAppBtn">Tap to Open VznGPT</button>
+    <div class="actions">
+        <button id="openAppBtn">Tap to Open VznGPT</button>
+        <button id="downloadAndroidBtn" style="display: none;">Download for Android</button>
+    </div>
 
     <script>
         const openBtn = document.getElementById('openAppBtn');
+        const downloadBtn = document.getElementById('downloadAndroidBtn');
         // 直接透传当前页面 URL 参数
         const queryString = window.location.search.substring(1); // 去掉 '?'
 
@@ -66,6 +76,7 @@
         const intentUrl = `intent://connect?${queryString}#Intent;scheme=smartdisplay;package=com.datou.smart_display_mobile;end`;
         const androidAppId = "com.datou.smart_display_mobile"
         const playStoreLink = `https://play.google.com/store/apps/details?id=${androidAppId}`;
+        const androidDownloadLink = "https://m.vzngpt.com/mobile_apps/1.0.1/VznGpt.apk";
 
         function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
         function isSafari() {
@@ -100,6 +111,10 @@
 
         if (isAndroid()) {
             window.onload = openApp;
+            downloadBtn.style.display = 'block';
+            downloadBtn.addEventListener('click', () => {
+                window.location.href = androidDownloadLink;
+            });
         }
 
         openBtn.addEventListener('click', openApp);
