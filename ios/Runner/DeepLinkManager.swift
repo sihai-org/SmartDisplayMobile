@@ -42,14 +42,14 @@ class DeepLinkManager {
 
   private func shouldHandle(url: URL) -> Bool {
     // Accept:
-    // - https://smartdisplay.mareo.ai/launch.html?... or /connect
-    // - https://m.smartdisplay.mareo.ai/launch.html?... or /connect
+    // - https://vzngpt.com/launch.html?... or /connect
+    // - https://m.vzngpt.com/launch.html?... or /connect
     // - smartdisplay://connect?... (custom scheme)
     if let scheme = url.scheme?.lowercased() {
       if scheme == "http" || scheme == "https" {
         let host = url.host?.lowercased() ?? ""
         let path = url.path.lowercased()
-        let hostOk = host == "smartdisplay.mareo.ai" || host == "m.smartdisplay.mareo.ai"
+        let hostOk = host == "vzngpt.com" || host == "m.vzngpt.com"
         let pathOk = path == "/launch.html" || path == "/connect"
         return hostOk && pathOk
       }

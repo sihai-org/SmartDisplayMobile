@@ -6,7 +6,7 @@ import '../log/app_log.dart';
 /// QR码数据解析工具
 class QrDataParser {
   /// 从 QR 码内容创建设备数据
-  /// 紧凑URL格式：https://m.smartdisplay.mareo.ai/launch.html?ts=...&id=...&n=...&fv=...&ba=...&pk=...
+  /// 紧凑URL格式：https://m.vzngpt.com/launch.html?ts=...&id=...&n=...&fv=...&ba=...&pk=...
   static DeviceQrData fromQrContent(String qrContent) {
     final trimmed = qrContent.trim();
     AppLog.instance.debug("📷 QrDataParser 收到内容(${trimmed.length}): $trimmed", tag: 'QR');
@@ -15,8 +15,8 @@ class QrDataParser {
     try {
       final uri = Uri.parse(trimmed);
       if (uri.scheme == 'http' || uri.scheme == 'https') {
-        // 允许 smartdisplay.mareo.ai 与 m.smartdisplay.mareo.ai，路径为 /launch.html 或 /connect
-        final hostOk = uri.host == 'm.smartdisplay.mareo.ai' || uri.host == 'smartdisplay.mareo.ai';
+        // 允许 vzngpt.com 与 m.vzngpt.com，路径为 /launch.html 或 /connect
+        final hostOk = uri.host == 'm.vzngpt.com' || uri.host == 'vzngpt.com';
         final pathOk = uri.path == '/launch.html' || uri.path == '/connect';
         if (hostOk && pathOk) {
           String? tsStr = uri.queryParameters['ts'];
