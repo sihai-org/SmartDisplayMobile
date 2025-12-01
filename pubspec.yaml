@@ -79,6 +79,8 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_dotenv: ^6.0.0
   qr_code_scanner_plus: ^2.0.14
+  image_picker: ^1.0.7
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

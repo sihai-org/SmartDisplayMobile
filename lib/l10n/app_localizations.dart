@@ -1156,6 +1156,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Network not connected'**
   String get network_not_connected;
+
+  /// No description provided for @device_edit_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Device'**
+  String get device_edit_title;
+
+  /// No description provided for @edit_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit device'**
+  String get edit_device;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @wallpaper_section_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper'**
+  String get wallpaper_section_title;
+
+  /// No description provided for @wallpaper_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Default wallpaper'**
+  String get wallpaper_default;
+
+  /// No description provided for @wallpaper_default_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the built-in wallpaper'**
+  String get wallpaper_default_hint;
+
+  /// No description provided for @wallpaper_custom_upload.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom upload'**
+  String get wallpaper_custom_upload;
+
+  /// No description provided for @wallpaper_custom_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload an image as the wallpaper'**
+  String get wallpaper_custom_hint;
+
+  /// No description provided for @layout_section_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get layout_section_title;
+
+  /// No description provided for @layout_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Default layout'**
+  String get layout_default;
+
+  /// No description provided for @layout_default_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard content arrangement'**
+  String get layout_default_hint;
+
+  /// No description provided for @layout_frame.
+  ///
+  /// In en, this message translates to:
+  /// **'Frame layout'**
+  String get layout_frame;
+
+  /// No description provided for @layout_frame_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo-forward layout like a frame'**
+  String get layout_frame_hint;
+
+  /// No description provided for @save_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Save settings'**
+  String get save_settings;
+
+  /// No description provided for @reset_to_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default'**
+  String get reset_to_default;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

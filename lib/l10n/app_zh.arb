@@ -198,5 +198,20 @@
   "rescan": "重新扫描"
   ,
   "last_updated": "上次更新",
-  "network_not_connected": "网络未连接"
+  "network_not_connected": "网络未连接",
+  "device_edit_title": "设备编辑",
+  "edit_device": "编辑设备",
+  "done": "完成",
+  "wallpaper_section_title": "壁纸",
+  "wallpaper_default": "默认壁纸",
+  "wallpaper_default_hint": "使用系统提供的默认壁纸",
+  "wallpaper_custom_upload": "自定义上传",
+  "wallpaper_custom_hint": "上传一张图片作为设备壁纸",
+  "layout_section_title": "布局",
+  "layout_default": "默认布局",
+  "layout_default_hint": "标准内容排版",
+  "layout_frame": "相框布局",
+  "layout_frame_hint": "突出展示照片的相框式排版",
+  "save_settings": "保存设置",
+  "reset_to_default": "恢复默认"
 }

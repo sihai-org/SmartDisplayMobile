@@ -18,7 +18,9 @@
     <!-- Camera permission for QR code scanning -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Storage permissions removed: no gallery usage -->
+    <!-- Photo/Media access for gallery upload -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <!-- Internet permission for future use -->
     <uses-permission android:name="android.permission.INTERNET" />

@@ -113,7 +113,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get splash_title => 'Hello';
 
   @override
-  String get splash_subtitle => 'Datou SmartDisplay';
+  String get splash_subtitle => 'VznGPT';
 
   @override
   String get login_email => 'Email';
@@ -584,4 +584,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get network_not_connected => 'Network not connected';
+
+  @override
+  String get device_edit_title => 'Edit Device';
+
+  @override
+  String get edit_device => 'Edit device';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get wallpaper_section_title => 'Wallpaper';
+
+  @override
+  String get wallpaper_default => 'Default wallpaper';
+
+  @override
+  String get wallpaper_default_hint => 'Use the built-in wallpaper';
+
+  @override
+  String get wallpaper_custom_upload => 'Custom upload';
+
+  @override
+  String get wallpaper_custom_hint => 'Upload an image as the wallpaper';
+
+  @override
+  String get layout_section_title => 'Layout';
+
+  @override
+  String get layout_default => 'Default layout';
+
+  @override
+  String get layout_default_hint => 'Standard content arrangement';
+
+  @override
+  String get layout_frame => 'Frame layout';
+
+  @override
+  String get layout_frame_hint => 'Photo-forward layout like a frame';
+
+  @override
+  String get save_settings => 'Save settings';
+
+  @override
+  String get reset_to_default => 'Reset to default';
 }

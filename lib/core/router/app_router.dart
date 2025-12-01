@@ -12,6 +12,7 @@ import '../../presentation/pages/bind_confirm_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
+import '../../presentation/pages/device_edit_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../audit/audit_mode.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -28,6 +29,7 @@ class AppRoutes {
   static const String qrCodeResult = '/qrcode_res';
   static const String deviceManagement = '/device-management';
   static const String accountSecurity = '/account-security';
+  static const String deviceEdit = '/device-edit';
 }
 
 /// Router configuration
@@ -108,6 +110,20 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.deviceManagement,
       name: 'device-management',
       builder: (context, state) => const DeviceManagementPage(),
+    ),
+
+    // Device Edit Page
+    GoRoute(
+      path: AppRoutes.deviceEdit,
+      name: 'device-edit',
+      builder: (context, state) {
+        final deviceId = state.uri.queryParameters['displayDeviceId'];
+        final deviceName = state.uri.queryParameters['deviceName'];
+        return DeviceEditPage(
+          displayDeviceId: deviceId,
+          deviceName: deviceName,
+        );
+      },
     ),
 
     // Account & Security Page

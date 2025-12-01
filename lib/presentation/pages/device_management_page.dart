@@ -6,6 +6,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/log/app_log.dart';
+import '../widgets/device_edit_icon_button.dart';
 
 class DeviceManagementPage extends ConsumerStatefulWidget {
   const DeviceManagementPage({super.key});
@@ -66,63 +67,82 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
         final device = state.devices[index];
         final isSelected = device.displayDeviceId == state.lastSelectedId;
 
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Image.asset(
-              'assets/images/device.png',
-              width: 56,
-              height: 56,
-              fit: BoxFit.contain,
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    device.deviceName.isNotEmpty ? device.deviceName : context.l10n.unknown_device,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                  ),
+        return Stack(
+          children: [
+            Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+
+                leading: Image.asset(
+                  'assets/images/device.png',
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.contain,
                 ),
 
-                /// 仅展示状态，不可点击
-                Icon(
+                // 主要文字区域（名称 + 描述）
+                title: Text(
+                  device.deviceName.isNotEmpty
+                      ? device.deviceName
+                      : context.l10n.unknown_device,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+                    Text(
+                      '${context.l10n.device_id_label}: ${device.displayDeviceId}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                      ),
+                    ),
+                    if (device.lastConnectedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${context.l10n.last_connected_at}: ${_formatDateTime(context, device.lastConnectedAt!)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                // 右侧的 selected 图标
+                trailing: Icon(
                   isSelected ? Icons.task_alt : Icons.radio_button_unchecked,
                   color: isSelected ? Colors.green : Colors.grey,
                 ),
-              ],
+
+                // 点击进入详情
+                onTap: () {
+                  context.go(
+                    '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}',
+                  );
+                },
+              ),
             ),
-            onTap: () {
-              context.go(
-                  '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(device.displayDeviceId)}');
-            },
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                Text(
-                  '${context.l10n.device_id_label}: ${device.displayDeviceId}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                      ),
-                ),
-                // 隐藏 BLE 地址展示
-                if (device.lastConnectedAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '${context.l10n.last_connected_at}: ${_formatDateTime(context, device.lastConnectedAt!)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ],
+
+            // 右上角独立悬浮的 edit icon
+            Positioned(
+              top: 4,
+              right: 4,
+              child: DeviceEditIconButton(
+                displayDeviceId: device.displayDeviceId,
+                deviceName: device.deviceName,
+                padding: const EdgeInsets.all(4),
+              ),
             ),
-          ),
+          ],
         );
       },
     );

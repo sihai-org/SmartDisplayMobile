@@ -43,6 +43,10 @@
 	<string>This app uses Bluetooth to connect and configure your smart display device.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to scan QR codes on your device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow photo library access to upload device wallpapers.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow saving the uploaded wallpaper locally on this device.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app needs local network access to connect to your device.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

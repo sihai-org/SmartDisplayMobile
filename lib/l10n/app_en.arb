@@ -198,5 +198,20 @@
   "rescan": "Rescan"
   ,
   "last_updated": "Last updated",
-  "network_not_connected": "Network not connected"
+  "network_not_connected": "Network not connected",
+  "device_edit_title": "Edit Device",
+  "edit_device": "Edit device",
+  "done": "Done",
+  "wallpaper_section_title": "Wallpaper",
+  "wallpaper_default": "Default wallpaper",
+  "wallpaper_default_hint": "Use the built-in wallpaper",
+  "wallpaper_custom_upload": "Custom upload",
+  "wallpaper_custom_hint": "Upload an image as the wallpaper",
+  "layout_section_title": "Layout",
+  "layout_default": "Default layout",
+  "layout_default_hint": "Standard content arrangement",
+  "layout_frame": "Frame layout",
+  "layout_frame_hint": "Photo-forward layout like a frame",
+  "save_settings": "Save settings",
+  "reset_to_default": "Reset to default"
 }

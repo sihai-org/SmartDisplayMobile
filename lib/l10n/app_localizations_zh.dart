@@ -584,4 +584,49 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get network_not_connected => '网络未连接';
+
+  @override
+  String get device_edit_title => '设备编辑';
+
+  @override
+  String get edit_device => '编辑设备';
+
+  @override
+  String get done => '完成';
+
+  @override
+  String get wallpaper_section_title => '壁纸';
+
+  @override
+  String get wallpaper_default => '默认壁纸';
+
+  @override
+  String get wallpaper_default_hint => '使用系统提供的默认壁纸';
+
+  @override
+  String get wallpaper_custom_upload => '自定义上传';
+
+  @override
+  String get wallpaper_custom_hint => '上传一张图片作为设备壁纸';
+
+  @override
+  String get layout_section_title => '布局';
+
+  @override
+  String get layout_default => '默认布局';
+
+  @override
+  String get layout_default_hint => '标准内容排版';
+
+  @override
+  String get layout_frame => '相框布局';
+
+  @override
+  String get layout_frame_hint => '突出展示照片的相框式排版';
+
+  @override
+  String get save_settings => '保存设置';
+
+  @override
+  String get reset_to_default => '恢复默认';
 }
