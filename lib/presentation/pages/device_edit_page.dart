@@ -141,37 +141,36 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
       elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              deviceName,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            Image.asset(
+              'assets/images/device.png',
+              height: 62,
+              fit: BoxFit.contain,
             ),
-            if (deviceId != null && deviceId.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                deviceId,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    deviceName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  if (deviceId != null && deviceId.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      deviceId,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Image.asset(
-                  'assets/images/device.png',
-                  height: 120,
-                  fit: BoxFit.contain,
-                ),
+                  ],
+                ],
               ),
             ),
           ],
