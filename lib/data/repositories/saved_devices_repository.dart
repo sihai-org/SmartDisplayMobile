@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/device_qr_data.dart';
 import 'dart:convert';
 import '../../core/audit/audit_mode.dart';
+import '../../core/constants/storage_keys.dart';
 import '../../core/log/app_log.dart';
 
 class SavedDeviceRecord {
@@ -78,9 +79,6 @@ class SavedDeviceRecord {
 }
 
 class SavedDevicesRepository {
-  static const _keyDevices = 'saved_devices_v1';
-  static const _keyLastSelectedId = 'saved_devices_last_selected_v1';
-
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   String? _currentUserId() {
@@ -91,13 +89,13 @@ class SavedDevicesRepository {
   String? _devicesKeyForCurrentUser() {
     final uid = _currentUserId();
     if (uid == null) return null;
-    return '${_keyDevices}_$uid';
+    return '${StorageKeys.savedDevicesBase}_$uid';
   }
 
   String? _lastSelectedKeyForCurrentUser() {
     final uid = _currentUserId();
     if (uid == null) return null;
-    return '${_keyLastSelectedId}_$uid';
+    return '${StorageKeys.savedDevicesLastSelectedBase}_$uid';
   }
 
   // Load locally cached devices (scoped to current user)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
+import '../../core/constants/feature_gray.dart';
 
 class DeviceEditIconButton extends StatelessWidget {
   final String displayDeviceId;
@@ -17,6 +18,10 @@ class DeviceEditIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!FeatureGray.editDeviceGray) {
+      return const SizedBox.shrink();
+    }
+
     if (displayDeviceId.isEmpty) {
       return const SizedBox.shrink();
     }

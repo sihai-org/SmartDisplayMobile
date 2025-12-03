@@ -1,15 +1,20 @@
 import 'dart:io';
 
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../core/models/device_customization.dart';
-import '../../core/l10n/l10n_extensions.dart';
+import 'package:smart_display_mobile/core/log/app_log.dart';
 
-class DeviceEditPage extends StatefulWidget {
+import '../../core/l10n/l10n_extensions.dart';
+import '../../core/models/device_customization.dart';
+import '../../core/providers/device_customization_provider.dart';
+import '../../core/utils/image_processing.dart';
+
+class DeviceEditPage extends ConsumerStatefulWidget {
   final String? displayDeviceId;
   final String? deviceName;
 
@@ -20,33 +25,53 @@ class DeviceEditPage extends StatefulWidget {
   });
 
   @override
-  State<DeviceEditPage> createState() => _DeviceEditPageState();
+  ConsumerState<DeviceEditPage> createState() => _DeviceEditPageState();
 }
 
-class _DeviceEditPageState extends State<DeviceEditPage> {
+class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   static const double _wallpaperViewportFraction = 0.82;
   static const double _wallpaperAspectRatio = 16 / 9;
+
   static const double _layoutViewportFraction = 0.86;
 
-  String _layout = 'default';
-  int _layoutViewedIndex = 0;
-  double _layoutPage = 0;
-  int _selectedWallpaperIndex = 0;
-  int _viewedWallpaperIndex = 0;
+  int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
-  bool _hasCustomWallpaper = false;
-  bool _isUploading = false;
-  String? _localWallpaperPath;
+
+  int _layoutPageIndex = 0;
+  double _layoutPage = 0;
+
   PageController? _wallpaperController;
   PageController? _layoutController;
+
+  bool get _hasCustomWallpaper =>
+      ref
+          .read(deviceCustomizationProvider)
+          .customization
+          .customWallpaperInfo
+          ?.hasData ??
+          false;
+
+  int get _selectedWallpaperPageIndex {
+    final c = ref.read(deviceCustomizationProvider).customization;
+    return c.effectiveWallpaper == DeviceCustomization.customWallpaper ? 1 : 0;
+  }
+
+  String get _layoutValue =>
+      ref.read(deviceCustomizationProvider).customization.effectiveLayout;
 
   @override
   void initState() {
     super.initState();
     _ensureWallpaperController();
-    final initialLayoutPage = _layout == 'frame' ? 1 : 0;
-    _layoutViewedIndex = initialLayoutPage;
-    _ensureLayoutController(initialPage: initialLayoutPage);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(deviceCustomizationProvider.notifier)
+          .load(widget.displayDeviceId)
+          .catchError((error) {
+        _showToast('加载失败：$error');
+      });
+    });
   }
 
   @override
@@ -57,28 +82,55 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
   }
 
   void _resetToDefault() {
+    ref.read(deviceCustomizationProvider.notifier).resetToDefault();
+
     setState(() {
-      _layout = 'default';
-      _selectedWallpaperIndex = 0;
-      _viewedWallpaperIndex = 0;
+      _wallpaperPageIndex = 0;
       _wallpaperPage = 0;
-      _hasCustomWallpaper = false;
-      _isUploading = false;
-      _localWallpaperPath = null;
+      _layoutPageIndex = 0;
+      _layoutPage = 0;
     });
     _wallpaperController?.jumpToPage(0);
+    _layoutController?.jumpToPage(0);
   }
 
-  void _handleSave() {
-    context.pop();
+  Future<void> _handleSave() async {
+    final state = ref.read(deviceCustomizationProvider);
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (state.isSaving) return;
+    if (state.isUploading) {
+      _showToast('壁纸上传中，请稍后保存');
+      return;
+    }
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _showToast('缺少设备 ID，无法保存');
+      return;
+    }
+
+    try {
+      await notifier.saveRemote();
+      _showToast('设置已保存');
+      if (mounted) {
+        context.pop();
+      }
+    } catch (error) {
+      _showToast(error.toString());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(deviceCustomizationProvider);
+
     final l10n = context.l10n;
     final resolvedName = (widget.deviceName ?? '').isEmpty
         ? l10n.unknown_device
         : widget.deviceName!;
+
+    final isSaving = state.isSaving;
+    final isUploading = state.isUploading;
 
     return Scaffold(
       appBar: AppBar(
@@ -86,9 +138,9 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
         title: Text(l10n.device_edit_title),
         actions: [
           TextButton(
-            onPressed: _handleSave,
+            onPressed: (isSaving || isUploading) ? null : _handleSave,
             child: Text(
-              l10n.done,
+              isSaving ? '保存中...' : l10n.done,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -113,10 +165,12 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: _handleSave,
+                    onPressed: (isSaving || isUploading) ? null : _handleSave,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Text(l10n.save_settings),
+                      child: Text(
+                        isSaving ? '保存中...' : l10n.save_settings,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -157,17 +211,17 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                   Text(
                     deviceName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (deviceId != null && deviceId.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       deviceId,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color:
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
@@ -182,18 +236,17 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
   Widget _buildWallpaperSelector() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final state = ref.watch(deviceCustomizationProvider);
+    AppLog.instance.info("~~~~~~~~~~state=${state.localWallpaperPath}");
 
-    // 1. 根据屏幕宽度和 viewportFraction 算出壁纸的宽度
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _wallpaperViewportFraction;
-
-    // 2. 再根据 16:9 算出高度（以后如果别处需要可以直接用）
     final imageHeight = tileWidth / _wallpaperAspectRatio;
 
-    const double verticalGap = 10; // current / image / bottomAction 之间的等距间隔
+    const double verticalGap = 10;
 
-    final isViewingCustom = _viewedWallpaperIndex == 1;
-    final isCurrentView = _selectedWallpaperIndex == _viewedWallpaperIndex;
+    final isViewingCustom = _wallpaperPageIndex == 1;
+    final isCurrentView = _selectedWallpaperPageIndex == _wallpaperPageIndex;
     _ensureWallpaperController();
 
     return Card(
@@ -212,25 +265,18 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                 ),
               ),
             ),
-
-            /// 用一个 Column 把 current / image / bottomAction 包起来，
-            /// 用相同的 SizedBox(height: verticalGap) 保证三者垂直等距
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // current
                 _CurrentToggle(
                   isCurrent: isCurrentView,
                   canSelect: !isCurrentView &&
                       !(isViewingCustom && !_hasCustomWallpaper),
                   currentLabel: '当前',
                   setLabel: '设为当前',
-                  onSelect: () => _setCurrentWallpaper(_viewedWallpaperIndex),
+                  onSelect: () => _setCurrentWallpaper(_wallpaperPageIndex),
                 ),
-
                 const SizedBox(height: verticalGap),
-
-                // image（壁纸预览），根据屏幕宽度计算 16:9 宽高
                 Center(
                   child: SizedBox(
                     width: tileWidth,
@@ -241,23 +287,22 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                         controller: _wallpaperController,
                         itemCount: 2,
                         onPageChanged: (index) {
-                          setState(() => _viewedWallpaperIndex = index);
+                          setState(() => _wallpaperPageIndex = index);
                         },
                         itemBuilder: (context, index) {
                           final distance = (_wallpaperPage - index).abs();
                           final scale = (1 - distance * 0.08).clamp(0.9, 1.0);
 
                           return AspectRatio(
-                            aspectRatio: 16 / 9, // 16:9 边框
+                            aspectRatio: 16 / 9,
                             child: AnimatedScale(
                               scale: scale,
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeOut,
                               alignment: Alignment.center,
-                              // 中心缩放
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(18),
-                                child: ImageWidget(index),
+                                child: _wallpaperImageWidget(index, state),
                               ),
                             ),
                           );
@@ -266,10 +311,7 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: verticalGap + 4),
-
-                // bottomAction
                 _buildBottomAction(isViewingCustom: isViewingCustom),
               ],
             ),
@@ -299,14 +341,14 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
       ),
     ];
     final selectedIndex =
-        options.indexWhere((option) => option.value == _layout);
+    options.indexWhere((option) => option.value == _layoutValue);
     final effectiveIndex = selectedIndex == -1 ? 0 : selectedIndex;
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _layoutViewportFraction;
     final imageHeight = tileWidth / _wallpaperAspectRatio;
     final isCurrentView =
-        options[_layoutViewedIndex.clamp(0, options.length - 1)].value ==
-            _layout;
+        options[_layoutPageIndex.clamp(0, options.length - 1)].value ==
+            _layoutValue;
 
     _ensureLayoutController(initialPage: effectiveIndex);
 
@@ -333,8 +375,8 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                 currentLabel: '当前',
                 setLabel: '设为当前',
                 onSelect: () => _setLayout(
-                  options[_layoutViewedIndex].value,
-                  _layoutViewedIndex,
+                  options[_layoutPageIndex].value,
+                  _layoutPageIndex,
                 ),
               ),
             ),
@@ -349,7 +391,7 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                   itemCount: options.length,
                   onPageChanged: (index) {
                     setState(() {
-                      _layoutViewedIndex = index;
+                      _layoutPageIndex = index;
                     });
                   },
                   itemBuilder: (context, index) {
@@ -364,7 +406,7 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
                       alignment: Alignment.center,
                       child: _LayoutPreviewCard(
                         option: option,
-                        isSelected: _layout == option.value,
+                        isSelected: _layoutValue == option.value,
                         onSelect: () => _setLayout(option.value, index),
                       ),
                     );
@@ -380,8 +422,13 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
 
   void _ensureWallpaperController() {
     if (_wallpaperController != null) return;
-    final controller =
-        PageController(viewportFraction: _wallpaperViewportFraction);
+    final initialPage = _selectedWallpaperPageIndex;
+    _wallpaperPageIndex = initialPage;
+    _wallpaperPage = initialPage.toDouble();
+    final controller = PageController(
+      viewportFraction: _wallpaperViewportFraction,
+      initialPage: initialPage,
+    );
     controller.addListener(() {
       final page = controller.page;
       if (!mounted || page == null) return;
@@ -393,7 +440,10 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
   void _ensureLayoutController({int initialPage = 0}) {
     if (_layoutController != null) return;
     final controller = PageController(
-        viewportFraction: _layoutViewportFraction, initialPage: initialPage);
+      viewportFraction: _layoutViewportFraction,
+      initialPage: initialPage,
+    );
+    _layoutPageIndex = initialPage;
     _layoutPage = initialPage.toDouble();
     controller.addListener(() {
       final page = controller.page;
@@ -403,98 +453,82 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
     _layoutController = controller;
   }
 
-  Widget _buildDefaultWallpaperPreview() {
-    return Container(
-      decoration: const BoxDecoration(color: Colors.black12),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/images/device_wallpaper_default.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, _, __) {
-              // Fallback in case asset is missing in the current build.
-              return Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF20387A), Color(0xFF5173E0)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget ImageWidget(int index) {
+  Widget _wallpaperImageWidget(
+      int index,
+      DeviceCustomizationState state,
+      ) {
     return switch (index) {
       0 => Image.asset(
-          'assets/images/device_wallpaper_default.png',
-          fit: BoxFit.cover,
-        ),
+        'assets/images/device_wallpaper_default.png',
+        fit: BoxFit.cover,
+      ),
       _ => _hasCustomWallpaper
-          ? Image.file(File(_localWallpaperPath!), fit: BoxFit.cover)
+          ? _buildUploadedWallpaperPreview(state)
           : _buildUploadPlaceholder(),
     };
   }
 
-  Widget _buildUploadedWallpaperPreview() {
-    final fallbackDecoration = BoxDecoration(
-      gradient: const LinearGradient(
+  Widget _buildUploadedWallpaperPreview(DeviceCustomizationState state) {
+    const fallbackDecoration = BoxDecoration(
+      gradient: LinearGradient(
         colors: [Color(0xFF1E1E1E), Color(0xFF444545)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
     );
-    final path = _localWallpaperPath;
+    final path = state.localWallpaperPath;
+    final cacheKey = state.customization.customWallpaperInfo?.md5.isNotEmpty == true
+        ? state.customization.customWallpaperInfo!.md5
+        : state.customization.customWallpaperInfo?.key ?? path;
 
     return path != null
         ? Image.file(
-            File(path),
-            fit: BoxFit.cover,
-            errorBuilder: (context, _, __) {
-              return Container(decoration: fallbackDecoration);
-            },
-          )
+      File(path),
+      key: ValueKey(cacheKey ?? path),
+      fit: BoxFit.cover,
+      errorBuilder: (context, _, __) {
+        return Container(decoration: fallbackDecoration);
+      },
+    )
         : Container(decoration: fallbackDecoration);
   }
 
   Widget _buildUploadPlaceholder() {
+    final state = ref.watch(deviceCustomizationProvider);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade300,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
-        child: _isUploading
+        child: state.isUploading
             ? const CircularProgressIndicator()
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(
-                    Icons.wallpaper_outlined,
-                    size: 48,
-                    color: Colors.black45,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '未上传壁纸',
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            : const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.wallpaper_outlined,
+              size: 48,
+              color: Colors.black45,
+            ),
+            SizedBox(height: 8),
+            Text(
+              '未上传壁纸',
+              style: TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildBottomAction({required bool isViewingCustom}) {
+    final state = ref.watch(deviceCustomizationProvider);
+
     if (!isViewingCustom) {
       return const SizedBox(height: 48);
     }
@@ -502,7 +536,7 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
     if (!_hasCustomWallpaper) {
       return Center(
         child: ElevatedButton.icon(
-          onPressed: _isUploading ? null : _handleUploadTap,
+          onPressed: state.isUploading ? null : _handleUploadTap,
           icon: const Icon(Icons.photo_library_outlined),
           label: const Text('从相册上传'),
           style: ElevatedButton.styleFrom(
@@ -516,7 +550,7 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         OutlinedButton.icon(
-          onPressed: _isUploading ? null : _handleDeleteWallpaper,
+          onPressed: state.isUploading ? null : _handleDeleteWallpaper,
           icon: const Icon(Icons.delete_outline),
           label: const Text('删除'),
           style: OutlinedButton.styleFrom(
@@ -525,26 +559,35 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
         ),
         const SizedBox(width: 12),
         FilledButton.tonalIcon(
-          onPressed: _isUploading ? null : _handleUploadTap,
-          icon: _isUploading
+          onPressed: state.isUploading ? null : _handleUploadTap,
+          icon: state.isUploading
               ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                )
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          )
               : const Icon(Icons.refresh),
-          label: Text(_isUploading ? '处理中...' : '重新上传'),
+          label: Text(state.isUploading ? '处理中...' : '重新上传'),
         ),
       ],
     );
   }
 
   Future<void> _handleUploadTap() async {
-    if (_isUploading) return;
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+    final state = ref.read(deviceCustomizationProvider);
+
+    if (state.isUploading) return;
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _showToast('缺少设备 ID，无法上传壁纸');
+      return;
+    }
 
     final hasPermission = await _ensurePhotoPermission();
     if (!hasPermission) {
-      _showSnack('需要相册权限才能上传壁纸');
+      _showToast('需要相册权限才能上传壁纸');
       return;
     }
 
@@ -552,61 +595,76 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
 
-    final validationMessage = await _validateImage(picked);
+    final validationMessage = _validateImageFormat(picked);
     if (validationMessage != null) {
-      _showSnack(validationMessage);
+      _showToast(validationMessage);
       return;
     }
 
-    setState(() => _isUploading = true);
-
     try {
-      await _mockUpload(picked);
-      final savedPath = await _saveImageLocally(picked);
-      setState(() {
-        _hasCustomWallpaper = true;
-        _localWallpaperPath = savedPath;
-      });
+      final processed = await WallpaperImageProcessor.processWallpaper(
+        bytes: await picked.readAsBytes(),
+        sourcePath: picked.path,
+      );
+
+      await notifier.applyProcessedWallpaper(
+        deviceId: deviceId,
+        processed: processed,
+      );
+
       _setCurrentWallpaper(1);
-      _showSnack('壁纸上传成功');
+      _showToast('壁纸上传成功');
     } catch (error) {
-      _showSnack('上传失败：$error');
-    } finally {
-      if (mounted) {
-        setState(() => _isUploading = false);
-      }
+      _showToast('上传失败：$error');
     }
   }
 
   Future<void> _handleDeleteWallpaper() async {
-    if (_isUploading) return;
+    final state = ref.read(deviceCustomizationProvider);
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
 
-    final path = _localWallpaperPath;
-    if (path != null) {
-      final file = File(path);
-      if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (_) {
-          // Ignore deletion errors; proceed to clear state.
-        }
-      }
+    if (state.isUploading) return;
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _showToast('缺少设备 ID，无法删除壁纸');
+      return;
     }
 
-    setState(() {
-      _hasCustomWallpaper = false;
-      _localWallpaperPath = null;
-      if (_selectedWallpaperIndex == 1) {
-        _selectedWallpaperIndex = 0;
-      }
-    });
+    final wasUsingCustom = _selectedWallpaperPageIndex == 1;
 
-    _showSnack('已删除上传的壁纸');
+    await notifier.deleteWallpaper(deviceId);
+
+    // if (wasUsingCustom) {
+    //   setState(() {
+    //     _wallpaperPageIndex = 0;
+    //     _wallpaperPage = 0;
+    //   });
+    //   _wallpaperController?.animateToPage(
+    //     0,
+    //     duration: const Duration(milliseconds: 220),
+    //     curve: Curves.easeOut,
+    //   );
+    // }
+
+    _showToast('已删除上传的壁纸');
   }
 
   void _setCurrentWallpaper(int index) {
-    if (_selectedWallpaperIndex == index) return;
-    setState(() => _selectedWallpaperIndex = index);
+    final state = ref.read(deviceCustomizationProvider);
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (_selectedWallpaperPageIndex == index) return;
+
+    final targetWallpaper = index == 1
+        ? DeviceCustomization.customWallpaper
+        : DeviceCustomization.defaultWallpaper;
+
+    notifier.updateWallpaper(
+      state.customization.customWallpaperInfo,
+      wallpaper: targetWallpaper,
+    );
+
     _wallpaperController?.animateToPage(
       index,
       duration: const Duration(milliseconds: 220),
@@ -615,10 +673,13 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
   }
 
   void _setLayout(String value, int index) {
-    if (_layout == value && _layoutViewedIndex == index) return;
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (_layoutValue == value && _layoutPageIndex == index) return;
+    notifier.updateLayout(value);
+
     setState(() {
-      _layout = value;
-      _layoutViewedIndex = index;
+      _layoutPageIndex = index;
     });
     _layoutController?.animateToPage(
       index,
@@ -634,57 +695,32 @@ class _DeviceEditPageState extends State<DeviceEditPage> {
     ].request();
 
     final granted = requestedStatuses.values.any(
-      (status) => status.isGranted || status.isLimited,
+          (status) => status.isGranted || status.isLimited,
     );
     if (granted) return true;
 
     final permanentlyDenied =
-        requestedStatuses.values.any((status) => status.isPermanentlyDenied);
+    requestedStatuses.values.any((status) => status.isPermanentlyDenied);
     if (permanentlyDenied) {
       await openAppSettings();
     }
     return false;
   }
 
-  Future<String?> _validateImage(XFile file) async {
+  String? _validateImageFormat(XFile file) {
     final extension = p.extension(file.path).toLowerCase();
     const allowed = ['.jpg', '.jpeg', '.png'];
     if (!allowed.contains(extension)) {
       return '仅支持 JPG / PNG 格式的图片';
     }
-
-    const maxSizeBytes = 8 * 1024 * 1024; // 8MB
-    final length = await file.length();
-    if (length > maxSizeBytes) {
-      return '图片过大，请选择 8MB 以内的文件';
-    }
-
     return null;
   }
 
-  Future<WallpaperInfo> _mockUpload(XFile file) async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    return WallpaperInfo(
-      version: DateTime.now().millisecondsSinceEpoch.toString(),
-      url: 'https://m.vzngpt.com/device_web/www.jpg',
-      md5: 'mock-md5',
-      mime: 'image/${p.extension(file.path).replaceFirst('.', '')}',
-    );
-  }
-
-  Future<String> _saveImageLocally(XFile file) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final fileName =
-        'wallpaper_${DateTime.now().millisecondsSinceEpoch}${p.extension(file.path)}';
-    final target = File(p.join(dir.path, fileName));
-    await file.saveTo(target.path);
-    return target.path;
-  }
-
-  void _showSnack(String message) {
+  void _showToast(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    Fluttertoast.showToast(
+      msg: message,
+      gravity: ToastGravity.BOTTOM,
     );
   }
 }
@@ -785,19 +821,19 @@ class _CurrentToggle extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           child: isCurrent
               ? Text(
-                  currentLabel,
-                  key: const ValueKey('current'),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                )
+            currentLabel,
+            key: const ValueKey('current'),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          )
               : FilledButton.tonal(
-                  key: const ValueKey('set'),
-                  onPressed: canSelect ? onSelect : null,
-                  child: Text(setLabel),
-                ),
+            key: const ValueKey('set'),
+            onPressed: canSelect ? onSelect : null,
+            child: Text(setLabel),
+          ),
         ),
       ),
     );

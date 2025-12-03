@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/constants/storage_keys.dart';
 
 class WifiCredentialsRepository {
-  static const _keyBase = 'wifi_credentials_v1';
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   String? _currentUserId() {
@@ -17,7 +17,7 @@ class WifiCredentialsRepository {
   String? _keyForCurrentUser() {
     final uid = _currentUserId();
     if (uid == null || uid.isEmpty) return null;
-    return '${_keyBase}_$uid';
+    return '${StorageKeys.wifiCredentialsBase}_$uid';
     }
 
   Future<Map<String, String>> loadAll() async {
@@ -65,4 +65,3 @@ class WifiCredentialsRepository {
     await saveAll(all);
   }
 }
-
