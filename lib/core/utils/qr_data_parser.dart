@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/device_qr_data.dart';
 import '../log/app_log.dart';
 
+final validUrlHosts = ['m.vzngpt.com', 'vzngpt.com', 'm.smartdisplay.mareo.ai', 'smartdisplay.mareo.ai'];
 /// QR码数据解析工具
 class QrDataParser {
   /// 从 QR 码内容创建设备数据
@@ -16,7 +17,7 @@ class QrDataParser {
       final uri = Uri.parse(trimmed);
       if (uri.scheme == 'http' || uri.scheme == 'https') {
         // 允许 vzngpt.com 与 m.vzngpt.com，路径为 /launch.html 或 /connect
-        final hostOk = uri.host == 'm.vzngpt.com' || uri.host == 'vzngpt.com';
+        final hostOk = validUrlHosts.contains(uri.host);
         final pathOk = uri.path == '/launch.html' || uri.path == '/connect';
         if (hostOk && pathOk) {
           String? tsStr = uri.queryParameters['ts'];

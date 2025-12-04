@@ -45,21 +45,30 @@ class DeviceCustomizationRepository {
     }
   }
 
-  String? _storageKeyForCurrentUser() {
+  String? _resolveUserId({String? fallbackUserId}) {
     final uid = _currentUserId();
+    if (uid != null && uid.isNotEmpty) return uid;
+    if (fallbackUserId != null && fallbackUserId.isNotEmpty) {
+      return fallbackUserId;
+    }
+    return null;
+  }
+
+  String? _storageKeyForUser({String? fallbackUserId}) {
+    final uid = _resolveUserId(fallbackUserId: fallbackUserId);
     if (uid == null || uid.isEmpty) return null;
     return '${StorageKeys.deviceCustomizationBase}_$uid';
   }
 
-  String _currentUserFolder() {
-    final uid = _currentUserId();
+  String _userFolder({String? fallbackUserId}) {
+    final uid = _resolveUserId(fallbackUserId: fallbackUserId);
     if (uid == null || uid.isEmpty) return 'guest';
     return _safeDeviceId(uid);
   }
 
   /// 读本地缓存 { deviceId: DeviceCustomization }
   Future<Map<String, DeviceCustomization>> _loadAll() async {
-    final key = _storageKeyForCurrentUser();
+    final key = _storageKeyForUser();
     if (key == null) return {};
     final raw = await _storage.read(key: key);
     if (raw == null || raw.isEmpty) return {};
@@ -79,7 +88,7 @@ class DeviceCustomizationRepository {
 
   /// 写本地缓存 { deviceId: DeviceCustomization }
   Future<void> _saveAll(Map<String, DeviceCustomization> data) async {
-    final key = _storageKeyForCurrentUser();
+    final key = _storageKeyForUser();
     if (key == null) return;
     final encoded = json.encode(
       data.map((k, v) => MapEntry(k, v.normalized().toJson())),
@@ -123,9 +132,12 @@ class DeviceCustomizationRepository {
   }
 
   /// 清空当前用户所有设备的缓存（用于登出）。
-  Future<void> clearCurrentUserData() async {
-    final userFolder = _currentUserFolder();
-    final key = _storageKeyForCurrentUser();
+  Future<void> clearCurrentUserData({String? fallbackUserId}) async {
+    final userId = _resolveUserId(fallbackUserId: fallbackUserId);
+    if (userId == null || userId.isEmpty) return;
+
+    final userFolder = _userFolder(fallbackUserId: userId);
+    final key = _storageKeyForUser(fallbackUserId: userId);
     if (key != null) {
       await _storage.delete(key: key);
     }
@@ -396,7 +408,7 @@ class DeviceCustomizationRepository {
 
   Future<Directory> _wallpaperDir({String? userFolder}) async {
     final base = await getApplicationSupportDirectory();
-    final folder = userFolder ?? _currentUserFolder();
+    final folder = userFolder ?? _userFolder();
     final dir = Directory(p.join(base.path, 'wallpapers', folder));
     if (!await dir.exists()) {
       await dir.create(recursive: true);

@@ -20,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // 如果你要清 
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/log/app_log.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'data/repositories/device_customization_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,9 +79,10 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
   StreamSubscription<AuthState>? _authSub;
 
   bool _isCleaningUp = false; // 防止重复清理
+  String? _lastSignedInUserId;
 
   /// 所有登出后的清理都放这里
-  Future<void> _performGlobalCleanup() async {
+  Future<void> _performGlobalCleanup({String? userId}) async {
     AppLog.instance.info('_performGlobalCleanup start', tag: 'App');
 
     // 1. 蓝牙断连
@@ -107,12 +109,20 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       // await DeepLinkHandler.dispose();
     } catch (_) {}
 
+    // 5) 清理本地设备自定义（壁纸、布局）缓存
+    try {
+      await DeviceCustomizationRepository().clearCurrentUserData(
+        fallbackUserId: userId ?? _lastSignedInUserId,
+      );
+    } catch (_) {}
+
     AppLog.instance.info('_performGlobalCleanup end', tag: 'App');
   }
 
   @override
   void initState() {
     super.initState();
+    _lastSignedInUserId = Supabase.instance.client.auth.currentUser?.id;
     // Listen to Supabase auth state changes
     _authSub =
         Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
@@ -125,9 +135,10 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         });
         if (!mounted || _isCleaningUp) return;
         _isCleaningUp = true;
+        final cleanupUserId = data.session?.user?.id ?? _lastSignedInUserId;
         try {
           // **关键：先清理**
-          await _performGlobalCleanup();
+          await _performGlobalCleanup(userId: cleanupUserId);
         } finally {
           // 再提示 + 跳转
           if (mounted) {
@@ -135,11 +146,14 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
             appRouter.go(AppRoutes.login);
           }
           _isCleaningUp = false;
+          _lastSignedInUserId = null;
         }
       } else if (event == AuthChangeEvent.signedIn ||
           event == AuthChangeEvent.tokenRefreshed) {
         // After sign-in or token refresh, sync devices from server
         if (!mounted) return;
+        _lastSignedInUserId =
+            data.session?.user?.id ?? Supabase.instance.client.auth.currentUser?.id;
         // 设置 Sentry 用户上下文（仅在你愿意上报用户信息时）
         final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
