@@ -150,7 +150,7 @@ class DeviceCustomizationNotifier
     state = state.copyWith(isUploading: true);
 
     try {
-      final info = await _uploadWallpaper(processed);
+      final info = await _uploadWallpaper(processed, deviceId: deviceId);
 
       final savedPath = await _repo.cacheWallpaperBytes(
         deviceId: deviceId,
@@ -281,8 +281,9 @@ class DeviceCustomizationNotifier
 
   /// 上传壁纸到 Supabase（你原来的 _uploadWallpaper 基本原样搬过来）。
   Future<CustomWallpaperInfo> _uploadWallpaper(
-    ImageProcessingResult image,
-  ) async {
+    ImageProcessingResult image, {
+    required String deviceId,
+  }) async {
     final supabase = Supabase.instance.client;
     final ext = image.extension.replaceFirst('.', '').toLowerCase();
     final normalizedExt = ext.isEmpty ? 'jpg' : ext;
@@ -295,6 +296,7 @@ class DeviceCustomizationNotifier
         body: image.bytes,
         headers: {
           'x-file-ext': normalizedExt,
+          'x-device-id': deviceId,
         },
       );
 
