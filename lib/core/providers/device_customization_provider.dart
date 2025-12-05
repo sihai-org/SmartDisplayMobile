@@ -1,5 +1,6 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/device_customization_repository.dart';
@@ -15,7 +16,7 @@ class DeviceCustomizationState {
   final bool isSaving;
   final bool isUploading;
   final bool loaded;
-  final String? localWallpaperPath;
+  final List<String> localWallpaperPaths;
 
   const DeviceCustomizationState({
     this.displayDeviceId,
@@ -24,20 +25,20 @@ class DeviceCustomizationState {
     this.isSaving = false,
     this.isUploading = false,
     this.loaded = false,
-    this.localWallpaperPath,
+    this.localWallpaperPaths = const [],
   });
 
   // 👇 新增一个内部哨兵，用来区分「没传」和「传 null」
   static const Object _unset = Object();
 
   DeviceCustomizationState copyWith({
-    Object? displayDeviceId = _unset,   // 可空字段用 Object? + 默认 _unset
+    Object? displayDeviceId = _unset, // 可空字段用 Object? + 默认 _unset
     DeviceCustomization? customization,
     bool? isLoading,
     bool? isSaving,
     bool? isUploading,
     bool? loaded,
-    Object? localWallpaperPath = _unset,
+    Object? localWallpaperPaths = _unset,
   }) {
     return DeviceCustomizationState(
       displayDeviceId: identical(displayDeviceId, _unset)
@@ -52,10 +53,16 @@ class DeviceCustomizationState {
       isUploading: isUploading ?? this.isUploading,
       loaded: loaded ?? this.loaded,
 
-      localWallpaperPath: identical(localWallpaperPath, _unset)
-          ? this.localWallpaperPath
-          : localWallpaperPath as String?, // 允许传 null 清空
+      localWallpaperPaths: identical(localWallpaperPaths, _unset)
+          ? this.localWallpaperPaths
+          : _toStringList(localWallpaperPaths),
     );
+  }
+
+  static List<String> _toStringList(Object? value) {
+    if (value is List<String>) return value;
+    if (value is List) return value.map((e) => e.toString()).toList();
+    return const [];
   }
 }
 
@@ -73,7 +80,7 @@ class DeviceCustomizationNotifier
       state = state.copyWith(
         displayDeviceId: displayDeviceId,
         customization: const DeviceCustomization.empty(),
-        localWallpaperPath: null,
+        localWallpaperPaths: const [],
         loaded: true,
       );
       return;
@@ -87,20 +94,20 @@ class DeviceCustomizationNotifier
     try {
       // 先本地
       final local = await _repo.getUserCustomization(displayDeviceId);
-      final localPath = await _repo.getCachedWallpaperPath(
+      final localPaths = await _repo.getCachedWallpaperPaths(
         displayDeviceId,
-        info: local.customWallpaperInfo,
+        infos: local.customWallpaperInfos,
       );
       state = state.copyWith(
         customization: local.normalized(),
-        localWallpaperPath: localPath,
+        localWallpaperPaths: localPaths,
       );
 
       // 再远端
       final remote = await _repo.fetchUserCustomizationRemote(displayDeviceId);
       state = state.copyWith(
         customization: remote.customization.normalized(),
-        localWallpaperPath: remote.localWallpaperPath,
+        localWallpaperPaths: remote.localWallpaperPaths,
         loaded: true,
       );
     } catch (error, stackTrace) {
@@ -120,7 +127,7 @@ class DeviceCustomizationNotifier
   void updateLayout(String? layout) {
     final current = state.customization;
     final next = DeviceCustomization(
-      customWallpaperInfo: current.customWallpaperInfo,
+      customWallpaperInfos: current.customWallpaperInfos,
       wallpaper: current.wallpaper,
       layout: layout,
     ).normalized();
@@ -128,11 +135,13 @@ class DeviceCustomizationNotifier
   }
 
   /// 更新壁纸信息；仅修改状态，不立即持久化。
-  void updateWallpaper(CustomWallpaperInfo? customWallpaperInfo,
-      {String? wallpaper}) {
+  void updateWallpaper({
+    List<CustomWallpaperInfo>? customWallpapers,
+    String? wallpaper,
+  }) {
     final current = state.customization;
     final next = DeviceCustomization(
-      customWallpaperInfo: customWallpaperInfo ?? current.customWallpaperInfo,
+      customWallpaperInfos: customWallpapers ?? current.customWallpaperInfos,
       wallpaper: wallpaper ?? current.wallpaper,
       layout: current.layout,
     ).normalized();
@@ -140,34 +149,52 @@ class DeviceCustomizationNotifier
   }
 
   /// 上传后的结果处理（Widget 负责权限 & 选图 & 调用 ImageProcessor）
-  Future<void> applyProcessedWallpaper({
+  Future<void> applyProcessedWallpapers({
     required String deviceId,
-    required ImageProcessingResult processed,
+    required List<ImageProcessingResult> processedList,
   }) async {
     if (deviceId.isEmpty) throw '缺少设备 ID';
-    if (state.isUploading) return;
+    if (state.isUploading || processedList.isEmpty) return;
 
     state = state.copyWith(isUploading: true);
 
     try {
-      final info = await _uploadWallpaper(processed, deviceId: deviceId);
+      await _repo.clearLocalWallpaperCache(deviceId);
 
-      final savedPath = await _repo.cacheWallpaperBytes(
-        deviceId: deviceId,
-        bytes: processed.bytes,
-        extension: processed.extension,
-      );
+      final limited =
+          processedList.take(DeviceCustomization.maxCustomWallpapers).toList();
+      final uploadedInfos =
+          await _uploadWallpapers(images: limited, deviceId: deviceId);
+      final infos = <CustomWallpaperInfo>[];
+      final localPaths = <String>[];
+
+      if (uploadedInfos.length < limited.length) {
+        throw '壁纸上传失败，请稍后重试';
+      }
+
+      for (var i = 0; i < limited.length; i++) {
+        final processed = limited[i];
+        infos.add(uploadedInfos[i]);
+
+        final savedPath = await _repo.cacheWallpaperBytes(
+          deviceId: deviceId,
+          bytes: processed.bytes,
+          extension: processed.extension,
+          index: i,
+        );
+        localPaths.add(savedPath);
+      }
 
       final next = state.customization
           .copyWith(
-            customWallpaperInfo: info,
+            customWallpaperInfos: infos,
             wallpaper: DeviceCustomization.customWallpaper,
           )
           .normalized();
 
       state = state.copyWith(
         customization: next,
-        localWallpaperPath: savedPath,
+        localWallpaperPaths: localPaths,
       );
     } catch (error, stackTrace) {
       AppLog.instance.error(
@@ -192,7 +219,7 @@ class DeviceCustomizationNotifier
         DeviceCustomization.customWallpaper;
 
     final next = state.customization.copyWith(
-      customWallpaperInfo: null,
+      customWallpaperInfos: const [],
       wallpaper: wasUsingCustom
           ? DeviceCustomization.defaultWallpaper
           : state.customization.wallpaper,
@@ -200,7 +227,7 @@ class DeviceCustomizationNotifier
 
     state = state.copyWith(
       customization: next,
-      localWallpaperPath: null,
+      localWallpaperPaths: const [],
     );
   }
 
@@ -216,14 +243,16 @@ class DeviceCustomizationNotifier
 
     try {
       final normalized = state.customization.normalized();
-      final wallpaperInfo = normalized.customWallpaperInfo;
+      final wallpaperInfos = normalized.customWallpaperInfos
+          .where((info) => info.hasData)
+          .toList();
 
       final payload = <String, dynamic>{
         'device_id': deviceId,
-        'layout': normalized.layout,
-        'wallpaper': normalized.wallpaper,
-        if (wallpaperInfo != null && wallpaperInfo.hasData)
-          'wallpaper_info': wallpaperInfo.toJson(),
+        // 发送归一化后的有效值，避免默认值被当成「不更新」而无法清空远端壁纸
+        'layout': normalized.effectiveLayout,
+        'wallpaper': normalized.effectiveWallpaper,
+        'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
       final response = await Supabase.instance.client.functions.invoke(
@@ -245,7 +274,7 @@ class DeviceCustomizationNotifier
       final remote = await _repo.fetchUserCustomizationRemote(deviceId);
       state = state.copyWith(
         customization: remote.customization.normalized(),
-        localWallpaperPath: remote.localWallpaperPath,
+        localWallpaperPaths: remote.localWallpaperPaths,
         loaded: true,
       );
     } on FunctionException catch (error, stackTrace) {
@@ -274,64 +303,86 @@ class DeviceCustomizationNotifier
   void resetToDefault() {
     state = state.copyWith(
       customization: const DeviceCustomization.empty(),
-      localWallpaperPath: null,
+      localWallpaperPaths: const [],
       loaded: true,
     );
   }
 
-  /// 上传壁纸到 Supabase（你原来的 _uploadWallpaper 基本原样搬过来）。
-  Future<CustomWallpaperInfo> _uploadWallpaper(
-    ImageProcessingResult image, {
+  /// 批量上传壁纸到 Supabase。
+  Future<List<CustomWallpaperInfo>> _uploadWallpapers({
+    required List<ImageProcessingResult> images,
     required String deviceId,
   }) async {
     final supabase = Supabase.instance.client;
-    final ext = image.extension.replaceFirst('.', '').toLowerCase();
-    final normalizedExt = ext.isEmpty ? 'jpg' : ext;
-    final fallbackMd5 = crypto.md5.convert(image.bytes).toString();
+    if (images.isEmpty) return const [];
+
+    final files = <http.MultipartFile>[];
+    final md5List = <String>[];
+    final mimeList = <String>[];
+
+    for (var i = 0; i < images.length; i++) {
+      final image = images[i];
+      final ext = image.extension.replaceFirst('.', '').toLowerCase();
+      final normalizedExt = ext.isEmpty ? 'jpg' : ext;
+
+      // 先算 md5（你本来就要算的）
+      final md5 = crypto.md5.convert(image.bytes).toString();
+      md5List.add(md5);
+      mimeList.add(image.mimeType);
+
+      // 用 md5 作为上传时的文件名
+      final filename = '$md5.$normalizedExt';
+
+      files.add(http.MultipartFile.fromBytes(
+        'files',
+        image.bytes,
+        filename: filename,
+        contentType: http.MediaType.parse(image.mimeType),
+      ));
+    }
 
     try {
       final response = await supabase.functions.invoke(
         'device_wallpaper_upload',
         method: HttpMethod.post,
-        body: image.bytes,
+        files: files,
         headers: {
-          'x-file-ext': normalizedExt,
           'x-device-id': deviceId,
         },
       );
 
       final data = response.data;
-      String key = '';
-      String mime = image.mimeType;
-      String md5 = fallbackMd5;
 
-      if (data is Map) {
-        key = (data['key'] ?? '').toString().trim();
-        mime = (data['mime'] ??
-                data['mime_type'] ??
-                data['mimeType'] ??
-                data['content_type'] ??
-                mime)
-            .toString();
-        md5 =
-            (data['md5'] ?? data['checksum'] ?? data['hash'] ?? md5).toString();
-      } else if (data is String) {
-        key = data.trim();
-      }
-
-      if (key.isEmpty) {
+      final keys = _extractKeys(data);
+      if (keys.isEmpty) {
         AppLog.instance.warning(
-          '[device_wallpaper_upload] empty key from response: ${response.data}',
+          '[device_wallpaper_upload] empty keys from response: ${response.data}',
           tag: 'Supabase',
         );
         throw '服务返回的 key 无效';
       }
 
-      return CustomWallpaperInfo(
-        key: key,
-        md5: md5,
-        mime: mime,
-      );
+      if (keys.length != images.length) {
+        AppLog.instance.warning(
+          '[device_wallpaper_upload] key count mismatch, expected=${images.length}, got=${keys.length}',
+          tag: 'Supabase',
+        );
+        throw '服务返回的 key 数量异常';
+      }
+
+      final infos = <CustomWallpaperInfo>[];
+
+      for (var i = 0; i < keys.length; i++) {
+        infos.add(
+          CustomWallpaperInfo(
+            key: keys[i],
+            md5: md5List[i],
+            mime: mimeList[i],
+          ),
+        );
+      }
+
+      return infos;
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.error(
         '[device_wallpaper_upload] status=${error.status}, details=${error.details}',
@@ -352,6 +403,36 @@ class DeviceCustomizationNotifier
       );
       throw '请稍后重试';
     }
+  }
+
+  List<String> _extractKeys(dynamic data) {
+    if (data is Map) {
+      final raw = data['keys'];
+      if (raw is List) {
+        return raw
+            .map((item) => item?.toString().trim() ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList();
+      }
+      if (raw is String) {
+        final value = raw.trim();
+        return value.isEmpty ? const [] : [value];
+      }
+    }
+
+    if (data is List) {
+      return data
+          .map((item) => item?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList();
+    }
+
+    if (data is String) {
+      final value = data.trim();
+      return value.isEmpty ? const [] : [value];
+    }
+
+    return const [];
   }
 }
 

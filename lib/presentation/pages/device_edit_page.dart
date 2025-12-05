@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fluttertoast/fluttertoast.dart';
@@ -7,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:smart_display_mobile/core/log/app_log.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
@@ -33,6 +33,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   static const double _wallpaperAspectRatio = 16 / 9;
 
   static const double _layoutViewportFraction = 0.86;
+  static const Duration _singleProcessingTimeout = Duration(seconds: 20);
 
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
@@ -44,13 +45,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   PageController? _layoutController;
   bool _isProcessingWallpaper = false;
 
-  bool get _hasCustomWallpaper =>
-      ref
-          .read(deviceCustomizationProvider)
-          .customization
-          .customWallpaperInfo
-          ?.hasData ??
-          false;
+  bool get _hasCustomWallpaper {
+    final wallpapers = ref
+        .read(deviceCustomizationProvider)
+        .customization
+        .customWallpaperInfos;
+    return wallpapers.any((item) => item.hasData);
+  }
 
   int get _selectedWallpaperPageIndex {
     final c = ref.read(deviceCustomizationProvider).customization;
@@ -182,8 +183,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                         isSaving
                             ? '保存中...'
                             : (isBusyWithWallpaper
-                            ? '处理中...'
-                            : l10n.save_settings),
+                                ? '处理中...'
+                                : l10n.save_settings),
                       ),
                     ),
                   ),
@@ -225,17 +226,17 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   Text(
                     deviceName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
                   if (deviceId != null && deviceId.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
                       deviceId,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color:
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ],
@@ -251,7 +252,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final state = ref.watch(deviceCustomizationProvider);
-    AppLog.instance.info("~~~~~~~~~~state=${state.localWallpaperPath}");
     final isUploading = state.isUploading;
     final isBusy = isUploading || _isProcessingWallpaper;
 
@@ -316,18 +316,18 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeOut,
                               alignment: Alignment.center,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: _wallpaperImageWidget(
-                              index,
-                              state,
-                              isBusy: isBusy,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: _wallpaperImageWidget(
+                                  index,
+                                  state,
+                                  isBusy: isBusy,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -364,7 +364,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       ),
     ];
     final selectedIndex =
-    options.indexWhere((option) => option.value == _layoutValue);
+        options.indexWhere((option) => option.value == _layoutValue);
     final effectiveIndex = selectedIndex == -1 ? 0 : selectedIndex;
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _layoutViewportFraction;
@@ -476,15 +476,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     _layoutController = controller;
   }
 
-  Widget _wallpaperImageWidget(
-      int index,
-      DeviceCustomizationState state,
+  Widget _wallpaperImageWidget(int index, DeviceCustomizationState state,
       {required bool isBusy}) {
     return switch (index) {
       0 => Image.asset(
-        'assets/images/device_wallpaper_default.png',
-        fit: BoxFit.cover,
-      ),
+          'assets/images/device_wallpaper_default.png',
+          fit: BoxFit.cover,
+        ),
       _ => _hasCustomWallpaper
           ? _buildUploadedWallpaperPreview(state)
           : _buildUploadPlaceholder(isBusy),
@@ -499,25 +497,87 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         end: Alignment.bottomRight,
       ),
     );
-    final path = state.localWallpaperPath;
-    final cacheKey = state.customization.customWallpaperInfo?.md5.isNotEmpty == true
-        ? state.customization.customWallpaperInfo!.md5
-        : state.customization.customWallpaperInfo?.key ?? path;
+    final paths = state.localWallpaperPaths;
+    if (paths.isEmpty) {
+      return Container(decoration: fallbackDecoration);
+    }
 
-    return path != null
-        ? Image.file(
-      File(path),
-      key: ValueKey(cacheKey ?? path),
-      fit: BoxFit.cover,
-      errorBuilder: (context, _, __) {
-        return Container(decoration: fallbackDecoration);
-      },
-    )
-        : Container(decoration: fallbackDecoration);
+    final cacheKey = state.customization.customWallpaperInfos
+        .map((info) => info.md5.isNotEmpty ? info.md5 : info.key)
+        .where((value) => value.isNotEmpty)
+        .join('|');
+
+    if (paths.length == 1) {
+      final path = paths.first;
+      return Image.file(
+        File(path),
+        key: ValueKey(cacheKey.isEmpty ? path : cacheKey),
+        fit: BoxFit.cover,
+        errorBuilder: (context, _, __) {
+          return Container(decoration: fallbackDecoration);
+        },
+      );
+    }
+
+    final visible = paths.take(3).toList();
+    const double offset = 12;
+
+    return Stack(
+      children: [
+        for (var i = visible.length - 1; i >= 0; i--)
+          Positioned.fill(
+            left: offset * i,
+            right: offset * (visible.length - i - 1),
+            top: offset * (visible.length - i - 1) / 1.4,
+            bottom: offset * i / 1.4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.file(
+                  File(visible[i]),
+                  key: ValueKey('$cacheKey-$i-${visible[i]}'),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, __) {
+                    return Container(decoration: fallbackDecoration);
+                  },
+                ),
+              ),
+            ),
+          ),
+        Positioned(
+          right: 10,
+          top: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              '${paths.length} 张',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildUploadPlaceholder(bool isBusy) {
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade300,
@@ -527,23 +587,23 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         child: isBusy
             ? const CircularProgressIndicator()
             : const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.wallpaper_outlined,
-              size: 48,
-              color: Colors.black45,
-            ),
-            SizedBox(height: 8),
-            Text(
-              '未上传壁纸',
-              style: TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w600,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.wallpaper_outlined,
+                    size: 48,
+                    color: Colors.black45,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '未上传壁纸',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -552,7 +612,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     required bool isViewingCustom,
     required bool isBusy,
   }) {
-
     if (!isViewingCustom) {
       return const SizedBox(height: 48);
     }
@@ -586,10 +645,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           onPressed: isBusy ? null : _handleUploadTap,
           icon: isBusy
               ? const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2.2),
-          )
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                )
               : const Icon(Icons.refresh),
           label: Text(isBusy ? '处理中...' : '重新上传'),
         ),
@@ -616,13 +675,29 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
 
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    final maxCount = DeviceCustomization.maxCustomWallpapers;
+    // 设置 imageQuality 可促使部分平台（如 iOS HEIC）返回转码后的 JPEG，避免后续解析失败。
+    final picked = await picker.pickMultiImage(
+      limit: maxCount,
+      imageQuality: 100,
+      maxWidth: 4096,
+      maxHeight: 4096,
+    );
+    if (picked == null || picked.isEmpty) return;
 
-    final validationMessage = _validateImageFormat(picked);
-    if (validationMessage != null) {
-      _showToast(validationMessage);
-      return;
+    List<XFile> selected = picked;
+    if (picked.length > maxCount) {
+      // 部分平台可能未严格限制，再次兜底截取并提示。
+      _showToast('最多选择 $maxCount 张，已自动截取前 $maxCount 张');
+      selected = picked.take(maxCount).toList();
+    }
+
+    for (final file in selected) {
+      final validationMessage = _validateImageFormat(file);
+      if (validationMessage != null) {
+        _showToast(validationMessage);
+        return;
+      }
     }
 
     if (mounted) {
@@ -631,24 +706,59 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
 
     try {
-      final processed = await WallpaperImageProcessor.processWallpaperInIsolate(
-        bytes: await picked.readAsBytes(),
-        sourcePath: picked.path,
-      );
+      final processedList = <ImageProcessingResult>[];
+      for (var i = 0; i < selected.length; i++) {
+        final processed = await _processSingleWallpaper(
+          selected[i],
+          index: i,
+        ).timeout(
+          _singleProcessingTimeout,
+          onTimeout: () => throw TimeoutException('第${i + 1}张图片处理超时'),
+        );
+        processedList.add(processed);
+      }
 
-      await notifier.applyProcessedWallpaper(
+      await notifier.applyProcessedWallpapers(
         deviceId: deviceId,
-        processed: processed,
+        processedList: processedList,
       );
 
       _setCurrentWallpaper(1);
       _showToast('壁纸上传成功');
     } catch (error) {
-      _showToast('上传失败：$error');
+      final message = switch (error) {
+        TimeoutException _ =>
+          '图片处理超时，请减少图片数量或稍后重试',
+        String s when s.isNotEmpty => s,
+        ImageProcessingException e => e.message,
+        _ => '图片处理失败：${error.toString()}',
+      };
+      _showToast(message);
     } finally {
       if (mounted) {
         setState(() => _isProcessingWallpaper = false);
       }
+    }
+  }
+
+  Future<ImageProcessingResult> _processSingleWallpaper(
+    XFile file, {
+    required int index,
+  }) async {
+    try {
+      final bytes = await file.readAsBytes();
+      return await WallpaperImageProcessor.processWallpaperAuto(
+        bytes: bytes,
+        sourcePath: file.path,
+      );
+    } on ImageProcessingException catch (error) {
+      throw ImageProcessingException(
+        '第${index + 1}张图片处理失败：${error.message}',
+      );
+    } catch (_) {
+      throw ImageProcessingException(
+        '第${index + 1}张图片处理失败，请更换图片后重试',
+      );
     }
   }
 
@@ -679,10 +789,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         ? DeviceCustomization.customWallpaper
         : DeviceCustomization.defaultWallpaper;
 
-    notifier.updateWallpaper(
-      state.customization.customWallpaperInfo,
-      wallpaper: targetWallpaper,
-    );
+    notifier.updateWallpaper(wallpaper: targetWallpaper);
 
     _wallpaperController?.animateToPage(
       index,
@@ -714,12 +821,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     ].request();
 
     final granted = requestedStatuses.values.any(
-          (status) => status.isGranted || status.isLimited,
+      (status) => status.isGranted || status.isLimited,
     );
     if (granted) return true;
 
     final permanentlyDenied =
-    requestedStatuses.values.any((status) => status.isPermanentlyDenied);
+        requestedStatuses.values.any((status) => status.isPermanentlyDenied);
     if (permanentlyDenied) {
       await openAppSettings();
     }
@@ -840,19 +947,19 @@ class _CurrentToggle extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           child: isCurrent
               ? Text(
-            currentLabel,
-            key: const ValueKey('current'),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          )
+                  currentLabel,
+                  key: const ValueKey('current'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                )
               : FilledButton.tonal(
-            key: const ValueKey('set'),
-            onPressed: canSelect ? onSelect : null,
-            child: Text(setLabel),
-          ),
+                  key: const ValueKey('set'),
+                  onPressed: canSelect ? onSelect : null,
+                  child: Text(setLabel),
+                ),
         ),
       ),
     );

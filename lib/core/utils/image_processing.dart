@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
+
+import '../log/app_log.dart';
 
 class ImageProcessingResult {
   final Uint8List bytes;
@@ -104,6 +109,40 @@ class WallpaperImageProcessor {
     );
   }
 
+  /// 自动处理（优先隔离线程，对 HEIC/WebP 等不支持的格式走 UI 解码兜底）。
+  static Future<ImageProcessingResult> processWallpaperAuto({
+    required Uint8List bytes,
+    String? sourcePath,
+    int targetWidth = 1980,
+    int targetHeight = 1080,
+    int maxBytes = 200 * 1024,
+  }) async {
+    final format = _detectFormat(bytes);
+    final ext = _normalizedExtension(sourcePath);
+    final isPreferred =
+        format == 'jpeg' || format == 'png' || (ext != null && isSupportedExtension(ext));
+
+    if (isPreferred) {
+      return processWallpaperInIsolate(
+        bytes: bytes,
+        sourcePath: sourcePath,
+        targetWidth: targetWidth,
+        targetHeight: targetHeight,
+        maxBytes: maxBytes,
+      );
+    }
+
+    // HEIC/WebP 等用 UI 解码兜底；若失败再抛出详细错误。
+    return _processWithUiDecode(
+      bytes: bytes,
+      sourcePath: sourcePath,
+      detectedFormat: format,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+      maxBytes: maxBytes,
+    );
+  }
+
   @pragma('vm:entry-point')
   static Map<String, Object> _processWallpaperOnIsolate(
     Map<String, Object?> params,
@@ -138,9 +177,147 @@ class WallpaperImageProcessor {
       throw ImageProcessingException('不支持$ext, 仅支持 JPG / PNG 格式的图片');
     }
 
-    final decoded = img.decodeImage(bytes);
+    final detectedFormat = _detectFormat(bytes);
+
+    img.Decoder? decoder;
+    try {
+      decoder = img.findDecoderForData(bytes);
+    } catch (_) {
+      decoder = null;
+    }
+
+    if (decoder == null) {
+      throw ImageProcessingException(
+        '无法解析图片：格式不支持或文件损坏（检测到: $detectedFormat，扩展名: ${ext ?? '未知'}）',
+      );
+    }
+
+    img.Image? decoded;
+    try {
+      decoded = decoder.decode(bytes);
+    } catch (error, stackTrace) {
+      _logProcessFailure(
+        sourcePath: sourcePath,
+        bytes: bytes.length,
+        ext: ext,
+        message: 'decode-failed($detectedFormat)',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw ImageProcessingException(
+        '无法解析图片（检测到: $detectedFormat，扩展名: ${ext ?? '未知'}），可能是 CMYK/渐进式 JPEG、WebP/HEIC 等，请导出为标准 JPG/PNG 后重试',
+      );
+    }
+
     if (decoded == null) {
+      _logProcessFailure(
+        sourcePath: sourcePath,
+        bytes: bytes.length,
+        ext: ext,
+        message: 'decode-null($detectedFormat)',
+      );
       throw ImageProcessingException('无法解析图片');
+    }
+
+    return _processDecodedImage(
+      decoded: decoded,
+      originalBytes: bytes,
+      originalExt: ext,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+      maxBytes: maxBytes,
+    );
+  }
+
+  static _CompressionResult _compressToLimit(
+    img.Image image,
+    int maxBytes,
+  ) {
+    int quality = 82;
+    Uint8List encoded = _encodeJpg(image, quality);
+
+    if (encoded.length <= maxBytes) {
+      return _CompressionResult(encoded, image.width, image.height);
+    }
+
+    // 预估一次缩放比例，减少多次尝试带来的耗时。
+    final scale =
+        math.sqrt(maxBytes / encoded.length).clamp(0.35, 0.95).toDouble();
+    int targetWidth =
+        (image.width * scale).round().clamp(320, image.width).toInt();
+    int targetHeight =
+        (image.height * scale).round().clamp(180, image.height).toInt();
+
+    if (scale < 0.98) {
+      image = img.copyResize(
+        image,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.linear,
+      );
+      encoded = _encodeJpg(image, quality);
+    }
+
+    while (encoded.length > maxBytes && quality > 55) {
+      quality -= 7;
+      encoded = _encodeJpg(image, quality);
+    }
+
+    // 如果仍然超出，做一次额外缩放兜底，但不做过多迭代以保持速度。
+    if (encoded.length > maxBytes &&
+        image.width > 480 &&
+        image.height > 270) {
+      final secondaryScale =
+          math.sqrt(maxBytes / encoded.length).clamp(0.45, 0.9).toDouble();
+      targetWidth =
+          (image.width * secondaryScale).round().clamp(320, image.width).toInt();
+      targetHeight = (image.height * secondaryScale)
+          .round()
+          .clamp(180, image.height)
+          .toInt();
+
+      image = img.copyResize(
+        image,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.linear,
+      );
+      encoded = _encodeJpg(image, math.max(55, quality - 5));
+    }
+
+    return _CompressionResult(encoded, image.width, image.height);
+  }
+
+  static Uint8List _encodeJpg(img.Image image, int quality) {
+    return Uint8List.fromList(
+      img.encodeJpg(image, quality: quality),
+    );
+  }
+
+  static String _mimeForExt(String ext) {
+    return ext.toLowerCase() == '.png' ? 'image/png' : 'image/jpeg';
+  }
+
+  static ImageProcessingResult _processDecodedImage({
+    required img.Image decoded,
+    required Uint8List originalBytes,
+    String? originalExt,
+    required int targetWidth,
+    required int targetHeight,
+    required int maxBytes,
+  }) {
+    final ext = originalExt;
+    if (originalBytes.length <= maxBytes &&
+        ext != null &&
+        isSupportedExtension(ext)) {
+      return ImageProcessingResult(
+        bytes: originalBytes,
+        mimeType: _mimeForExt(ext),
+        extension: ext,
+        width: decoded.width,
+        height: decoded.height,
+        sizeBytes: originalBytes.length,
+      );
     }
 
     final cropped = _cropToAspect(decoded, 16 / 9);
@@ -148,7 +325,7 @@ class WallpaperImageProcessor {
       cropped,
       width: targetWidth,
       height: targetHeight,
-      interpolation: img.Interpolation.cubic,
+      interpolation: img.Interpolation.linear,
     );
 
     final compressed = _compressToLimit(resized, maxBytes);
@@ -163,63 +340,156 @@ class WallpaperImageProcessor {
     );
   }
 
-  static _CompressionResult _compressToLimit(
-    img.Image image,
-    int maxBytes,
-  ) {
-    int quality = 90;
-    Uint8List encoded = Uint8List.fromList(
-      img.encodeJpg(image, quality: quality),
-    );
-
-    while (encoded.length > maxBytes && quality > 50) {
-      quality -= 10;
-      encoded = Uint8List.fromList(
-        img.encodeJpg(image, quality: quality),
-      );
+  static String _detectFormat(Uint8List bytes) {
+    if (bytes.length < 12) return 'unknown';
+    // JPEG: FF D8 FF
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+      return 'jpeg';
     }
-
-    if (encoded.length <= maxBytes) {
-      return _CompressionResult(encoded, image.width, image.height);
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A) {
+      return 'png';
     }
-
-    // 如果质量降低后仍超出限制，则尝试按比例缩放后再压缩。
-    int currentWidth = image.width;
-    int currentHeight = image.height;
-    int currentQuality = quality;
-    img.Image currentImage = image;
-
-    while (encoded.length > maxBytes &&
-        currentWidth > 320 &&
-        currentHeight > 180) {
-      final scale = math.sqrt(maxBytes / encoded.length).clamp(0.35, 0.95);
-      currentWidth =
-          ((currentWidth * scale).round()).clamp(320, image.width).toInt();
-      currentHeight =
-          ((currentHeight * scale).round()).clamp(180, image.height).toInt();
-
-      currentImage = img.copyResize(
-        currentImage,
-        width: currentWidth,
-        height: currentHeight,
-        interpolation: img.Interpolation.cubic,
-      );
-
-      encoded = Uint8List.fromList(
-        img.encodeJpg(currentImage, quality: currentQuality),
-      );
-
-      if (encoded.length > maxBytes && currentQuality > 35) {
-        currentQuality = math.max(35, currentQuality - 5);
-        encoded = Uint8List.fromList(
-          img.encodeJpg(currentImage, quality: currentQuality),
-        );
-      } else {
-        break;
+    // RIFF .... WEBP
+    if (bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'webp';
+    }
+    // GIF
+    if (bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38) {
+      return 'gif';
+    }
+    // BMP
+    if (bytes[0] == 0x42 && bytes[1] == 0x4D) {
+      return 'bmp';
+    }
+    // HEIC/HEIF/AVIF family (ftyp....)
+    if (bytes[4] == 0x66 &&
+        bytes[5] == 0x74 &&
+        bytes[6] == 0x79 &&
+        bytes[7] == 0x70) {
+      final type = String.fromCharCodes(bytes.sublist(8, 12));
+      if (type == 'heic' ||
+          type == 'heix' ||
+          type == 'hevc' ||
+          type == 'hevx') {
+        return 'heic';
+      }
+      if (type == 'mif1' || type == 'msf1') {
+        return 'heif';
+      }
+      if (type == 'avif' || type == 'avis') {
+        return 'avif';
       }
     }
+    return 'unknown';
+  }
 
-    return _CompressionResult(encoded, currentWidth, currentHeight);
+  static Future<ImageProcessingResult> _processWithUiDecode({
+    required Uint8List bytes,
+    required String detectedFormat,
+    String? sourcePath,
+    required int targetWidth,
+    required int targetHeight,
+    required int maxBytes,
+  }) async {
+    ui.Image uiImage;
+    try {
+      uiImage = await _decodeWithUi(
+        bytes,
+        targetWidth: targetWidth,
+        targetHeight: targetHeight,
+      );
+    } catch (error, stackTrace) {
+      _logProcessFailure(
+        sourcePath: sourcePath,
+        bytes: bytes.length,
+        ext: _normalizedExtension(sourcePath),
+        message: 'ui-decode-failed($detectedFormat)',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      throw ImageProcessingException(
+        '无法解析图片（检测到: $detectedFormat），请导出为标准 JPG/PNG 后重试',
+      );
+    }
+
+    final byteData =
+        await uiImage.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      throw ImageProcessingException(
+        '无法解析图片（检测到: $detectedFormat），请导出为标准 JPG/PNG 后重试',
+      );
+    }
+
+    final pngBytes = Uint8List.view(
+      byteData.buffer,
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
+    );
+    final decoded = img.decodePng(pngBytes);
+    if (decoded == null) {
+      throw ImageProcessingException(
+        '无法解析图片（检测到: $detectedFormat），请导出为标准 JPG/PNG 后重试',
+      );
+    }
+
+    return _processDecodedImage(
+      decoded: decoded,
+      originalBytes: pngBytes,
+      originalExt: '.png', // 已经转成 PNG
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+      maxBytes: maxBytes,
+    );
+  }
+
+  static Future<ui.Image> _decodeWithUi(
+    Uint8List bytes, {
+    int? targetWidth,
+    int? targetHeight,
+  }) {
+    return ui.instantiateImageCodec(
+      bytes,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+    ).then(
+      (codec) => codec.getNextFrame().then((frame) => frame.image),
+    );
+  }
+
+  static void _logProcessFailure({
+    String? sourcePath,
+    String? message,
+    int? bytes,
+    String? ext,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    final details =
+        'source:${sourcePath ?? ''} bytes:${bytes ?? 0} ext:${ext ?? ''} errorType:${error?.runtimeType.toString() ?? ''}';
+    AppLog.instance.warning(
+      'Wallpaper process failed: $message | $details',
+      tag: 'ImageProcessing',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   static img.Image _cropToAspect(img.Image image, double targetAspect) {

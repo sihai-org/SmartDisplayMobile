@@ -16,16 +16,16 @@ import '../../core/models/device_customization.dart';
 
 class CustomizationFetchResult {
   final DeviceCustomization customization;
-  final String? localWallpaperPath;
+  final List<String> localWallpaperPaths;
 
   const CustomizationFetchResult({
     required this.customization,
-    this.localWallpaperPath,
+    this.localWallpaperPaths = const [],
   });
 
   const CustomizationFetchResult.empty()
       : customization = const DeviceCustomization.empty(),
-        localWallpaperPath = null;
+        localWallpaperPaths = const [];
 }
 
 /// 本地持久化：用户为不同设备设置的壁纸/布局偏好。
@@ -99,7 +99,8 @@ class DeviceCustomizationRepository {
   /// 读指定设备的缓存
   ///
   /// 当设备没有任何自定义时，返回空对象（等同于 default）。
-  Future<DeviceCustomization> getUserCustomization(String displayDeviceId) async {
+  Future<DeviceCustomization> getUserCustomization(
+      String displayDeviceId) async {
     if (displayDeviceId.isEmpty) return const DeviceCustomization.empty();
     final all = await _loadAll();
     return all[displayDeviceId] ?? const DeviceCustomization.empty();
@@ -161,11 +162,13 @@ class DeviceCustomizationRepository {
     // 审核模式直接走本地缓存，避免网络访问
     if (AuditMode.enabled) {
       final cached = await getUserCustomization(displayDeviceId);
-      final localPath =
-          await getCachedWallpaperPath(displayDeviceId, info: cached.customWallpaperInfo);
+      final localPaths = await getCachedWallpaperPaths(
+        displayDeviceId,
+        infos: cached.customWallpaperInfos,
+      );
       return CustomizationFetchResult(
         customization: cached,
-        localWallpaperPath: localPath,
+        localWallpaperPaths: localPaths,
       );
     }
 
@@ -193,16 +196,16 @@ class DeviceCustomizationRepository {
       final customization = DeviceCustomization.fromJson(parsed).normalized();
       await saveUserCustomization(displayDeviceId, customization);
 
-      final downloadUrl = _parseDownloadUrl(response.data);
-      final wallpaperPath = await _syncWallpaperCache(
+      final downloadUrls = _parseDownloadUrls(response.data);
+      final wallpaperPaths = await _syncWallpaperListCache(
         deviceId: displayDeviceId,
-        wallpaperInfo: customization.customWallpaperInfo,
-        downloadUrl: downloadUrl,
+        wallpaperInfos: customization.customWallpaperInfos,
+        downloadUrls: downloadUrls,
       );
 
       return CustomizationFetchResult(
         customization: customization,
-        localWallpaperPath: wallpaperPath,
+        localWallpaperPaths: wallpaperPaths,
       );
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.warning(
@@ -212,11 +215,13 @@ class DeviceCustomizationRepository {
         stackTrace: stackTrace,
       );
       final fallback = await getUserCustomization(displayDeviceId);
-      final wallpaperPath =
-          await getCachedWallpaperPath(displayDeviceId, info: fallback.customWallpaperInfo);
+      final wallpaperPaths = await getCachedWallpaperPaths(
+        displayDeviceId,
+        infos: fallback.customWallpaperInfos,
+      );
       return CustomizationFetchResult(
         customization: fallback,
-        localWallpaperPath: wallpaperPath,
+        localWallpaperPaths: wallpaperPaths,
       );
     } catch (error, stackTrace) {
       AppLog.instance.warning(
@@ -226,11 +231,13 @@ class DeviceCustomizationRepository {
         stackTrace: stackTrace,
       );
       final fallback = await getUserCustomization(displayDeviceId);
-      final wallpaperPath =
-          await getCachedWallpaperPath(displayDeviceId, info: fallback.customWallpaperInfo);
+      final wallpaperPaths = await getCachedWallpaperPaths(
+        displayDeviceId,
+        infos: fallback.customWallpaperInfos,
+      );
       return CustomizationFetchResult(
         customization: fallback,
-        localWallpaperPath: wallpaperPath,
+        localWallpaperPaths: wallpaperPaths,
       );
     }
   }
@@ -245,6 +252,12 @@ class DeviceCustomizationRepository {
       if (!raw.containsKey('customWallpaperInfo') &&
           raw.containsKey('wallpaper_info'))
         'customWallpaperInfo': raw['wallpaper_info'],
+      if (!raw.containsKey('customWallpaperInfos') &&
+          raw.containsKey('wallpaper_infos'))
+        'customWallpaperInfos': raw['wallpaper_infos'],
+      if (!raw.containsKey('customWallpaperInfos') &&
+          raw.containsKey('custom_wallpaper_infos'))
+        'customWallpaperInfos': raw['custom_wallpaper_infos'],
       if (!raw.containsKey('wallpaperOption') &&
           raw.containsKey('wallpaper_option'))
         'wallpaperOption': raw['wallpaper_option'],
@@ -260,12 +273,62 @@ class DeviceCustomizationRepository {
     return null;
   }
 
-  String? _parseDownloadUrl(dynamic responseData) {
-    if (responseData is Map && responseData['customWallpaperDownloadUrl'] != null) {
-      final value = responseData['customWallpaperDownloadUrl'];
-      return value == null ? null : value.toString();
+  List<String> _parseDownloadUrls(dynamic responseData) {
+    final map = _extractCustomizationMap(responseData);
+    if (map == null) return const [];
+
+    final fromInfos = _extractDownloadUrlsFromInfos(map);
+    if (fromInfos.isNotEmpty) return fromInfos;
+
+    final rawUrls = map['customWallpaperDownloadUrls'];
+    if (rawUrls is List) {
+      return rawUrls
+          .map((item) => item?.toString() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toList();
     }
-    return null;
+
+    final singleUrl = map['customWallpaperDownloadUrl'];
+    if (singleUrl != null) {
+      final value = singleUrl.toString();
+      return value.isEmpty ? const [] : [value];
+    }
+
+    return const [];
+  }
+
+  List<String> _extractDownloadUrlsFromInfos(Map<String, dynamic> map) {
+    final candidates = [
+      map['customWallpaperInfos'],
+      map['wallpaperInfos'],
+      map['wallpaper_infos'],
+      map['custom_wallpaper_infos'],
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate is! List) continue;
+      final urls = candidate
+          .map((item) => _extractDownloadUrlFromItem(item))
+          .where((value) => value.isNotEmpty)
+          .toList();
+      if (urls.isNotEmpty) return urls;
+    }
+
+    return const [];
+  }
+
+  String _extractDownloadUrlFromItem(dynamic item) {
+    if (item is! Map) return '';
+    final candidates = [
+      item['downloadUrl'],
+      item['download_url'],
+      item['url'],
+    ];
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
   }
 
   String? _responseMessage(dynamic data) {
@@ -273,6 +336,32 @@ class DeviceCustomizationRepository {
       return data['message']?.toString();
     }
     return data?.toString();
+  }
+
+  Future<List<String>> getCachedWallpaperPaths(
+    String displayDeviceId, {
+    List<CustomWallpaperInfo> infos = const [],
+  }) async {
+    if (displayDeviceId.isEmpty) return const [];
+
+    if (infos.isEmpty) {
+      final fallback = await getCachedWallpaperPath(displayDeviceId);
+      return fallback == null ? const [] : [fallback];
+    }
+
+    final results = <String>[];
+    for (var i = 0; i < infos.length; i++) {
+      final filePath = await _wallpaperFilePath(
+        displayDeviceId,
+        extension: _resolveExtension(infos[i]),
+        index: i,
+      );
+      final file = File(filePath);
+      if (await file.exists()) {
+        results.add(file.path);
+      }
+    }
+    return results;
   }
 
   Future<String?> getCachedWallpaperPath(
@@ -292,8 +381,13 @@ class DeviceCustomizationRepository {
     required String deviceId,
     required Uint8List bytes,
     required String extension,
+    int index = 0,
   }) async {
-    final targetPath = await _wallpaperFilePath(deviceId, extension: extension);
+    final targetPath = await _wallpaperFilePath(
+      deviceId,
+      extension: extension,
+      index: index,
+    );
     final target = File(targetPath);
     await target.writeAsBytes(bytes, flush: true);
     _evictImageCache(target.path);
@@ -301,66 +395,128 @@ class DeviceCustomizationRepository {
   }
 
   Future<void> clearLocalWallpaperCache(String deviceId) async {
-    final dir = await _wallpaperDir();
-    final safeId = _safeDeviceId(deviceId);
+    if (deviceId.isEmpty) return;
+
+    // 清理旧的散列文件（迁移到 deviceId 子目录前遗留的）
+    await _cleanupLegacyDeviceFiles(deviceId);
+
+    final dir = await _wallpaperDeviceDir(deviceId);
+    if (!await dir.exists()) return;
+
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
-      final name = p.basename(entity.path);
-      if (name.startsWith('$safeId.')) {
-        try {
-          _evictImageCache(entity.path);
-          await entity.delete();
-        } catch (_) {
-          // ignore deletion failure
-        }
+      try {
+        _evictImageCache(entity.path);
+        await entity.delete();
+      } catch (_) {
+        // ignore deletion failure
       }
+    }
+
+    try {
+      await dir.delete(recursive: true);
+    } catch (_) {
+      // ignore deletion failure
     }
   }
 
   /// 按需更新本地缓存的壁纸图片
-  Future<String?> _syncWallpaperCache({
+  Future<List<String>> _syncWallpaperListCache({
     required String deviceId,
-    required CustomWallpaperInfo? wallpaperInfo,
-    required String? downloadUrl,
+    required List<CustomWallpaperInfo> wallpaperInfos,
+    required List<String> downloadUrls,
   }) async {
-    if (wallpaperInfo == null || !wallpaperInfo.hasData) {
+    if (wallpaperInfos.isEmpty) {
       await clearLocalWallpaperCache(deviceId);
-      return null;
-    }
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      return await getCachedWallpaperPath(deviceId, info: wallpaperInfo);
+      return const [];
     }
 
-    final ext = _resolveExtension(wallpaperInfo);
-    final filePath = await _wallpaperFilePath(deviceId, extension: ext);
-    final file = File(filePath);
-    final remoteMd5 = wallpaperInfo.md5.trim();
+    final localPaths = <String>[];
+    final expectedPaths = <String>[];
 
-    try {
-      if (await file.exists()) {
-        final localMd5 = await _computeFileMd5(file);
-        if (localMd5 != null && remoteMd5.isNotEmpty && remoteMd5 == localMd5) {
-          return file.path;
+    for (var i = 0; i < wallpaperInfos.length; i++) {
+      final info = wallpaperInfos[i];
+      if (!info.hasData) continue;
+
+      final ext = _resolveExtension(info);
+      final filePath = await _wallpaperFilePath(
+        deviceId,
+        extension: ext,
+        index: i,
+      );
+      final file = File(filePath);
+      expectedPaths.add(file.path);
+      final remoteMd5 = info.md5.trim();
+      final downloadUrl = i < downloadUrls.length ? downloadUrls[i] : null;
+
+      try {
+        if (await file.exists()) {
+          final localMd5 = await _computeFileMd5(file);
+          if (localMd5 != null &&
+              remoteMd5.isNotEmpty &&
+              remoteMd5 == localMd5) {
+            localPaths.add(file.path);
+            continue;
+          }
+        }
+
+        if (downloadUrl == null || downloadUrl.isEmpty) {
+          if (await file.exists()) {
+            localPaths.add(file.path);
+          }
+          continue;
+        }
+
+        await _downloadToFile(downloadUrl, file);
+        final downloadedMd5 = await _computeFileMd5(file);
+        if (remoteMd5.isNotEmpty &&
+            downloadedMd5 != null &&
+            remoteMd5 != downloadedMd5) {
+          AppLog.instance.warning(
+            'Wallpaper md5 mismatch, remote=$remoteMd5, local=$downloadedMd5',
+            tag: 'Customization',
+          );
+        }
+        localPaths.add(file.path);
+      } catch (error, stackTrace) {
+        AppLog.instance.warning(
+          'Failed to sync wallpaper cache',
+          tag: 'Customization',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        if (await file.exists()) {
+          localPaths.add(file.path);
         }
       }
+    }
 
-      await _downloadToFile(downloadUrl, file);
-      final downloadedMd5 = await _computeFileMd5(file);
-      if (remoteMd5.isNotEmpty && downloadedMd5 != null && remoteMd5 != downloadedMd5) {
-        AppLog.instance.warning(
-          'Wallpaper md5 mismatch, remote=$remoteMd5, local=$downloadedMd5',
-          tag: 'Customization',
-        );
+    await _removeStaleCachedWallpapers(
+      deviceId: deviceId,
+      keepPaths: expectedPaths,
+    );
+
+    return localPaths;
+  }
+
+  Future<void> _removeStaleCachedWallpapers({
+    required String deviceId,
+    required List<String> keepPaths,
+  }) async {
+    final dir = await _wallpaperDeviceDir(deviceId);
+    if (!await dir.exists()) return;
+
+    final keep = keepPaths.toSet();
+
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      if (keep.contains(entity.path)) continue;
+      try {
+        _evictImageCache(entity.path);
+        await entity.delete();
+      } catch (_) {
+        // ignore deletion failure
       }
-      return file.path;
-    } catch (error, stackTrace) {
-      AppLog.instance.warning(
-        'Failed to sync wallpaper cache',
-        tag: 'Customization',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return await getCachedWallpaperPath(deviceId, info: wallpaperInfo);
     }
   }
 
@@ -399,17 +555,35 @@ class DeviceCustomizationRepository {
   Future<String> _wallpaperFilePath(
     String deviceId, {
     String? extension,
+    int index = 0,
   }) async {
-    final dir = await _wallpaperDir();
-    final safeId = _safeDeviceId(deviceId);
+    final dir = await _wallpaperDeviceDir(deviceId);
     final ext = _resolveExtension(null, fallbackExtension: extension);
-    return p.join(dir.path, '$safeId$ext');
+    final safeIndex = index < 0 ? 0 : index;
+    return p.join(dir.path, '$safeIndex$ext');
   }
 
   Future<Directory> _wallpaperDir({String? userFolder}) async {
     final base = await getApplicationSupportDirectory();
     final folder = userFolder ?? _userFolder();
     final dir = Directory(p.join(base.path, 'wallpapers', folder));
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  Future<Directory> _wallpaperDeviceDir(
+    String deviceId, {
+    String? userFolder,
+  }) async {
+    final baseDir = await _wallpaperDir(userFolder: userFolder);
+    final safeId = _safeDeviceId(deviceId);
+
+    // 迁移：移除旧的平铺文件，避免与新目录结构混用
+    await _cleanupLegacyDeviceFiles(deviceId, baseDir: baseDir);
+
+    final dir = Directory(p.join(baseDir.path, safeId));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -448,5 +622,25 @@ class DeviceCustomizationRepository {
 
   String _safeDeviceId(String value) {
     return value.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  }
+
+  Future<void> _cleanupLegacyDeviceFiles(
+    String deviceId, {
+    Directory? baseDir,
+  }) async {
+    final base = baseDir ?? await _wallpaperDir();
+    final safeId = _safeDeviceId(deviceId);
+
+    await for (final entity in base.list()) {
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (!name.startsWith(safeId)) continue;
+      try {
+        _evictImageCache(entity.path);
+        await entity.delete();
+      } catch (_) {
+        // ignore deletion failure
+      }
+    }
   }
 }
