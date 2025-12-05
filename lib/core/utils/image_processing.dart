@@ -1,9 +1,7 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
-import 'package:smart_display_mobile/core/log/app_log.dart';
 
 class ImageProcessingResult {
   final Uint8List bytes;
@@ -70,9 +68,74 @@ class WallpaperImageProcessor {
     int targetHeight = 1080,
     int maxBytes = 200 * 1024,
   }) async {
+    return _processWallpaper(
+      bytes: bytes,
+      sourcePath: sourcePath,
+      targetWidth: targetWidth,
+      targetHeight: targetHeight,
+      maxBytes: maxBytes,
+    );
+  }
+
+  /// 在隔离线程中处理壁纸，避免主线程卡顿。
+  static Future<ImageProcessingResult> processWallpaperInIsolate({
+    required Uint8List bytes,
+    String? sourcePath,
+    int targetWidth = 1980,
+    int targetHeight = 1080,
+    int maxBytes = 200 * 1024,
+  }) {
+    final params = <String, Object?>{
+      'bytes': bytes,
+      'sourcePath': sourcePath,
+      'targetWidth': targetWidth,
+      'targetHeight': targetHeight,
+      'maxBytes': maxBytes,
+    };
+    return compute(_processWallpaperOnIsolate, params).then(
+      (value) => ImageProcessingResult(
+        bytes: value['bytes'] as Uint8List,
+        mimeType: value['mimeType'] as String,
+        extension: value['extension'] as String,
+        width: value['width'] as int,
+        height: value['height'] as int,
+        sizeBytes: value['sizeBytes'] as int,
+      ),
+    );
+  }
+
+  @pragma('vm:entry-point')
+  static Map<String, Object> _processWallpaperOnIsolate(
+    Map<String, Object?> params,
+  ) {
+    final processed = _processWallpaper(
+      bytes: params['bytes'] as Uint8List,
+      sourcePath: params['sourcePath'] as String?,
+      targetWidth: params['targetWidth'] as int,
+      targetHeight: params['targetHeight'] as int,
+      maxBytes: params['maxBytes'] as int,
+    );
+
+    return {
+      'bytes': processed.bytes,
+      'mimeType': processed.mimeType,
+      'extension': processed.extension,
+      'width': processed.width,
+      'height': processed.height,
+      'sizeBytes': processed.sizeBytes,
+    };
+  }
+
+  static ImageProcessingResult _processWallpaper({
+    required Uint8List bytes,
+    String? sourcePath,
+    required int targetWidth,
+    required int targetHeight,
+    required int maxBytes,
+  }) {
     final ext = _normalizedExtension(sourcePath);
     if (ext != null && !isSupportedExtension(ext)) {
-      throw ImageProcessingException('不支持${ext}, 仅支持 JPG / PNG 格式的图片');
+      throw ImageProcessingException('不支持$ext, 仅支持 JPG / PNG 格式的图片');
     }
 
     final decoded = img.decodeImage(bytes);

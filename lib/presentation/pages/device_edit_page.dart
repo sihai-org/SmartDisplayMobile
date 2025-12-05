@@ -42,6 +42,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   PageController? _wallpaperController;
   PageController? _layoutController;
+  bool _isProcessingWallpaper = false;
 
   bool get _hasCustomWallpaper =>
       ref
@@ -99,6 +100,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     if (state.isSaving) return;
+    if (_isProcessingWallpaper) {
+      _showToast('图片处理中，请稍后保存');
+      return;
+    }
     if (state.isUploading) {
       _showToast('壁纸上传中，请稍后保存');
       return;
@@ -131,6 +136,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final isSaving = state.isSaving;
     final isUploading = state.isUploading;
+    final isProcessingWallpaper = _isProcessingWallpaper;
+    final isBusyWithWallpaper = isUploading || isProcessingWallpaper;
+    final disableSave = isSaving || isBusyWithWallpaper;
 
     return Scaffold(
       appBar: AppBar(
@@ -138,9 +146,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         title: Text(l10n.device_edit_title),
         actions: [
           TextButton(
-            onPressed: (isSaving || isUploading) ? null : _handleSave,
+            onPressed: disableSave ? null : _handleSave,
             child: Text(
-              isSaving ? '保存中...' : l10n.done,
+              isSaving
+                  ? '保存中...'
+                  : (isBusyWithWallpaper ? '处理中...' : l10n.done),
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -165,11 +175,15 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: (isSaving || isUploading) ? null : _handleSave,
+                    onPressed: disableSave ? null : _handleSave,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Text(
-                        isSaving ? '保存中...' : l10n.save_settings,
+                        isSaving
+                            ? '保存中...'
+                            : (isBusyWithWallpaper
+                            ? '处理中...'
+                            : l10n.save_settings),
                       ),
                     ),
                   ),
@@ -238,6 +252,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final l10n = context.l10n;
     final state = ref.watch(deviceCustomizationProvider);
     AppLog.instance.info("~~~~~~~~~~state=${state.localWallpaperPath}");
+    final isUploading = state.isUploading;
+    final isBusy = isUploading || _isProcessingWallpaper;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _wallpaperViewportFraction;
@@ -300,19 +316,26 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeOut,
                               alignment: Alignment.center,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(18),
-                                child: _wallpaperImageWidget(index, state),
-                              ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: _wallpaperImageWidget(
+                              index,
+                              state,
+                              isBusy: isBusy,
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                     ),
                   ),
                 ),
                 const SizedBox(height: verticalGap + 4),
-                _buildBottomAction(isViewingCustom: isViewingCustom),
+                _buildBottomAction(
+                  isViewingCustom: isViewingCustom,
+                  isBusy: isBusy,
+                ),
               ],
             ),
           ],
@@ -456,7 +479,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Widget _wallpaperImageWidget(
       int index,
       DeviceCustomizationState state,
-      ) {
+      {required bool isBusy}) {
     return switch (index) {
       0 => Image.asset(
         'assets/images/device_wallpaper_default.png',
@@ -464,7 +487,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       ),
       _ => _hasCustomWallpaper
           ? _buildUploadedWallpaperPreview(state)
-          : _buildUploadPlaceholder(),
+          : _buildUploadPlaceholder(isBusy),
     };
   }
 
@@ -493,8 +516,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         : Container(decoration: fallbackDecoration);
   }
 
-  Widget _buildUploadPlaceholder() {
-    final state = ref.watch(deviceCustomizationProvider);
+  Widget _buildUploadPlaceholder(bool isBusy) {
 
     return Container(
       decoration: BoxDecoration(
@@ -502,7 +524,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
-        child: state.isUploading
+        child: isBusy
             ? const CircularProgressIndicator()
             : const Column(
           mainAxisSize: MainAxisSize.min,
@@ -526,8 +548,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
   }
 
-  Widget _buildBottomAction({required bool isViewingCustom}) {
-    final state = ref.watch(deviceCustomizationProvider);
+  Widget _buildBottomAction({
+    required bool isViewingCustom,
+    required bool isBusy,
+  }) {
 
     if (!isViewingCustom) {
       return const SizedBox(height: 48);
@@ -536,7 +560,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     if (!_hasCustomWallpaper) {
       return Center(
         child: ElevatedButton.icon(
-          onPressed: state.isUploading ? null : _handleUploadTap,
+          onPressed: isBusy ? null : _handleUploadTap,
           icon: const Icon(Icons.photo_library_outlined),
           label: const Text('从相册上传'),
           style: ElevatedButton.styleFrom(
@@ -550,7 +574,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         OutlinedButton.icon(
-          onPressed: state.isUploading ? null : _handleDeleteWallpaper,
+          onPressed: isBusy ? null : _handleDeleteWallpaper,
           icon: const Icon(Icons.delete_outline),
           label: const Text('删除'),
           style: OutlinedButton.styleFrom(
@@ -559,15 +583,15 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         ),
         const SizedBox(width: 12),
         FilledButton.tonalIcon(
-          onPressed: state.isUploading ? null : _handleUploadTap,
-          icon: state.isUploading
+          onPressed: isBusy ? null : _handleUploadTap,
+          icon: isBusy
               ? const SizedBox(
             width: 14,
             height: 14,
             child: CircularProgressIndicator(strokeWidth: 2.2),
           )
               : const Icon(Icons.refresh),
-          label: Text(state.isUploading ? '处理中...' : '重新上传'),
+          label: Text(isBusy ? '处理中...' : '重新上传'),
         ),
       ],
     );
@@ -577,7 +601,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
     final state = ref.read(deviceCustomizationProvider);
 
-    if (state.isUploading) return;
+    if (state.isUploading || _isProcessingWallpaper) return;
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
@@ -601,8 +625,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       return;
     }
 
+    if (mounted) {
+      setState(() => _isProcessingWallpaper = true);
+      _showToast('图片处理中...需要几秒，请耐心等待');
+    }
+
     try {
-      final processed = await WallpaperImageProcessor.processWallpaper(
+      final processed = await WallpaperImageProcessor.processWallpaperInIsolate(
         bytes: await picked.readAsBytes(),
         sourcePath: picked.path,
       );
@@ -616,6 +645,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       _showToast('壁纸上传成功');
     } catch (error) {
       _showToast('上传失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingWallpaper = false);
+      }
     }
   }
 
@@ -623,7 +656,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final state = ref.read(deviceCustomizationProvider);
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
-    if (state.isUploading) return;
+    if (state.isUploading || _isProcessingWallpaper) return;
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
@@ -631,21 +664,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       return;
     }
 
-    final wasUsingCustom = _selectedWallpaperPageIndex == 1;
-
     await notifier.deleteWallpaper(deviceId);
-
-    // if (wasUsingCustom) {
-    //   setState(() {
-    //     _wallpaperPageIndex = 0;
-    //     _wallpaperPage = 0;
-    //   });
-    //   _wallpaperController?.animateToPage(
-    //     0,
-    //     duration: const Duration(milliseconds: 220),
-    //     curve: Curves.easeOut,
-    //   );
-    // }
 
     _showToast('已删除上传的壁纸');
   }
