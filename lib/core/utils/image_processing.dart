@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -65,19 +64,15 @@ class WallpaperImageProcessor {
     return ext.toLowerCase();
   }
 
-  /// 裁剪为 16:9、缩放到 1980x1080，并压缩到指定大小以内（默认 200KB）。
+  /// 仅压缩到指定大小以内（默认 200KB），不做缩放裁剪。
   static Future<ImageProcessingResult> processWallpaper({
     required Uint8List bytes,
     String? sourcePath,
-    int targetWidth = 1980,
-    int targetHeight = 1080,
     int maxBytes = 200 * 1024,
   }) async {
     return _processWallpaper(
       bytes: bytes,
       sourcePath: sourcePath,
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
       maxBytes: maxBytes,
     );
   }
@@ -86,15 +81,11 @@ class WallpaperImageProcessor {
   static Future<ImageProcessingResult> processWallpaperInIsolate({
     required Uint8List bytes,
     String? sourcePath,
-    int targetWidth = 1980,
-    int targetHeight = 1080,
     int maxBytes = 200 * 1024,
   }) {
     final params = <String, Object?>{
       'bytes': bytes,
       'sourcePath': sourcePath,
-      'targetWidth': targetWidth,
-      'targetHeight': targetHeight,
       'maxBytes': maxBytes,
     };
     return compute(_processWallpaperOnIsolate, params).then(
@@ -113,8 +104,6 @@ class WallpaperImageProcessor {
   static Future<ImageProcessingResult> processWallpaperAuto({
     required Uint8List bytes,
     String? sourcePath,
-    int targetWidth = 1980,
-    int targetHeight = 1080,
     int maxBytes = 200 * 1024,
   }) async {
     final format = _detectFormat(bytes);
@@ -126,8 +115,6 @@ class WallpaperImageProcessor {
       return processWallpaperInIsolate(
         bytes: bytes,
         sourcePath: sourcePath,
-        targetWidth: targetWidth,
-        targetHeight: targetHeight,
         maxBytes: maxBytes,
       );
     }
@@ -137,8 +124,6 @@ class WallpaperImageProcessor {
       bytes: bytes,
       sourcePath: sourcePath,
       detectedFormat: format,
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
       maxBytes: maxBytes,
     );
   }
@@ -150,8 +135,6 @@ class WallpaperImageProcessor {
     final processed = _processWallpaper(
       bytes: params['bytes'] as Uint8List,
       sourcePath: params['sourcePath'] as String?,
-      targetWidth: params['targetWidth'] as int,
-      targetHeight: params['targetHeight'] as int,
       maxBytes: params['maxBytes'] as int,
     );
 
@@ -168,8 +151,6 @@ class WallpaperImageProcessor {
   static ImageProcessingResult _processWallpaper({
     required Uint8List bytes,
     String? sourcePath,
-    required int targetWidth,
-    required int targetHeight,
     required int maxBytes,
   }) {
     final ext = _normalizedExtension(sourcePath);
@@ -223,8 +204,6 @@ class WallpaperImageProcessor {
       decoded: decoded,
       originalBytes: bytes,
       originalExt: ext,
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
       maxBytes: maxBytes,
     );
   }
@@ -239,50 +218,11 @@ class WallpaperImageProcessor {
     if (encoded.length <= maxBytes) {
       return _CompressionResult(encoded, image.width, image.height);
     }
-
-    // 预估一次缩放比例，减少多次尝试带来的耗时。
-    final scale =
-        math.sqrt(maxBytes / encoded.length).clamp(0.35, 0.95).toDouble();
-    int targetWidth =
-        (image.width * scale).round().clamp(320, image.width).toInt();
-    int targetHeight =
-        (image.height * scale).round().clamp(180, image.height).toInt();
-
-    if (scale < 0.98) {
-      image = img.copyResize(
-        image,
-        width: targetWidth,
-        height: targetHeight,
-        interpolation: img.Interpolation.linear,
-      );
+    while (encoded.length > maxBytes && quality > 30) {
+      quality -= encoded.length > maxBytes * 2 ? 10 : 6;
+      if (quality < 30) quality = 30;
       encoded = _encodeJpg(image, quality);
-    }
-
-    while (encoded.length > maxBytes && quality > 55) {
-      quality -= 7;
-      encoded = _encodeJpg(image, quality);
-    }
-
-    // 如果仍然超出，做一次额外缩放兜底，但不做过多迭代以保持速度。
-    if (encoded.length > maxBytes &&
-        image.width > 480 &&
-        image.height > 270) {
-      final secondaryScale =
-          math.sqrt(maxBytes / encoded.length).clamp(0.45, 0.9).toDouble();
-      targetWidth =
-          (image.width * secondaryScale).round().clamp(320, image.width).toInt();
-      targetHeight = (image.height * secondaryScale)
-          .round()
-          .clamp(180, image.height)
-          .toInt();
-
-      image = img.copyResize(
-        image,
-        width: targetWidth,
-        height: targetHeight,
-        interpolation: img.Interpolation.linear,
-      );
-      encoded = _encodeJpg(image, math.max(55, quality - 5));
+      if (quality == 30) break;
     }
 
     return _CompressionResult(encoded, image.width, image.height);
@@ -302,8 +242,6 @@ class WallpaperImageProcessor {
     required img.Image decoded,
     required Uint8List originalBytes,
     String? originalExt,
-    required int targetWidth,
-    required int targetHeight,
     required int maxBytes,
   }) {
     final ext = originalExt;
@@ -320,15 +258,7 @@ class WallpaperImageProcessor {
       );
     }
 
-    final cropped = _cropToAspect(decoded, 16 / 9);
-    final resized = img.copyResize(
-      cropped,
-      width: targetWidth,
-      height: targetHeight,
-      interpolation: img.Interpolation.linear,
-    );
-
-    final compressed = _compressToLimit(resized, maxBytes);
+    final compressed = _compressToLimit(decoded, maxBytes);
 
     return ImageProcessingResult(
       bytes: compressed.bytes,
@@ -405,17 +335,11 @@ class WallpaperImageProcessor {
     required Uint8List bytes,
     required String detectedFormat,
     String? sourcePath,
-    required int targetWidth,
-    required int targetHeight,
     required int maxBytes,
   }) async {
     ui.Image uiImage;
     try {
-      uiImage = await _decodeWithUi(
-        bytes,
-        targetWidth: targetWidth,
-        targetHeight: targetHeight,
-      );
+      uiImage = await _decodeWithUi(bytes);
     } catch (error, stackTrace) {
       _logProcessFailure(
         sourcePath: sourcePath,
@@ -454,22 +378,14 @@ class WallpaperImageProcessor {
       decoded: decoded,
       originalBytes: pngBytes,
       originalExt: '.png', // 已经转成 PNG
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
       maxBytes: maxBytes,
     );
   }
 
   static Future<ui.Image> _decodeWithUi(
-    Uint8List bytes, {
-    int? targetWidth,
-    int? targetHeight,
-  }) {
-    return ui.instantiateImageCodec(
-      bytes,
-      targetWidth: targetWidth,
-      targetHeight: targetHeight,
-    ).then(
+    Uint8List bytes,
+  ) {
+    return ui.instantiateImageCodec(bytes).then(
       (codec) => codec.getNextFrame().then((frame) => frame.image),
     );
   }
@@ -490,35 +406,6 @@ class WallpaperImageProcessor {
       error: error,
       stackTrace: stackTrace,
     );
-  }
-
-  static img.Image _cropToAspect(img.Image image, double targetAspect) {
-    final currentAspect = image.width / image.height;
-    if ((currentAspect - targetAspect).abs() < 0.001) {
-      return image;
-    }
-
-    if (currentAspect > targetAspect) {
-      final targetWidth = (image.height * targetAspect).round();
-      final offsetX = ((image.width - targetWidth) / 2).round();
-      return img.copyCrop(
-        image,
-        x: offsetX,
-        y: 0,
-        width: targetWidth,
-        height: image.height,
-      );
-    } else {
-      final targetHeight = (image.width / targetAspect).round();
-      final offsetY = ((image.height - targetHeight) / 2).round();
-      return img.copyCrop(
-        image,
-        x: 0,
-        y: offsetY,
-        width: image.width,
-        height: targetHeight,
-      );
-    }
   }
 }
 
