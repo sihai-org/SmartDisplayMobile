@@ -6,10 +6,6 @@ class BleConstants {
   // Dual-char design
   static const String rxCharUuid = '0000A111-0000-1000-8000-00805F9B34FB'; // WRITE WITH RESPONSE
   static const String txCharUuid = '0000A112-0000-1000-8000-00805F9B34FB'; // INDICATE only (no READ)
-
-  // Device Advertisement
-  static const String deviceNamePrefix = 'AI-TV-';
-  static const int advertisementTimeoutMs = 30000; // 30 seconds
   
   // MTU Configuration
   static const int preferredMtu = 247;
