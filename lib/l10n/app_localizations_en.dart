@@ -456,6 +456,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get provisioning_please_wait => 'Provisioning, please wait…';
 
   @override
+  String get wifi_scanning => 'Scanning Wi‑Fi…';
+
+  @override
+  String last_wifi_scan_time(Object time) {
+    return 'Last scan: $time';
+  }
+
+  @override
   String get bind_device_title => 'Bind Device';
 
   @override

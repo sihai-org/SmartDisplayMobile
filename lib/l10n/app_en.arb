@@ -152,6 +152,8 @@
   "provision_request_failed": "Failed to send provisioning request",
   "send_provision_request": "Send Provisioning Request",
   "provisioning_please_wait": "Provisioning, please wait…",
+  "wifi_scanning": "Scanning Wi‑Fi…",
+  "last_wifi_scan_time": "Last scan: {time}",
   
   "bind_device_title": "Bind Device",
   "no_device_info_message": "No device info found. Please go back and rescan",

@@ -929,6 +929,18 @@ abstract class AppLocalizations {
   /// **'Provisioning, please wait…'**
   String get provisioning_please_wait;
 
+  /// No description provided for @wifi_scanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning Wi‑Fi…'**
+  String get wifi_scanning;
+
+  /// No description provided for @last_wifi_scan_time.
+  ///
+  /// In en, this message translates to:
+  /// **'Last scan: {time}'**
+  String last_wifi_scan_time(Object time);
+
   /// No description provided for @bind_device_title.
   ///
   /// In en, this message translates to:

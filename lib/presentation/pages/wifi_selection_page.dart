@@ -88,7 +88,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final wifiNetworks = ref.watch(bleConnectionProvider).wifiNetworks;
+    final bleState = ref.watch(bleConnectionProvider);
+    final wifiNetworks = bleState.wifiNetworks;
+    final isScanning = bleState.isScanningWifi;
+    final lastScanAt = bleState.wifiScanUpdatedAt;
 
     return PopScope(
       // 允许系统返回手势/按钮先尝试出栈
@@ -148,23 +151,53 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         children: [
                           const Icon(Icons.wifi, size: 18),
                           const SizedBox(width: 8),
-                          Text(
-                              context.l10n
-                                  .nearby_networks_count(wifiNetworks.length),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600)),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () => ref
-                                .read(bleConnectionProvider.notifier)
-                                .requestWifiScan(),
-                            tooltip: context.l10n.rescan,
+                      Text(
+                          context.l10n
+                              .nearby_networks_count(wifiNetworks.length),
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                          TextButton.icon(
+                            icon: isScanning
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: Text(context.l10n.rescan),
+                            onPressed: isScanning
+                                ? null
+                                : () => ref
+                                    .read(bleConnectionProvider.notifier)
+                                    .requestWifiScan(),
                           )
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      if (isScanning)
+                        Text(
+                          context.l10n.wifi_scanning,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.secondary),
+                        )
+                      else if (lastScanAt != null)
+                        Text(
+                          context.l10n.last_wifi_scan_time(
+                              _formatDateTime(context, lastScanAt)),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: Theme.of(context).colorScheme.outline),
+                        ),
                       const SizedBox(height: 8),
-                      _buildWifiNetworks(wifiNetworks),
+                      _buildWifiNetworks(wifiNetworks, isScanning),
                       const SizedBox(height: 16),
                       Text(context.l10n.manual_wifi_entry_title,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -241,16 +274,16 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     );
   }
 
-  Widget _buildWifiNetworks(List<WifiAp> wifiNetworks) {
-    return Container(
+  Widget _buildWifiNetworks(List<WifiAp> wifiNetworks, bool isScanning) {
+    final hasNetworks = wifiNetworks.isNotEmpty;
+    final list = Container(
       height: 220,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: wifiNetworks.isEmpty
-          ? Center(child: Text(context.l10n.no_scan_results_hint))
-          : ListView.separated(
+      child: hasNetworks
+          ? ListView.separated(
               itemCount: wifiNetworks.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (_, idx) {
@@ -284,7 +317,60 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                   },
                 );
               },
+            )
+          : Center(
+              child: Text(
+                isScanning
+                    ? context.l10n.wifi_scanning
+                    : context.l10n.no_scan_results_hint,
+                textAlign: TextAlign.center,
+              ),
             ),
     );
+
+    if (!isScanning || !hasNetworks) return list;
+
+    return Stack(
+      children: [
+        list,
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.l10n.wifi_scanning,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDateTime(BuildContext context, DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return context.l10n.relative_just_now;
+    } else if (difference.inHours < 1) {
+      return context.l10n.relative_minutes_ago(difference.inMinutes);
+    } else if (difference.inDays < 1) {
+      return context.l10n.relative_hours_ago(difference.inHours);
+    } else if (difference.inDays < 7) {
+      return context.l10n.relative_days_ago(difference.inDays);
+    } else {
+      String twoDigits(int v) => v.toString().padLeft(2, '0');
+      return '${dateTime.month}/${dateTime.day} ${twoDigits(dateTime.hour)}:${twoDigits(dateTime.minute)}';
+    }
   }
 }

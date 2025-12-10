@@ -152,6 +152,8 @@
   "provision_request_failed": "发送配网请求失败",
   "send_provision_request": "发送配网请求",
   "provisioning_please_wait": "正在配网，请稍候…",
+  "wifi_scanning": "正在扫描 Wi‑Fi…",
+  "last_wifi_scan_time": "上次扫描：{time}",
   
   "bind_device_title": "绑定设备",
   "no_device_info_message": "未找到设备信息，请返回重新扫码",

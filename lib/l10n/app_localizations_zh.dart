@@ -456,6 +456,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get provisioning_please_wait => '正在配网，请稍候…';
 
   @override
+  String get wifi_scanning => '正在扫描 Wi‑Fi…';
+
+  @override
+  String last_wifi_scan_time(Object time) {
+    return '上次扫描：$time';
+  }
+
+  @override
   String get bind_device_title => '绑定设备';
 
   @override

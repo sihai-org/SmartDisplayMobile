@@ -40,6 +40,8 @@ class BleConnectionState {
 
   /// wifi
   final List<WifiAp> wifiNetworks; // TODO: 可以放 wifi_selection_page 内部
+  final bool isScanningWifi;
+  final DateTime? wifiScanUpdatedAt;
   final bool isCheckingNetwork; // TODO: 可以放 device_detail_page 内部
   final NetworkStatus? networkStatus; // TODO: 可以放 device_detail_page 内部
   final DateTime? networkStatusUpdatedAt; // TODO: 可以放 device_detail_page 内部
@@ -52,6 +54,8 @@ class BleConnectionState {
     this.emptyBound = false,
     this.wifiNetworks = const [],
     this.networkStatus,
+    this.isScanningWifi = false,
+    this.wifiScanUpdatedAt,
     this.isCheckingNetwork = false,
     this.networkStatusUpdatedAt,
   });
@@ -68,6 +72,8 @@ class BleConnectionState {
     String? lastProvisionSsid,
     List<WifiAp>? wifiNetworks,
     NetworkStatus? networkStatus,
+    bool? isScanningWifi,
+    DateTime? wifiScanUpdatedAt,
     bool? isCheckingNetwork,
     DateTime? networkStatusUpdatedAt,
   }) {
@@ -80,6 +86,8 @@ class BleConnectionState {
       emptyBound: emptyBound ?? this.emptyBound,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
+      isScanningWifi: isScanningWifi ?? this.isScanningWifi,
+      wifiScanUpdatedAt: wifiScanUpdatedAt ?? this.wifiScanUpdatedAt,
       isCheckingNetwork: isCheckingNetwork ?? this.isCheckingNetwork,
       networkStatusUpdatedAt:
           networkStatusUpdatedAt ?? this.networkStatusUpdatedAt,
@@ -191,6 +199,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       lastErrorCode: null,
       emptyBound: false,
       wifiNetworks: const [],
+      isScanningWifi: false,
+      wifiScanUpdatedAt: null,
       networkStatus: null,
       isCheckingNetwork: false,
       networkStatusUpdatedAt: null,
@@ -404,6 +414,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 可用 wifi
   Future<bool> requestWifiScan() async {
+    if (state.isScanningWifi) {
+      _log('跳过 wifi.scan：已有扫描进行中');
+      return false;
+    }
+
+    state = state.copyWith(isScanningWifi: true);
     try {
       _log('⏳ 开始扫描附近Wi-Fi...');
       final data = await sendBleMsg(
@@ -422,13 +438,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
                   frequency: int.tryParse((e['frequency'] ?? '').toString()),
                 ))
             .toList();
-        state = state.copyWith(wifiNetworks: networks);
+        state = state.copyWith(
+          wifiNetworks: networks,
+          wifiScanUpdatedAt: DateTime.now(),
+        );
         _log('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
       }
       return true;
     } catch (e) {
       _log('❌ wifi.scan 失败: $e');
       return false;
+    } finally {
+      state = state.copyWith(isScanningWifi: false);
     }
   }
 
