@@ -22,9 +22,7 @@ NetworkStatus _$NetworkStatusFromJson(Map<String, dynamic> json) {
 mixin _$NetworkStatus {
   bool get connected => throw _privateConstructorUsedError;
   String? get ssid => throw _privateConstructorUsedError;
-  String? get ip => throw _privateConstructorUsedError;
-  int? get signal => throw _privateConstructorUsedError; // RSSI值
-  int? get frequency => throw _privateConstructorUsedError;
+  int? get rawRssi => throw _privateConstructorUsedError;
 
   /// Serializes this NetworkStatus to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -42,8 +40,7 @@ abstract class $NetworkStatusCopyWith<$Res> {
           NetworkStatus value, $Res Function(NetworkStatus) then) =
       _$NetworkStatusCopyWithImpl<$Res, NetworkStatus>;
   @useResult
-  $Res call(
-      {bool connected, String? ssid, String? ip, int? signal, int? frequency});
+  $Res call({bool connected, String? ssid, int? rawRssi});
 }
 
 /// @nodoc
@@ -63,9 +60,7 @@ class _$NetworkStatusCopyWithImpl<$Res, $Val extends NetworkStatus>
   $Res call({
     Object? connected = null,
     Object? ssid = freezed,
-    Object? ip = freezed,
-    Object? signal = freezed,
-    Object? frequency = freezed,
+    Object? rawRssi = freezed,
   }) {
     return _then(_value.copyWith(
       connected: null == connected
@@ -76,17 +71,9 @@ class _$NetworkStatusCopyWithImpl<$Res, $Val extends NetworkStatus>
           ? _value.ssid
           : ssid // ignore: cast_nullable_to_non_nullable
               as String?,
-      ip: freezed == ip
-          ? _value.ip
-          : ip // ignore: cast_nullable_to_non_nullable
-              as String?,
-      signal: freezed == signal
-          ? _value.signal
-          : signal // ignore: cast_nullable_to_non_nullable
-              as int?,
-      frequency: freezed == frequency
-          ? _value.frequency
-          : frequency // ignore: cast_nullable_to_non_nullable
+      rawRssi: freezed == rawRssi
+          ? _value.rawRssi
+          : rawRssi // ignore: cast_nullable_to_non_nullable
               as int?,
     ) as $Val);
   }
@@ -100,8 +87,7 @@ abstract class _$$NetworkStatusImplCopyWith<$Res>
       __$$NetworkStatusImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {bool connected, String? ssid, String? ip, int? signal, int? frequency});
+  $Res call({bool connected, String? ssid, int? rawRssi});
 }
 
 /// @nodoc
@@ -119,9 +105,7 @@ class __$$NetworkStatusImplCopyWithImpl<$Res>
   $Res call({
     Object? connected = null,
     Object? ssid = freezed,
-    Object? ip = freezed,
-    Object? signal = freezed,
-    Object? frequency = freezed,
+    Object? rawRssi = freezed,
   }) {
     return _then(_$NetworkStatusImpl(
       connected: null == connected
@@ -132,17 +116,9 @@ class __$$NetworkStatusImplCopyWithImpl<$Res>
           ? _value.ssid
           : ssid // ignore: cast_nullable_to_non_nullable
               as String?,
-      ip: freezed == ip
-          ? _value.ip
-          : ip // ignore: cast_nullable_to_non_nullable
-              as String?,
-      signal: freezed == signal
-          ? _value.signal
-          : signal // ignore: cast_nullable_to_non_nullable
-              as int?,
-      frequency: freezed == frequency
-          ? _value.frequency
-          : frequency // ignore: cast_nullable_to_non_nullable
+      rawRssi: freezed == rawRssi
+          ? _value.rawRssi
+          : rawRssi // ignore: cast_nullable_to_non_nullable
               as int?,
     ));
   }
@@ -151,12 +127,7 @@ class __$$NetworkStatusImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$NetworkStatusImpl implements _NetworkStatus {
-  const _$NetworkStatusImpl(
-      {this.connected = false,
-      this.ssid,
-      this.ip,
-      this.signal,
-      this.frequency});
+  const _$NetworkStatusImpl({this.connected = false, this.ssid, this.rawRssi});
 
   factory _$NetworkStatusImpl.fromJson(Map<String, dynamic> json) =>
       _$$NetworkStatusImplFromJson(json);
@@ -167,16 +138,11 @@ class _$NetworkStatusImpl implements _NetworkStatus {
   @override
   final String? ssid;
   @override
-  final String? ip;
-  @override
-  final int? signal;
-// RSSI值
-  @override
-  final int? frequency;
+  final int? rawRssi;
 
   @override
   String toString() {
-    return 'NetworkStatus(connected: $connected, ssid: $ssid, ip: $ip, signal: $signal, frequency: $frequency)';
+    return 'NetworkStatus(connected: $connected, ssid: $ssid, rawRssi: $rawRssi)';
   }
 
   @override
@@ -187,16 +153,12 @@ class _$NetworkStatusImpl implements _NetworkStatus {
             (identical(other.connected, connected) ||
                 other.connected == connected) &&
             (identical(other.ssid, ssid) || other.ssid == ssid) &&
-            (identical(other.ip, ip) || other.ip == ip) &&
-            (identical(other.signal, signal) || other.signal == signal) &&
-            (identical(other.frequency, frequency) ||
-                other.frequency == frequency));
+            (identical(other.rawRssi, rawRssi) || other.rawRssi == rawRssi));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, connected, ssid, ip, signal, frequency);
+  int get hashCode => Object.hash(runtimeType, connected, ssid, rawRssi);
 
   /// Create a copy of NetworkStatus
   /// with the given fields replaced by the non-null parameter values.
@@ -216,11 +178,7 @@ class _$NetworkStatusImpl implements _NetworkStatus {
 
 abstract class _NetworkStatus implements NetworkStatus {
   const factory _NetworkStatus(
-      {final bool connected,
-      final String? ssid,
-      final String? ip,
-      final int? signal,
-      final int? frequency}) = _$NetworkStatusImpl;
+      {final bool connected, final String? ssid, final int? rawRssi}) = _$NetworkStatusImpl;
 
   factory _NetworkStatus.fromJson(Map<String, dynamic> json) =
       _$NetworkStatusImpl.fromJson;
@@ -230,11 +188,7 @@ abstract class _NetworkStatus implements NetworkStatus {
   @override
   String? get ssid;
   @override
-  String? get ip;
-  @override
-  int? get signal; // RSSI值
-  @override
-  int? get frequency;
+  int? get rawRssi;
 
   /// Create a copy of NetworkStatus
   /// with the given fields replaced by the non-null parameter values.

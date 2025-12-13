@@ -442,15 +442,27 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String wifi_rssi_percent_label(Object percent) {
-    return 'RSSI: $percent%';
+  String wifi_rssi_dbm_label(Object dbm) {
+    return 'RSSI: $dbm dBm';
   }
+
+  @override
+  String get wifi_signal_strong => 'Strong signal';
+
+  @override
+  String get wifi_signal_good => 'Good signal';
+
+  @override
+  String get wifi_signal_weak => 'Weak signal';
+
+  @override
+  String get wifi_signal_unknown => 'Signal unknown';
 
   @override
   String get provision_request_failed => 'Failed to send provisioning request';
 
   @override
-  String get send_provision_request => 'Send Provisioning Request';
+  String get send_provision_request => 'Start Connecting';
 
   @override
   String get provisioning_please_wait => 'Provisioning, please wait…';

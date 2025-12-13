@@ -905,11 +905,35 @@ abstract class AppLocalizations {
   /// **'Frequency: {mhz} MHz'**
   String wifi_frequency_mhz_label(Object mhz);
 
-  /// No description provided for @wifi_rssi_percent_label.
+  /// No description provided for @wifi_rssi_dbm_label.
   ///
   /// In en, this message translates to:
-  /// **'RSSI: {percent}%'**
-  String wifi_rssi_percent_label(Object percent);
+  /// **'RSSI: {dbm} dBm'**
+  String wifi_rssi_dbm_label(Object dbm);
+
+  /// No description provided for @wifi_signal_strong.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong signal'**
+  String get wifi_signal_strong;
+
+  /// No description provided for @wifi_signal_good.
+  ///
+  /// In en, this message translates to:
+  /// **'Good signal'**
+  String get wifi_signal_good;
+
+  /// No description provided for @wifi_signal_weak.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak signal'**
+  String get wifi_signal_weak;
+
+  /// No description provided for @wifi_signal_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Signal unknown'**
+  String get wifi_signal_unknown;
 
   /// No description provided for @provision_request_failed.
   ///

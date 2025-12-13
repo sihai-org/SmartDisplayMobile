@@ -706,33 +706,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 ),
               ),
               const Spacer(),
-              _buildSignalBars(networkStatus.signalBars),
             ],
           ),
-          if (networkStatus.ip != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.language, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  'IP: ${networkStatus.ip}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ],
-          if (networkStatus.frequency != null) ...[
+          if (networkStatus.rawRssi != null) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.router, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  '${l10n?.band ?? 'Band'}: ${networkStatus.is5GHz ? '5GHz' : '2.4GHz'}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            Text(
+              l10n.wifi_rssi_dbm_label(networkStatus.rawRssi!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.green.shade700,
+                  ),
             ),
           ],
         ],
@@ -744,24 +726,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final lt = t.toLocal();
     String two(int x) => x.toString().padLeft(2, '0');
     return '${two(lt.hour)}:${two(lt.minute)}:${two(lt.second)}';
-  }
-
-  // 构建信号强度指示器
-  Widget _buildSignalBars(int bars) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(4, (index) {
-        return Container(
-          width: 3,
-          height: 4 + (index * 2),
-          margin: const EdgeInsets.only(right: 1),
-          decoration: BoxDecoration(
-            color: index < bars ? Colors.green : Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(1),
-          ),
-        );
-      }),
-    );
   }
 
   void _showDeleteDialog(BuildContext context, SavedDeviceRecord device) {

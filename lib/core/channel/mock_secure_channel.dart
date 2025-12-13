@@ -52,9 +52,6 @@ class MockSecureChannel implements SecureChannel {
             'network': {
               'connected': true,
               'ssid': 'MockWiFi',
-              'ip': '192.168.1.2',
-              'signal': -55,
-              'frequency': 2412,
             },
             'firmwareVersion': '1.0.0',
           }
@@ -78,9 +75,6 @@ class MockSecureChannel implements SecureChannel {
           'data': {
             'connected': true,
             'ssid': 'MockWiFi',
-            'ip': '192.168.1.2',
-            'signal': -55,
-            'frequency': 2412,
           }
         };
       case 'login.auth':

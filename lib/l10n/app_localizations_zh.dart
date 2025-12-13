@@ -442,18 +442,30 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String wifi_rssi_percent_label(Object percent) {
-    return 'RSSI: $percent%';
+  String wifi_rssi_dbm_label(Object dbm) {
+    return 'RSSI: $dbm dBm';
   }
 
   @override
-  String get provision_request_failed => '发送配网请求失败';
+  String get wifi_signal_strong => '信号强';
 
   @override
-  String get send_provision_request => '发送配网请求';
+  String get wifi_signal_good => '信号良好';
 
   @override
-  String get provisioning_please_wait => '正在配网，请稍候…';
+  String get wifi_signal_weak => '信号弱';
+
+  @override
+  String get wifi_signal_unknown => '信号未知';
+
+  @override
+  String get provision_request_failed => '网络连接失败，请重试';
+
+  @override
+  String get send_provision_request => '开始连接';
+
+  @override
+  String get provisioning_please_wait => '网络连接中...';
 
   @override
   String get wifi_scanning => '正在扫描 Wi‑Fi…';
