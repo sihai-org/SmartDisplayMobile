@@ -45,6 +45,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       if (ok) {
         await ref.read(savedDevicesProvider.notifier).syncFromServer();
         if (!mounted) return;
+
+        // bind 成功后，补一次 device.info 同步（需要设备已在列表中）
+        ref.read(bleConnectionProvider.notifier).syncDeviceInfoAfterBind();
+
         context.go(
             '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(scanned.displayDeviceId)}');
       }

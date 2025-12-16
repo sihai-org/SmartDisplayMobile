@@ -336,7 +336,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         lastErrorCode: null,
       );
 
-      /// 8. 认证成功时，sync 一次
+      /// 8. 连接成功时，sync 一次
       _syncWhenAuthed(reason: 'enableBleConnection-authenticated');
 
       /// 9. 返回结果
@@ -518,6 +518,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       // 异常时及时结束 loading
       return DeviceUpdateVersionResult.failed;
     }
+  }
+
+  /// bind 成功且已 syncFromServer 后调用：补一次 device.info 同步
+  void syncDeviceInfoAfterBind() {
+    if (state.bleDeviceStatus != BleDeviceStatus.authenticated) {
+      _log('跳过 syncDeviceInfoAfterBind：未 authenticated');
+      return;
+    }
+    _syncWhenAuthed(reason: 'bind-success');
   }
 
   void _log(String msg) => AppLog.instance.debug(msg, tag: 'BLE');

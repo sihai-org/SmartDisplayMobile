@@ -231,12 +231,21 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                   if (_sending)
                     Positioned.fill(
                       child: Container(
-                        color: Colors.black45,
+                        // scrim 建议用 surface + alpha，暗色/亮色都自然
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surface
+                            .withOpacity(0.72),
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const CircularProgressIndicator(),
+                              CircularProgressIndicator(
+                                // 让 indicator 颜色也跟主题走
+                                valueColor: AlwaysStoppedAnimation(
+                                  Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
                               const SizedBox(height: 12),
                               Text(context.l10n.provisioning_please_wait,
                                   style: const TextStyle(color: Colors.white)),
@@ -279,7 +288,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
     final list = Container(
       height: 220,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(8),
       ),
       child: hasNetworks
@@ -336,7 +345,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
+              // 用 surface 做遮罩更统一（暗色不会变“白雾”）
+              color: Theme.of(context).colorScheme.surface.withOpacity(0.75),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -345,7 +355,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 children: [
                   Text(
                     context.l10n.wifi_scanning,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                   ),
                 ],
               ),

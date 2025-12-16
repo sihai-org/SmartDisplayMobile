@@ -14,6 +14,7 @@ import '../../core/providers/ble_connection_provider.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/providers/audit_mode_provider.dart';
 import '../../core/log/app_log.dart';
+import 'package:flutter/foundation.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -243,6 +244,13 @@ class ProfilePage extends ConsumerWidget {
                     _showTopToast(context, l10n.google_signin_placeholder);
                   },
                 ),
+                if (kDebugMode)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: const Text('BLE 一键测试'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.bleOneClickTest),
+                  ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.camera_permission),
