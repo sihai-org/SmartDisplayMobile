@@ -7,6 +7,7 @@ import '../channel/secure_channel_manager.dart';
 import '../ble/reliable_queue.dart';
 import '../ble/ble_device_data.dart';
 import '../constants/enum.dart';
+import '../constants/ble_constants.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
@@ -114,6 +115,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         }
       },
     );
+
+    // 3) 心跳：仅用于“状态纠偏”，不触发重连；失败达到阈值则走现有断开清理链路
+    _heartbeatTimer =
+        Timer.periodic(const Duration(seconds: 2), (_) => _tickHeartbeat());
   }
 
   final Ref _ref;
@@ -123,6 +128,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
   Stream<Map<String, dynamic>>? _boundStream; // 记住当前已绑定的事件流
+
+  Timer? _heartbeatTimer;
+  int _activeOps = 0;
+  DateTime? _lastActivityAt;
+  DateTime? _lastHeartbeatAt;
+  int _heartbeatFailures = 0;
+  int _heartbeatSeq = 0;
 
   void _attachChannelEvents(SecureChannelManager manager) {
     final stream = manager.events;
@@ -168,6 +180,63 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         break;
       default:
         _log('其他事件: $evt');
+    }
+  }
+
+  bool _shouldHeartbeatNow(DateTime now) {
+    if (state.bleDeviceStatus != BleDeviceStatus.authenticated) return false;
+    if (state.enableBleConnectionLoading) return false;
+    if (state.isScanningWifi) return false;
+    if (state.isCheckingNetwork) return false;
+    if (_activeOps != 0) return false;
+
+    final lastAct = _lastActivityAt;
+    if (lastAct != null &&
+        now.difference(lastAct) < BleConstants.kHeartbeatIdleBeforeSend) {
+      return false;
+    }
+    final lastHb = _lastHeartbeatAt;
+    if (lastHb != null &&
+        now.difference(lastHb) < BleConstants.kHeartbeatInterval) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _tickHeartbeat() async {
+    final now = DateTime.now();
+    if (!_shouldHeartbeatNow(now)) return;
+
+    final int session = _sessionCount;
+    _activeOps++;
+    _lastHeartbeatAt = now;
+    _heartbeatSeq += 1;
+    _log(
+        '心跳开始(#$_heartbeatSeq) device.info timeout=${BleConstants.kHeartbeatTimeout.inMilliseconds}ms');
+    try {
+      // 使用现有 device.info 作为联通检测，但不更新业务状态，也不触发 ensure/reconnect
+      await _ref.read(secureChannelManagerProvider).sendIfReady(
+        {'type': 'device.info', 'data': null},
+        timeout: BleConstants.kHeartbeatTimeout,
+        retries: 0,
+      );
+      if (session != _sessionCount) return;
+      if (_heartbeatFailures > 0 || (_heartbeatSeq % 10 == 0)) {
+        _log('心跳成功(#$_heartbeatSeq)');
+      }
+      _heartbeatFailures = 0;
+    } catch (e) {
+      if (session != _sessionCount) return;
+      _heartbeatFailures += 1;
+      _log(
+          '心跳失败($_heartbeatFailures/${BleConstants.kHeartbeatFailThreshold}): $e');
+      if (_heartbeatFailures >= BleConstants.kHeartbeatFailThreshold) {
+        _heartbeatFailures = 0;
+        _log('心跳判定失联：执行断开清理（等价用户手动断开）');
+        await disconnect(shouldReset: true);
+      }
+    } finally {
+      _activeOps--;
     }
   }
   // 打点
@@ -306,7 +375,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     try {
       /// 4. 建连
       final mgr = _ref.read(secureChannelManagerProvider);
-      final ok = await mgr.use(qrData);
+      _activeOps++;
+      final bool ok;
+      try {
+        ok = await mgr.use(qrData);
+      } finally {
+        _activeOps--;
+      }
 
       /// --- 已取消 ---
       if (session != _sessionCount) {
@@ -335,6 +410,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         bleDeviceStatus: BleDeviceStatus.authenticated,
         lastErrorCode: null,
       );
+      _lastActivityAt = DateTime.now();
 
       /// 8. 连接成功时，sync 一次
       _syncWhenAuthed(reason: 'enableBleConnection-authenticated');
@@ -342,7 +418,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       /// 9. 返回结果
       return BleConnectResult.success;
     } catch (e) {
-      AppLog.instance.error("enableBleConnection failed ${session}, ${_sessionCount}", error: e);
+      AppLog.instance.error(
+          'enableBleConnection failed $session, $_sessionCount',
+          error: e);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
       BleConnectResult result = BleConnectResult.failed;
@@ -369,8 +447,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
-  Future<bool> sendSimpleBleMsg(String type, dynamic? data) async {
+  Future<bool> sendSimpleBleMsg(String type, dynamic data) async {
     _log('sendPureBleMsg: $type, $data');
+    _activeOps++;
+    _lastActivityAt = DateTime.now();
     try {
       final resp = await _ref
           .read(secureChannelManagerProvider)
@@ -380,24 +460,34 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     } catch (e) {
       _log('❌ sendPureBleMsg 失败: $e');
       return false;
+    } finally {
+      _activeOps--;
     }
   }
 
   // 用户发送蓝牙消息 2/2：【复杂版】返回 data，调用处自己 catch
   Future<dynamic> sendBleMsg(
     String type,
-    dynamic? data, {
+    dynamic data, {
     Duration? timeout,
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
     _log('sendBleMsg: $type, $data');
-    final resp = await _ref
-        .read(secureChannelManagerProvider).send(
-        {'type': type, 'data': data},
-        timeout: timeout, retries: retries, isFinal: isFinal);
-    _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
-    return resp['data'];
+    _activeOps++;
+    _lastActivityAt = DateTime.now();
+    try {
+      final resp = await _ref.read(secureChannelManagerProvider).send(
+            {'type': type, 'data': data},
+            timeout: timeout,
+            retries: retries,
+            isFinal: isFinal,
+          );
+      _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
+      return resp['data'];
+    } finally {
+      _activeOps--;
+    }
   }
 
   // 绑定
@@ -549,6 +639,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     if (session != _sessionCount) {
       return;
     }
+    _heartbeatFailures = 0;
     if (shouldReset) {
       resetState();
     } else {
@@ -568,6 +659,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _evtSub?.cancel();
     _managerSub?.close();
     _foregroundSub?.close();
+    _heartbeatTimer?.cancel();
     super.dispose();
   }
 }

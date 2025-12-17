@@ -29,4 +29,10 @@ class BleConstants {
   static const kStabilizeAfterConnect = Duration(milliseconds: 250); // 原 800
   static const kStabilizeBeforeDiscover = Duration(milliseconds: 200); // 原 800
   static const kStabilizeAfterMtu = Duration(milliseconds: 200); // 原 800
+
+  // Heartbeat (connectivity check / state correction only)
+  static const Duration kHeartbeatInterval = Duration(seconds: 6);
+  static const Duration kHeartbeatIdleBeforeSend = Duration(seconds: 4);
+  static const Duration kHeartbeatTimeout = Duration(milliseconds: 1100);
+  static const int kHeartbeatFailThreshold = 2;
 }
