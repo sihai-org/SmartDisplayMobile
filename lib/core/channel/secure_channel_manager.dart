@@ -181,6 +181,27 @@ class SecureChannelManager {
     return ch.send(msg, timeout: timeout, retries: retries, isFinal: isFinal);
   }
 
+  /// Send a message only if the current channel is already authenticated/ready.
+  /// This method intentionally DOES NOT call ensureAuthenticated(), so it won't trigger reconnection.
+  /// Useful for connectivity heartbeat without affecting existing flows.
+  Future<Map<String, dynamic>> sendIfReady(
+    Map<String, dynamic> msg, {
+    Duration? timeout,
+    int retries = 0,
+    bool Function(Map<String, dynamic>)? isFinal,
+  }) async {
+    final int ticket = _gen;
+    final ch = _requireChannel();
+    final resp = await ch.send(
+      msg,
+      timeout: timeout,
+      retries: retries,
+      isFinal: isFinal,
+    );
+    _checkGen(ticket);
+    return resp;
+  }
+
   Future<void> dispose() async {
     try {
       await clearScannerAndChannel();

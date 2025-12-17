@@ -224,6 +224,10 @@ class SecureChannelImpl implements SecureChannel {
         int retries = 0,
         bool Function(Map<String, dynamic>)? isFinal,
       }) async {
+    _ensureNotDisposed('send');
+    if (!_authenticated || _rq == null) {
+      throw StateError('SecureChannel 未就绪（未认证或队列未初始化）');
+    }
     return _rq!.send(
       msg,
       timeout: timeout ?? const Duration(seconds: 5),

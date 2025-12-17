@@ -2,8 +2,6 @@ import 'dart:async';
 import '../log/app_log.dart';
 import 'dart:typed_data';
 
-import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
-
 import '../constants/ble_constants.dart';
 import 'ble_service_simple.dart';
 import 'frame_codec.dart';
@@ -13,13 +11,15 @@ class ReliableRequestQueue {
   final String serviceUuid;
   final String rxUuid;
   final String txUuid;
-  final FlutterReactiveBle _ble;
   final _eventsController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get events => _eventsController.stream;
 
   StreamSubscription<List<int>>? _sub;
   final FrameDecoder _decoder = FrameDecoder();
   int _nextReqId = 1;
+
+  // Serialize send() calls to avoid interleaved frame writes on the same characteristic.
+  Future<void> _sendChain = Future.value();
 
   // Optional crypto handlers installed after handshake
   Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _wrapEncrypt;
@@ -30,8 +30,7 @@ class ReliableRequestQueue {
     this.serviceUuid = BleConstants.serviceUuid,
     this.rxUuid = BleConstants.rxCharUuid,
     this.txUuid = BleConstants.txCharUuid,
-    FlutterReactiveBle? ble,
-  }) : _ble = ble ?? FlutterReactiveBle();
+  });
 
   Future<void> prepare() async {
     _sub = BleServiceSimple.subscribeToIndications(
@@ -157,12 +156,23 @@ class ReliableRequestQueue {
 
   final Map<int, _Pending> _inflight = {};
 
+  Future<T> _serializeSend<T>(Future<T> Function() fn) {
+    // Ensure previous errors don't break the chain
+    final prev = _sendChain.catchError((_) {});
+    final gate = Completer<void>();
+    _sendChain = prev.whenComplete(() => gate.future);
+    return prev.then((_) => fn()).whenComplete(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+  }
+
   Future<Map<String, dynamic>> send(
     Map<String, dynamic> json, {
     Duration timeout = const Duration(seconds: 5),
     int retries = 2,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
+    return _serializeSend(() async {
     // Use negotiated MTU if available; fallback to safe minimum
     final mtu = BleServiceSimple.getNegotiatedMtu(deviceId);
     final encoder = FrameEncoder(mtu);
@@ -221,6 +231,7 @@ class ReliableRequestQueue {
     }
     _inflight.remove(reqId);
     throw TimeoutException('BLE request timeout');
+    });
   }
 
   void setCryptoHandlers({
