@@ -6,10 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/models/device_qr_data.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
-import '../../core/providers/saved_devices_provider.dart';
-import '../../core/ble/ble_device_data.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/utils/binding_flow_utils.dart';
 
@@ -24,7 +23,8 @@ class DeviceConnectionPage extends ConsumerStatefulWidget {
 
 class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   bool _noDataDialogShown = false;
-  bool _navigated = false; // 防止多次 go()
+
+  bool _autoStarted = false;
 
   void _clearAll() {
     ref.read(appStateProvider.notifier).clearScannedData();
@@ -34,6 +34,69 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
 
+  _goBackOrHome() {
+    if (!mounted) return;
+    _clearAll();
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  // 蓝牙连接 + 跳转判断
+  Future<void> _autoConnect(DeviceQrData scannedQrData) async {
+    try {
+      final result = await ref
+          .read(bleConnectionProvider.notifier)
+          .enableBleConnection(scannedQrData);
+      if (!mounted) return;
+
+      // 1) 失败分支：完全由 result 决定
+      if (result == BleConnectResult.userMismatch) {
+        Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+        _goBackOrHome();
+        return;
+      }
+
+      if (result == BleConnectResult.failed ||
+          result == BleConnectResult.cancelled) {
+        Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
+        _goBackOrHome();
+        return;
+      }
+
+      // 2) 成功分支（success / alreadyConnected）：只读一次 state 拿跳转参数
+      Fluttertoast.showToast(msg: context.l10n.connect_success);
+
+      final st = ref.read(bleConnectionProvider);
+      final displayId =
+          st.bleDeviceData?.displayDeviceId ?? scannedQrData.displayDeviceId;
+      final idParam = Uri.encodeComponent(displayId);
+
+      final ns =
+          await ref.read(bleConnectionProvider.notifier).checkNetworkStatus();
+      if (!mounted) return;
+
+      if (ns?.connected == true) {
+        if (st.emptyBound) {
+          context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
+        } else {
+          context.go('${AppRoutes.home}?displayDeviceId=$idParam');
+        }
+      } else {
+        context
+            .go('${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam');
+      }
+    } catch (e, s) {
+      AppLog.instance.error('[DeviceConnectionPage] startConnection error',
+          tag: 'Binding', error: e, stackTrace: s);
+      if (!mounted) return;
+      Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
+      _goBackOrHome();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +104,8 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
 
     // 进入页面自动连接
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!mounted || _autoStarted) return;
+      _autoStarted = true;
 
       // 1. 检查扫到的设备
       final scannedQrData = ref.read(appStateProvider).scannedQrData;
@@ -52,104 +116,16 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       }
 
       // 2. 自动连接
-      AppLog.instance.info('[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId}', tag: 'Binding');
-      try {
-        final result = await ref
-            .read(bleConnectionProvider.notifier)
-            .enableBleConnection(scannedQrData);
-        if (!mounted) return;
-        if (result == BleConnectResult.success ||
-            result == BleConnectResult.alreadyConnected) {
-          Fluttertoast.showToast(msg: context.l10n.connect_success);
-        } else {
-          if (mounted) {
-            Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
-          }
-        }
-      } catch (e, s) {
-        AppLog.instance.error('[DeviceConnectionPage] startConnection error', tag: 'Binding', error: e, stackTrace: s);
-        if (mounted) {
-          Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
-        }
-      }
+      AppLog.instance.info(
+        '[DeviceConnectionPage] startConnection ${scannedQrData.deviceName} (${scannedQrData.bleDeviceId})',
+        tag: 'Binding',
+      );
+      _autoConnect(scannedQrData);
     });
-  }
-
-  void _setupBleStatusListener() {
-    ref.listen<BleConnectionState>(
-      bleConnectionProvider,
-          (previous, current) async {
-        if (!mounted) return;
-
-        // 仅处理当前页面目标设备的状态变化，避免其他设备的旧会话干扰
-        final curDeviceId = current.bleDeviceData?.displayDeviceId ?? '';
-        if (widget.displayDeviceId.isNotEmpty &&
-            curDeviceId.isNotEmpty &&
-            curDeviceId != widget.displayDeviceId) {
-          return;
-        }
-
-        final prevBleStatus = previous?.bleDeviceStatus;
-        final curBleStatus = current.bleDeviceStatus;
-        if (curBleStatus != prevBleStatus) {
-          AppLog.instance.debug('[DeviceConnectionPage] 蓝牙状态变化 $prevBleStatus -> $curBleStatus', tag: 'Binding');
-          if (curBleStatus == BleDeviceStatus.authenticated) {
-            if (_navigated) return; // 防抖
-            _navigated = true;
-
-            final curDisplayDeviceId = current.bleDeviceData?.displayDeviceId;
-            final networkStatus = await ref
-                .read(bleConnectionProvider.notifier)
-                .checkNetworkStatus();
-
-            if (!mounted) return;
-            final idParam = Uri.encodeComponent(curDisplayDeviceId ?? "");
-
-            final curEmptyBound = current.emptyBound;
-            AppLog.instance.debug('[DeviceConnectionPage] curDisplayDeviceId=$curDisplayDeviceId, emptyBound=${curEmptyBound}', tag: 'Binding');
-            if (networkStatus?.connected == true) {
-              // 设备有网
-              if (curEmptyBound) {
-                // 设备要绑定
-                context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
-              } else {
-                // 设备已绑定
-                context.go('${AppRoutes.home}?displayDeviceId=$idParam');
-              }
-            } else {
-              // 设备无网
-              context.go('${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam');
-            }
-            return;
-          }
-
-          if (curBleStatus == BleDeviceStatus.error ||
-              curBleStatus == BleDeviceStatus.timeout) {
-            // Show specific reason when available (e.g., device already bound elsewhere)
-            final code = current.lastErrorCode;
-            if (code == 'user_mismatch') {
-              Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
-            } else {
-              Fluttertoast.showToast(msg: context.l10n.connect_failed_move_closer);
-            }
-            if (!mounted) return;
-            _clearAll();
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go(AppRoutes.home);
-            }
-          }
-        }
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 监听蓝牙连接状态
-    _setupBleStatusListener();
-
     final connectionState = ref.watch(bleConnectionProvider);
 
     return PopScope(
