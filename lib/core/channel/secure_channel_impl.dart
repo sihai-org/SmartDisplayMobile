@@ -191,21 +191,26 @@ class SecureChannelImpl implements SecureChannel {
       // Forward low-level connection and adapter status to upper layer
       await _linkSub?.cancel();
       _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
-        AppLog.instance.debug("[SecureChannelImpl] e=${e.toString()}", tag: 'Channel');
+        AppLog.instance
+            .debug("[SecureChannelImpl] e=${e.toString()}", tag: 'Channel');
         final t = (e['type'] ?? '').toString();
         if (t == 'connection') {
           final st = (e['state'] ?? '').toString();
           if (st == 'disconnected' || st == 'error') {
             // Mark channel not authenticated and surface status
             _authenticated = false;
-            try { await _rq?.dispose(); } catch (_) {}
+            try {
+              await _rq?.dispose();
+            } catch (_) {}
             _evtCtrl.add({'type': 'status', 'value': 'disconnected'});
           }
         } else if (t == 'ble_status') {
           final s = (e['status'] ?? '').toString();
           if (s.contains('poweredOff')) {
             _authenticated = false;
-            try { await _rq?.dispose(); } catch (_) {}
+            try {
+              await _rq?.dispose();
+            } catch (_) {}
             _evtCtrl.add({'type': 'status', 'value': 'ble_powered_off'});
           }
         }
@@ -219,18 +224,18 @@ class SecureChannelImpl implements SecureChannel {
 
   @override
   Future<Map<String, dynamic>> send(
-      Map<String, dynamic> msg, {
-        Duration? timeout,
-        int retries = 0,
-        bool Function(Map<String, dynamic>)? isFinal,
-      }) async {
+    Map<String, dynamic> msg, {
+    Duration? timeout,
+    int retries = 0,
+    bool Function(Map<String, dynamic>)? isFinal,
+  }) async {
     _ensureNotDisposed('send');
     if (!_authenticated || _rq == null) {
       throw StateError('SecureChannel 未就绪（未认证或队列未初始化）');
     }
     return _rq!.send(
       msg,
-      timeout: timeout ?? const Duration(seconds: 5),
+      timeout: timeout ?? const Duration(seconds: 10),
       retries: retries,
       isFinal: isFinal,
     );

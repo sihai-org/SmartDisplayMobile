@@ -239,6 +239,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _activeOps--;
     }
   }
+
   // 打点
   DateTime? _sessionStart;
 
@@ -312,7 +313,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final info = await sendBleMsg(
         'device.info',
         null,
-        timeout: const Duration(seconds: 3),
+        timeout: const Duration(seconds: 5),
         retries: 0,
       );
       if (info is Map<String, dynamic>) {
@@ -482,11 +483,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _lastActivityAt = DateTime.now();
     try {
       final resp = await _ref.read(secureChannelManagerProvider).send(
-            {'type': type, 'data': data},
-            timeout: timeout,
-            retries: retries,
-            isFinal: isFinal,
-          );
+        {'type': type, 'data': data},
+        timeout: timeout,
+        retries: retries,
+        isFinal: isFinal,
+      );
       _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
       return resp['data'];
     } finally {
@@ -523,7 +524,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final data = await sendBleMsg(
         'wifi.scan',
         null,
-        timeout: const Duration(seconds: 3),
+        timeout: const Duration(seconds: 5),
         retries: 0,
       );
       if (data is List) {
@@ -580,7 +581,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final data = await sendBleMsg(
         'network.status',
         null,
-        timeout: const Duration(milliseconds: 1200),
+        timeout: const Duration(seconds: 5),
         retries: 0,
       );
       if (data is Map<String, dynamic>) {
@@ -603,7 +604,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final res = await sendBleMsg(
         'update.version',
         null,
-        timeout: const Duration(seconds: 5),
         retries: 0,
       );
       final s = (res is String) ? res : res?.toString();
