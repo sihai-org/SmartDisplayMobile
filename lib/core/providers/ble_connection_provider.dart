@@ -531,7 +531,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         final networks = data
             .map((e) => WifiAp(
                   ssid: (e['ssid'] ?? '').toString(),
-                  rssi: int.tryParse((e['rssi'] ?? '0').toString()) ?? 0,
+                  rssi: int.tryParse((e['rawRssi'] ?? '0').toString()) ?? 0,
                   secure: (e['secure'] == true),
                   bssid: e['bssid']?.toString(),
                   frequency: int.tryParse((e['frequency'] ?? '').toString()),

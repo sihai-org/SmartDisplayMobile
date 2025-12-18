@@ -1,16 +1,13 @@
 import 'dart:async';
-import '../../core/log/app_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/ble/ble_device_data.dart';
-import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
-import '../../core/providers/saved_devices_provider.dart';
 import '../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/utils/binding_flow_utils.dart';
+import '../../core/utils/wifi_signal_strength.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
   const WiFiSelectionPage({super.key, this.scannedDisplayDeviceId});
@@ -70,7 +67,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
       if (widget.scannedDisplayDeviceId != null &&
           widget.scannedDisplayDeviceId!.isNotEmpty) {
-        final idParam = Uri.encodeComponent(widget.scannedDisplayDeviceId ?? "");
+        final idParam =
+            Uri.encodeComponent(widget.scannedDisplayDeviceId ?? "");
         if (ref.read(bleConnectionProvider).emptyBound) {
           context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
         } else {
@@ -83,7 +81,8 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   }
 
   bool getIsScanned() {
-    return widget.scannedDisplayDeviceId != null && widget.scannedDisplayDeviceId!.isNotEmpty;
+    return widget.scannedDisplayDeviceId != null &&
+        widget.scannedDisplayDeviceId!.isNotEmpty;
   }
 
   @override
@@ -151,12 +150,12 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         children: [
                           const Icon(Icons.wifi, size: 18),
                           const SizedBox(width: 8),
-                      Text(
-                          context.l10n
-                              .nearby_networks_count(wifiNetworks.length),
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
-                      const Spacer(),
+                          Text(
+                              context.l10n
+                                  .nearby_networks_count(wifiNetworks.length),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
+                          const Spacer(),
                           TextButton.icon(
                             icon: isScanning
                                 ? const SizedBox(
@@ -300,22 +299,18 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 return ListTile(
                   dense: true,
                   leading: Icon(
-                    ap.secure ? Icons.lock : Icons.wifi,
+                    wifiSignalIconFromRssiDbm(ap.rssi),
                     size: 18,
-                    color: ap.secure ? Colors.orange : Colors.green,
+                    color: ap.rssi == 0
+                        ? Theme.of(context).colorScheme.outline
+                        : Colors.green,
                   ),
                   title: Text(ap.ssid,
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: (ap.bssid != null && ap.bssid!.isNotEmpty) ||
-                          (ap.frequency != null && ap.frequency! > 0) ||
-                          (ap.rssi != 0)
+                  subtitle: ap.rssi != 0
                       ? Text([
-                          if (ap.bssid != null && ap.bssid!.isNotEmpty)
-                            context.l10n.wifi_bssid_label(ap.bssid!),
-                          if (ap.frequency != null && ap.frequency! > 0)
-                            context.l10n.wifi_frequency_mhz_label(ap.frequency!),
-                          if (ap.rssi != 0)
-                            context.l10n.wifi_rssi_dbm_label(ap.rssi),
+                          wifiSignalStrengthLabel(context.l10n, ap.rssi),
+                          context.l10n.wifi_rssi_dbm_label(ap.rssi),
                         ].join(' · '))
                       : null,
                   trailing: const Icon(Icons.chevron_right),
