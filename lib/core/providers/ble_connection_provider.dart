@@ -447,14 +447,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
-  Future<bool> sendSimpleBleMsg(String type, dynamic data) async {
+  Future<bool> sendSimpleBleMsg(
+    String type,
+    dynamic data, {
+    Duration? timeout,
+  }) async {
     _log('sendPureBleMsg: $type, $data');
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
       final resp = await _ref
           .read(secureChannelManagerProvider)
-          .send({'type': type, 'data': data});
+          .send({'type': type, 'data': data}, timeout: timeout);
       _log('✅ sendPureBleMsg 成功: type=$type, resp=$resp');
       return resp['ok'] == true;
     } catch (e) {
@@ -499,7 +503,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 解绑
   Future<bool> sendDeviceLogout() async {
-    return await sendSimpleBleMsg('logout', null);
+    return await sendSimpleBleMsg(
+      'logout',
+      null,
+      timeout: const Duration(seconds: 10),
+    );
   }
 
   // 可用 wifi
