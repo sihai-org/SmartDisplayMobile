@@ -19,12 +19,12 @@ class AppLog {
 
   void warning(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     _local('[WARNING]', message, tag: tag, error: error, stackTrace: stackTrace);
-    _reportWarning(message, error: error, stackTrace: stackTrace, tag: tag);
+    // _reportWarning(message, error: error, stackTrace: stackTrace, tag: tag);
   }
 
   void error(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     _local('[ERROR]', message, tag: tag, error: error, stackTrace: stackTrace);
-    _reportError(message, error: error, stackTrace: stackTrace, tag: tag);
+    // _reportError(message, error: error, stackTrace: stackTrace, tag: tag);
   }
 
   void _local(String level, String message, {String? tag, Object? error, StackTrace? stackTrace}) {

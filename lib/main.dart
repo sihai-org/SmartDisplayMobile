@@ -30,12 +30,20 @@ void main() async {
   await SentryFlutter.init((options) {
     options.dsn = dotenv.env['SENTRY_DSN'];
     options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
-    options.tracesSampleRate = 0.2; // 根据需要调整采样率
-    options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率
-    options.enableAutoSessionTracking = true;
+    options.tracesSampleRate = 0; // 根据需要调整采样率
+    options.profilesSampleRate = 0; // CPU/内存性能分析采样率
+    options.enableAutoSessionTracking = false;
     options.attachStacktrace = true;
     options.reportPackages = true;
     options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
+    // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
+    options.beforeSend = (event, hint) {
+      if (!kReleaseMode) return event;
+      final isFatal = event.level == SentryLevel.fatal;
+      final hasUnhandledException =
+          event.exceptions?.any((e) => e.mechanism?.handled == false) ?? false;
+      return (isFatal || hasUnhandledException) ? event : null;
+    };
     options.debug = !kReleaseMode; // 调试模式下打印 SDK 日志
   }, appRunner: () async {
     // 在 app 启动前做初始化，以便 Sentry 能记录到潜在错误
