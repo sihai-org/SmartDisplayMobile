@@ -9,7 +9,7 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => '大头智显';
+  String get appTitle => '心显智联';
 
   @override
   String get action_ok => '确定';
@@ -113,7 +113,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get splash_title => '你好';
 
   @override
-  String get splash_subtitle => '大头智显';
+  String get splash_subtitle => '心显智联';
 
   @override
   String get login_email => '邮箱';
@@ -225,7 +225,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get login_expired => '登录已过期';
 
   @override
-  String get welcome_title => '欢迎使用大头智显';
+  String get welcome_title => '欢迎使用心显智联';
 
   @override
   String get welcome_hint => '请扫描显示器上的二维码为显示器配置网络';
@@ -309,7 +309,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get check_update => '检查更新';
 
   @override
-  String get delete_device => '删除设备';
+  String get delete_device => '解绑设备';
 
   @override
   String get device_id_label => 'ID';
@@ -522,23 +522,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refresh => '刷新';
 
   @override
-  String get confirm_delete_device => '确定要删除以下设备吗？';
+  String get confirm_delete_device => '确定要解绑以下设备吗？';
 
   @override
   String get device_name_label => '设备名称';
 
   @override
-  String get delete_consequence_hint => '删除后将无法自动连接到此设备，需要重新扫描二维码添加。';
+  String get delete_consequence_hint => '解绑后将无法控制此设备，需要重新扫描二维码绑定';
 
   @override
-  String get delete_success => '设备删除成功';
+  String get delete_success => '设备解绑成功';
 
   @override
-  String get delete_failed => '设备删除失败';
+  String get delete_failed => '设备解绑失败';
 
   @override
   String delete_failed_error(Object error) {
-    return '设备删除失败: $error';
+    return '设备解绑失败: $error';
   }
 
   @override

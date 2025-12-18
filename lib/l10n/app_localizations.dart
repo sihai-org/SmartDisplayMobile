@@ -98,7 +98,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'SmartDisplay'**
+  /// **'VznGPT'**
   String get appTitle;
 
   /// No description provided for @action_ok.
@@ -302,7 +302,7 @@ abstract class AppLocalizations {
   /// No description provided for @splash_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Datou SmartDisplay'**
+  /// **'VznGPT'**
   String get splash_subtitle;
 
   /// No description provided for @login_email.
@@ -506,7 +506,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcome_title.
   ///
   /// In en, this message translates to:
-  /// **'Welcome to SmartDisplay'**
+  /// **'Welcome to VznGPT'**
   String get welcome_title;
 
   /// No description provided for @welcome_hint.
@@ -662,7 +662,7 @@ abstract class AppLocalizations {
   /// No description provided for @delete_device.
   ///
   /// In en, this message translates to:
-  /// **'Delete Device'**
+  /// **'Unbind Device'**
   String get delete_device;
 
   /// No description provided for @device_id_label.
@@ -692,7 +692,7 @@ abstract class AppLocalizations {
   /// No description provided for @empty_hint_add_by_scan.
   ///
   /// In en, this message translates to:
-  /// **'Scan the QR on your device to add a new SmartDisplay'**
+  /// **'Scan the QR on your device to add a new smart display'**
   String get empty_hint_add_by_scan;
 
   /// No description provided for @scan_qr_add_device.
@@ -944,7 +944,7 @@ abstract class AppLocalizations {
   /// No description provided for @send_provision_request.
   ///
   /// In en, this message translates to:
-  /// **'Send Provisioning Request'**
+  /// **'Start Connecting'**
   String get send_provision_request;
 
   /// No description provided for @provisioning_please_wait.
@@ -1052,7 +1052,7 @@ abstract class AppLocalizations {
   /// No description provided for @confirm_delete_device.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this device?'**
+  /// **'Are you sure you want to unbind this device?'**
   String get confirm_delete_device;
 
   /// No description provided for @device_name_label.
@@ -1064,25 +1064,25 @@ abstract class AppLocalizations {
   /// No description provided for @delete_consequence_hint.
   ///
   /// In en, this message translates to:
-  /// **'After deletion, auto-connection will be disabled. You will need to rescan the QR code to add it again.'**
+  /// **'After unbinding, device control will be disabled. Rescan the QR code to add it again.'**
   String get delete_consequence_hint;
 
   /// No description provided for @delete_success.
   ///
   /// In en, this message translates to:
-  /// **'Device deleted successfully'**
+  /// **'Device unbound successfully'**
   String get delete_success;
 
   /// No description provided for @delete_failed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to delete device'**
+  /// **'Failed to unbind device'**
   String get delete_failed;
 
   /// No description provided for @delete_failed_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to delete device: {error}'**
+  /// **'Failed to unbind device: {error}'**
   String delete_failed_error(Object error);
 
   /// No description provided for @ble_connected_text.

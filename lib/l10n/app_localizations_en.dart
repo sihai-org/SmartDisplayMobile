@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'SmartDisplay';
+  String get appTitle => 'VznGPT';
 
   @override
   String get action_ok => 'OK';
@@ -225,7 +225,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get login_expired => 'Login session expired';
 
   @override
-  String get welcome_title => 'Welcome to SmartDisplay';
+  String get welcome_title => 'Welcome to VznGPT';
 
   @override
   String get welcome_hint => 'Scan the QR code on the display to provision Wi‑Fi';
@@ -309,7 +309,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get check_update => 'Check Update';
 
   @override
-  String get delete_device => 'Delete Device';
+  String get delete_device => 'Unbind Device';
 
   @override
   String get device_id_label => 'ID';
@@ -324,7 +324,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get empty_saved_devices => 'No saved devices';
 
   @override
-  String get empty_hint_add_by_scan => 'Scan the QR on your device to add a new SmartDisplay';
+  String get empty_hint_add_by_scan => 'Scan the QR on your device to add a new smart display';
 
   @override
   String get scan_qr_add_device => 'Scan QR to add device';
@@ -522,23 +522,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refresh => 'Refresh';
 
   @override
-  String get confirm_delete_device => 'Are you sure you want to delete this device?';
+  String get confirm_delete_device => 'Are you sure you want to unbind this device?';
 
   @override
   String get device_name_label => 'Device Name';
 
   @override
-  String get delete_consequence_hint => 'After deletion, auto-connection will be disabled. You will need to rescan the QR code to add it again.';
+  String get delete_consequence_hint => 'After unbinding, device control will be disabled. Rescan the QR code to add it again.';
 
   @override
-  String get delete_success => 'Device deleted successfully';
+  String get delete_success => 'Device unbound successfully';
 
   @override
-  String get delete_failed => 'Failed to delete device';
+  String get delete_failed => 'Failed to unbind device';
 
   @override
   String delete_failed_error(Object error) {
-    return 'Failed to delete device: $error';
+    return 'Failed to unbind device: $error';
   }
 
   @override
