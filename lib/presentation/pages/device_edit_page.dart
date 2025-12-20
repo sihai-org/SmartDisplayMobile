@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
@@ -815,30 +816,39 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   Future<bool> _ensurePhotoPermission() async {
-    final requestedStatuses = await <Permission>[
-      Permission.photos,
-      Permission.storage,
-    ].request();
-
-    final granted = requestedStatuses.values.any(
-      (status) => status.isGranted || status.isLimited,
-    );
-    if (granted) return true;
-
-    final permanentlyDenied =
-        requestedStatuses.values.any((status) => status.isPermanentlyDenied);
-    if (permanentlyDenied) {
-      await openAppSettings();
+    // iOS / 其他平台
+    if (!Platform.isAndroid) {
+      final s = await Permission.photos.request();
+      if (s.isGranted || s.isLimited) return true;
+      if (s.isPermanentlyDenied) await openAppSettings();
+      return false;
     }
+
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
+
+    // Android 14/13+：只要 photos（READ_MEDIA_IMAGES）
+    if (sdkInt >= 33) {
+      final s = await Permission.photos.request();
+      if (s.isGranted || s.isLimited) return true;
+      if (s.isPermanentlyDenied) await openAppSettings();
+      return false;
+    }
+
+    // Android 12-：用 storage（READ_EXTERNAL_STORAGE）
+    final s = await Permission.storage.request();
+    if (s.isGranted) return true;
+    if (s.isPermanentlyDenied) await openAppSettings();
     return false;
   }
 
   String? _validateImageFormat(XFile file) {
-    final extension = p.extension(file.path).toLowerCase();
+    final ext = p.extension(file.path).toLowerCase();
     const allowed = ['.jpg', '.jpeg', '.png'];
-    if (!allowed.contains(extension)) {
-      return '仅支持 JPG / PNG 格式的图片';
-    }
+
+    if (ext.isEmpty) return null; // content:// 场景
+
+    if (!allowed.contains(ext)) return '仅支持 JPG / PNG 格式的图片';
     return null;
   }
 

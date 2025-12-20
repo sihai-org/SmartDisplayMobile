@@ -459,7 +459,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_signal_unknown => 'Signal unknown';
 
   @override
-  String get provision_request_failed => 'Failed to send provisioning request';
+  String get provision_request_failed => 'Network connection failed, please try again';
 
   @override
   String get send_provision_request => 'Start Connecting';

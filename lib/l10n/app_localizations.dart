@@ -938,7 +938,7 @@ abstract class AppLocalizations {
   /// No description provided for @provision_request_failed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to send provisioning request'**
+  /// **'Network connection failed, please try again'**
   String get provision_request_failed;
 
   /// No description provided for @send_provision_request.

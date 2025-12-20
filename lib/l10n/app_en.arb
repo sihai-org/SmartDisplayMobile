@@ -153,7 +153,7 @@
   "wifi_signal_good": "Good signal",
   "wifi_signal_weak": "Weak signal",
   "wifi_signal_unknown": "Signal unknown",
-  "provision_request_failed": "Failed to send provisioning request",
+  "provision_request_failed": "Network connection failed, please try again",
   "send_provision_request": "Start Connecting",
   "provisioning_please_wait": "Provisioning, please wait…",
   "wifi_scanning": "Scanning Wi‑Fi…",
