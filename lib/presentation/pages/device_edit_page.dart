@@ -14,6 +14,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
 import '../../core/utils/image_processing.dart';
+import '../../l10n/app_localizations.dart';
 
 class DeviceEditPage extends ConsumerStatefulWidget {
   final String? displayDeviceId;
@@ -72,8 +73,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           .read(deviceCustomizationProvider.notifier)
           .load(widget.displayDeviceId)
           .catchError((error) {
-        _showToast(context.l10n.device_edit_load_failed(error.toString()));
-      });
+            if (!mounted) return;
+            final l10n = context.l10n;
+            _showToast(l10n.device_edit_load_failed(error.toString()));
+          });
     });
   }
 
@@ -98,30 +101,30 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   Future<void> _handleSave() async {
+    final l10n = context.l10n;
     final state = ref.read(deviceCustomizationProvider);
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     if (state.isSaving) return;
     if (_isProcessingWallpaper) {
-      _showToast(context.l10n.image_processing_save_wait);
+      _showToast(l10n.image_processing_save_wait);
       return;
     }
     if (state.isUploading) {
-      _showToast(context.l10n.wallpaper_uploading_save_wait);
+      _showToast(l10n.wallpaper_uploading_save_wait);
       return;
     }
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast(context.l10n.missing_device_id_save);
+      _showToast(l10n.missing_device_id_save);
       return;
     }
 
     try {
       await notifier.saveRemote();
-      _showToast(context.l10n.settings_saved);
-      if (mounted) {
-        context.pop();
-      }
+      if (!mounted) return;
+      _showToast(l10n.settings_saved);
+      context.pop();
     } catch (error) {
       _showToast(error.toString());
     }
@@ -663,6 +666,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   Future<void> _handleUploadTap() async {
+    final l10n = context.l10n; // ✅ 缓存，后面别再用 context.l10n
     final notifier = ref.read(deviceCustomizationProvider.notifier);
     final state = ref.read(deviceCustomizationProvider);
 
@@ -670,13 +674,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast(context.l10n.missing_device_id_upload_wallpaper);
+      _showToast(l10n.missing_device_id_upload_wallpaper);
       return;
     }
 
     final hasPermission = await _ensurePhotoPermission();
     if (!hasPermission) {
-      _showToast(context.l10n.photo_permission_required_upload_wallpaper);
+      _showToast(l10n.photo_permission_required_upload_wallpaper);
       return;
     }
 
@@ -694,12 +698,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     List<XFile> selected = picked;
     if (picked.length > maxCount) {
       // 部分平台可能未严格限制，再次兜底截取并提示。
-      _showToast(context.l10n.wallpaper_upload_limit(maxCount));
+      _showToast(l10n.wallpaper_upload_limit(maxCount));
       selected = picked.take(maxCount).toList();
     }
 
     for (final file in selected) {
-      final validationMessage = _validateImageFormat(file);
+      final validationMessage = _validateImageFormat(file, l10n);
       if (validationMessage != null) {
         _showToast(validationMessage);
         return;
@@ -708,7 +712,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     if (mounted) {
       setState(() => _isProcessingWallpaper = true);
-      _showToast(context.l10n.image_processing_wait);
+      _showToast(l10n.image_processing_wait);
     }
 
     try {
@@ -717,10 +721,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         final processed = await _processSingleWallpaper(
           selected[i],
           index: i,
+          l10n: l10n,
         ).timeout(
           _singleProcessingTimeout,
           onTimeout: () => throw TimeoutException(
-            context.l10n.wallpaper_processing_timeout_index(i + 1),
+            l10n.wallpaper_processing_timeout_index(i + 1),
           ),
         );
         processedList.add(processed);
@@ -732,14 +737,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       );
 
       _setCurrentWallpaper(1);
-      _showToast(context.l10n.wallpaper_upload_success);
+      _showToast(l10n.wallpaper_upload_success);
     } catch (error) {
       final message = switch (error) {
-        TimeoutException _ =>
-          context.l10n.image_processing_timeout_hint,
+        TimeoutException _ => l10n.image_processing_timeout_hint,
         String s when s.isNotEmpty => s,
         ImageProcessingException e => e.message,
-        _ => context.l10n.image_processing_failed(error.toString()),
+        _ => l10n.image_processing_failed(error.toString()),
       };
       _showToast(message);
     } finally {
@@ -752,6 +756,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Future<ImageProcessingResult> _processSingleWallpaper(
     XFile file, {
     required int index,
+    required AppLocalizations l10n,
   }) async {
     try {
       final bytes = await file.readAsBytes();
@@ -761,19 +766,20 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       );
     } on ImageProcessingException catch (error) {
       throw ImageProcessingException(
-        context.l10n.image_processing_failed_index(
+        l10n.image_processing_failed_index(
           index + 1,
           error.message,
         ),
       );
     } catch (_) {
       throw ImageProcessingException(
-        context.l10n.image_processing_failed_index_retry(index + 1),
+        l10n.image_processing_failed_index_retry(index + 1),
       );
     }
   }
 
   Future<void> _handleDeleteWallpaper() async {
+    final l10n = context.l10n;
     final state = ref.read(deviceCustomizationProvider);
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
@@ -781,13 +787,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast(context.l10n.missing_device_id_delete_wallpaper);
+      _showToast(l10n.missing_device_id_delete_wallpaper);
       return;
     }
 
     await notifier.deleteWallpaper(deviceId);
-
-    _showToast(context.l10n.wallpaper_deleted);
+    if (!mounted) return;
+    _showToast(l10n.wallpaper_deleted);
   }
 
   void _setCurrentWallpaper(int index) {
@@ -852,13 +858,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     return false;
   }
 
-  String? _validateImageFormat(XFile file) {
+  String? _validateImageFormat(XFile file, AppLocalizations l10n) {
     final ext = p.extension(file.path).toLowerCase();
     const allowed = ['.jpg', '.jpeg', '.png'];
 
     if (ext.isEmpty) return null; // content:// 场景
 
-    if (!allowed.contains(ext)) return context.l10n.image_format_not_supported;
+    if (!allowed.contains(ext)) return l10n.image_format_not_supported;
     return null;
   }
 
