@@ -14,6 +14,7 @@ import '../../core/providers/ble_connection_provider.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/providers/audit_mode_provider.dart';
 import '../../core/log/app_log.dart';
+import '../../core/constants/app_environment.dart';
 import 'package:flutter/foundation.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -250,6 +251,22 @@ class ProfilePage extends ConsumerWidget {
                     title: const Text('BLE 一键测试'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push(AppRoutes.bleOneClickTest),
+                  ),
+                if (kDebugMode)
+                  ValueListenableBuilder<AppEnvironmentStage>(
+                    valueListenable: AppEnvironment.stage,
+                    builder: (context, stage, _) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        title: const Text('切换预发环境'),
+                        subtitle: Text('当前：${AppEnvironment.label}'),
+                        trailing: const Icon(Icons.swap_horiz),
+                        onTap: () {
+                          AppEnvironment.toggle();
+                          _showTopToast(context, '已切换至${AppEnvironment.label}环境');
+                        },
+                      );
+                    },
                   ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
