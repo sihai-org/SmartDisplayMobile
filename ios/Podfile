@@ -52,6 +52,9 @@ post_install do |installer|
         # 相机（扫码）
         'PERMISSION_CAMERA=1',
 
+        #照片/相册
+        'PERMISSION_PHOTOS=1',
+
         # 蓝牙（iOS 13+ 一般建议开这两个）
         'PERMISSION_BLUETOOTH=1',
         'PERMISSION_BLUETOOTH_LE=1',
@@ -61,8 +64,7 @@ post_install do |installer|
         'PERMISSION_LOCATION_ALWAYS=1',
         'PERMISSION_LOCATION_WHEN_IN_USE=1',
 
-        # 如果你后面会用到照片/相册、通知等等可以继续加：
-        # 'PERMISSION_PHOTOS=1',
+        # 如果你后面会用到通知等等可以继续加：
         # 'PERMISSION_NOTIFICATIONS=1',
       ]
     end
