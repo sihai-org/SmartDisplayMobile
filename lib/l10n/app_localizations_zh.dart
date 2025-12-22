@@ -649,4 +649,99 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reset_to_default => '恢复默认';
+
+  @override
+  String device_edit_load_failed(Object error) {
+    return '加载失败：$error';
+  }
+
+  @override
+  String get image_processing_save_wait => '图片处理中，请稍后保存';
+
+  @override
+  String get wallpaper_uploading_save_wait => '壁纸上传中，请稍后保存';
+
+  @override
+  String get missing_device_id_save => '缺少设备 ID，无法保存';
+
+  @override
+  String get settings_saved => '设置已保存';
+
+  @override
+  String get saving_ellipsis => '保存中...';
+
+  @override
+  String get processing_ellipsis => '处理中...';
+
+  @override
+  String get current_label => '当前';
+
+  @override
+  String get set_as_current => '设为当前';
+
+  @override
+  String wallpaper_count(Object count) {
+    return '$count 张';
+  }
+
+  @override
+  String get wallpaper_not_uploaded => '未上传壁纸';
+
+  @override
+  String get wallpaper_upload_from_gallery => '从相册上传';
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get wallpaper_reupload => '重新上传';
+
+  @override
+  String get missing_device_id_upload_wallpaper => '缺少设备 ID，无法上传壁纸';
+
+  @override
+  String get photo_permission_required_upload_wallpaper => '需要相册权限才能上传壁纸';
+
+  @override
+  String wallpaper_upload_limit(Object count) {
+    return '最多选择 $count 张，已自动截取前 $count 张';
+  }
+
+  @override
+  String get image_processing_wait => '图片处理中...需要几秒，请耐心等待';
+
+  @override
+  String wallpaper_processing_timeout_index(Object count) {
+    return '第$count张图片处理超时';
+  }
+
+  @override
+  String get wallpaper_upload_success => '壁纸上传成功';
+
+  @override
+  String get image_processing_timeout_hint => '图片处理超时，请减少图片数量或稍后重试';
+
+  @override
+  String image_processing_failed(Object error) {
+    return '图片处理失败：$error';
+  }
+
+  @override
+  String image_processing_failed_index(Object count, Object error) {
+    return '第$count张图片处理失败：$error';
+  }
+
+  @override
+  String image_processing_failed_index_retry(Object count) {
+    return '第$count张图片处理失败，请更换图片后重试';
+  }
+
+  @override
+  String get missing_device_id_delete_wallpaper => '缺少设备 ID，无法删除壁纸';
+
+  @override
+  String get wallpaper_deleted => '已删除上传的壁纸';
+
+  @override
+  String get image_format_not_supported => '仅支持 JPG / PNG 格式的图片';
 }

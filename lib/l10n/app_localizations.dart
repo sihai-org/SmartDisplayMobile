@@ -1282,6 +1282,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reset to default'**
   String get reset_to_default;
+
+  /// No description provided for @device_edit_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Load failed: {error}'**
+  String device_edit_load_failed(Object error);
+
+  /// No description provided for @image_processing_save_wait.
+  ///
+  /// In en, this message translates to:
+  /// **'Image processing in progress. Please wait to save.'**
+  String get image_processing_save_wait;
+
+  /// No description provided for @wallpaper_uploading_save_wait.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper uploading in progress. Please wait to save.'**
+  String get wallpaper_uploading_save_wait;
+
+  /// No description provided for @missing_device_id_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing device ID. Unable to save.'**
+  String get missing_device_id_save;
+
+  /// No description provided for @settings_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings saved'**
+  String get settings_saved;
+
+  /// No description provided for @saving_ellipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get saving_ellipsis;
+
+  /// No description provided for @processing_ellipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing...'**
+  String get processing_ellipsis;
+
+  /// No description provided for @current_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get current_label;
+
+  /// No description provided for @set_as_current.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as current'**
+  String get set_as_current;
+
+  /// No description provided for @wallpaper_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} images'**
+  String wallpaper_count(Object count);
+
+  /// No description provided for @wallpaper_not_uploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'No wallpaper uploaded'**
+  String get wallpaper_not_uploaded;
+
+  /// No description provided for @wallpaper_upload_from_gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload from gallery'**
+  String get wallpaper_upload_from_gallery;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @wallpaper_reupload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reupload'**
+  String get wallpaper_reupload;
+
+  /// No description provided for @missing_device_id_upload_wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing device ID. Unable to upload wallpaper.'**
+  String get missing_device_id_upload_wallpaper;
+
+  /// No description provided for @photo_permission_required_upload_wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo permission is required to upload wallpaper.'**
+  String get photo_permission_required_upload_wallpaper;
+
+  /// No description provided for @wallpaper_upload_limit.
+  ///
+  /// In en, this message translates to:
+  /// **'You can select up to {count} images; trimmed to the first {count}.'**
+  String wallpaper_upload_limit(Object count);
+
+  /// No description provided for @image_processing_wait.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing images... This may take a few seconds.'**
+  String get image_processing_wait;
+
+  /// No description provided for @wallpaper_processing_timeout_index.
+  ///
+  /// In en, this message translates to:
+  /// **'Image {count} processing timed out'**
+  String wallpaper_processing_timeout_index(Object count);
+
+  /// No description provided for @wallpaper_upload_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpaper uploaded successfully'**
+  String get wallpaper_upload_success;
+
+  /// No description provided for @image_processing_timeout_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Image processing timed out. Reduce the number of images or try again later.'**
+  String get image_processing_timeout_hint;
+
+  /// No description provided for @image_processing_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Image processing failed: {error}'**
+  String image_processing_failed(Object error);
+
+  /// No description provided for @image_processing_failed_index.
+  ///
+  /// In en, this message translates to:
+  /// **'Image {count} processing failed: {error}'**
+  String image_processing_failed_index(Object count, Object error);
+
+  /// No description provided for @image_processing_failed_index_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Image {count} processing failed. Please try another image.'**
+  String image_processing_failed_index_retry(Object count);
+
+  /// No description provided for @missing_device_id_delete_wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing device ID. Unable to delete wallpaper.'**
+  String get missing_device_id_delete_wallpaper;
+
+  /// No description provided for @wallpaper_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploaded wallpaper deleted'**
+  String get wallpaper_deleted;
+
+  /// No description provided for @image_format_not_supported.
+  ///
+  /// In en, this message translates to:
+  /// **'Only JPG/PNG images are supported'**
+  String get image_format_not_supported;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -72,7 +72,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           .read(deviceCustomizationProvider.notifier)
           .load(widget.displayDeviceId)
           .catchError((error) {
-        _showToast('加载失败：$error');
+        _showToast(context.l10n.device_edit_load_failed(error.toString()));
       });
     });
   }
@@ -103,22 +103,22 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     if (state.isSaving) return;
     if (_isProcessingWallpaper) {
-      _showToast('图片处理中，请稍后保存');
+      _showToast(context.l10n.image_processing_save_wait);
       return;
     }
     if (state.isUploading) {
-      _showToast('壁纸上传中，请稍后保存');
+      _showToast(context.l10n.wallpaper_uploading_save_wait);
       return;
     }
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast('缺少设备 ID，无法保存');
+      _showToast(context.l10n.missing_device_id_save);
       return;
     }
 
     try {
       await notifier.saveRemote();
-      _showToast('设置已保存');
+      _showToast(context.l10n.settings_saved);
       if (mounted) {
         context.pop();
       }
@@ -151,8 +151,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             onPressed: disableSave ? null : _handleSave,
             child: Text(
               isSaving
-                  ? '保存中...'
-                  : (isBusyWithWallpaper ? '处理中...' : l10n.done),
+                  ? l10n.saving_ellipsis
+                  : (isBusyWithWallpaper ? l10n.processing_ellipsis : l10n.done),
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -182,9 +182,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Text(
                         isSaving
-                            ? '保存中...'
+                            ? l10n.saving_ellipsis
                             : (isBusyWithWallpaper
-                                ? '处理中...'
+                                ? l10n.processing_ellipsis
                                 : l10n.save_settings),
                       ),
                     ),
@@ -289,8 +289,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   isCurrent: isCurrentView,
                   canSelect: !isCurrentView &&
                       !(isViewingCustom && !_hasCustomWallpaper),
-                  currentLabel: '当前',
-                  setLabel: '设为当前',
+                  currentLabel: l10n.current_label,
+                  setLabel: l10n.set_as_current,
                   onSelect: () => _setCurrentWallpaper(_wallpaperPageIndex),
                 ),
                 const SizedBox(height: verticalGap),
@@ -396,8 +396,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               child: _CurrentToggle(
                 isCurrent: isCurrentView,
                 canSelect: !isCurrentView,
-                currentLabel: '当前',
-                setLabel: '设为当前',
+                currentLabel: l10n.current_label,
+                setLabel: l10n.set_as_current,
                 onSelect: () => _setLayout(
                   options[_layoutPageIndex].value,
                   _layoutPageIndex,
@@ -491,6 +491,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   Widget _buildUploadedWallpaperPreview(DeviceCustomizationState state) {
+    final l10n = context.l10n;
     const fallbackDecoration = BoxDecoration(
       gradient: LinearGradient(
         colors: [Color(0xFF1E1E1E), Color(0xFF444545)],
@@ -566,7 +567,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
-              '${paths.length} 张',
+              l10n.wallpaper_count(paths.length),
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -579,6 +580,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   Widget _buildUploadPlaceholder(bool isBusy) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade300,
@@ -587,17 +589,17 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       child: Center(
         child: isBusy
             ? const CircularProgressIndicator()
-            : const Column(
+            : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.wallpaper_outlined,
                     size: 48,
                     color: Colors.black45,
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    '未上传壁纸',
+                    l10n.wallpaper_not_uploaded,
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.w600,
@@ -613,6 +615,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     required bool isViewingCustom,
     required bool isBusy,
   }) {
+    final l10n = context.l10n;
     if (!isViewingCustom) {
       return const SizedBox(height: 48);
     }
@@ -622,7 +625,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         child: ElevatedButton.icon(
           onPressed: isBusy ? null : _handleUploadTap,
           icon: const Icon(Icons.photo_library_outlined),
-          label: const Text('从相册上传'),
+          label: Text(l10n.wallpaper_upload_from_gallery),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           ),
@@ -636,7 +639,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         OutlinedButton.icon(
           onPressed: isBusy ? null : _handleDeleteWallpaper,
           icon: const Icon(Icons.delete_outline),
-          label: const Text('删除'),
+          label: Text(l10n.delete),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
@@ -651,7 +654,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   child: CircularProgressIndicator(strokeWidth: 2.2),
                 )
               : const Icon(Icons.refresh),
-          label: Text(isBusy ? '处理中...' : '重新上传'),
+          label: Text(
+            isBusy ? l10n.processing_ellipsis : l10n.wallpaper_reupload,
+          ),
         ),
       ],
     );
@@ -665,13 +670,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast('缺少设备 ID，无法上传壁纸');
+      _showToast(context.l10n.missing_device_id_upload_wallpaper);
       return;
     }
 
     final hasPermission = await _ensurePhotoPermission();
     if (!hasPermission) {
-      _showToast('需要相册权限才能上传壁纸');
+      _showToast(context.l10n.photo_permission_required_upload_wallpaper);
       return;
     }
 
@@ -689,7 +694,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     List<XFile> selected = picked;
     if (picked.length > maxCount) {
       // 部分平台可能未严格限制，再次兜底截取并提示。
-      _showToast('最多选择 $maxCount 张，已自动截取前 $maxCount 张');
+      _showToast(context.l10n.wallpaper_upload_limit(maxCount));
       selected = picked.take(maxCount).toList();
     }
 
@@ -703,7 +708,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     if (mounted) {
       setState(() => _isProcessingWallpaper = true);
-      _showToast('图片处理中...需要几秒，请耐心等待');
+      _showToast(context.l10n.image_processing_wait);
     }
 
     try {
@@ -714,7 +719,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           index: i,
         ).timeout(
           _singleProcessingTimeout,
-          onTimeout: () => throw TimeoutException('第${i + 1}张图片处理超时'),
+          onTimeout: () => throw TimeoutException(
+            context.l10n.wallpaper_processing_timeout_index(i + 1),
+          ),
         );
         processedList.add(processed);
       }
@@ -725,14 +732,14 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       );
 
       _setCurrentWallpaper(1);
-      _showToast('壁纸上传成功');
+      _showToast(context.l10n.wallpaper_upload_success);
     } catch (error) {
       final message = switch (error) {
         TimeoutException _ =>
-          '图片处理超时，请减少图片数量或稍后重试',
+          context.l10n.image_processing_timeout_hint,
         String s when s.isNotEmpty => s,
         ImageProcessingException e => e.message,
-        _ => '图片处理失败：${error.toString()}',
+        _ => context.l10n.image_processing_failed(error.toString()),
       };
       _showToast(message);
     } finally {
@@ -754,11 +761,14 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       );
     } on ImageProcessingException catch (error) {
       throw ImageProcessingException(
-        '第${index + 1}张图片处理失败：${error.message}',
+        context.l10n.image_processing_failed_index(
+          index + 1,
+          error.message,
+        ),
       );
     } catch (_) {
       throw ImageProcessingException(
-        '第${index + 1}张图片处理失败，请更换图片后重试',
+        context.l10n.image_processing_failed_index_retry(index + 1),
       );
     }
   }
@@ -771,13 +781,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      _showToast('缺少设备 ID，无法删除壁纸');
+      _showToast(context.l10n.missing_device_id_delete_wallpaper);
       return;
     }
 
     await notifier.deleteWallpaper(deviceId);
 
-    _showToast('已删除上传的壁纸');
+    _showToast(context.l10n.wallpaper_deleted);
   }
 
   void _setCurrentWallpaper(int index) {
@@ -848,7 +858,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     if (ext.isEmpty) return null; // content:// 场景
 
-    if (!allowed.contains(ext)) return '仅支持 JPG / PNG 格式的图片';
+    if (!allowed.contains(ext)) return context.l10n.image_format_not_supported;
     return null;
   }
 

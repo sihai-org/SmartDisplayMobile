@@ -649,4 +649,104 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reset_to_default => 'Reset to default';
+
+  @override
+  String device_edit_load_failed(Object error) {
+    return 'Load failed: $error';
+  }
+
+  @override
+  String get image_processing_save_wait => 'Image processing in progress. Please wait to save.';
+
+  @override
+  String get wallpaper_uploading_save_wait =>
+      'Wallpaper uploading in progress. Please wait to save.';
+
+  @override
+  String get missing_device_id_save => 'Missing device ID. Unable to save.';
+
+  @override
+  String get settings_saved => 'Settings saved';
+
+  @override
+  String get saving_ellipsis => 'Saving...';
+
+  @override
+  String get processing_ellipsis => 'Processing...';
+
+  @override
+  String get current_label => 'Current';
+
+  @override
+  String get set_as_current => 'Set as current';
+
+  @override
+  String wallpaper_count(Object count) {
+    return '$count images';
+  }
+
+  @override
+  String get wallpaper_not_uploaded => 'No wallpaper uploaded';
+
+  @override
+  String get wallpaper_upload_from_gallery => 'Upload from gallery';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get wallpaper_reupload => 'Reupload';
+
+  @override
+  String get missing_device_id_upload_wallpaper =>
+      'Missing device ID. Unable to upload wallpaper.';
+
+  @override
+  String get photo_permission_required_upload_wallpaper =>
+      'Photo permission is required to upload wallpaper.';
+
+  @override
+  String wallpaper_upload_limit(Object count) {
+    return 'You can select up to $count images; trimmed to the first $count.';
+  }
+
+  @override
+  String get image_processing_wait => 'Processing images... This may take a few seconds.';
+
+  @override
+  String wallpaper_processing_timeout_index(Object count) {
+    return 'Image $count processing timed out';
+  }
+
+  @override
+  String get wallpaper_upload_success => 'Wallpaper uploaded successfully';
+
+  @override
+  String get image_processing_timeout_hint =>
+      'Image processing timed out. Reduce the number of images or try again later.';
+
+  @override
+  String image_processing_failed(Object error) {
+    return 'Image processing failed: $error';
+  }
+
+  @override
+  String image_processing_failed_index(Object count, Object error) {
+    return 'Image $count processing failed: $error';
+  }
+
+  @override
+  String image_processing_failed_index_retry(Object count) {
+    return 'Image $count processing failed. Please try another image.';
+  }
+
+  @override
+  String get missing_device_id_delete_wallpaper =>
+      'Missing device ID. Unable to delete wallpaper.';
+
+  @override
+  String get wallpaper_deleted => 'Uploaded wallpaper deleted';
+
+  @override
+  String get image_format_not_supported => 'Only JPG/PNG images are supported';
 }
