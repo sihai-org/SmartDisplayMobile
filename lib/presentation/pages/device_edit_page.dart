@@ -35,7 +35,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   static const double _wallpaperAspectRatio = 16 / 9;
 
   static const double _layoutViewportFraction = 0.86;
-  static const Duration _singleProcessingTimeout = Duration(seconds: 20);
+  static const Duration _singleProcessingTimeout = Duration(seconds: 5);
 
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
@@ -489,6 +489,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     DeviceCustomizationState state, {
     required bool isBusy,
   }) {
+    final l10n = context.l10n;
     return switch (index) {
       0 => Image.asset(
           'assets/images/device_wallpaper_default.png',
@@ -510,9 +511,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   alignment: Alignment.center,
                   child: Text(
                     _processingWallpapersUploading
-                        ? '上传中...'
-                        : '正在处理第${_processingWallpaperIndex + 1}'
-                            '/${_processingWallpaperTotal}张...',
+                        ? l10n.wallpaper_uploading_ellipsis
+                        : l10n.wallpaper_processing_index_total(
+                            _processingWallpaperIndex + 1,
+                            _processingWallpaperTotal,
+                          ),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -794,7 +797,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       _showToast(l10n.wallpaper_upload_success);
     } catch (error) {
       final message = switch (error) {
-        TimeoutException _ => l10n.image_processing_timeout_hint,
+        TimeoutException _ => error.message ?? l10n.image_processing_timeout_hint,
         String s when s.isNotEmpty => s,
         ImageProcessingException e => e.message,
         _ => l10n.image_processing_failed(error.toString()),

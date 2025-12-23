@@ -674,6 +674,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get processing_ellipsis => '处理中...';
 
   @override
+  String get wallpaper_uploading_ellipsis => '上传中...';
+
+  @override
+  String wallpaper_processing_index_total(Object current, Object total) {
+    return '正在处理第$current/$total张...';
+  }
+
+  @override
   String get current_label => '当前';
 
   @override
@@ -712,7 +720,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String wallpaper_processing_timeout_index(Object count) {
-    return '第$count张图片处理超时';
+    return '第$count张图片处理超时，请去掉后重试';
   }
 
   @override

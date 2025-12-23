@@ -659,8 +659,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get image_processing_save_wait => 'Image processing in progress. Please wait to save.';
 
   @override
-  String get wallpaper_uploading_save_wait =>
-      'Wallpaper uploading in progress. Please wait to save.';
+  String get wallpaper_uploading_save_wait => 'Wallpaper uploading in progress. Please wait to save.';
 
   @override
   String get missing_device_id_save => 'Missing device ID. Unable to save.';
@@ -673,6 +672,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get processing_ellipsis => 'Processing...';
+
+  @override
+  String get wallpaper_uploading_ellipsis => 'Uploading...';
+
+  @override
+  String wallpaper_processing_index_total(Object current, Object total) {
+    return 'Processing $current/$total...';
+  }
 
   @override
   String get current_label => 'Current';
@@ -698,12 +705,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wallpaper_reupload => 'Reupload';
 
   @override
-  String get missing_device_id_upload_wallpaper =>
-      'Missing device ID. Unable to upload wallpaper.';
+  String get missing_device_id_upload_wallpaper => 'Missing device ID. Unable to upload wallpaper.';
 
   @override
-  String get photo_permission_required_upload_wallpaper =>
-      'Photo permission is required to upload wallpaper.';
+  String get photo_permission_required_upload_wallpaper => 'Photo permission is required to upload wallpaper.';
 
   @override
   String wallpaper_upload_limit(Object count) {
@@ -715,15 +720,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String wallpaper_processing_timeout_index(Object count) {
-    return 'Image $count processing timed out';
+    return 'Image $count processing timed out. Please remove it then retry.';
   }
 
   @override
   String get wallpaper_upload_success => 'Wallpaper uploaded successfully';
 
   @override
-  String get image_processing_timeout_hint =>
-      'Image processing timed out. Reduce the number of images or try again later.';
+  String get image_processing_timeout_hint => 'Image processing timed out. Reduce the number of images or try again later.';
 
   @override
   String image_processing_failed(Object error) {
@@ -741,8 +745,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get missing_device_id_delete_wallpaper =>
-      'Missing device ID. Unable to delete wallpaper.';
+  String get missing_device_id_delete_wallpaper => 'Missing device ID. Unable to delete wallpaper.';
 
   @override
   String get wallpaper_deleted => 'Uploaded wallpaper deleted';

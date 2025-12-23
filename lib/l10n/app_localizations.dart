@@ -1325,6 +1325,18 @@ abstract class AppLocalizations {
   /// **'Processing...'**
   String get processing_ellipsis;
 
+  /// No description provided for @wallpaper_uploading_ellipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading...'**
+  String get wallpaper_uploading_ellipsis;
+
+  /// No description provided for @wallpaper_processing_index_total.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing {current}/{total}...'**
+  String wallpaper_processing_index_total(Object current, Object total);
+
   /// No description provided for @current_label.
   ///
   /// In en, this message translates to:
@@ -1394,7 +1406,7 @@ abstract class AppLocalizations {
   /// No description provided for @wallpaper_processing_timeout_index.
   ///
   /// In en, this message translates to:
-  /// **'Image {count} processing timed out'**
+  /// **'Image {count} processing timed out. Please remove it then retry.'**
   String wallpaper_processing_timeout_index(Object count);
 
   /// No description provided for @wallpaper_upload_success.
