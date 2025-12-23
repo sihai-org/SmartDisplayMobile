@@ -45,7 +45,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   PageController? _wallpaperController;
   PageController? _layoutController;
+
   bool _isProcessingWallpaper = false;
+  int _processingWallpaperIndex = 0; // 0-based
+  int _processingWallpaperTotal = 0; // n
+  bool _processingWallpapersUploading = false;
 
   bool get _hasCustomWallpaper {
     final wallpapers = ref
@@ -480,16 +484,45 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     _layoutController = controller;
   }
 
-  Widget _wallpaperImageWidget(int index, DeviceCustomizationState state,
-      {required bool isBusy}) {
+  Widget _wallpaperImageWidget(
+    int index,
+    DeviceCustomizationState state, {
+    required bool isBusy,
+  }) {
     return switch (index) {
       0 => Image.asset(
           'assets/images/device_wallpaper_default.png',
           fit: BoxFit.cover,
         ),
-      _ => _hasCustomWallpaper
-          ? _buildUploadedWallpaperPreview(state)
-          : _buildUploadPlaceholder(isBusy),
+      _ => Stack(
+          fit: StackFit.expand,
+          children: [
+            // —— 底图：有 custom 就用 preview，没有就用占位
+            _hasCustomWallpaper
+                ? _buildUploadedWallpaperPreview(state)
+                : _buildUploadPlaceholder(),
+
+            // —— 处理中：统一盖进度蒙层（无 loading）
+            if (_isProcessingWallpaper)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black45,
+                  alignment: Alignment.center,
+                  child: Text(
+                    _processingWallpapersUploading
+                        ? '上传中...'
+                        : '正在处理第${_processingWallpaperIndex + 1}'
+                            '/${_processingWallpaperTotal}张...',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
     };
   }
 
@@ -582,7 +615,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
   }
 
-  Widget _buildUploadPlaceholder(bool isBusy) {
+  Widget _buildUploadPlaceholder() {
     final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
@@ -590,26 +623,24 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
-        child: isBusy
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.wallpaper_outlined,
-                    size: 48,
-                    color: Colors.black45,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.wallpaper_not_uploaded,
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.wallpaper_outlined,
+              size: 48,
+              color: Colors.black45,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.wallpaper_not_uploaded,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -686,12 +717,16 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final picker = ImagePicker();
     final maxCount = DeviceCustomization.maxCustomWallpapers;
+
+    const int softMaxDim = 1920;
+    const int softQuality = 90;
+
     // 设置 imageQuality 可促使部分平台（如 iOS HEIC）返回转码后的 JPEG，避免后续解析失败。
     final picked = await picker.pickMultiImage(
       limit: maxCount,
-      imageQuality: 100,
-      maxWidth: 4096,
-      maxHeight: 4096,
+      imageQuality: softQuality,
+      maxWidth: softMaxDim.toDouble(),
+      maxHeight: softMaxDim.toDouble(),
     );
     if (picked == null || picked.isEmpty) return;
 
@@ -711,13 +746,22 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
 
     if (mounted) {
-      setState(() => _isProcessingWallpaper = true);
-      _showToast(l10n.image_processing_wait);
+      setState(() {
+        _isProcessingWallpaper = true;
+        _processingWallpaperTotal = selected.length;
+        _processingWallpaperIndex = 0;
+        _processingWallpapersUploading = false;
+      });
     }
 
     try {
       final processedList = <ImageProcessingResult>[];
       for (var i = 0; i < selected.length; i++) {
+        if (mounted) {
+          setState(() {
+            _processingWallpaperIndex = i; // 当前正在处理第 i 张
+          });
+        }
         final processed = await _processSingleWallpaper(
           selected[i],
           index: i,
@@ -730,11 +774,21 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         );
         processedList.add(processed);
       }
-
+      if (mounted) {
+        setState(() {
+          _processingWallpapersUploading = true;
+        });
+      }
       await notifier.applyProcessedWallpapers(
         deviceId: deviceId,
         processedList: processedList,
       );
+
+      if (mounted) {
+        setState(() {
+          _processingWallpapersUploading = false;
+        });
+      }
 
       _setCurrentWallpaper(1);
       _showToast(l10n.wallpaper_upload_success);

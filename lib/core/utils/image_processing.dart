@@ -34,6 +34,8 @@ class ImageProcessingException implements Exception {
   String toString() => message;
 }
 
+const DEFAULT_MAX_BYTES = 300 * 1024; // 压缩到300KB
+
 class WallpaperImageProcessor {
   static const List<String> supportedExtensions = ['.jpg', '.jpeg', '.png'];
 
@@ -64,11 +66,42 @@ class WallpaperImageProcessor {
     return ext.toLowerCase();
   }
 
-  /// 仅压缩到指定大小以内（默认 200KB），不做缩放裁剪。
+  static const int _targetW = 1920;
+  static const int _targetH = 1080;
+  static const double _targetRatio = 16 / 9;
+
+  static img.Image _fit16x9AndResize(img.Image src) {
+    final srcRatio = src.width / src.height;
+    img.Image cropped = src;
+
+    if (srcRatio > _targetRatio) {
+      // 太宽：裁宽
+      final newW = (src.height * _targetRatio).round();
+      final x = ((src.width - newW) / 2).round();
+      cropped = img.copyCrop(src, x: x, y: 0, width: newW, height: src.height);
+    } else if (srcRatio < _targetRatio) {
+      // 太高：裁高
+      final newH = (src.width / _targetRatio).round();
+      final y = ((src.height - newH) / 2).round();
+      cropped = img.copyCrop(src, x: 0, y: y, width: src.width, height: newH);
+    }
+
+    // 教条一点：壁纸就是 1920x1080，直接输出这个分辨率（速度最稳）
+    if (cropped.width == _targetW && cropped.height == _targetH) return cropped;
+
+    return img.copyResize(
+      cropped,
+      width: _targetW,
+      height: _targetH,
+      interpolation: img.Interpolation.average,
+    );
+  }
+
+  /// 仅压缩到指定大小以内
   static Future<ImageProcessingResult> processWallpaper({
     required Uint8List bytes,
     String? sourcePath,
-    int maxBytes = 200 * 1024,
+    int maxBytes = DEFAULT_MAX_BYTES,
   }) async {
     return _processWallpaper(
       bytes: bytes,
@@ -81,7 +114,7 @@ class WallpaperImageProcessor {
   static Future<ImageProcessingResult> processWallpaperInIsolate({
     required Uint8List bytes,
     String? sourcePath,
-    int maxBytes = 200 * 1024,
+    int maxBytes = DEFAULT_MAX_BYTES,
   }) {
     final params = <String, Object?>{
       'bytes': bytes,
@@ -104,7 +137,7 @@ class WallpaperImageProcessor {
   static Future<ImageProcessingResult> processWallpaperAuto({
     required Uint8List bytes,
     String? sourcePath,
-    int maxBytes = 200 * 1024,
+    int maxBytes = DEFAULT_MAX_BYTES,
   }) async {
     final format = _detectFormat(bytes);
     final ext = _normalizedExtension(sourcePath);
@@ -174,8 +207,10 @@ class WallpaperImageProcessor {
     }
 
     img.Image? decoded;
+    img.Image? fitted;
     try {
       decoded = decoder.decode(bytes);
+      fitted = _fit16x9AndResize(decoded!);
     } catch (error, stackTrace) {
       _logProcessFailure(
         sourcePath: sourcePath,
@@ -190,7 +225,7 @@ class WallpaperImageProcessor {
       );
     }
 
-    if (decoded == null) {
+    if (fitted == null) {
       _logProcessFailure(
         sourcePath: sourcePath,
         bytes: bytes.length,
@@ -201,31 +236,38 @@ class WallpaperImageProcessor {
     }
 
     return _processDecodedImage(
-      decoded: decoded,
+      fitted: fitted,
       originalBytes: bytes,
       originalExt: ext,
       maxBytes: maxBytes,
     );
   }
 
-  static _CompressionResult _compressToLimit(
-    img.Image image,
-    int maxBytes,
-  ) {
-    int quality = 82;
-    Uint8List encoded = _encodeJpg(image, quality);
+  static _CompressionResult _compressToLimit(img.Image image, int maxBytes) {
+    int lo = 45;
+    int hi = 92;
 
-    if (encoded.length <= maxBytes) {
-      return _CompressionResult(encoded, image.width, image.height);
-    }
-    while (encoded.length > maxBytes && quality > 30) {
-      quality -= encoded.length > maxBytes * 2 ? 10 : 6;
-      if (quality < 30) quality = 30;
-      encoded = _encodeJpg(image, quality);
-      if (quality == 30) break;
+    // 先试 hi：满足直接返回
+    Uint8List best = _encodeJpg(image, hi);
+    if (best.length <= maxBytes) {
+      return _CompressionResult(best, image.width, image.height);
     }
 
-    return _CompressionResult(encoded, image.width, image.height);
+    Uint8List? ok;
+    for (int i = 0; i < 8 && lo <= hi; i++) {
+      final mid = (lo + hi) >> 1;
+      final encoded = _encodeJpg(image, mid);
+
+      if (encoded.length <= maxBytes) {
+        ok = encoded; // mid 可行，尝试更高质量
+        lo = mid + 1;
+      } else {
+        hi = mid - 1; // 太大，降质量
+      }
+    }
+
+    ok ??= _encodeJpg(image, 45);
+    return _CompressionResult(ok, image.width, image.height);
   }
 
   static Uint8List _encodeJpg(img.Image image, int quality) {
@@ -234,31 +276,13 @@ class WallpaperImageProcessor {
     );
   }
 
-  static String _mimeForExt(String ext) {
-    return ext.toLowerCase() == '.png' ? 'image/png' : 'image/jpeg';
-  }
-
   static ImageProcessingResult _processDecodedImage({
-    required img.Image decoded,
+    required img.Image fitted,
     required Uint8List originalBytes,
     String? originalExt,
     required int maxBytes,
   }) {
-    final ext = originalExt;
-    if (originalBytes.length <= maxBytes &&
-        ext != null &&
-        isSupportedExtension(ext)) {
-      return ImageProcessingResult(
-        bytes: originalBytes,
-        mimeType: _mimeForExt(ext),
-        extension: ext,
-        width: decoded.width,
-        height: decoded.height,
-        sizeBytes: originalBytes.length,
-      );
-    }
-
-    final compressed = _compressToLimit(decoded, maxBytes);
+    final compressed = _compressToLimit(fitted, maxBytes);
 
     return ImageProcessingResult(
       bytes: compressed.bytes,
@@ -355,29 +379,35 @@ class WallpaperImageProcessor {
     }
 
     final byteData =
-        await uiImage.toByteData(format: ui.ImageByteFormat.png);
+        await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (byteData == null) {
       throw ImageProcessingException(
         '无法解析图片（检测到: $detectedFormat），请导出为标准 JPG/PNG 后重试',
       );
     }
 
-    final pngBytes = Uint8List.view(
-      byteData.buffer,
+    final rgba = byteData.buffer.asUint8List(
       byteData.offsetInBytes,
       byteData.lengthInBytes,
     );
-    final decoded = img.decodePng(pngBytes);
-    if (decoded == null) {
-      throw ImageProcessingException(
-        '无法解析图片（检测到: $detectedFormat），请导出为标准 JPG/PNG 后重试',
-      );
-    }
+
+    // ✅ 用 raw RGBA 直接构造 img.Image（不要 decodePng）
+    final decoded = img.Image.fromBytes(
+      width: uiImage.width,
+      height: uiImage.height,
+      bytes: rgba.buffer,
+      bytesOffset: rgba.offsetInBytes,
+      // image 包新版本一般用 numChannels；旧版本用 format
+      numChannels: 4,
+    );
+
+    // ✅ UI decode 路径也要裁剪+缩放到目标分辨率
+    final fitted = _fit16x9AndResize(decoded);
 
     return _processDecodedImage(
-      decoded: decoded,
-      originalBytes: pngBytes,
-      originalExt: '.png', // 已经转成 PNG
+      fitted: fitted,
+      originalBytes: bytes, // 这里保留原始输入 bytes 仅用于日志也行
+      originalExt: '.png', // 这里其实已经不重要了，最终都会输出 jpg
       maxBytes: maxBytes,
     );
   }
