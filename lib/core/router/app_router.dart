@@ -39,9 +39,9 @@ final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
   // 采集导航面包屑/性能
-  // observers: <NavigatorObserver>[
-  //   SentryNavigatorObserver(),
-  // ],
+  observers: <NavigatorObserver>[
+    SentryNavigatorObserver(),
+  ],
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final loggedIn = session != null || AuditMode.enabled;

@@ -30,9 +30,9 @@ void main() async {
   await SentryFlutter.init((options) {
     options.dsn = dotenv.env['SENTRY_DSN'];
     options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
-    options.tracesSampleRate = 0; // 根据需要调整采样率
-    options.profilesSampleRate = 0; // CPU/内存性能分析采样率
-    options.enableAutoSessionTracking = false;
+    options.tracesSampleRate = 0.2; // 根据需要调整采样率
+    options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率
+    options.enableAutoSessionTracking = true;
     options.attachStacktrace = true;
     options.reportPackages = true;
     options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
