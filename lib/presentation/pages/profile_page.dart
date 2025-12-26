@@ -239,6 +239,12 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.meeting_minutes),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.meetingMinutesList),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.bluetooth_settings),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {

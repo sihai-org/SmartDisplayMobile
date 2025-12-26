@@ -14,6 +14,9 @@ import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
 import '../../presentation/pages/device_edit_page.dart';
 import '../../presentation/pages/ble_one_click_test_page.dart';
+import '../../presentation/pages/meeting_minutes_detail_page.dart';
+import '../../presentation/pages/meeting_minutes_list_page.dart';
+import '../models/meeting_minutes_item.dart';
 import '../audit/audit_mode.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -32,6 +35,8 @@ class AppRoutes {
   static const String accountSecurity = '/account-security';
   static const String deviceEdit = '/device-edit';
   static const String bleOneClickTest = '/ble-one-click-test';
+  static const String meetingMinutesList = '/meeting-minutes';
+  static const String meetingMinutesDetail = '/meeting-minutes/detail';
 }
 
 /// Router configuration
@@ -176,6 +181,21 @@ final GoRouter appRouter = GoRouter(
           );
         }
         return const BleOneClickTestPage();
+      },
+    ),
+
+    GoRoute(
+      path: AppRoutes.meetingMinutesList,
+      name: 'meeting-minutes-list',
+      builder: (context, state) => const MeetingMinutesListPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.meetingMinutesDetail,
+      name: 'meeting-minutes-detail',
+      builder: (context, state) {
+        final item = state.extra as MeetingMinutesItem?;
+        return MeetingMinutesDetailPage(item: item);
       },
     ),
   ],

@@ -263,6 +263,42 @@ abstract class AppLocalizations {
   /// **'Profile'**
   String get profile_title;
 
+  /// No description provided for @meeting_minutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting Minutes'**
+  String get meeting_minutes;
+
+  /// No description provided for @meeting_minutes_list.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting Minutes List'**
+  String get meeting_minutes_list;
+
+  /// No description provided for @meeting_minutes_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No meeting minutes yet'**
+  String get meeting_minutes_empty;
+
+  /// No description provided for @meeting_minutes_detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Meeting Minutes Detail'**
+  String get meeting_minutes_detail;
+
+  /// No description provided for @meeting_minutes_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading meeting minutes...'**
+  String get meeting_minutes_loading;
+
+  /// No description provided for @meeting_minutes_detail_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No content'**
+  String get meeting_minutes_detail_empty;
+
   /// No description provided for @logout.
   ///
   /// In en, this message translates to:

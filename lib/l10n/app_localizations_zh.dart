@@ -93,6 +93,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profile_title => '我的';
 
   @override
+  String get meeting_minutes => '会议纪要';
+
+  @override
+  String get meeting_minutes_list => '会议纪要列表';
+
+  @override
+  String get meeting_minutes_empty => '暂无会议纪要';
+
+  @override
+  String get meeting_minutes_detail => '会议纪要详情';
+
+  @override
+  String get meeting_minutes_loading => '正在获取数据...';
+
+  @override
+  String get meeting_minutes_detail_empty => '暂无内容';
+
+  @override
   String get logout => '退出登录';
 
   @override

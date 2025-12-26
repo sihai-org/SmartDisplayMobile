@@ -93,6 +93,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profile_title => 'Profile';
 
   @override
+  String get meeting_minutes => 'Meeting Minutes';
+
+  @override
+  String get meeting_minutes_list => 'Meeting Minutes List';
+
+  @override
+  String get meeting_minutes_empty => 'No meeting minutes yet';
+
+  @override
+  String get meeting_minutes_detail => 'Meeting Minutes Detail';
+
+  @override
+  String get meeting_minutes_loading => 'Loading meeting minutes...';
+
+  @override
+  String get meeting_minutes_detail_empty => 'No content';
+
+  @override
   String get logout => 'Sign out';
 
   @override
