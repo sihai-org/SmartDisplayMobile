@@ -111,6 +111,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meeting_minutes_detail_empty => '暂无内容';
 
   @override
+  String get meeting_minutes_generating => '会议纪要生成中...';
+
+  @override
+  String get meeting_minutes_failed => '生成失败';
+
+  @override
+  String get meeting_minutes_mock_title_1 => '项目周会纪要';
+
+  @override
+  String get meeting_minutes_mock_title_2 => '需求评审纪要';
+
+  @override
+  String get meeting_minutes_mock_title_3 => '客户反馈整理';
+
+  @override
+  String get meeting_minutes_mock_content_1 => '# 项目周会纪要\n\n## 参会人员\n- 产品\n- 设计\n- 开发\n\n## 关键结论\n1. 优先完成会议纪要列表页。\n2. 下周补齐详情页的数据接口。\n\n## 待办\n- [ ] 列表页样式评审\n- [ ] 接口联调';
+
+  @override
+  String get meeting_minutes_mock_content_2 => '# 需求评审纪要\n\n## 目标\n- 明确版本范围\n- 对齐交付节奏\n\n## 决策\n- 本期只做基础列表和详情。\n- 数据使用 mock。\n\n## 风险\n- 详情内容需支持 Markdown 渲染。';
+
+  @override
+  String get meeting_minutes_mock_content_3 => '# 客户反馈整理\n\n## 主要问题\n- 列表项信息层级不清晰\n- 详情内容可读性一般\n\n## 建议\n- 第二行左右对齐日期/时间\n- 标题加粗提升层级';
+
+  @override
   String get logout => '退出登录';
 
   @override

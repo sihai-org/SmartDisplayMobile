@@ -111,6 +111,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meeting_minutes_detail_empty => 'No content';
 
   @override
+  String get meeting_minutes_generating => 'Generating meeting minutes...';
+
+  @override
+  String get meeting_minutes_failed => 'Generation failed';
+
+  @override
+  String get meeting_minutes_mock_title_1 => 'Project Weekly Sync Minutes';
+
+  @override
+  String get meeting_minutes_mock_title_2 => 'Requirements Review Minutes';
+
+  @override
+  String get meeting_minutes_mock_title_3 => 'Customer Feedback Summary';
+
+  @override
+  String get meeting_minutes_mock_content_1 => '# Project Weekly Sync Minutes\n\n## Attendees\n- Product\n- Design\n- Engineering\n\n## Key Takeaways\n1. Prioritize completing the meeting minutes list page.\n2. Finish the detail page API next week.\n\n## To-Do\n- [ ] Review list page styling\n- [ ] API integration';
+
+  @override
+  String get meeting_minutes_mock_content_2 => '# Requirements Review Minutes\n\n## Goals\n- Clarify the release scope\n- Align delivery cadence\n\n## Decisions\n- This release only includes the basic list and detail.\n- Data uses mock.\n\n## Risks\n- Detail content must support Markdown rendering.';
+
+  @override
+  String get meeting_minutes_mock_content_3 => '# Customer Feedback Summary\n\n## Main Issues\n- List item information hierarchy is unclear\n- Detail content readability is average\n\n## Suggestions\n- Align date/time left-right on the second line\n- Bold the title to improve hierarchy';
+
+  @override
   String get logout => 'Sign out';
 
   @override

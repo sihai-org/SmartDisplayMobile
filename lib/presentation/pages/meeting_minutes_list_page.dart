@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
@@ -15,162 +19,206 @@ class MeetingMinutesListPage extends StatefulWidget {
 }
 
 class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
-  late final Future<List<MeetingMinutesItem>> _itemsFuture;
+  static const int _pageSize = 10; // TODO:
+  final ScrollController _scrollController = ScrollController();
+  final List<MeetingMinutesItem> _items = [];
+  bool _isLoading = false;
+  bool _isRefreshing = false;
+  bool _hasNextPage = true;
+  int _page = 1;
 
-  static const List<MeetingMinutesItem> _mockItems = [
-    MeetingMinutesItem(
-      id: '1',
-      title: '项目周会纪要',
-      date: '2025-02-12',
-      time: '10:30',
-      markdown: '''# 项目周会纪要
-
-## 参会人员
-- 产品
-- 设计
-- 开发
-
-## 关键结论
-1. 优先完成会议纪要列表页。
-2. 下周补齐详情页的数据接口。
-
-## 待办
-- [ ] 列表页样式评审
-- [ ] 接口联调
-''',
-    ),
-    MeetingMinutesItem(
-      id: '2',
-      title: '需求评审纪要',
-      date: '2025-02-08',
-      time: '16:00',
-      markdown: '''# 需求评审纪要
-
-## 目标
-- 明确版本范围
-- 对齐交付节奏
-
-## 决策
-- 本期只做基础列表和详情。
-- 数据使用 mock。
-
-## 风险
-- 详情内容需支持 Markdown 渲染。
-''',
-    ),
-    MeetingMinutesItem(
-      id: '3',
-      title: '客户反馈整理',
-      date: '2025-01-29',
-      time: '09:15',
-      markdown: '''# 客户反馈整理
-
-## 主要问题
-- 列表项信息层级不清晰
-- 详情内容可读性一般
-
-## 建议
-- 第二行左右对齐日期/时间
-- 标题加粗提升层级
-''',
-    ),
-  ];
+  List<MeetingMinutesItem> _buildMockItems(AppLocalizations l10n) {
+    return [
+      MeetingMinutesItem(
+        id: '1',
+        title: l10n.meeting_minutes_mock_title_1,
+        date: '2025-02-12',
+        time: '10:30',
+        markdown: l10n.meeting_minutes_mock_content_1,
+        taskStatus: MeetingMinutesTaskStatus.extractedContent,
+      ),
+      MeetingMinutesItem(
+        id: '2',
+        title: l10n.meeting_minutes_mock_title_2,
+        date: '2025-02-08',
+        time: '16:00',
+        markdown: l10n.meeting_minutes_mock_content_2,
+        taskStatus: MeetingMinutesTaskStatus.extractedContent,
+      ),
+      MeetingMinutesItem(
+        id: '3',
+        title: l10n.meeting_minutes_mock_title_3,
+        date: '2025-01-29',
+        time: '09:15',
+        markdown: l10n.meeting_minutes_mock_content_3,
+        taskStatus: MeetingMinutesTaskStatus.extractedContent,
+      ),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
-    _itemsFuture = _fetchMeetingMinutes();
+    _scrollController.addListener(_onScroll);
+    _loadPage(reset: true);
   }
 
-  Future<List<MeetingMinutesItem>> _fetchMeetingMinutes() async {
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasNextPage || _isLoading) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _loadPage();
+    }
+  }
+
+  Future<void> _loadPage({bool reset = false}) async {
+    if (_isLoading) return;
+    if (!mounted) return;
+
+    if (!_hasNextPage && !reset) return;
+
+    if (reset) {
+      _page = 1;
+      _hasNextPage = true;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
     if (AuditMode.enabled) {
-      return _mockItems;
+      final l10n = context.l10n;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(_buildMockItems(l10n));
+        _hasNextPage = false;
+        _isLoading = false;
+      });
+      return;
     }
 
     try {
-      final response = await Supabase.instance.client.functions.invoke(
-        'meeting_minutes_get',
-        method: HttpMethod.get,
+      final result = await _fetchMeetingMinutesPage(
+        page: _page,
+        pageSize: _pageSize,
       );
-      if (response.status != 200) {
-        AppLog.instance.warning(
-          '[meeting_minutes_get] non-200: ${response.status} ${response.data}',
-          tag: 'Supabase',
-        );
-        return const [];
-      }
-      return _parseMeetingMinutes(response.data);
-    } on FunctionException catch (error, stackTrace) {
-      AppLog.instance.warning(
-        '[meeting_minutes_get] status=${error.status}, details=${error.details}',
-        tag: 'Supabase',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      return const [];
+      setState(() {
+        if (reset) {
+          _items
+            ..clear()
+            ..addAll(result.items); // ✅ 这里才清空 + 替换
+        } else {
+          _items.addAll(result.items);
+        }
+
+        _hasNextPage = result.hasNextPage;
+        _page = _page + 1;
+        _isLoading = false;
+      });
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when fetching meeting minutes',
-        tag: 'Supabase',
+        tag: 'MeetingMinutesApi',
         error: error,
         stackTrace: stackTrace,
       );
-      return const [];
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  List<MeetingMinutesItem> _parseMeetingMinutes(dynamic responseData) {
-    final raw = _extractList(responseData);
-    if (raw.isEmpty) return const [];
+  Future<_MeetingMinutesPageResult> _fetchMeetingMinutesPage({
+    required int page,
+    required int pageSize,
+  }) async {
+    try {
+      final accessToken =
+          Supabase.instance.client.auth.currentSession?.accessToken;
+      final response = await http.post(
+        Uri.parse(
+            'http://staging.smartdisplay.datouai.cn:8000/meeting/query_meeting_task'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (accessToken != null && accessToken.isNotEmpty)
+            'accessToken': accessToken,
+        },
+        body: jsonEncode({
+          'page': page,
+          'page_size': pageSize,
+        }),
+      );
+      if (response.statusCode != 200) {
+        AppLog.instance.warning(
+          '[meeting_minutes_get] non-200: ${response.statusCode} ${response.body}',
+          tag: 'MeetingMinutesApi',
+        );
+        return const _MeetingMinutesPageResult.empty();
+      }
+      final decoded = jsonDecode(response.body);
+      return _parseMeetingMinutesResponse(decoded);
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+  _MeetingMinutesPageResult _parseMeetingMinutesResponse(dynamic responseData) {
+    if (responseData is! Map) return const _MeetingMinutesPageResult.empty();
+    final code = responseData['code'];
+    if (code != 200) return const _MeetingMinutesPageResult.empty();
+
+    final data = responseData['data'];
+    if (data is! Map) return const _MeetingMinutesPageResult.empty();
+    final list = data['data'];
+    final hasNextPage = data['has_next_page'] == true;
+    if (list is! List) {
+      return _MeetingMinutesPageResult(
+        items: const [],
+        hasNextPage: hasNextPage,
+      );
+    }
 
     final items = <MeetingMinutesItem>[];
-    for (final entry in raw) {
+    for (final entry in list) {
       final item = _parseMeetingItem(entry);
       if (item != null) items.add(item);
     }
-    return items;
-  }
-
-  List<dynamic> _extractList(dynamic responseData) {
-    if (responseData is List) return responseData;
-    if (responseData is Map) {
-      final candidates = [
-        responseData['data'],
-        responseData['list'],
-        responseData['items'],
-        responseData['records'],
-      ];
-      for (final candidate in candidates) {
-        if (candidate is List) return candidate;
-      }
-    }
-    return const [];
+    return _MeetingMinutesPageResult(
+      items: items,
+      hasNextPage: hasNextPage,
+    );
   }
 
   MeetingMinutesItem? _parseMeetingItem(dynamic raw) {
     if (raw is! Map) return null;
     final map = raw.map((key, value) => MapEntry(key.toString(), value));
 
-    final id =
-        _stringValue(map, ['id', 'meeting_id', 'meetingId', 'uuid']) ?? '';
-    final title =
-        _stringValue(map, ['title', 'meeting_title', 'meetingTitle', 'name']) ??
-            '';
-    var date = _stringValue(map, ['date', 'meeting_date', 'meetingDate']) ?? '';
-    var time = _stringValue(map, ['time', 'meeting_time', 'meetingTime']) ?? '';
-    final markdown =
-        _stringValue(map, ['markdown', 'content', 'detail', 'body']) ?? '';
+    final id = _stringValue(map, ['id']) ?? '';
+    final title = _stringValue(map, ['title']) ?? '';
+    final taskStatus = _stringValue(map, ['task_status']) ?? '';
+    var date = '';
+    var time = '';
+    final markdown = _stringValue(map, ['ai_summary_content']) ?? '';
 
     if (date.isEmpty || time.isEmpty) {
-      final createdAt = _stringValue(
-        map,
-        ['created_at', 'createdAt', 'created_time', 'createdTime'],
-      );
+      final createdAt = _stringValue(map, ['created_at']);
       if (createdAt != null && createdAt.isNotEmpty) {
-        final parsed = DateTime.tryParse(createdAt);
+        final parsed = _parseServerDateTime(createdAt);
         if (parsed != null) {
-          date = _formatDate(parsed);
-          time = _formatTime(parsed);
+          final localTime = parsed.toLocal();
+          date = _formatDate(localTime);
+          time = _formatTime(localTime);
         }
       }
     }
@@ -181,6 +229,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
       date: date,
       time: time,
       markdown: markdown,
+      taskStatus: taskStatus,
     );
   }
 
@@ -194,6 +243,20 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
     return null;
   }
 
+  String _displayTitleForStatus(
+    AppLocalizations l10n,
+    String taskStatus,
+    String baseTitle,
+  ) {
+    if (taskStatus == MeetingMinutesTaskStatus.extractedContent) {
+      return baseTitle;
+    }
+    if (MeetingMinutesTaskStatus.isFailed(taskStatus)) {
+      return l10n.meeting_minutes_failed;
+    }
+    return l10n.meeting_minutes_generating;
+  }
+
   String _formatDate(DateTime dateTime) {
     final year = dateTime.year.toString().padLeft(4, '0');
     final month = dateTime.month.toString().padLeft(2, '0');
@@ -205,6 +268,17 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  DateTime? _parseServerDateTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final sanitized = trimmed.replaceFirst(' ', 'T');
+    final normalized = sanitized.replaceFirstMapped(
+      RegExp(r'([+-]\d{2})$'),
+      (match) => '${match[1]}:00',
+    );
+    return DateTime.tryParse(normalized);
   }
 
   @override
@@ -223,96 +297,208 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
         title: Text(l10n.meeting_minutes_list),
         leading: const BackButton(),
       ),
-      body: FutureBuilder<List<MeetingMinutesItem>>(
-        future: _itemsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 12),
-                  Text(l10n.meeting_minutes_loading),
-                ],
-              ),
-            );
-          }
-          final items = snapshot.data ?? const [];
-          if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.notes_outlined,
-                        size: 40,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      l10n.meeting_minutes_empty,
-                      style: emptyTitleStyle,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+      body: _buildBody(
+        l10n,
+        textStyle,
+        emptyTitleStyle,
+      ),
+    );
+  }
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() {
+      _isRefreshing = true;
+    });
+    await _loadPage(reset: true);
+    if (mounted) {
+      setState(() {
+        _isRefreshing = false;
+      });
+    }
+  }
+
+  Widget _buildBody(
+    AppLocalizations l10n,
+    TextStyle? textStyle,
+    TextStyle? emptyTitleStyle,
+  ) {
+    return RefreshIndicator(
+      displacement: 12,
+      edgeOffset: 0,
+      onRefresh: _handleRefresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (_items.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              children: [
+                SizedBox(
+                  height: constraints.maxHeight,
+                  child: Center(
+                    child: _isLoading
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!_isRefreshing)
+                                const CircularProgressIndicator(),
+                              if (!_isRefreshing) const SizedBox(height: 12),
+                              Text(l10n.meeting_minutes_loading),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 88,
+                                height: 88,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Icon(
+                                  Icons.notes_outlined,
+                                  size: 40,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                l10n.meeting_minutes_empty,
+                                style: emptyTitleStyle,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
+              ],
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Material(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => context.push(
-                    AppRoutes.meetingMinutesDetail,
-                    extra: item,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: Theme.of(context).textTheme.titleMedium,
+          final showOverlay = _isRefreshing && _items.isNotEmpty;
+          final showLoadMoreFooter =
+              _isLoading && _items.isNotEmpty && !_isRefreshing && _hasNextPage;
+
+          return Stack(
+            children: [
+              ListView.separated(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: _items.length + (showLoadMoreFooter ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  if (index >= _items.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        const SizedBox(height: 6),
-                        Row(
+                      ),
+                    );
+                  }
+                  final item = _items[index];
+                  final baseTitle = item.title.trim().isEmpty
+                      ? l10n.meeting_minutes
+                      : item.title;
+                  final isEnabled = item.isExtractedContent;
+                  final displayTitle = _displayTitleForStatus(
+                    l10n,
+                    item.taskStatus,
+                    baseTitle,
+                  );
+                  final titleStyle =
+                      Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: isEnabled ? null : Colors.grey[500],
+                          );
+                  return Material(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: isEnabled
+                          ? () => context.push(
+                                AppRoutes.meetingMinutesDetail,
+                                extra: item,
+                              )
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Opacity(
+                          opacity: isEnabled ? 1 : 0.5,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayTitle,
+                                style: titleStyle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Text(item.date, style: textStyle),
+                                  const Spacer(),
+                                  Text(item.time, style: textStyle),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              if (showOverlay)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: Container(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surface
+                          .withOpacity(0.75),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(item.date, style: textStyle),
-                            const Spacer(),
-                            Text(item.time, style: textStyle),
+                            if (!_isRefreshing)
+                              const CircularProgressIndicator(),
+                            if (!_isRefreshing) const SizedBox(height: 12),
+                            Text(l10n.meeting_minutes_loading),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              );
-            },
+            ],
           );
         },
       ),
     );
   }
+}
+
+class _MeetingMinutesPageResult {
+  final List<MeetingMinutesItem> items;
+  final bool hasNextPage;
+
+  const _MeetingMinutesPageResult({
+    required this.items,
+    required this.hasNextPage,
+  });
+
+  const _MeetingMinutesPageResult.empty()
+      : items = const [],
+        hasNextPage = false;
 }
