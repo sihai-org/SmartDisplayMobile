@@ -19,7 +19,7 @@ class MeetingMinutesListPage extends StatefulWidget {
 }
 
 class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
-  static const int _pageSize = 10; // TODO:
+  static const int _pageSize = 20;
   final ScrollController _scrollController = ScrollController();
   final List<MeetingMinutesItem> _items = [];
   bool _isLoading = false;
@@ -148,7 +148,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
           Supabase.instance.client.auth.currentSession?.accessToken;
       final response = await http.post(
         Uri.parse(
-            'http://staging.smartdisplay.datouai.cn:8000/meeting/query_meeting_task'),
+            'https://api.smartdisplay.vzngpt.com/meeting/query_meeting_task'),
         headers: {
           'Content-Type': 'application/json',
           if (accessToken != null && accessToken.isNotEmpty)
