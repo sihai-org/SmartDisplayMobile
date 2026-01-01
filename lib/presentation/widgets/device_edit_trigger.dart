@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
 import '../../core/constants/feature_gray.dart';
 
-class DeviceEditIconButton extends StatelessWidget {
+class DeviceEditTrigger extends StatelessWidget {
   final String displayDeviceId;
   final String? deviceName;
   final EdgeInsetsGeometry? padding;
 
-  const DeviceEditIconButton({
+  const DeviceEditTrigger({
     super.key,
     required this.displayDeviceId,
     this.deviceName,
@@ -18,22 +19,19 @@ class DeviceEditIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!FeatureGray.editDeviceGray) {
-      return const SizedBox.shrink();
-    }
-
-    if (displayDeviceId.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     final resolvedName = (deviceName ?? '').isNotEmpty
         ? deviceName!
         : context.l10n.unknown_device;
 
-    return IconButton(
-      padding: padding ?? const EdgeInsets.all(8),
-      icon: const Icon(Icons.edit_outlined),
-      tooltip: context.l10n.edit_device,
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        textStyle: Theme.of(context).textTheme.bodyMedium,
+        foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
+        overlayColor: Colors.transparent,
+      ),
       onPressed: () {
         final idParam = Uri.encodeComponent(displayDeviceId);
         final nameParam = Uri.encodeComponent(resolvedName);
@@ -41,6 +39,13 @@ class DeviceEditIconButton extends StatelessWidget {
           '${AppRoutes.deviceEdit}?displayDeviceId=$idParam&deviceName=$nameParam',
         );
       },
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.smallPadding),
+        child: Text(
+          context.l10n.edit_device,
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
     );
   }
 }

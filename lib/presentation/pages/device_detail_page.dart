@@ -3,6 +3,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_display_mobile/core/utils/data_transformer.dart';
+import 'package:smart_display_mobile/presentation/widgets/device_card.dart';
+import 'package:smart_display_mobile/presentation/widgets/device_edit_trigger.dart';
 import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
@@ -16,7 +18,6 @@ import '../../core/log/app_log.dart';
 import '../../core/providers/ble_connection_provider.dart' as conn;
 import '../../core/providers/device_ble_view_state.dart';
 import '../../core/utils/wifi_signal_strength.dart';
-import '../widgets/device_edit_icon_button.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
   final VoidCallback? onBackToList;
@@ -218,152 +219,46 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               // 选择要展示的设备及其扩展信息
               Builder(builder: (context) {
                 final rec = bleView.currentDevice;
-                final String? firmwareVersion = rec.firmwareVersion;
+                final versionSlot = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
+                    if (bleView.bleStatus == BleDeviceStatus.authenticated) ...[
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: Theme.of(context).textTheme.bodyMedium,
+                          overlayColor: Colors.transparent,
+                        ),
+                        onPressed: _checkingUpdate
+                            ? null
+                            : () {
+                                _sendCheckUpdate(rec);
+                              },
+                        child: Text(context.l10n.check_update),
+                      ),
+                      if (_checkingUpdate) ...[
+                        const SizedBox(width: 8),
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ],
+                    ],
+                  ],
+                );
+
                 return Stack(
                   children: [
-                    Card(
-                      elevation: 0,
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.all(AppConstants.defaultPadding),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/device.png',
-                                        width: 56,
-                                        height: 56,
-                                        fit: BoxFit.contain,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Builder(builder: (context) {
-                                          return Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                rec.deviceName,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleMedium,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              // 显示设备ID（替换原来的状态展示）
-                                              Text(
-                                                '${context.l10n.device_id_label}: ${rec.displayDeviceId}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                            ],
-                                          );
-                                        }),
-                                      ),
-                                      // _buildActionButtons(connState),
-                                    ],
-                                  ),
-                                  const Divider(height: 20, color: Colors.grey),
-                                  const SizedBox(height: 4),
-                                  // 扩展信息：固件版本与添加时间
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '${context.l10n.firmware_version_label}: ',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          firmwareVersion == null ||
-                                                  firmwareVersion.isEmpty
-                                              ? '-'
-                                              : firmwareVersion,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
-                                      if (bleView.bleStatus ==
-                                          BleDeviceStatus.authenticated) ...[
-                                        TextButton(
-                                          onPressed: _checkingUpdate
-                                              ? null
-                                              : () {
-                                                  _sendCheckUpdate(rec);
-                                                },
-                                          child:
-                                              Text(context.l10n.check_update),
-                                        ),
-                                        if (_checkingUpdate) ...[
-                                          const SizedBox(width: 8),
-                                          const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                                strokeWidth: 2),
-                                          ),
-                                        ],
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '${context.l10n.last_connected_at}: ',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                            ),
-                                      ),
-                                      Text(
-                                        _formatDateTime(rec.lastConnectedAt),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: DeviceEditIconButton(
-                        displayDeviceId: rec.displayDeviceId,
-                        deviceName: rec.deviceName,
-                        padding: const EdgeInsets.all(4),
-                      ),
+                    DeviceCard(
+                      name: rec.deviceName,
+                      id: rec.displayDeviceId,
+                      version: rec.firmwareVersion,
+                      lastConnectedAt: rec.lastConnectedAt,
+                      versionSlot: versionSlot,
                     ),
                   ],
                 );

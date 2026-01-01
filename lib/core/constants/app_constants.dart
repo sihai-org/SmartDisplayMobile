@@ -5,6 +5,7 @@ class AppConstants {
   static const String appVersion = '1.1.4';
 
   // UI Configuration
-  static const double defaultPadding = 16.0;
+  static const double defaultPadding = 20.0;
+  static const double smallPadding = 12.0;
   static const double defaultBorderRadius = 12.0;
 }

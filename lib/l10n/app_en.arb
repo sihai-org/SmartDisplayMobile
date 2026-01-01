@@ -185,7 +185,7 @@
   "bind_success": "Binding successful",
   "bind_failed_error": "Binding failed: {error}",
   
-  "firmware_version_label": "Firmware Version",
+  "firmware_version_label": "Firmware Ver.",
   "manage_network": "Manage Network",
   "refresh": "Refresh",
   "confirm_delete_device": "Are you sure you want to unbind this device?",
@@ -222,12 +222,12 @@
   "device_edit_title": "Edit Device",
   "edit_device": "Edit device",
   "done": "Done",
-  "wallpaper_section_title": "Wallpaper",
+  "wallpaper_section_title": "Set Wallpaper",
   "wallpaper_default": "Default wallpaper",
   "wallpaper_default_hint": "Use the built-in wallpaper",
   "wallpaper_custom_upload": "Custom upload",
   "wallpaper_custom_hint": "Upload an image as the wallpaper",
-  "layout_section_title": "Layout",
+  "layout_section_title": "Choose Layout",
   "layout_default": "Default layout",
   "layout_default_hint": "Standard content arrangement",
   "layout_frame": "Frame layout",
@@ -262,5 +262,6 @@
   "image_processing_failed_index_retry": "Image {count} processing failed. Please try another image.",
   "missing_device_id_delete_wallpaper": "Missing device ID. Unable to delete wallpaper.",
   "wallpaper_deleted": "Uploaded wallpaper deleted",
-  "image_format_not_supported": "Only JPG/PNG images are supported"
+  "image_format_not_supported": "Only JPG/PNG images are supported",
+   "viewDetails": "View details"
 }

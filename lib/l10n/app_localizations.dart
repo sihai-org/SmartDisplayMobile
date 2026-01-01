@@ -1118,7 +1118,7 @@ abstract class AppLocalizations {
   /// No description provided for @firmware_version_label.
   ///
   /// In en, this message translates to:
-  /// **'Firmware Version'**
+  /// **'Firmware Ver.'**
   String get firmware_version_label;
 
   /// No description provided for @manage_network.
@@ -1298,7 +1298,7 @@ abstract class AppLocalizations {
   /// No description provided for @wallpaper_section_title.
   ///
   /// In en, this message translates to:
-  /// **'Wallpaper'**
+  /// **'Set Wallpaper'**
   String get wallpaper_section_title;
 
   /// No description provided for @wallpaper_default.
@@ -1328,7 +1328,7 @@ abstract class AppLocalizations {
   /// No description provided for @layout_section_title.
   ///
   /// In en, this message translates to:
-  /// **'Layout'**
+  /// **'Choose Layout'**
   String get layout_section_title;
 
   /// No description provided for @layout_default.
@@ -1540,6 +1540,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only JPG/PNG images are supported'**
   String get image_format_not_supported;
+
+  /// No description provided for @viewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get viewDetails;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

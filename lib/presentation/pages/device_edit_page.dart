@@ -152,7 +152,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: Text(l10n.device_edit_title),
+        title: Text(l10n.edit_device),
         actions: [
           TextButton(
             onPressed: disableSave ? null : _handleSave,
@@ -174,8 +174,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildPreview(resolvedName, widget.displayDeviceId),
-              const SizedBox(height: 16),
               _buildWallpaperSelector(),
               const SizedBox(height: 12),
               _buildLayoutSection(),
@@ -208,49 +206,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreview(String deviceName, String? deviceId) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Image.asset(
-              'assets/images/device.png',
-              height: 62,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    deviceName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  if (deviceId != null && deviceId.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      deviceId,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -352,36 +307,122 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
   }
 
+  // Widget _buildLayoutSection() {
+  //   final theme = Theme.of(context);
+  //   final l10n = context.l10n;
+  //
+  //   const double verticalGap = 10;
+  //   final options = [
+  //     _LayoutOption(
+  //       value: 'default',
+  //       title: l10n.layout_default,
+  //       subtitle: l10n.layout_default_hint,
+  //       imageAsset: 'assets/images/layout_default.jpg',
+  //     ),
+  //     _LayoutOption(
+  //       value: 'frame',
+  //       title: l10n.layout_frame,
+  //       subtitle: l10n.layout_frame_hint,
+  //       imageAsset: 'assets/images/layout_frame.jpg',
+  //     ),
+  //   ];
+  //   final selectedIndex =
+  //       options.indexWhere((option) => option.value == _layoutValue);
+  //   final effectiveIndex = selectedIndex == -1 ? 0 : selectedIndex;
+  //   final screenWidth = MediaQuery.of(context).size.width;
+  //   final tileWidth = screenWidth * _layoutViewportFraction;
+  //   final imageHeight = tileWidth / _wallpaperAspectRatio;
+  //   final isCurrentView =
+  //       options[_layoutPageIndex.clamp(0, options.length - 1)].value ==
+  //           _layoutValue;
+  //
+  //   _ensureLayoutController(initialPage: effectiveIndex);
+  //
+  //   return Card(
+  //     elevation: 0,
+  //     child: Padding(
+  //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Padding(
+  //             padding: const EdgeInsets.symmetric(vertical: 8),
+  //             child: Text(
+  //               l10n.layout_section_title,
+  //               style: theme.textTheme.titleMedium?.copyWith(
+  //                 fontWeight: FontWeight.w700,
+  //               ),
+  //             ),
+  //           ),
+  //           Center(
+  //             child: _CurrentToggle(
+  //               isCurrent: isCurrentView,
+  //               canSelect: !isCurrentView,
+  //               currentLabel: l10n.current_label,
+  //               setLabel: l10n.set_as_current,
+  //               onSelect: () => _setLayout(
+  //                 options[_layoutPageIndex].value,
+  //                 _layoutPageIndex,
+  //               ),
+  //             ),
+  //           ),
+  //           const SizedBox(height: verticalGap),
+  //           Align(
+  //             alignment: Alignment.topCenter,
+  //             child: SizedBox(
+  //               width: tileWidth,
+  //               height: imageHeight + 36,
+  //               child: PageView.builder(
+  //                 controller: _layoutController,
+  //                 itemCount: options.length,
+  //                 onPageChanged: (index) {
+  //                   setState(() {
+  //                     _layoutPageIndex = index;
+  //                   });
+  //                 },
+  //                 itemBuilder: (context, index) {
+  //                   final distance = (_layoutPage - index).abs();
+  //                   final scale = (1 - distance * 0.08).clamp(0.9, 1.0);
+  //                   final option = options[index];
+  //
+  //                   return AnimatedScale(
+  //                     scale: scale,
+  //                     duration: const Duration(milliseconds: 200),
+  //                     curve: Curves.easeOut,
+  //                     alignment: Alignment.center,
+  //                     child: _LayoutPreviewCard(
+  //                       option: option,
+  //                       isSelected: _layoutValue == option.value,
+  //                       onSelect: () => _setLayout(option.value, index),
+  //                     ),
+  //                   );
+  //                 },
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildLayoutSection() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
 
-    const double verticalGap = 10;
     final options = [
       _LayoutOption(
         value: 'default',
-        title: l10n.layout_default,
-        subtitle: l10n.layout_default_hint,
-        imageAsset: 'assets/images/layout_default.jpg',
+        title: l10n.layout_default, // “默认模式”
+        subtitle: l10n.layout_default_hint, // 如果不想显示可不传/不显示
+        iconAsset: 'assets/images/layout_default_icon.png', // ✅ 左侧图标
       ),
       _LayoutOption(
         value: 'frame',
-        title: l10n.layout_frame,
+        title: l10n.layout_frame, // 你要显示成“相册模式”就改 l10n 或直接写死
         subtitle: l10n.layout_frame_hint,
-        imageAsset: 'assets/images/layout_frame.jpg',
+        iconAsset: 'assets/images/layout_frame_icon.png', // ✅ 左侧图标
       ),
     ];
-    final selectedIndex =
-        options.indexWhere((option) => option.value == _layoutValue);
-    final effectiveIndex = selectedIndex == -1 ? 0 : selectedIndex;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final tileWidth = screenWidth * _layoutViewportFraction;
-    final imageHeight = tileWidth / _wallpaperAspectRatio;
-    final isCurrentView =
-        options[_layoutPageIndex.clamp(0, options.length - 1)].value ==
-            _layoutValue;
-
-    _ensureLayoutController(initialPage: effectiveIndex);
 
     return Card(
       elevation: 0,
@@ -393,57 +434,35 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                l10n.layout_section_title,
+                l10n.layout_section_title, // “选择布局”
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            Center(
-              child: _CurrentToggle(
-                isCurrent: isCurrentView,
-                canSelect: !isCurrentView,
-                currentLabel: l10n.current_label,
-                setLabel: l10n.set_as_current,
-                onSelect: () => _setLayout(
-                  options[_layoutPageIndex].value,
-                  _layoutPageIndex,
-                ),
-              ),
-            ),
-            const SizedBox(height: verticalGap),
-            Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: tileWidth,
-                height: imageHeight + 36,
-                child: PageView.builder(
-                  controller: _layoutController,
-                  itemCount: options.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _layoutPageIndex = index;
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final distance = (_layoutPage - index).abs();
-                    final scale = (1 - distance * 0.08).clamp(0.9, 1.0);
-                    final option = options[index];
 
-                    return AnimatedScale(
-                      scale: scale,
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      alignment: Alignment.center,
-                      child: _LayoutPreviewCard(
-                        option: option,
-                        isSelected: _layoutValue == option.value,
-                        onSelect: () => _setLayout(option.value, index),
-                      ),
-                    );
-                  },
-                ),
-              ),
+            // ✅ 两行列表
+            _LayoutChoiceTile(
+              title: options[0].title,
+              iconAsset: options[0].iconAsset,
+              selected: _layoutValue == options[0].value,
+              onTap: () => _setLayout(options[0].value, 0),
+            ),
+
+            Divider(
+              height: 1,
+              thickness: 0.8,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey.shade800
+                  : Colors.grey.shade300,
+              indent: MediaQuery.of(context).size.width / 7, // 左侧留白
+            ),
+
+            _LayoutChoiceTile(
+              title: options[1].title,
+              iconAsset: options[1].iconAsset,
+              selected: _layoutValue == options[1].value,
+              onTap: () => _setLayout(options[1].value, 1),
             ),
           ],
         ),
@@ -934,74 +953,17 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 }
 
-class _LayoutPreviewCard extends StatelessWidget {
-  final _LayoutOption option;
-  final bool isSelected;
-  final VoidCallback onSelect;
-
-  const _LayoutPreviewCard({
-    required this.option,
-    required this.isSelected,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final border = isSelected
-        ? Border.all(color: theme.colorScheme.primary, width: 1.5)
-        : null;
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 360),
-      child: InkWell(
-        onTap: onSelect,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                border: border,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Image.asset(
-                    option.imageAsset,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              option.title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _LayoutOption {
   final String value;
   final String title;
   final String subtitle;
-  final String imageAsset;
+  final String iconAsset;
 
   const _LayoutOption({
     required this.value,
     required this.title,
     required this.subtitle,
-    required this.imageAsset,
+    required this.iconAsset,
   });
 }
 
@@ -1043,6 +1005,87 @@ class _CurrentToggle extends StatelessWidget {
                   onPressed: canSelect ? onSelect : null,
                   child: Text(setLabel),
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LayoutChoiceTile extends StatelessWidget {
+  final String title;
+  final String iconAsset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LayoutChoiceTile({
+    required this.title,
+    required this.iconAsset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD), // 淡蓝色背景
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  iconAsset,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+
+            // 右侧选中态：圆形勾选
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color:
+                      selected ? theme.colorScheme.primary : theme.dividerColor,
+                  width: 1,
+                ),
+                color:
+                    selected ? theme.colorScheme.primary : Colors.transparent,
+              ),
+              child: selected
+                  ? Icon(
+                      Icons.check,
+                      size: 16,
+                      color: theme.colorScheme.onPrimary,
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );

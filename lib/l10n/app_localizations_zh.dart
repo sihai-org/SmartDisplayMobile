@@ -657,7 +657,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get done => '完成';
 
   @override
-  String get wallpaper_section_title => '壁纸';
+  String get wallpaper_section_title => '设置壁纸';
 
   @override
   String get wallpaper_default => '默认壁纸';
@@ -672,7 +672,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wallpaper_custom_hint => '上传一张图片作为设备壁纸';
 
   @override
-  String get layout_section_title => '布局';
+  String get layout_section_title => '选择布局';
 
   @override
   String get layout_default => '默认布局';
@@ -794,4 +794,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get image_format_not_supported => '仅支持 JPG / PNG 格式的图片';
+
+  @override
+  String get viewDetails => '查看详情';
 }

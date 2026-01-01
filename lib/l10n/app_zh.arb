@@ -222,12 +222,12 @@
   "device_edit_title": "设备编辑",
   "edit_device": "编辑设备",
   "done": "完成",
-  "wallpaper_section_title": "壁纸",
+  "wallpaper_section_title": "设置壁纸",
   "wallpaper_default": "默认壁纸",
   "wallpaper_default_hint": "使用系统提供的默认壁纸",
   "wallpaper_custom_upload": "自定义上传",
   "wallpaper_custom_hint": "上传一张图片作为设备壁纸",
-  "layout_section_title": "布局",
+  "layout_section_title": "选择布局",
   "layout_default": "默认布局",
   "layout_default_hint": "标准内容排版",
   "layout_frame": "相框布局",
@@ -262,5 +262,6 @@
   "image_processing_failed_index_retry": "第{count}张图片处理失败，请更换图片后重试",
   "missing_device_id_delete_wallpaper": "缺少设备 ID，无法删除壁纸",
   "wallpaper_deleted": "已删除上传的壁纸",
-  "image_format_not_supported": "仅支持 JPG / PNG 格式的图片"
+  "image_format_not_supported": "仅支持 JPG / PNG 格式的图片",
+   "viewDetails": "查看详情"
 }

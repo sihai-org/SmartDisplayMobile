@@ -555,7 +555,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get firmware_version_label => 'Firmware Version';
+  String get firmware_version_label => 'Firmware Ver.';
 
   @override
   String get manage_network => 'Manage Network';
@@ -657,7 +657,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get done => 'Done';
 
   @override
-  String get wallpaper_section_title => 'Wallpaper';
+  String get wallpaper_section_title => 'Set Wallpaper';
 
   @override
   String get wallpaper_default => 'Default wallpaper';
@@ -672,7 +672,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wallpaper_custom_hint => 'Upload an image as the wallpaper';
 
   @override
-  String get layout_section_title => 'Layout';
+  String get layout_section_title => 'Choose Layout';
 
   @override
   String get layout_default => 'Default layout';
@@ -794,4 +794,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get image_format_not_supported => 'Only JPG/PNG images are supported';
+
+  @override
+  String get viewDetails => 'View details';
 }
