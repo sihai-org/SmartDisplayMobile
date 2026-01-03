@@ -8,8 +8,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/deeplink/deep_link_handler.dart';
-import '../../core/providers/app_state_provider.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/utils/device_entry_coordinator.dart';
 

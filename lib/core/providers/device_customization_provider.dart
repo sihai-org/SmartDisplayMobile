@@ -153,7 +153,7 @@ class DeviceCustomizationNotifier
     required String deviceId,
     required List<ImageProcessingResult> processedList,
   }) async {
-    if (deviceId.isEmpty) throw '缺少设备 ID';
+    if (deviceId.isEmpty) throw Exception('缺少设备 ID');
     if (state.isUploading || processedList.isEmpty) return;
 
     state = state.copyWith(isUploading: true);
@@ -169,7 +169,7 @@ class DeviceCustomizationNotifier
       final localPaths = <String>[];
 
       if (uploadedInfos.length < limited.length) {
-        throw '壁纸上传失败，请稍后重试';
+        throw Exception('壁纸上传失败，请稍后重试');
       }
 
       for (var i = 0; i < limited.length; i++) {
@@ -235,7 +235,7 @@ class DeviceCustomizationNotifier
   Future<void> saveRemote() async {
     final deviceId = state.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
-      throw '缺少设备 ID';
+      throw Exception('缺少设备 ID');
     }
     if (state.isSaving || state.isUploading) return;
 
@@ -265,9 +265,9 @@ class DeviceCustomizationNotifier
         final detail = data is Map && data['message'] != null
             ? data['message'].toString()
             : data?.toString();
-        throw detail == null || detail.isEmpty
+        throw Exception(detail == null || detail.isEmpty
             ? '服务异常（${response.status}）'
-            : detail;
+            : detail);
       }
 
       // 成功后再刷新一次远端，保证状态一致
@@ -285,7 +285,8 @@ class DeviceCustomizationNotifier
         stackTrace: stackTrace,
       );
       final detail = error.details?.toString();
-      throw detail == null || detail.isEmpty ? '保存失败，请稍后重试' : '保存失败：$detail';
+      throw Exception(
+          detail == null || detail.isEmpty ? '保存失败，请稍后重试' : '保存失败：$detail');
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when saving customization',
@@ -293,7 +294,7 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
-      throw '保存失败：$error';
+      throw Exception('保存失败：$error');
     } finally {
       state = state.copyWith(isSaving: false);
     }
@@ -359,7 +360,7 @@ class DeviceCustomizationNotifier
           '[device_wallpaper_upload] empty keys from response: ${response.data}',
           tag: 'Supabase',
         );
-        throw '服务返回的 key 无效';
+        throw Exception('服务返回的 key 无效');
       }
 
       if (keys.length != images.length) {
@@ -367,7 +368,7 @@ class DeviceCustomizationNotifier
           '[device_wallpaper_upload] key count mismatch, expected=${images.length}, got=${keys.length}',
           tag: 'Supabase',
         );
-        throw '服务返回的 key 数量异常';
+        throw Exception('服务返回的 key 数量异常');
       }
 
       final infos = <CustomWallpaperInfo>[];
@@ -391,9 +392,9 @@ class DeviceCustomizationNotifier
         stackTrace: stackTrace,
       );
       final detail = error.details?.toString();
-      throw detail != null && detail.isNotEmpty
+      throw Exception(detail != null && detail.isNotEmpty
           ? detail
-          : '服务异常（${error.status}）';
+          : '服务异常（${error.status}）');
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when uploading wallpaper',
@@ -401,7 +402,7 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
-      throw '请稍后重试';
+      throw Exception('请稍后重试');
     }
   }
 

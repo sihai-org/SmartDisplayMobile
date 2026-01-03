@@ -698,16 +698,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get image_processing_save_wait => '图片处理中，请稍后保存';
-
-  @override
-  String get wallpaper_uploading_save_wait => '壁纸上传中，请稍后保存';
-
-  @override
   String get missing_device_id_save => '缺少设备 ID，无法保存';
 
   @override
-  String get settings_saved => '设置已保存';
+  String get settings_saved => '保存成功';
 
   @override
   String get saving_ellipsis => '保存中...';
@@ -724,7 +718,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get current_label => '当前';
+  String get current_label => '当前壁纸';
 
   @override
   String get set_as_current => '设为当前';
@@ -766,9 +760,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get wallpaper_upload_success => '壁纸上传成功';
-
-  @override
   String get image_processing_timeout_hint => '图片处理超时，请减少图片数量或稍后重试';
 
   @override
@@ -790,11 +781,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get missing_device_id_delete_wallpaper => '缺少设备 ID，无法删除壁纸';
 
   @override
-  String get wallpaper_deleted => '已删除上传的壁纸';
-
-  @override
   String get image_format_not_supported => '仅支持 JPG / PNG 格式的图片';
 
   @override
   String get viewDetails => '查看详情';
+
+  @override
+  String get new_wallpaper => '新壁纸';
 }

@@ -698,16 +698,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get image_processing_save_wait => 'Image processing in progress. Please wait to save.';
-
-  @override
-  String get wallpaper_uploading_save_wait => 'Wallpaper uploading in progress. Please wait to save.';
-
-  @override
   String get missing_device_id_save => 'Missing device ID. Unable to save.';
 
   @override
-  String get settings_saved => 'Settings saved';
+  String get settings_saved => 'Saved successfully';
 
   @override
   String get saving_ellipsis => 'Saving...';
@@ -724,7 +718,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get current_label => 'Current';
+  String get current_label => 'Current wallpaper';
 
   @override
   String get set_as_current => 'Set as current';
@@ -766,9 +760,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get wallpaper_upload_success => 'Wallpaper uploaded successfully';
-
-  @override
   String get image_processing_timeout_hint => 'Image processing timed out. Reduce the number of images or try again later.';
 
   @override
@@ -790,11 +781,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get missing_device_id_delete_wallpaper => 'Missing device ID. Unable to delete wallpaper.';
 
   @override
-  String get wallpaper_deleted => 'Uploaded wallpaper deleted';
-
-  @override
   String get image_format_not_supported => 'Only JPG/PNG images are supported';
 
   @override
   String get viewDetails => 'View details';
+
+  @override
+  String get new_wallpaper => 'New wallpaper';
 }

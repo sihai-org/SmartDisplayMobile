@@ -5,15 +5,16 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:smart_display_mobile/core/log/app_log.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
 import '../../core/utils/image_processing.dart';
+import '../../core/widgets/progress_dialog.dart';
 import '../../l10n/app_localizations.dart';
 
 class DeviceEditPage extends ConsumerStatefulWidget {
@@ -34,22 +35,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   static const double _wallpaperViewportFraction = 0.82;
   static const double _wallpaperAspectRatio = 16 / 9;
 
-  static const double _layoutViewportFraction = 0.86;
   static const Duration _singleProcessingTimeout = Duration(seconds: 5);
 
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
 
-  int _layoutPageIndex = 0;
-  double _layoutPage = 0;
-
   PageController? _wallpaperController;
-  PageController? _layoutController;
-
-  bool _isProcessingWallpaper = false;
-  int _processingWallpaperIndex = 0; // 0-based
-  int _processingWallpaperTotal = 0; // n
-  bool _processingWallpapersUploading = false;
 
   bool get _hasCustomWallpaper {
     final wallpapers = ref
@@ -67,6 +58,300 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   String get _layoutValue =>
       ref.read(deviceCustomizationProvider).customization.effectiveLayout;
 
+  Future<void> _saveRemoteWithProgress(ProgressDialogController progress,
+      AppLocalizations l10n,) async {
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    progress.update(l10n.saving_ellipsis);
+    try {
+      await notifier.saveRemote();
+      progress.success(l10n.settings_saved);
+      await Future.delayed(const Duration(milliseconds: 600));
+    } catch (e) {
+      progress.error(e.toString());
+      await Future.delayed(const Duration(milliseconds: 1200));
+      rethrow;
+    }
+  }
+
+  Future<void> _saveRemote() async {
+    final l10n = context.l10n;
+    final state = ref.read(deviceCustomizationProvider);
+
+    if (state.isSaving) return;
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _safelyShowToast(l10n.missing_device_id_save);
+      return;
+    }
+
+    final progress = await showProgressDialog(
+      context,
+      initialMessage: l10n.saving_ellipsis,
+    );
+    try {
+      await _saveRemoteWithProgress(progress, l10n);
+    } catch (e, st) {
+      AppLog.instance.error('[device_edit_page][_handleSave] error',
+          error: e, stackTrace: st);
+    } finally {
+      if (mounted) {
+        progress.close();
+      }
+    }
+  }
+
+  /// 恢复默认
+  Future<void> _resetToDefault() async {
+    ref.read(deviceCustomizationProvider.notifier).resetToDefault();
+
+    setState(() {
+      _wallpaperPageIndex = 0;
+      _wallpaperPage = 0;
+    });
+
+    if (_wallpaperController?.hasClients == true) {
+      _wallpaperController!.jumpToPage(0);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _wallpaperController?.hasClients == true) {
+          _wallpaperController!.jumpToPage(0);
+        }
+      });
+    }
+
+    await _saveRemote();
+  }
+
+  /// 上传壁纸
+  Future<void> _handleUploadTap() async {
+    final l10n = context.l10n; // ✅ 缓存，后面别再用 context.l10n
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+    final state = ref.read(deviceCustomizationProvider);
+
+    if (state.isUploading) return;
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _safelyShowToast(l10n.missing_device_id_upload_wallpaper);
+      return;
+    }
+
+    final hasPermission = await _ensurePhotoPermission();
+    if (!hasPermission) {
+      _safelyShowToast(l10n.photo_permission_required_upload_wallpaper);
+      return;
+    }
+
+    final picker = ImagePicker();
+    final maxCount = DeviceCustomization.maxCustomWallpapers;
+
+    const int softMaxDim = 1920;
+    const int softQuality = 90;
+
+    // 设置 imageQuality 可促使部分平台（如 iOS HEIC）返回转码后的 JPEG，避免后续解析失败。
+    final picked = await picker.pickMultiImage(
+      limit: maxCount,
+      imageQuality: softQuality,
+      maxWidth: softMaxDim.toDouble(),
+      maxHeight: softMaxDim.toDouble(),
+    );
+    if (!mounted || picked == null || picked.isEmpty) return;
+
+    List<XFile> selected = picked;
+    if (picked.length > maxCount) {
+      // 部分平台可能未严格限制，再次兜底截取并提示。
+      _safelyShowToast(l10n.wallpaper_upload_limit(maxCount));
+      selected = picked.take(maxCount).toList();
+    }
+
+    for (final file in selected) {
+      final validationMessage = _validateImageFormat(file, l10n);
+      if (validationMessage != null) {
+        _safelyShowToast(validationMessage);
+        return;
+      }
+    }
+
+    final progress = await showProgressDialog(
+      context,
+      initialMessage: '',
+    );
+    try {
+      final processedList = <ImageProcessingResult>[];
+      for (var i = 0; i < selected.length; i++) {
+        if (mounted) {
+          progress.update(l10n.wallpaper_processing_index_total(
+            i + 1,
+            selected.length,
+          ));
+        }
+        final processed = await _processSingleWallpaper(
+          selected[i],
+          index: i,
+          l10n: l10n,
+        ).timeout(
+          _singleProcessingTimeout,
+          onTimeout: () =>
+          throw TimeoutException(
+            l10n.wallpaper_processing_timeout_index(i + 1),
+          ),
+        );
+        processedList.add(processed);
+      }
+      if (mounted) {
+        progress.update(l10n.wallpaper_uploading_ellipsis);
+      }
+      await notifier.applyProcessedWallpapers(
+        deviceId: deviceId,
+        processedList: processedList,
+      );
+      if (mounted) {
+        _setCurrentWallpaperLocal(1);
+        await _saveRemoteWithProgress(progress, l10n);
+      }
+    } catch (error) {
+      if (mounted) {
+        final message = switch (error) {
+          TimeoutException _ =>
+          error.message ?? l10n.image_processing_timeout_hint,
+          String s when s.isNotEmpty => s,
+          ImageProcessingException e => e.message,
+          _ => l10n.image_processing_failed(error.toString()),
+        };
+        progress.error(message);
+        await Future.delayed(const Duration(milliseconds: 1200));
+      }
+    } finally {
+      if (mounted) {
+        progress.close();
+      }
+    }
+  }
+
+  Future<ImageProcessingResult> _processSingleWallpaper(XFile file, {
+    required int index,
+    required AppLocalizations l10n,
+  }) async {
+    try {
+      final bytes = await file.readAsBytes();
+      return await WallpaperImageProcessor.processWallpaperAuto(
+        bytes: bytes,
+        sourcePath: file.path,
+      );
+    } on ImageProcessingException catch (error) {
+      throw ImageProcessingException(
+        l10n.image_processing_failed_index(
+          index + 1,
+          error.message,
+        ),
+      );
+    } catch (_) {
+      throw ImageProcessingException(
+        l10n.image_processing_failed_index_retry(index + 1),
+      );
+    }
+  }
+
+  /// 删除壁纸
+  Future<void> _handleDeleteWallpaper() async {
+    final l10n = context.l10n;
+    final state = ref.read(deviceCustomizationProvider);
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (state.isUploading) return;
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _safelyShowToast(l10n.missing_device_id_delete_wallpaper);
+      return;
+    }
+
+    await notifier.deleteWallpaper(deviceId);
+    _setCurrentWallpaperLocal(0);
+    await _saveRemote();
+  }
+
+  void _setCurrentWallpaperLocal(int index) {
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (_selectedWallpaperPageIndex == index) return;
+
+    final targetWallpaper = index == 1
+        ? DeviceCustomization.customWallpaper
+        : DeviceCustomization.defaultWallpaper;
+
+    notifier.updateWallpaper(wallpaper: targetWallpaper);
+
+    _wallpaperController?.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  /// 设为当前壁纸
+  Future<void> _setCurrentWallpaper(int index) async {
+    _setCurrentWallpaperLocal(index);
+    await _saveRemote();
+  }
+
+  /// 设置布局
+  Future<void> _setLayout(String value, int index) async {
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (_layoutValue == value) return;
+    notifier.updateLayout(value);
+
+    await _saveRemote();
+  }
+
+  Future<bool> _ensurePhotoPermission() async {
+    // iOS / 其他平台
+    if (!Platform.isAndroid) {
+      final s = await Permission.photos.request();
+      if (s.isGranted || s.isLimited) return true;
+      if (s.isPermanentlyDenied) await openAppSettings();
+      return false;
+    }
+
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
+
+    // Android 14/13+：只要 photos（READ_MEDIA_IMAGES）
+    if (sdkInt >= 33) {
+      final s = await Permission.photos.request();
+      if (s.isGranted || s.isLimited) return true;
+      if (s.isPermanentlyDenied) await openAppSettings();
+      return false;
+    }
+
+    // Android 12-：用 storage（READ_EXTERNAL_STORAGE）
+    final s = await Permission.storage.request();
+    if (s.isGranted) return true;
+    if (s.isPermanentlyDenied) await openAppSettings();
+    return false;
+  }
+
+  String? _validateImageFormat(XFile file, AppLocalizations l10n) {
+    final ext = p.extension(file.path).toLowerCase();
+    const allowed = ['.jpg', '.jpeg', '.png'];
+
+    if (ext.isEmpty) return null; // content:// 场景
+
+    if (!allowed.contains(ext)) return l10n.image_format_not_supported;
+    return null;
+  }
+
+  void _safelyShowToast(String message) {
+    if (!mounted) return;
+    Fluttertoast.showToast(
+      msg: message,
+      gravity: ToastGravity.BOTTOM,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -79,94 +364,27 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           .catchError((error) {
             if (!mounted) return;
             final l10n = context.l10n;
-            _showToast(l10n.device_edit_load_failed(error.toString()));
-          });
+            _safelyShowToast(l10n.device_edit_load_failed(error.toString()));
+      });
     });
   }
 
   @override
   void dispose() {
     _wallpaperController?.dispose();
-    _layoutController?.dispose();
     super.dispose();
-  }
-
-  void _resetToDefault() {
-    ref.read(deviceCustomizationProvider.notifier).resetToDefault();
-
-    setState(() {
-      _wallpaperPageIndex = 0;
-      _wallpaperPage = 0;
-      _layoutPageIndex = 0;
-      _layoutPage = 0;
-    });
-    _wallpaperController?.jumpToPage(0);
-    _layoutController?.jumpToPage(0);
-  }
-
-  Future<void> _handleSave() async {
-    final l10n = context.l10n;
-    final state = ref.read(deviceCustomizationProvider);
-    final notifier = ref.read(deviceCustomizationProvider.notifier);
-
-    if (state.isSaving) return;
-    if (_isProcessingWallpaper) {
-      _showToast(l10n.image_processing_save_wait);
-      return;
-    }
-    if (state.isUploading) {
-      _showToast(l10n.wallpaper_uploading_save_wait);
-      return;
-    }
-    final deviceId = widget.displayDeviceId;
-    if (deviceId == null || deviceId.isEmpty) {
-      _showToast(l10n.missing_device_id_save);
-      return;
-    }
-
-    try {
-      await notifier.saveRemote();
-      if (!mounted) return;
-      _showToast(l10n.settings_saved);
-      context.pop();
-    } catch (error) {
-      _showToast(error.toString());
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(deviceCustomizationProvider);
+    final theme = Theme.of(context);
 
     final l10n = context.l10n;
-    final resolvedName = (widget.deviceName ?? '').isEmpty
-        ? l10n.unknown_device
-        : widget.deviceName!;
-
-    final isSaving = state.isSaving;
-    final isUploading = state.isUploading;
-    final isProcessingWallpaper = _isProcessingWallpaper;
-    final isBusyWithWallpaper = isUploading || isProcessingWallpaper;
-    final disableSave = isSaving || isBusyWithWallpaper;
 
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
         title: Text(l10n.edit_device),
-        actions: [
-          TextButton(
-            onPressed: disableSave ? null : _handleSave,
-            child: Text(
-              isSaving
-                  ? l10n.saving_ellipsis
-                  : (isBusyWithWallpaper ? l10n.processing_ellipsis : l10n.done),
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -178,31 +396,20 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               const SizedBox(height: 12),
               _buildLayoutSection(),
               const SizedBox(height: 24),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton(
-                    onPressed: disableSave ? null : _handleSave,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Text(
-                        isSaving
-                            ? l10n.saving_ellipsis
-                            : (isBusyWithWallpaper
-                                ? l10n.processing_ellipsis
-                                : l10n.save_settings),
-                      ),
-                    ),
+              FilledButton(
+                onPressed: _resetToDefault,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.surface,
+                  foregroundColor: theme.colorScheme.onSurface,
+                  padding: const EdgeInsets.all(14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _resetToDefault,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(l10n.reset_to_default),
-                  ),
-                ],
+                ),
+                child: Text(
+                  l10n.reset_to_default,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+                ),
               ),
             ],
           ),
@@ -216,7 +423,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final l10n = context.l10n;
     final state = ref.watch(deviceCustomizationProvider);
     final isUploading = state.isUploading;
-    final isBusy = isUploading || _isProcessingWallpaper;
+    final isBusy = isUploading;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _wallpaperViewportFraction;
@@ -227,6 +434,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final isViewingCustom = _wallpaperPageIndex == 1;
     final isCurrentView = _selectedWallpaperPageIndex == _wallpaperPageIndex;
     _ensureWallpaperController();
+
+    final isViewingEmptyCustom = isViewingCustom && !_hasCustomWallpaper;
 
     return Card(
       elevation: 0,
@@ -247,14 +456,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _CurrentToggle(
-                  isCurrent: isCurrentView,
-                  canSelect: !isCurrentView &&
-                      !(isViewingCustom && !_hasCustomWallpaper),
-                  currentLabel: l10n.current_label,
-                  setLabel: l10n.set_as_current,
-                  onSelect: () => _setCurrentWallpaper(_wallpaperPageIndex),
-                ),
                 const SizedBox(height: verticalGap),
                 Center(
                   child: SizedBox(
@@ -294,11 +495,18 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: verticalGap + 4),
-                _buildBottomAction(
-                  isViewingCustom: isViewingCustom,
-                  isBusy: isBusy,
+                const SizedBox(height: verticalGap),
+                _CurrentToggle(
+                  currentText: isCurrentView
+                      ? l10n.current_label
+                      : isViewingEmptyCustom
+                      ? l10n.new_wallpaper
+                      : l10n.set_as_current,
+                  onSetAsCurrent: !isCurrentView && !isViewingEmptyCustom
+                      ? () => _setCurrentWallpaper(_wallpaperPageIndex)
+                      : null,
                 ),
+                const SizedBox(height: verticalGap),
               ],
             ),
           ],
@@ -307,104 +515,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
   }
 
-  // Widget _buildLayoutSection() {
-  //   final theme = Theme.of(context);
-  //   final l10n = context.l10n;
-  //
-  //   const double verticalGap = 10;
-  //   final options = [
-  //     _LayoutOption(
-  //       value: 'default',
-  //       title: l10n.layout_default,
-  //       subtitle: l10n.layout_default_hint,
-  //       imageAsset: 'assets/images/layout_default.jpg',
-  //     ),
-  //     _LayoutOption(
-  //       value: 'frame',
-  //       title: l10n.layout_frame,
-  //       subtitle: l10n.layout_frame_hint,
-  //       imageAsset: 'assets/images/layout_frame.jpg',
-  //     ),
-  //   ];
-  //   final selectedIndex =
-  //       options.indexWhere((option) => option.value == _layoutValue);
-  //   final effectiveIndex = selectedIndex == -1 ? 0 : selectedIndex;
-  //   final screenWidth = MediaQuery.of(context).size.width;
-  //   final tileWidth = screenWidth * _layoutViewportFraction;
-  //   final imageHeight = tileWidth / _wallpaperAspectRatio;
-  //   final isCurrentView =
-  //       options[_layoutPageIndex.clamp(0, options.length - 1)].value ==
-  //           _layoutValue;
-  //
-  //   _ensureLayoutController(initialPage: effectiveIndex);
-  //
-  //   return Card(
-  //     elevation: 0,
-  //     child: Padding(
-  //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-  //       child: Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           Padding(
-  //             padding: const EdgeInsets.symmetric(vertical: 8),
-  //             child: Text(
-  //               l10n.layout_section_title,
-  //               style: theme.textTheme.titleMedium?.copyWith(
-  //                 fontWeight: FontWeight.w700,
-  //               ),
-  //             ),
-  //           ),
-  //           Center(
-  //             child: _CurrentToggle(
-  //               isCurrent: isCurrentView,
-  //               canSelect: !isCurrentView,
-  //               currentLabel: l10n.current_label,
-  //               setLabel: l10n.set_as_current,
-  //               onSelect: () => _setLayout(
-  //                 options[_layoutPageIndex].value,
-  //                 _layoutPageIndex,
-  //               ),
-  //             ),
-  //           ),
-  //           const SizedBox(height: verticalGap),
-  //           Align(
-  //             alignment: Alignment.topCenter,
-  //             child: SizedBox(
-  //               width: tileWidth,
-  //               height: imageHeight + 36,
-  //               child: PageView.builder(
-  //                 controller: _layoutController,
-  //                 itemCount: options.length,
-  //                 onPageChanged: (index) {
-  //                   setState(() {
-  //                     _layoutPageIndex = index;
-  //                   });
-  //                 },
-  //                 itemBuilder: (context, index) {
-  //                   final distance = (_layoutPage - index).abs();
-  //                   final scale = (1 - distance * 0.08).clamp(0.9, 1.0);
-  //                   final option = options[index];
-  //
-  //                   return AnimatedScale(
-  //                     scale: scale,
-  //                     duration: const Duration(milliseconds: 200),
-  //                     curve: Curves.easeOut,
-  //                     alignment: Alignment.center,
-  //                     child: _LayoutPreviewCard(
-  //                       option: option,
-  //                       isSelected: _layoutValue == option.value,
-  //                       onSelect: () => _setLayout(option.value, index),
-  //                     ),
-  //                   );
-  //                 },
-  //               ),
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
+  /// 布局区
   Widget _buildLayoutSection() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
@@ -487,28 +598,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     _wallpaperController = controller;
   }
 
-  void _ensureLayoutController({int initialPage = 0}) {
-    if (_layoutController != null) return;
-    final controller = PageController(
-      viewportFraction: _layoutViewportFraction,
-      initialPage: initialPage,
-    );
-    _layoutPageIndex = initialPage;
-    _layoutPage = initialPage.toDouble();
-    controller.addListener(() {
-      final page = controller.page;
-      if (!mounted || page == null) return;
-      setState(() => _layoutPage = page);
-    });
-    _layoutController = controller;
-  }
-
+  /// 壁纸区
   Widget _wallpaperImageWidget(
     int index,
     DeviceCustomizationState state, {
     required bool isBusy,
   }) {
-    final l10n = context.l10n;
     return switch (index) {
       0 => Image.asset(
           'assets/images/device_wallpaper_default.png',
@@ -520,34 +615,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             // —— 底图：有 custom 就用 preview，没有就用占位
             _hasCustomWallpaper
                 ? _buildUploadedWallpaperPreview(state)
-                : _buildUploadPlaceholder(),
-
-            // —— 处理中：统一盖进度蒙层（无 loading）
-            if (_isProcessingWallpaper)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black45,
-                  alignment: Alignment.center,
-                  child: Text(
-                    _processingWallpapersUploading
-                        ? l10n.wallpaper_uploading_ellipsis
-                        : l10n.wallpaper_processing_index_total(
-                            _processingWallpaperIndex + 1,
-                            _processingWallpaperTotal,
-                          ),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
+                : _buildUploadPlaceholder(isBusy: isBusy),
           ],
         ),
     };
   }
 
+  /// 自定义壁纸：预览
   Widget _buildUploadedWallpaperPreview(DeviceCustomizationState state) {
     final l10n = context.l10n;
     const fallbackDecoration = BoxDecoration(
@@ -566,18 +640,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         .map((info) => info.md5.isNotEmpty ? info.md5 : info.key)
         .where((value) => value.isNotEmpty)
         .join('|');
-
-    if (paths.length == 1) {
-      final path = paths.first;
-      return Image.file(
-        File(path),
-        key: ValueKey(cacheKey.isEmpty ? path : cacheKey),
-        fit: BoxFit.cover,
-        errorBuilder: (context, _, __) {
-          return Container(decoration: fallbackDecoration);
-        },
-      );
-    }
 
     final visible = paths.take(3).toList();
     const double offset = 12;
@@ -615,340 +677,78 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
             ),
           ),
+        if (paths.length > 1) ...[
+          Positioned(
+            right: 10,
+            top: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                l10n.wallpaper_count(paths.length),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          )
+        ],
         Positioned(
           right: 10,
-          top: 10,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              l10n.wallpaper_count(paths.length),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+          bottom: 10,
+          child: GestureDetector(
+            onTap: _handleDeleteWallpaper,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                l10n.delete,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-        ),
+        )
       ],
     );
   }
 
-  Widget _buildUploadPlaceholder() {
-    final l10n = context.l10n;
+  /// 自定义壁纸：占位
+  Widget _buildUploadPlaceholder({required bool isBusy}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade300,
+        color: const Color(0xFFF2F2F2),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.wallpaper_outlined,
-              size: 48,
-              color: Colors.black45,
+        child: InkWell(
+          onTap: isBusy ? null : _handleUploadTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: const BoxDecoration(
+              color: Color(0xFF2F6BFF),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.wallpaper_not_uploaded,
-              style: const TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w600,
-              ),
+            child: const Icon(
+              Icons.add,
+              color: Colors.white,
+              size: 24,
             ),
-          ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBottomAction({
-    required bool isViewingCustom,
-    required bool isBusy,
-  }) {
-    final l10n = context.l10n;
-    if (!isViewingCustom) {
-      return const SizedBox(height: 48);
-    }
-
-    if (!_hasCustomWallpaper) {
-      return Center(
-        child: ElevatedButton.icon(
-          onPressed: isBusy ? null : _handleUploadTap,
-          icon: const Icon(Icons.photo_library_outlined),
-          label: Text(l10n.wallpaper_upload_from_gallery),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        OutlinedButton.icon(
-          onPressed: isBusy ? null : _handleDeleteWallpaper,
-          icon: const Icon(Icons.delete_outline),
-          label: Text(l10n.delete),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          ),
-        ),
-        const SizedBox(width: 12),
-        FilledButton.tonalIcon(
-          onPressed: isBusy ? null : _handleUploadTap,
-          icon: isBusy
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                )
-              : const Icon(Icons.refresh),
-          label: Text(
-            isBusy ? l10n.processing_ellipsis : l10n.wallpaper_reupload,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _handleUploadTap() async {
-    final l10n = context.l10n; // ✅ 缓存，后面别再用 context.l10n
-    final notifier = ref.read(deviceCustomizationProvider.notifier);
-    final state = ref.read(deviceCustomizationProvider);
-
-    if (state.isUploading || _isProcessingWallpaper) return;
-
-    final deviceId = widget.displayDeviceId;
-    if (deviceId == null || deviceId.isEmpty) {
-      _showToast(l10n.missing_device_id_upload_wallpaper);
-      return;
-    }
-
-    final hasPermission = await _ensurePhotoPermission();
-    if (!hasPermission) {
-      _showToast(l10n.photo_permission_required_upload_wallpaper);
-      return;
-    }
-
-    final picker = ImagePicker();
-    final maxCount = DeviceCustomization.maxCustomWallpapers;
-
-    const int softMaxDim = 1920;
-    const int softQuality = 90;
-
-    // 设置 imageQuality 可促使部分平台（如 iOS HEIC）返回转码后的 JPEG，避免后续解析失败。
-    final picked = await picker.pickMultiImage(
-      limit: maxCount,
-      imageQuality: softQuality,
-      maxWidth: softMaxDim.toDouble(),
-      maxHeight: softMaxDim.toDouble(),
-    );
-    if (picked == null || picked.isEmpty) return;
-
-    List<XFile> selected = picked;
-    if (picked.length > maxCount) {
-      // 部分平台可能未严格限制，再次兜底截取并提示。
-      _showToast(l10n.wallpaper_upload_limit(maxCount));
-      selected = picked.take(maxCount).toList();
-    }
-
-    for (final file in selected) {
-      final validationMessage = _validateImageFormat(file, l10n);
-      if (validationMessage != null) {
-        _showToast(validationMessage);
-        return;
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _isProcessingWallpaper = true;
-        _processingWallpaperTotal = selected.length;
-        _processingWallpaperIndex = 0;
-        _processingWallpapersUploading = false;
-      });
-    }
-
-    try {
-      final processedList = <ImageProcessingResult>[];
-      for (var i = 0; i < selected.length; i++) {
-        if (mounted) {
-          setState(() {
-            _processingWallpaperIndex = i; // 当前正在处理第 i 张
-          });
-        }
-        final processed = await _processSingleWallpaper(
-          selected[i],
-          index: i,
-          l10n: l10n,
-        ).timeout(
-          _singleProcessingTimeout,
-          onTimeout: () => throw TimeoutException(
-            l10n.wallpaper_processing_timeout_index(i + 1),
-          ),
-        );
-        processedList.add(processed);
-      }
-      if (mounted) {
-        setState(() {
-          _processingWallpapersUploading = true;
-        });
-      }
-      await notifier.applyProcessedWallpapers(
-        deviceId: deviceId,
-        processedList: processedList,
-      );
-
-      if (mounted) {
-        setState(() {
-          _processingWallpapersUploading = false;
-        });
-      }
-
-      _setCurrentWallpaper(1);
-      _showToast(l10n.wallpaper_upload_success);
-    } catch (error) {
-      final message = switch (error) {
-        TimeoutException _ => error.message ?? l10n.image_processing_timeout_hint,
-        String s when s.isNotEmpty => s,
-        ImageProcessingException e => e.message,
-        _ => l10n.image_processing_failed(error.toString()),
-      };
-      _showToast(message);
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessingWallpaper = false);
-      }
-    }
-  }
-
-  Future<ImageProcessingResult> _processSingleWallpaper(
-    XFile file, {
-    required int index,
-    required AppLocalizations l10n,
-  }) async {
-    try {
-      final bytes = await file.readAsBytes();
-      return await WallpaperImageProcessor.processWallpaperAuto(
-        bytes: bytes,
-        sourcePath: file.path,
-      );
-    } on ImageProcessingException catch (error) {
-      throw ImageProcessingException(
-        l10n.image_processing_failed_index(
-          index + 1,
-          error.message,
-        ),
-      );
-    } catch (_) {
-      throw ImageProcessingException(
-        l10n.image_processing_failed_index_retry(index + 1),
-      );
-    }
-  }
-
-  Future<void> _handleDeleteWallpaper() async {
-    final l10n = context.l10n;
-    final state = ref.read(deviceCustomizationProvider);
-    final notifier = ref.read(deviceCustomizationProvider.notifier);
-
-    if (state.isUploading || _isProcessingWallpaper) return;
-
-    final deviceId = widget.displayDeviceId;
-    if (deviceId == null || deviceId.isEmpty) {
-      _showToast(l10n.missing_device_id_delete_wallpaper);
-      return;
-    }
-
-    await notifier.deleteWallpaper(deviceId);
-    if (!mounted) return;
-    _showToast(l10n.wallpaper_deleted);
-  }
-
-  void _setCurrentWallpaper(int index) {
-    final state = ref.read(deviceCustomizationProvider);
-    final notifier = ref.read(deviceCustomizationProvider.notifier);
-
-    if (_selectedWallpaperPageIndex == index) return;
-
-    final targetWallpaper = index == 1
-        ? DeviceCustomization.customWallpaper
-        : DeviceCustomization.defaultWallpaper;
-
-    notifier.updateWallpaper(wallpaper: targetWallpaper);
-
-    _wallpaperController?.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _setLayout(String value, int index) {
-    final notifier = ref.read(deviceCustomizationProvider.notifier);
-
-    if (_layoutValue == value && _layoutPageIndex == index) return;
-    notifier.updateLayout(value);
-
-    setState(() {
-      _layoutPageIndex = index;
-    });
-    _layoutController?.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-    );
-  }
-
-  Future<bool> _ensurePhotoPermission() async {
-    // iOS / 其他平台
-    if (!Platform.isAndroid) {
-      final s = await Permission.photos.request();
-      if (s.isGranted || s.isLimited) return true;
-      if (s.isPermanentlyDenied) await openAppSettings();
-      return false;
-    }
-
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
-
-    // Android 14/13+：只要 photos（READ_MEDIA_IMAGES）
-    if (sdkInt >= 33) {
-      final s = await Permission.photos.request();
-      if (s.isGranted || s.isLimited) return true;
-      if (s.isPermanentlyDenied) await openAppSettings();
-      return false;
-    }
-
-    // Android 12-：用 storage（READ_EXTERNAL_STORAGE）
-    final s = await Permission.storage.request();
-    if (s.isGranted) return true;
-    if (s.isPermanentlyDenied) await openAppSettings();
-    return false;
-  }
-
-  String? _validateImageFormat(XFile file, AppLocalizations l10n) {
-    final ext = p.extension(file.path).toLowerCase();
-    const allowed = ['.jpg', '.jpeg', '.png'];
-
-    if (ext.isEmpty) return null; // content:// 场景
-
-    if (!allowed.contains(ext)) return l10n.image_format_not_supported;
-    return null;
-  }
-
-  void _showToast(String message) {
-    if (!mounted) return;
-    Fluttertoast.showToast(
-      msg: message,
-      gravity: ToastGravity.BOTTOM,
     );
   }
 }
@@ -968,42 +768,49 @@ class _LayoutOption {
 }
 
 class _CurrentToggle extends StatelessWidget {
-  final bool isCurrent;
-  final bool canSelect;
-  final String currentLabel;
-  final String setLabel;
-  final VoidCallback onSelect;
+  final String currentText;
+  final VoidCallback? onSetAsCurrent;
 
   const _CurrentToggle({
-    required this.isCurrent,
-    required this.canSelect,
-    required this.currentLabel,
-    required this.setLabel,
-    required this.onSelect,
+    required this.currentText,
+    this.onSetAsCurrent,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      height: 40,
+      height: 48,
       child: Center(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 160),
-          child: isCurrent
-              ? Text(
-                  currentLabel,
+          child: onSetAsCurrent != null
+              ? FilledButton(
+            onPressed: onSetAsCurrent,
+            key: const ValueKey('set'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE8F0FE), // 浅蓝背景
+              foregroundColor: const Color(0xFF1A73E8), // 蓝色文字
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 8,
+              ),
+            ),
+            child: Text(
+              currentText,
+              style: const TextStyle(fontSize: 16),
+            ),
+          )
+              : Text(
+            currentText,
                   key: const ValueKey('current'),
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 16,
                   ),
-                )
-              : FilledButton.tonal(
-                  key: const ValueKey('set'),
-                  onPressed: canSelect ? onSelect : null,
-                  child: Text(setLabel),
                 ),
         ),
       ),
@@ -1043,7 +850,7 @@ class _LayoutChoiceTile extends StatelessWidget {
               height: 40,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD), // 淡蓝色背景
+                color: const Color(0xFFE8F0FE), // 淡蓝色背景
                 borderRadius: BorderRadius.circular(14),
               ),
               child: ClipRRect(

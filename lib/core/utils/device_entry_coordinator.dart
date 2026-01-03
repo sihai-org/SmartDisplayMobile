@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 import '../log/app_log.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
-import 'package:smart_display_mobile/core/constants/enum.dart';
-import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/providers/ble_connection_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../audit/audit_mode.dart';
 
 import '../router/app_router.dart';
 import '../providers/app_state_provider.dart';
-import '../providers/saved_devices_provider.dart';
 import 'qr_data_parser.dart';
 import '../models/device_qr_data.dart';
 

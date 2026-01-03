@@ -1373,18 +1373,6 @@ abstract class AppLocalizations {
   /// **'Load failed: {error}'**
   String device_edit_load_failed(Object error);
 
-  /// No description provided for @image_processing_save_wait.
-  ///
-  /// In en, this message translates to:
-  /// **'Image processing in progress. Please wait to save.'**
-  String get image_processing_save_wait;
-
-  /// No description provided for @wallpaper_uploading_save_wait.
-  ///
-  /// In en, this message translates to:
-  /// **'Wallpaper uploading in progress. Please wait to save.'**
-  String get wallpaper_uploading_save_wait;
-
   /// No description provided for @missing_device_id_save.
   ///
   /// In en, this message translates to:
@@ -1394,7 +1382,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_saved.
   ///
   /// In en, this message translates to:
-  /// **'Settings saved'**
+  /// **'Saved successfully'**
   String get settings_saved;
 
   /// No description provided for @saving_ellipsis.
@@ -1424,7 +1412,7 @@ abstract class AppLocalizations {
   /// No description provided for @current_label.
   ///
   /// In en, this message translates to:
-  /// **'Current'**
+  /// **'Current wallpaper'**
   String get current_label;
 
   /// No description provided for @set_as_current.
@@ -1493,12 +1481,6 @@ abstract class AppLocalizations {
   /// **'Image {count} processing timed out. Please remove it then retry.'**
   String wallpaper_processing_timeout_index(Object count);
 
-  /// No description provided for @wallpaper_upload_success.
-  ///
-  /// In en, this message translates to:
-  /// **'Wallpaper uploaded successfully'**
-  String get wallpaper_upload_success;
-
   /// No description provided for @image_processing_timeout_hint.
   ///
   /// In en, this message translates to:
@@ -1529,12 +1511,6 @@ abstract class AppLocalizations {
   /// **'Missing device ID. Unable to delete wallpaper.'**
   String get missing_device_id_delete_wallpaper;
 
-  /// No description provided for @wallpaper_deleted.
-  ///
-  /// In en, this message translates to:
-  /// **'Uploaded wallpaper deleted'**
-  String get wallpaper_deleted;
-
   /// No description provided for @image_format_not_supported.
   ///
   /// In en, this message translates to:
@@ -1546,6 +1522,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View details'**
   String get viewDetails;
+
+  /// No description provided for @new_wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'New wallpaper'**
+  String get new_wallpaper;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

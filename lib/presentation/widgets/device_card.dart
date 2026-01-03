@@ -28,6 +28,11 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dividerColor = Theme
+        .of(context)
+        .brightness == Brightness.dark
+        ? Colors.grey.shade800
+        : Colors.grey.shade300;
     return Card(
       elevation: 0,
       child: Column(
@@ -53,13 +58,13 @@ class DeviceCard extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  this.name,
+                                  name,
                                   style: TextStyle(fontSize: 18),
                                 ),
                                 const SizedBox(height: 2),
                                 // 显示设备ID（替换原来的状态展示）
                                 Text(
-                                  '${context.l10n.device_id_label}: ${this.id}',
+                                  '${context.l10n.device_id_label}: ${id}',
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodyMedium
@@ -76,7 +81,7 @@ class DeviceCard extends StatelessWidget {
                         // _buildActionButtons(connState),
                       ],
                     )),
-                const Divider(height: 1, color: Colors.black12),
+                Divider(height: 1, color: dividerColor),
                 // 扩展信息：固件版本与添加时间
                 Padding(
                     padding: const EdgeInsets.all(AppConstants.defaultPadding),
@@ -98,12 +103,12 @@ class DeviceCard extends StatelessWidget {
                                   ),
                             ),
                             Text(
-                              this.version ?? '-',
+                              version ?? '-',
                               style: Theme.of(context).textTheme.bodyMedium,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (this.versionSlot != null) ...[
-                              this.versionSlot!
+                            if (versionSlot != null) ...[
+                              versionSlot!
                             ],
                           ],
                         ),
@@ -124,14 +129,14 @@ class DeviceCard extends StatelessWidget {
                                   ),
                             ),
                             Text(
-                              _formatDateTime(this.lastConnectedAt),
+                              _formatDateTime(lastConnectedAt),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
                         )
                       ],
                     )),
-                const Divider(height: 1, color: Colors.black12),
+                Divider(height: 1, color: dividerColor),
 
                 if (enableViewDetails == true)
                   SizedBox(
@@ -148,10 +153,10 @@ class DeviceCard extends StatelessWidget {
                           ),
                         ),
 
-                        const VerticalDivider(
+                        VerticalDivider(
                           width: 1,
                           thickness: 1,
-                          color: Colors.black12,
+                          color: dividerColor,
                         ),
 
                         // 右侧：查看详情
@@ -185,6 +190,7 @@ class DeviceCard extends StatelessWidget {
                 else
                   SizedBox(
                     width: double.infinity,
+                    height: 48,
                     child: DeviceEditTrigger(
                       displayDeviceId: id,
                       deviceName: name,

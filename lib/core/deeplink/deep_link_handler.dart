@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import '../router/app_router.dart';
 // Note: actual deep link handling unified in SplashPage via AppLinks.
 

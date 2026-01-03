@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:collection/collection.dart';
-import 'package:smart_display_mobile/core/log/app_log.dart';
 
 import '../utils/device_fingerprint.dart';
 import '../constants/ble_constants.dart';
