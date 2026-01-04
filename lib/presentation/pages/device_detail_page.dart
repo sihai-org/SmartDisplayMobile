@@ -472,6 +472,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   // 构建网络状态或WiFi列表部分
   Widget _buildNetworkSection(
       BuildContext context, conn.BleConnectionState connState) {
+    final textButtonStyle = TextButton.styleFrom(
+      padding: EdgeInsets.zero, // 去掉默认 padding
+      minimumSize: Size.zero, // 可选：去掉最小尺寸限制
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 可选：缩小点击区域
+      overlayColor: Colors.transparent, // 关键
+    );
     return Card(
       elevation: 0,
       child: Padding(
@@ -490,17 +496,16 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   TextButton.icon(
                     onPressed: () {
                       context.push(AppRoutes.wifiSelection);
                     },
+                    style: textButtonStyle,
                     icon: const Icon(Icons.settings, size: 16),
                     label: Text(context.l10n.manage_network),
-                    style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(0)
-                    ),
                   ),
                   const SizedBox(width: 16),
                   TextButton.icon(
@@ -511,6 +516,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                 .read(conn.bleConnectionProvider.notifier)
                                 .checkNetworkStatus();
                           },
+                    style: textButtonStyle,
                     icon: connState.isCheckingNetwork
                         ? const SizedBox(
                             width: 16,
@@ -521,9 +527,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                           )
                         : const Icon(Icons.refresh, size: 16),
                     label: Text(context.l10n.refresh),
-                    style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(0)
-                    ),
                   ),
                 ],
               ),
@@ -547,21 +550,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  ElevatedButton.icon(
+                  TextButton.icon(
                     onPressed: () {
                       context.push(AppRoutes.wifiSelection);
                     },
+                    style: textButtonStyle,
                     icon: const Icon(Icons.settings, size: 16),
                     label: Text(context.l10n.manage_network),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 16),
                   TextButton.icon(
                     onPressed: connState.isCheckingNetwork
                         ? null
@@ -570,6 +570,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                                 .read(conn.bleConnectionProvider.notifier)
                                 .checkNetworkStatus();
                           },
+                    style: textButtonStyle,
                     icon: connState.isCheckingNetwork
                         ? const SizedBox(
                             width: 16,
