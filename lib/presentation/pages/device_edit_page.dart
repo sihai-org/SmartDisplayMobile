@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
@@ -42,21 +43,16 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   PageController? _wallpaperController;
 
-  bool get _hasCustomWallpaper {
-    final wallpapers = ref
-        .read(deviceCustomizationProvider)
-        .customization
-        .customWallpaperInfos;
-    return wallpapers.any((item) => item.hasData);
-  }
-
   int get _selectedWallpaperPageIndex {
     final c = ref.read(deviceCustomizationProvider).customization;
-    return c.effectiveWallpaper == DeviceCustomization.customWallpaper ? 1 : 0;
+    return c.wallpaper == WallpaperType.custom ? 1 : 0;
   }
 
-  String get _layoutValue =>
-      ref.read(deviceCustomizationProvider).customization.effectiveLayout;
+  LayoutType get _layout =>
+      ref
+          .read(deviceCustomizationProvider)
+          .customization
+          .layout;
 
   Future<void> _saveRemoteWithProgress(ProgressDialogController progress,
       AppLocalizations l10n,) async {
@@ -279,10 +275,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     if (_selectedWallpaperPageIndex == index) return;
 
     final targetWallpaper = index == 1
-        ? DeviceCustomization.customWallpaper
-        : DeviceCustomization.defaultWallpaper;
+        ? WallpaperType.custom
+        : WallpaperType.defaultWallpaper;
 
-    notifier.updateWallpaper(wallpaper: targetWallpaper);
+    notifier.updateWallpaper(targetWallpaper);
 
     _wallpaperController?.animateToPage(
       index,
@@ -298,41 +294,46 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   /// 设置布局
-  Future<void> _setLayout(String value, int index) async {
+  Future<void> _setLayout(LayoutType value, int index) async {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
-    if (_layoutValue == value) return;
+    if (_layout == value) return;
     notifier.updateLayout(value);
 
     await _saveRemote();
   }
 
   Future<bool> _ensurePhotoPermission() async {
-    // iOS / 其他平台
-    if (!Platform.isAndroid) {
-      final s = await Permission.photos.request();
-      if (s.isGranted || s.isLimited) return true;
+    try {
+      // iOS / 其他平台
+      if (!Platform.isAndroid) {
+        final s = await Permission.photos.request();
+        if (s.isGranted || s.isLimited) return true;
+        if (s.isPermanentlyDenied) await openAppSettings();
+        return false;
+      }
+
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      // Android 14/13+：只要 photos（READ_MEDIA_IMAGES）
+      if (sdkInt >= 33) {
+        final s = await Permission.photos.request();
+        if (s.isGranted || s.isLimited) return true;
+        if (s.isPermanentlyDenied) await openAppSettings();
+        return false;
+      }
+
+      // Android 12-：用 storage（READ_EXTERNAL_STORAGE）
+      final s = await Permission.storage.request();
+      if (s.isGranted) return true;
       if (s.isPermanentlyDenied) await openAppSettings();
       return false;
-    }
-
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
-
-    // Android 14/13+：只要 photos（READ_MEDIA_IMAGES）
-    if (sdkInt >= 33) {
-      final s = await Permission.photos.request();
-      if (s.isGranted || s.isLimited) return true;
-      if (s.isPermanentlyDenied) await openAppSettings();
+    } catch (_) {
       return false;
     }
-
-    // Android 12-：用 storage（READ_EXTERNAL_STORAGE）
-    final s = await Permission.storage.request();
-    if (s.isGranted) return true;
-    if (s.isPermanentlyDenied) await openAppSettings();
-    return false;
   }
+
 
   String? _validateImageFormat(XFile file, AppLocalizations l10n) {
     final ext = p.extension(file.path).toLowerCase();
@@ -381,39 +382,55 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final l10n = context.l10n;
 
+    var isLoading = ref
+        .watch(deviceCustomizationProvider)
+        .isLoading;
+
+
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
         title: Text(l10n.edit_device),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildWallpaperSelector(),
-              const SizedBox(height: 12),
-              _buildLayoutSection(),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _resetToDefault,
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.surface,
-                  foregroundColor: theme.colorScheme.onSurface,
-                  padding: const EdgeInsets.all(14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+      body: Stack(
+        fit: StackFit.expand, // ✅ 强制撑满 body
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildWallpaperSelector(),
+                  const SizedBox(height: 12),
+                  _buildLayoutSection(),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _resetToDefault,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.surface,
+                      foregroundColor: theme.colorScheme.onSurface,
+                      padding: const EdgeInsets.all(14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      l10n.reset_to_default,
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.normal),
+                    ),
                   ),
-                ),
-                child: Text(
-                  l10n.reset_to_default,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          _LoadingMask(
+            visible: isLoading,
+            text: l10n.loading,
+          ),
+        ],
       ),
     );
   }
@@ -422,8 +439,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final state = ref.watch(deviceCustomizationProvider);
-    final isUploading = state.isUploading;
-    final isBusy = isUploading;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final tileWidth = screenWidth * _wallpaperViewportFraction;
@@ -435,7 +450,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final isCurrentView = _selectedWallpaperPageIndex == _wallpaperPageIndex;
     _ensureWallpaperController();
 
-    final isViewingEmptyCustom = isViewingCustom && !_hasCustomWallpaper;
+    final isViewingEmptyCustom = isViewingCustom &&
+        !state.customization.wallpaperInfos.isNotEmpty;
 
     return Card(
       elevation: 0,
@@ -485,7 +501,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                                 child: _wallpaperImageWidget(
                                   index,
                                   state,
-                                  isBusy: isBusy,
                                 ),
                               ),
                             ),
@@ -522,13 +537,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final options = [
       _LayoutOption(
-        value: 'default',
+        value: LayoutType.defaultLayout,
         title: l10n.layout_default, // “默认模式”
         subtitle: l10n.layout_default_hint, // 如果不想显示可不传/不显示
         iconAsset: 'assets/images/layout_default_icon.png', // ✅ 左侧图标
       ),
       _LayoutOption(
-        value: 'frame',
+        value: LayoutType.frame,
         title: l10n.layout_frame, // 你要显示成“相册模式”就改 l10n 或直接写死
         subtitle: l10n.layout_frame_hint,
         iconAsset: 'assets/images/layout_frame_icon.png', // ✅ 左侧图标
@@ -556,7 +571,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             _LayoutChoiceTile(
               title: options[0].title,
               iconAsset: options[0].iconAsset,
-              selected: _layoutValue == options[0].value,
+              selected: _layout == options[0].value,
               onTap: () => _setLayout(options[0].value, 0),
             ),
 
@@ -572,7 +587,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             _LayoutChoiceTile(
               title: options[1].title,
               iconAsset: options[1].iconAsset,
-              selected: _layoutValue == options[1].value,
+              selected: _layout == options[1].value,
               onTap: () => _setLayout(options[1].value, 1),
             ),
           ],
@@ -601,9 +616,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   /// 壁纸区
   Widget _wallpaperImageWidget(
     int index,
-    DeviceCustomizationState state, {
-    required bool isBusy,
-  }) {
+      DeviceCustomizationState state) {
     return switch (index) {
       0 => Image.asset(
           'assets/images/device_wallpaper_default.png',
@@ -613,9 +626,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           fit: StackFit.expand,
           children: [
             // —— 底图：有 custom 就用 preview，没有就用占位
-            _hasCustomWallpaper
+            state.customization.wallpaperInfos.isNotEmpty
                 ? _buildUploadedWallpaperPreview(state)
-                : _buildUploadPlaceholder(isBusy: isBusy),
+                : _buildUploadPlaceholder(),
           ],
         ),
     };
@@ -636,7 +649,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       return Container(decoration: fallbackDecoration);
     }
 
-    final cacheKey = state.customization.customWallpaperInfos
+    final cacheKey = state.customization.wallpaperInfos
         .map((info) => info.md5.isNotEmpty ? info.md5 : info.key)
         .where((value) => value.isNotEmpty)
         .join('|');
@@ -724,7 +737,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   /// 自定义壁纸：占位
-  Widget _buildUploadPlaceholder({required bool isBusy}) {
+  Widget _buildUploadPlaceholder() {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF2F2F2),
@@ -732,7 +745,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       ),
       child: Center(
         child: InkWell(
-          onTap: isBusy ? null : _handleUploadTap,
+          onTap: _handleUploadTap,
           borderRadius: BorderRadius.circular(22),
           child: Container(
             width: 28,
@@ -754,7 +767,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 }
 
 class _LayoutOption {
-  final String value;
+  final LayoutType value;
   final String title;
   final String subtitle;
   final String iconAsset;
@@ -893,6 +906,65 @@ class _LayoutChoiceTile extends StatelessWidget {
                   : null,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingMask extends StatelessWidget {
+  final bool visible;
+  final String? text;
+
+  const _LoadingMask({
+    required this.visible,
+    this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+
+    return Positioned.fill(
+      child: AbsorbPointer(
+        absorbing: true,
+        child: Container(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                  offset: Offset(0, 6),
+                  color: Colors.black26,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+                if (text != null && text!.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    text!,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

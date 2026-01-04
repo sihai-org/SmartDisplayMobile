@@ -788,4 +788,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get new_wallpaper => 'New wallpaper';
+
+  @override
+  String get loading => 'Loading...';
 }

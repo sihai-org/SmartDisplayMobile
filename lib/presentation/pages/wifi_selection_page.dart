@@ -334,29 +334,42 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
 
     if (!isScanning || !hasNetworks) return list;
 
+    final theme = Theme.of(context);
+
     return Stack(
       children: [
         list,
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              // 用 surface 做遮罩更统一（暗色不会变“白雾”）
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.75),
+              color: Theme
+                  .of(context)
+                  .colorScheme
+                  .onSurface
+                  .withOpacity(0.3),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    context.l10n.wifi_scanning,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                  ),
-                ],
-              ),
-            ),
+              alignment: Alignment.center,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                      offset: Offset(0, 6),
+                      color: Colors.black26,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  context.l10n.wifi_scanning,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              )
           ),
         ),
       ],

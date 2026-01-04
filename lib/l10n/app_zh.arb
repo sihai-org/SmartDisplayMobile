@@ -260,5 +260,6 @@
   "missing_device_id_delete_wallpaper": "缺少设备 ID，无法删除壁纸",
   "image_format_not_supported": "仅支持 JPG / PNG 格式的图片",
    "viewDetails": "查看详情",
-   "new_wallpaper": "新壁纸"
+   "new_wallpaper": "新壁纸",
+   "loading": "加载中..."
 }

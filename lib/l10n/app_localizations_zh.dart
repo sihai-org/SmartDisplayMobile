@@ -788,4 +788,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get new_wallpaper => '新壁纸';
+
+  @override
+  String get loading => '加载中...';
 }

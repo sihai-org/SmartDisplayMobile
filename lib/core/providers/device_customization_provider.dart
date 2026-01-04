@@ -1,6 +1,7 @@
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/device_customization_repository.dart';
@@ -15,7 +16,6 @@ class DeviceCustomizationState {
   final bool isLoading;
   final bool isSaving;
   final bool isUploading;
-  final bool loaded;
   final List<String> localWallpaperPaths;
 
   const DeviceCustomizationState({
@@ -24,7 +24,6 @@ class DeviceCustomizationState {
     this.isLoading = false,
     this.isSaving = false,
     this.isUploading = false,
-    this.loaded = false,
     this.localWallpaperPaths = const [],
   });
 
@@ -37,7 +36,6 @@ class DeviceCustomizationState {
     bool? isLoading,
     bool? isSaving,
     bool? isUploading,
-    bool? loaded,
     Object? localWallpaperPaths = _unset,
   }) {
     return DeviceCustomizationState(
@@ -51,7 +49,6 @@ class DeviceCustomizationState {
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       isUploading: isUploading ?? this.isUploading,
-      loaded: loaded ?? this.loaded,
 
       localWallpaperPaths: identical(localWallpaperPaths, _unset)
           ? this.localWallpaperPaths
@@ -81,7 +78,6 @@ class DeviceCustomizationNotifier
         displayDeviceId: displayDeviceId,
         customization: const DeviceCustomization.empty(),
         localWallpaperPaths: const [],
-        loaded: true,
       );
       return;
     }
@@ -95,21 +91,21 @@ class DeviceCustomizationNotifier
       // 先本地
       final local = await _repo.getUserCustomization(displayDeviceId);
       final localPaths = await _repo.getCachedWallpaperPaths(
-        displayDeviceId,
-        infos: local.customWallpaperInfos,
+        displayDeviceId, infos: local.wallpaperInfos,
       );
       state = state.copyWith(
-        customization: local.normalized(),
+        customization: local,
         localWallpaperPaths: localPaths,
       );
 
       // 再远端
       final remote = await _repo.fetchUserCustomizationRemote(displayDeviceId);
-      state = state.copyWith(
-        customization: remote.customization.normalized(),
-        localWallpaperPaths: remote.localWallpaperPaths,
-        loaded: true,
-      );
+      if (remote != null) {
+        state = state.copyWith(
+          customization: remote.customization,
+          localWallpaperPaths: remote.localWallpaperPaths,
+        );
+      }
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to load customization for $displayDeviceId',
@@ -124,31 +120,21 @@ class DeviceCustomizationNotifier
   }
 
   /// 更新布局；仅修改状态，不立即持久化。
-  void updateLayout(String? layout) {
+  void updateLayout(LayoutType layout) {
     final current = state.customization;
-    final next = DeviceCustomization(
-      customWallpaperInfos: current.customWallpaperInfos,
-      wallpaper: current.wallpaper,
-      layout: layout,
-    ).normalized();
+    final next = current.copyWith(layout: layout);
     state = state.copyWith(customization: next);
   }
 
   /// 更新壁纸信息；仅修改状态，不立即持久化。
-  void updateWallpaper({
-    List<CustomWallpaperInfo>? customWallpapers,
-    String? wallpaper,
-  }) {
+  void updateWallpaper(WallpaperType wallpaper) {
     final current = state.customization;
-    final next = DeviceCustomization(
-      customWallpaperInfos: customWallpapers ?? current.customWallpaperInfos,
-      wallpaper: wallpaper ?? current.wallpaper,
-      layout: current.layout,
-    ).normalized();
+    final next = current.copyWith(wallpaper: wallpaper);
     state = state.copyWith(customization: next);
   }
 
   /// 上传后的结果处理（Widget 负责权限 & 选图 & 调用 ImageProcessor）
+  /// 图片写入本地文件、更新本地路径。downloadUrl 先为空，等下一次 fetch 从远端获取
   Future<void> applyProcessedWallpapers({
     required String deviceId,
     required List<ImageProcessingResult> processedList,
@@ -185,12 +171,10 @@ class DeviceCustomizationNotifier
         localPaths.add(savedPath);
       }
 
-      final next = state.customization
-          .copyWith(
-            customWallpaperInfos: infos,
-            wallpaper: DeviceCustomization.customWallpaper,
-          )
-          .normalized();
+      final next = state.customization.copyWith(
+        wallpaperInfos: infos,
+        wallpaper: WallpaperType.custom,
+      );
 
       state = state.copyWith(
         customization: next,
@@ -215,14 +199,9 @@ class DeviceCustomizationNotifier
 
     await _repo.clearLocalWallpaperCache(deviceId);
 
-    final wasUsingCustom = state.customization.effectiveWallpaper ==
-        DeviceCustomization.customWallpaper;
-
     final next = state.customization.copyWith(
-      customWallpaperInfos: const [],
-      wallpaper: wasUsingCustom
-          ? DeviceCustomization.defaultWallpaper
-          : state.customization.wallpaper,
+      wallpaperInfos: const [],
+      wallpaper: WallpaperType.defaultWallpaper,
     );
 
     state = state.copyWith(
@@ -242,16 +221,14 @@ class DeviceCustomizationNotifier
     state = state.copyWith(isSaving: true);
 
     try {
-      final normalized = state.customization.normalized();
-      final wallpaperInfos = normalized.customWallpaperInfos
-          .where((info) => info.hasData)
+      final currentValue = state.customization;
+      final wallpaperInfos = currentValue.wallpaperInfos
           .toList();
 
       final payload = <String, dynamic>{
         'device_id': deviceId,
-        // 发送归一化后的有效值，避免默认值被当成「不更新」而无法清空远端壁纸
-        'layout': normalized.effectiveLayout,
-        'wallpaper': normalized.effectiveWallpaper,
+        'layout': currentValue.layout.value,
+        'wallpaper': currentValue.wallpaper.value,
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
@@ -270,13 +247,27 @@ class DeviceCustomizationNotifier
             : detail);
       }
 
-      // 成功后再刷新一次远端，保证状态一致
-      final remote = await _repo.fetchUserCustomizationRemote(deviceId);
-      state = state.copyWith(
-        customization: remote.customization.normalized(),
-        localWallpaperPaths: remote.localWallpaperPaths,
-        loaded: true,
-      );
+      final body = response.data;
+      final row = (body is Map) ? body['data'] : null;
+      if (row is Map) {
+        final next = DeviceCustomization.fromJson(
+            Map<String, dynamic>.from(row));
+
+        // 1) 先更新 UI
+        state = state.copyWith(customization: next);
+
+        // 2) 再落本地（失败不影响远端保存）
+        try {
+          await _repo.saveUserCustomization(deviceId, next);
+        } catch (e, st) {
+          AppLog.instance.warning(
+            'saveUserCustomization failed for $deviceId',
+            tag: 'Customization',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.error(
         '[device_customization_save] status=${error.status}, details=${error.details}',
@@ -305,7 +296,6 @@ class DeviceCustomizationNotifier
     state = state.copyWith(
       customization: const DeviceCustomization.empty(),
       localWallpaperPaths: const [],
-      loaded: true,
     );
   }
 
@@ -379,6 +369,7 @@ class DeviceCustomizationNotifier
             key: keys[i],
             md5: md5List[i],
             mime: mimeList[i],
+            downloadUrl: '',
           ),
         );
       }

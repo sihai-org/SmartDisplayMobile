@@ -260,5 +260,6 @@
   "missing_device_id_delete_wallpaper": "Missing device ID. Unable to delete wallpaper.",
   "image_format_not_supported": "Only JPG/PNG images are supported",
    "viewDetails": "View details",
-   "new_wallpaper": "New wallpaper"
+   "new_wallpaper": "New wallpaper",
+      "loading": "Loading..."
 }

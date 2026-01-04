@@ -481,21 +481,28 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
           children: [
             if (connState.networkStatus?.connected == true) ...[
               _buildCurrentNetworkInfo(context, connState.networkStatus!),
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
+              if (connState.networkStatusUpdatedAt != null)
+                Text(
+                  '${context.l10n.last_updated}: ' +
+                      _fmtTime(connState.networkStatusUpdatedAt!),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               Row(
                 children: [
-                  ElevatedButton.icon(
+                  TextButton.icon(
                     onPressed: () {
                       context.push(AppRoutes.wifiSelection);
                     },
                     icon: const Icon(Icons.settings, size: 16),
                     label: Text(context.l10n.manage_network),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.all(0)
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 16),
                   TextButton.icon(
                     onPressed: connState.isCheckingNetwork
                         ? null
@@ -514,18 +521,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                           )
                         : const Icon(Icons.refresh, size: 16),
                     label: Text(context.l10n.refresh),
+                    style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(0)
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              if (connState.networkStatusUpdatedAt != null)
-                Text(
-                  '${context.l10n.last_updated}: ' +
-                      _fmtTime(connState.networkStatusUpdatedAt!),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
             ]
             // 未连网或检查失败：提示“无网络”。“管理网络”前往配网，“刷新”仅刷新网络状态
             else ...[

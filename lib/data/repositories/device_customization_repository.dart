@@ -31,8 +31,7 @@ class CustomizationFetchResult {
 /// 本地持久化：用户为不同设备设置的壁纸/布局偏好。
 ///
 /// 存储规则：
-/// - 壁纸、布局字段都允许为空；为空表示使用默认。
-/// - 如果保存时两者都为空，则会直接删除该设备的自定义记录以保持存储整洁。
+/// - 如果保存时壁纸、布局都为默认，则会直接删除该设备的自定义记录以保持存储整洁。
 class DeviceCustomizationRepository {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -91,7 +90,7 @@ class DeviceCustomizationRepository {
     final key = _storageKeyForUser();
     if (key == null) return;
     final encoded = json.encode(
-      data.map((k, v) => MapEntry(k, v.normalized().toJson())),
+      data.map((k, v) => MapEntry(k, v.toJson())),
     );
     await _storage.write(key: key, value: encoded);
   }
@@ -114,19 +113,12 @@ class DeviceCustomizationRepository {
     DeviceCustomization customization,
   ) async {
     if (displayDeviceId.isEmpty) return;
-    final normalized = customization.normalized();
     final all = await _loadAll();
 
-    final wallpaperSelectedCustom =
-        normalized.effectiveWallpaper == DeviceCustomization.customWallpaper;
-    final hasWallpaper =
-        normalized.hasCustomWallpaper || wallpaperSelectedCustom;
-    final hasLayout = normalized.layout != null;
-
-    if (!hasWallpaper && !hasLayout) {
+    if (customization.isLikeDefault) {
       all.remove(displayDeviceId);
     } else {
-      all[displayDeviceId] = normalized;
+      all[displayDeviceId] = customization;
     }
 
     await _saveAll(all);
@@ -153,7 +145,8 @@ class DeviceCustomizationRepository {
   }
 
   /// 从服务端获取指定设备的配置，并更新本地缓存
-  Future<CustomizationFetchResult> fetchUserCustomizationRemote(
+  /// 调用失败则返回 null
+  Future<CustomizationFetchResult?> fetchUserCustomizationRemote(
     String displayDeviceId,
   ) async {
     if (displayDeviceId.isEmpty) {
@@ -164,7 +157,7 @@ class DeviceCustomizationRepository {
       final cached = await getUserCustomization(displayDeviceId);
       final localPaths = await getCachedWallpaperPaths(
         displayDeviceId,
-        infos: cached.customWallpaperInfos,
+        infos: cached.wallpaperInfos,
       );
       return CustomizationFetchResult(
         customization: cached,
@@ -177,35 +170,36 @@ class DeviceCustomizationRepository {
         'device_customization_get?device_id=${displayDeviceId}',
         method: HttpMethod.get, // 一定要加
       );
+      final respData = response.data;
 
       AppLog.instance.info(
-          "device_customization_get status=${response.status}, data=${response.data}");
+          "device_customization_get status=${response.status}, data=${respData}");
 
-      final detail = _responseMessage(response.data);
+
       if (response.status != 200) {
-        throw detail == null || detail.isEmpty
+        final respMsg = _responseMessage(respData);
+        throw respMsg == null || respMsg.isEmpty
             ? '服务异常（${response.status}）'
-            : detail;
+            : respMsg;
       }
 
-      final parsed = _parseCustomization(response.data);
-      if (parsed == null) {
+      final customizationMap = _extractCustomizationMap(respData);
+
+      if (customizationMap == null) {
         return const CustomizationFetchResult.empty();
       }
 
-      final customization = DeviceCustomization.fromJson(parsed).normalized();
-      await saveUserCustomization(displayDeviceId, customization);
+      final newCustomization = DeviceCustomization.fromJson(customizationMap);
+      await saveUserCustomization(displayDeviceId, newCustomization);
 
-      final downloadUrls = _parseDownloadUrls(response.data);
-      final wallpaperPaths = await _syncWallpaperListCache(
+      final newLocalPaths = await _syncWallpaperListCache(
         deviceId: displayDeviceId,
-        wallpaperInfos: customization.customWallpaperInfos,
-        downloadUrls: downloadUrls,
+        wallpaperInfos: newCustomization.wallpaperInfos,
       );
 
       return CustomizationFetchResult(
-        customization: customization,
-        localWallpaperPaths: wallpaperPaths,
+        customization: newCustomization,
+        localWallpaperPaths: newLocalPaths,
       );
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.warning(
@@ -214,15 +208,7 @@ class DeviceCustomizationRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      final fallback = await getUserCustomization(displayDeviceId);
-      final wallpaperPaths = await getCachedWallpaperPaths(
-        displayDeviceId,
-        infos: fallback.customWallpaperInfos,
-      );
-      return CustomizationFetchResult(
-        customization: fallback,
-        localWallpaperPaths: wallpaperPaths,
-      );
+      return null;
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Unexpected error when fetching customization',
@@ -230,105 +216,19 @@ class DeviceCustomizationRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      final fallback = await getUserCustomization(displayDeviceId);
-      final wallpaperPaths = await getCachedWallpaperPaths(
-        displayDeviceId,
-        infos: fallback.customWallpaperInfos,
-      );
-      return CustomizationFetchResult(
-        customization: fallback,
-        localWallpaperPaths: wallpaperPaths,
-      );
+      return null;
     }
-  }
-
-  Map<String, dynamic>? _parseCustomization(dynamic responseData) {
-    final raw = _extractCustomizationMap(responseData);
-    if (raw == null) return null;
-
-    // 兼容 snake_case 返回字段
-    return {
-      ...raw,
-      if (!raw.containsKey('customWallpaperInfo') &&
-          raw.containsKey('wallpaper_info'))
-        'customWallpaperInfo': raw['wallpaper_info'],
-      if (!raw.containsKey('customWallpaperInfos') &&
-          raw.containsKey('wallpaper_infos'))
-        'customWallpaperInfos': raw['wallpaper_infos'],
-      if (!raw.containsKey('customWallpaperInfos') &&
-          raw.containsKey('custom_wallpaper_infos'))
-        'customWallpaperInfos': raw['custom_wallpaper_infos'],
-      if (!raw.containsKey('wallpaperOption') &&
-          raw.containsKey('wallpaper_option'))
-        'wallpaperOption': raw['wallpaper_option'],
-    };
   }
 
   Map<String, dynamic>? _extractCustomizationMap(dynamic responseData) {
-    if (responseData is Map) {
-      final maybeData = responseData['data'];
-      final target = maybeData is Map ? maybeData : responseData;
-      return target.map((key, value) => MapEntry(key.toString(), value));
-    }
-    return null;
-  }
+    if (responseData is! Map) return null;
 
-  List<String> _parseDownloadUrls(dynamic responseData) {
-    final map = _extractCustomizationMap(responseData);
-    if (map == null) return const [];
+    final data = responseData['data'];
+    if (data == null) return null;
 
-    final fromInfos = _extractDownloadUrlsFromInfos(map);
-    if (fromInfos.isNotEmpty) return fromInfos;
+    if (data is! Map) return null;
 
-    final rawUrls = map['customWallpaperDownloadUrls'];
-    if (rawUrls is List) {
-      return rawUrls
-          .map((item) => item?.toString() ?? '')
-          .where((value) => value.isNotEmpty)
-          .toList();
-    }
-
-    final singleUrl = map['customWallpaperDownloadUrl'];
-    if (singleUrl != null) {
-      final value = singleUrl.toString();
-      return value.isEmpty ? const [] : [value];
-    }
-
-    return const [];
-  }
-
-  List<String> _extractDownloadUrlsFromInfos(Map<String, dynamic> map) {
-    final candidates = [
-      map['customWallpaperInfos'],
-      map['wallpaperInfos'],
-      map['wallpaper_infos'],
-      map['custom_wallpaper_infos'],
-    ];
-
-    for (final candidate in candidates) {
-      if (candidate is! List) continue;
-      final urls = candidate
-          .map((item) => _extractDownloadUrlFromItem(item))
-          .where((value) => value.isNotEmpty)
-          .toList();
-      if (urls.isNotEmpty) return urls;
-    }
-
-    return const [];
-  }
-
-  String _extractDownloadUrlFromItem(dynamic item) {
-    if (item is! Map) return '';
-    final candidates = [
-      item['downloadUrl'],
-      item['download_url'],
-      item['url'],
-    ];
-    for (final candidate in candidates) {
-      final value = candidate?.toString().trim() ?? '';
-      if (value.isNotEmpty) return value;
-    }
-    return '';
+    return data.map((key, value) => MapEntry(key.toString(), value));
   }
 
   String? _responseMessage(dynamic data) {
@@ -338,16 +238,12 @@ class DeviceCustomizationRepository {
     return data?.toString();
   }
 
+  /// 全部壁纸 本地路径
   Future<List<String>> getCachedWallpaperPaths(
     String displayDeviceId, {
     List<CustomWallpaperInfo> infos = const [],
   }) async {
-    if (displayDeviceId.isEmpty) return const [];
-
-    if (infos.isEmpty) {
-      final fallback = await getCachedWallpaperPath(displayDeviceId);
-      return fallback == null ? const [] : [fallback];
-    }
+    if (displayDeviceId.isEmpty || infos.isEmpty) return const [];
 
     final results = <String>[];
     for (var i = 0; i < infos.length; i++) {
@@ -364,6 +260,7 @@ class DeviceCustomizationRepository {
     return results;
   }
 
+  /// 单张壁纸 本地路径
   Future<String?> getCachedWallpaperPath(
     String displayDeviceId, {
     CustomWallpaperInfo? info,
@@ -424,7 +321,6 @@ class DeviceCustomizationRepository {
   Future<List<String>> _syncWallpaperListCache({
     required String deviceId,
     required List<CustomWallpaperInfo> wallpaperInfos,
-    required List<String> downloadUrls,
   }) async {
     if (wallpaperInfos.isEmpty) {
       await clearLocalWallpaperCache(deviceId);
@@ -436,7 +332,6 @@ class DeviceCustomizationRepository {
 
     for (var i = 0; i < wallpaperInfos.length; i++) {
       final info = wallpaperInfos[i];
-      if (!info.hasData) continue;
 
       final ext = _resolveExtension(info);
       final filePath = await _wallpaperFilePath(
@@ -447,7 +342,7 @@ class DeviceCustomizationRepository {
       final file = File(filePath);
       expectedPaths.add(file.path);
       final remoteMd5 = info.md5.trim();
-      final downloadUrl = i < downloadUrls.length ? downloadUrls[i] : null;
+      final downloadUrl = info.downloadUrl;
 
       try {
         if (await file.exists()) {

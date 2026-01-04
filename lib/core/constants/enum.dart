@@ -21,3 +21,35 @@ enum ProvisionStatus {
   success,
   failure,
 }
+
+enum WallpaperType {
+  defaultWallpaper('default'),
+  custom('custom');
+
+  final String value;
+
+  const WallpaperType(this.value);
+
+  static WallpaperType fromString(String? value) {
+    return WallpaperType.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => WallpaperType.defaultWallpaper,
+    );
+  }
+}
+
+enum LayoutType {
+  defaultLayout('default'),
+  frame('frame');
+
+  final String value;
+
+  const LayoutType(this.value);
+
+  static LayoutType fromString(String? value) {
+    return LayoutType.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => LayoutType.defaultLayout,
+    );
+  }
+}
