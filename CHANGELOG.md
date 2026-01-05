@@ -14,6 +14,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.1.5] - 2026-1-5
+### Fixed
+- 编辑设备UI优化
+
+---
+
+## [1.1.4] - 2025-12-30
+### Added
+- 会议纪要
+
+---
+
 ## [1.1.1] - 2025-12-22
 ### Added
 - 用户上传壁纸
