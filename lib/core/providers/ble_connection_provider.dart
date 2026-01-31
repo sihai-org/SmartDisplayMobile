@@ -323,16 +323,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           networkStatusUpdatedAt: DateTime.now(),
         );
 
-        // 通过 SavedDevicesNotifier 更新固件版本（仅本地与内存）
+        // 通过 SavedDevicesNotifier 更新固件版本与上次连接时间（仅本地与内存）
         final deviceId = state.bleDeviceData?.displayDeviceId;
         final fw = info['firmwareVersion']?.toString();
-        if (deviceId != null && deviceId.isNotEmpty && fw != null) {
+        if (deviceId != null && deviceId.isNotEmpty) {
           try {
-            await _ref
-                .read(savedDevicesProvider.notifier)
-                .updateFields(displayDeviceId: deviceId, firmwareVersion: fw);
+            await _ref.read(savedDevicesProvider.notifier).updateFields(
+                  displayDeviceId: deviceId,
+                  firmwareVersion: fw,
+                  lastConnectedAt: DateTime.now(),
+                );
           } catch (e) {
-            _log('更新 firmwareVersion 到 SavedDevicesNotifier 失败: $e');
+            _log('更新 firmwareVersion/lastConnectedAt 到 SavedDevicesNotifier 失败: $e');
           }
         }
       }

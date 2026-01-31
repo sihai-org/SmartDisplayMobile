@@ -138,7 +138,7 @@ class SavedDevicesRepository {
     try {
       rows = await client
           .from('account_device_binding_log')
-          .select('device_id, device_name, device_public_key, device_firmware_version, bind_time')
+          .select('device_id, device_name, device_public_key, device_firmware_version')
           .eq('user_id', user.id)
           .eq('bind_status', 1)
           .order('bind_time');
@@ -159,14 +159,13 @@ class SavedDevicesRepository {
       final deviceName = (map['device_name'] ?? '').toString();
       final publicKey = (map['device_public_key'] ?? '').toString();
       final firmwareVersion = (map['device_firmware_version'] ?? '').toString();
-      final bindTime = map['bind_time'] as String?;
       return SavedDeviceRecord(
         displayDeviceId: deviceId,
         deviceName: deviceName,
         publicKey: publicKey,
         firmwareVersion: firmwareVersion,
         lastBleDeviceId: null,
-        lastConnectedAt: bindTime != null ? DateTime.tryParse(bindTime) : null,
+        lastConnectedAt: null, // 仅表示本地上次 BLE 连接时间，不从远端 bind_time 同步
       );
     }).toList();
   }

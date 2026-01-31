@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
@@ -58,14 +59,23 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     }
     try {
       final remote = await _repo.fetchRemote();
-      await _repo.saveLocal(remote);
+      // 仅保留本地的 lastConnectedAt（上次 BLE 连接时间），远端不提供该字段
+      final local = state.devices;
+      final merged = remote.map((r) {
+        final localRec = local.where((e) => e.displayDeviceId == r.displayDeviceId).firstOrNull;
+        if (localRec?.lastConnectedAt != null) {
+          return r.copyWith(lastConnectedAt: localRec!.lastConnectedAt);
+        }
+        return r;
+      }).toList();
+      await _repo.saveLocal(merged);
       // Preserve lastSelectedId if still valid; otherwise pick last
       final currentSelected = state.lastSelectedId;
-      final stillExists = remote.any((e) => e.displayDeviceId == currentSelected);
+      final stillExists = merged.any((e) => e.displayDeviceId == currentSelected);
       final selected = stillExists
           ? currentSelected
-          : (remote.isNotEmpty ? remote.last.displayDeviceId : null);
-      state = state.copyWith(devices: remote, lastSelectedId: selected);
+          : (merged.isNotEmpty ? merged.last.displayDeviceId : null);
+      state = state.copyWith(devices: merged, lastSelectedId: selected);
       if(allowToast) {
         final locale = _ref.read(localeProvider);
         final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();

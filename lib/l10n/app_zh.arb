@@ -120,7 +120,7 @@
   "delete_device": "解绑设备",
   "device_id_label": "ID",
   "ble_label": "BLE",
-  "last_connected_at": "上次连接",
+  "last_connected_at": "本机上次连接",
   "empty_saved_devices": "暂无保存的设备",
   "empty_hint_add_by_scan": "扫描设备上的二维码来添加新的智能显示器",
   "scan_qr_add_device": "扫描二维码添加设备",

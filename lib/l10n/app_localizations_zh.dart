@@ -360,7 +360,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ble_label => 'BLE';
 
   @override
-  String get last_connected_at => '上次连接';
+  String get last_connected_at => '本机上次连接';
 
   @override
   String get empty_saved_devices => '暂无保存的设备';

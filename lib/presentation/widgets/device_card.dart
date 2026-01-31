@@ -206,13 +206,14 @@ class DeviceCard extends StatelessWidget {
 
   String _formatDateTime(DateTime? dt) {
     if (dt == null) return '-';
-    // Simple human-readable format: yyyy-MM-dd HH:mm
+    // 按本机时区展示（若为 UTC 则先转本地）
+    final local = dt.isUtc ? dt.toLocal() : dt;
     String two(int n) => n.toString().padLeft(2, '0');
-    final y = dt.year.toString();
-    final m = two(dt.month);
-    final d = two(dt.day);
-    final hh = two(dt.hour);
-    final mm = two(dt.minute);
+    final y = local.year.toString();
+    final m = two(local.month);
+    final d = two(local.day);
+    final hh = two(local.hour);
+    final mm = two(local.minute);
     return '$y-$m-$d $hh:$mm';
   }
 }
