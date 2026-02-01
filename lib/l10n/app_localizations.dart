@@ -1534,6 +1534,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading...'**
   String get loading;
+
+  /// No description provided for @force_update_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Required'**
+  String get force_update_title;
+
+  /// No description provided for @force_update_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Please update to the latest version to continue.'**
+  String get force_update_message;
+
+  /// No description provided for @force_update_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Now'**
+  String get force_update_button;
+
+  /// No description provided for @force_update_download_via_web.
+  ///
+  /// In en, this message translates to:
+  /// **'Download via browser'**
+  String get force_update_download_via_web;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

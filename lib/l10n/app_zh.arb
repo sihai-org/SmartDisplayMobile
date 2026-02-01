@@ -261,5 +261,9 @@
   "image_format_not_supported": "仅支持 JPG / PNG 格式的图片",
    "viewDetails": "查看详情",
    "new_wallpaper": "新壁纸",
-   "loading": "加载中..."
+   "loading": "加载中...",
+  "force_update_title": "需要更新",
+  "force_update_message": "请更新到最新版本后继续使用。",
+  "force_update_button": "去更新",
+  "force_update_download_via_web": "通过网页下载"
 }

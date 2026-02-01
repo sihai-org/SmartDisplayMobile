@@ -16,6 +16,8 @@ import '../../presentation/pages/device_edit_page.dart';
 import '../../presentation/pages/ble_one_click_test_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
+import '../../presentation/pages/force_update_page.dart';
+import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
 import '../audit/audit_mode.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -37,6 +39,7 @@ class AppRoutes {
   static const String bleOneClickTest = '/ble-one-click-test';
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
+  static const String forceUpdate = '/force-update';
 }
 
 /// Router configuration
@@ -52,11 +55,10 @@ final GoRouter appRouter = GoRouter(
     final loggedIn = session != null || AuditMode.enabled;
     final loggingIn = state.uri.path == AppRoutes.login;
     final isSplash = state.uri.path == AppRoutes.splash;
+    final isForceUpdate = state.uri.path == AppRoutes.forceUpdate;
 
-    // Allow splash without redirect to avoid loops
-    if (isSplash) return null;
+    if (isSplash || isForceUpdate) return null;
 
-    // If not logged in, redirect any protected route to login
     if (!loggedIn && !loggingIn) {
       return AppRoutes.login;
     }
@@ -75,6 +77,19 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.splash,
       name: 'splash',
       builder: (context, state) => const SplashPage(),
+    ),
+
+    // Force Update Page (full-screen gate, no auth required)
+    GoRoute(
+      path: AppRoutes.forceUpdate,
+      name: 'force-update',
+      builder: (context, state) {
+        final payload = state.extra as ForceUpdatePayload?;
+        return ForceUpdatePage(
+          storeUrl: payload?.storeUrl ?? '',
+          fallbackDownloadUrl: payload?.fallbackDownloadUrl,
+        );
+      },
     ),
 
     // Login Page

@@ -53,14 +53,18 @@
     <p>If the app doesn't open automatically, <br />please tap the button below</p>
     <div class="actions">
         <button id="openAppBtn">Tap to Open VznGPT</button>
-        <button id="downloadAndroidBtn" style="display: none;">Download for Android</button>
+        <button id="downloadAndroidBtn" style="display: none;">Download APK</button>
     </div>
 
     <script>
         const openBtn = document.getElementById('openAppBtn');
-        const downloadBtn = document.getElementById('downloadAndroidBtn');
+        const downloadApkBtn = document.getElementById('downloadAndroidBtn');
         // 直接透传当前页面 URL 参数
         const queryString = window.location.search.substring(1); // 去掉 '?'
+
+        // 解析 downloadOnly 参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDownloadOnly = urlParams.get('downloadOnly') === 'true';
 
         /**
          * 苹果手机
@@ -68,7 +72,7 @@
         const universalLink = `https://m.vzngpt.com/connect?${queryString}`;
         const schemeLink = `smartdisplay://connect?${queryString}`;
         const iosAppId = "id6755098905"
-        const appStoreLink = `https://apps.apple.com/cn/app/${iosAppId}`;
+        const appStoreLink = `https://apps.apple.com/app/${iosAppId}`;
 
         /**
          * 安卓手机
@@ -108,16 +112,29 @@
             alert("Please open this page on a mobile device.");
         }
 
-
+        // 安卓才展示下载 apk 按钮
         if (isAndroid()) {
-            window.onload = openApp;
-            downloadBtn.style.display = 'block';
-            downloadBtn.addEventListener('click', () => {
+            downloadApkBtn.style.display = 'block';
+            downloadApkBtn.addEventListener('click', () => {
                 window.location.href = androidDownloadLink;
             });
         }
-
-        openBtn.addEventListener('click', openApp);
+        /**
+         * downloadOnly 模式处理
+         */
+        if (isDownloadOnly) {
+            // 不自动打开
+            // 修改主按钮文案 & 行为
+            openBtn.innerText = isIOS() ? 'Go to App Store' : 'Go to Google Play';
+            openBtn.addEventListener('click', () => {
+                window.location.href = isIOS() ? appStoreLink : playStoreLink;
+            });
+        } else {
+            if (isAndroid()) {
+                window.onload = openApp;
+            }
+            openBtn.addEventListener('click', openApp);
+        }
     </script>
 </body>
 

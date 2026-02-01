@@ -86,6 +86,7 @@ dependencies:
   crypto: ^3.0.3
   http: ^1.6.0
   device_info_plus: ^12.3.0
+  package_info_plus: ^8.1.2
   flutter_markdown: ^0.7.3
 
 dev_dependencies:

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:app_links/app_links.dart';
+import 'package:smart_display_mobile/core/utils/check_update.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
@@ -103,6 +104,11 @@ class _SplashPageState extends ConsumerState<SplashPage>
   Future<void> _navigateNext() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+
+    final wentForceUpdate = await checkUpdateOnce(ref);
+    if (wentForceUpdate) {
+      return;
+    }
 
     try {
       final session = Supabase.instance.client.auth.currentSession;

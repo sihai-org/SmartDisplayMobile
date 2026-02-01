@@ -791,4 +791,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loading => 'Loading...';
+
+  @override
+  String get force_update_title => 'Update Required';
+
+  @override
+  String get force_update_message => 'Please update to the latest version to continue.';
+
+  @override
+  String get force_update_button => 'Update Now';
+
+  @override
+  String get force_update_download_via_web => 'Download via browser';
 }

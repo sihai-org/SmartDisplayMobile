@@ -791,4 +791,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get loading => '加载中...';
+
+  @override
+  String get force_update_title => '需要更新';
+
+  @override
+  String get force_update_message => '请更新到最新版本后继续使用。';
+
+  @override
+  String get force_update_button => '去更新';
+
+  @override
+  String get force_update_download_via_web => '通过网页下载';
 }

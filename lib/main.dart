@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_display_mobile/core/utils/check_update.dart';
 import 'core/providers/app_state_provider.dart';
 import 'core/providers/ble_connection_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -202,6 +203,8 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       if (prev == false && curr == true) {
         Future.microtask(() =>
             ref.read(savedDevicesProvider.notifier).syncFromServer());
+        // Force-update check when returning to foreground
+        Future.microtask(() => checkUpdateOnce(ref));
       }
     });
     return MaterialApp.router(
