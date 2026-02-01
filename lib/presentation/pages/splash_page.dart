@@ -105,10 +105,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
 
-    final wentForceUpdate = await checkUpdateOnce(ref);
-    if (wentForceUpdate) {
-      return;
-    }
+    // 后台启动检查（不阻塞）
+    unawaited(checkUpdateOnce(ref)); // 需要 dart:async
 
     try {
       final session = Supabase.instance.client.auth.currentSession;
