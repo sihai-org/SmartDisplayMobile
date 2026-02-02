@@ -819,26 +819,29 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   /// 自定义壁纸：占位
   Widget _buildUploadPlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _handleUploadTap,
         borderRadius: BorderRadius.circular(18),
-      ),
-      child: Center(
-        child: InkWell(
-          onTap: _handleUploadTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2F6BFF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.add,
-              color: Colors.white,
-              size: 24,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F2F2),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Center(
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2F6BFF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
           ),
         ),
