@@ -1469,6 +1469,30 @@ abstract class AppLocalizations {
   /// **'You can select up to {count} images; trimmed to the first {count}.'**
   String wallpaper_upload_limit(Object count);
 
+  /// No description provided for @wallpaper_upload_too_large.
+  ///
+  /// In en, this message translates to:
+  /// **'Image exceeds {size}. Please choose a smaller one.'**
+  String wallpaper_upload_too_large(Object size);
+
+  /// No description provided for @wallpaper_image_size_unrecognized.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to read image size. Please try another image or export and retry.'**
+  String get wallpaper_image_size_unrecognized;
+
+  /// No description provided for @wallpaper_dimension_too_large.
+  ///
+  /// In en, this message translates to:
+  /// **'Image dimensions are too large: {width}×{height}. Max long side is {maxDim}px. Please crop or export and retry.'**
+  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim);
+
+  /// No description provided for @wallpaper_pixels_too_large.
+  ///
+  /// In en, this message translates to:
+  /// **'Image resolution is too large: {width}×{height}. Recommended not to exceed {maxWidth}×{maxHeight}.'**
+  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight);
+
   /// No description provided for @image_processing_wait.
   ///
   /// In en, this message translates to:
@@ -1514,8 +1538,8 @@ abstract class AppLocalizations {
   /// No description provided for @image_format_not_supported.
   ///
   /// In en, this message translates to:
-  /// **'Only JPG/PNG images are supported'**
-  String get image_format_not_supported;
+  /// **'To ensure stable display on the device, only {formatStr} images are supported.'**
+  String image_format_not_supported(Object formatStr);
 
   /// No description provided for @viewDetails.
   ///

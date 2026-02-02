@@ -65,7 +65,7 @@ Future<ProgressDialogController> showProgressDialog(
   BuildContext context, {
   required String initialMessage,
   bool barrierDismissible = false,
-  double width = 160,
+  double width = 220,
   EdgeInsets contentPadding = const EdgeInsets.all(20),
   double radius = 12,
 }) async {

@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/device_customization_repository.dart';
 import '../log/app_log.dart';
 import '../models/device_customization.dart';
-import '../utils/image_processing.dart';
+import '../utils/wallpaper_image_util.dart';
 
 /// 设备自定义配置的状态（供设备编辑页使用）。
 class DeviceCustomizationState {

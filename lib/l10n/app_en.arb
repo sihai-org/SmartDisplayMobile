@@ -251,6 +251,32 @@
   "missing_device_id_upload_wallpaper": "Missing device ID. Unable to upload wallpaper.",
   "photo_permission_required_upload_wallpaper": "Photo permission is required to upload wallpaper.",
   "wallpaper_upload_limit": "You can select up to {count} images; trimmed to the first {count}.",
+  "wallpaper_upload_too_large": "Image exceeds {size}. Please choose a smaller one.",
+  "@wallpaper_upload_too_large": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "wallpaper_image_size_unrecognized": "Unable to read image size. Please try another image or export and retry.",
+  "wallpaper_dimension_too_large": "Image dimensions are too large: {width}×{height}. Max long side is {maxDim}px. Please crop or export and retry.",
+  "@wallpaper_dimension_too_large": {
+    "placeholders": {
+      "width": {},
+      "height": {},
+      "maxDim": {}
+    }
+  },
+  "wallpaper_pixels_too_large": "Image resolution is too large: {width}×{height}. Recommended not to exceed {maxWidth}×{maxHeight}.",
+  "@wallpaper_pixels_too_large": {
+    "placeholders": {
+      "width": {},
+      "height": {},
+      "mp": {},
+      "maxMp": {},
+      "maxWidth": {},
+      "maxHeight": {}
+    }
+  },
   "image_processing_wait": "Processing images... This may take a few seconds.",
   "wallpaper_processing_timeout_index": "Image {count} processing timed out. Please remove it then retry.",
   "image_processing_timeout_hint": "Image processing timed out. Reduce the number of images or try again later.",
@@ -258,7 +284,7 @@
   "image_processing_failed_index": "Image {count} processing failed: {error}",
   "image_processing_failed_index_retry": "Image {count} processing failed. Please try another image.",
   "missing_device_id_delete_wallpaper": "Missing device ID. Unable to delete wallpaper.",
-  "image_format_not_supported": "Only JPG/PNG images are supported",
+  "image_format_not_supported": "To ensure stable display on the device, only {formatStr} images are supported.",
    "viewDetails": "View details",
    "new_wallpaper": "New wallpaper",
       "loading": "Loading...",

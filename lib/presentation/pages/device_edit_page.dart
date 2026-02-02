@@ -10,11 +10,12 @@ import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
+import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
-import '../../core/utils/image_processing.dart';
+import '../../core/utils/wallpaper_image_util.dart';
 import '../../core/widgets/progress_dialog.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -35,8 +36,17 @@ class DeviceEditPage extends ConsumerStatefulWidget {
 class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   static const double _wallpaperViewportFraction = 0.82;
   static const double _wallpaperAspectRatio = 16 / 9;
+  static const int _maxWallpaperBytes = 5 * 1024 * 1024; // 最大5MB
+  // ✅ 像素：50.0MP
+  static const int _maxWallpaperPixels = 50 * 1000 * 1000; //
+  // ✅ 关键：限制最大边长（防 GPU/纹理上限 & 一些 WebView 路径的坑）
+  static const int _maxWallpaperMaxDim = 8192;
+  // floor
+  static const int _maxShortSide = _maxWallpaperPixels ~/ _maxWallpaperMaxDim;
 
-  static const Duration _singleProcessingTimeout = Duration(seconds: 5);
+  static const int _oneMb = 1024 * 1024;
+
+  static const TAG = "DeviceEditPage";
 
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
@@ -65,7 +75,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       await Future.delayed(const Duration(milliseconds: 600));
     } catch (e) {
       progress.error(e.toString());
-      await Future.delayed(const Duration(milliseconds: 1200));
+      await Future.delayed(const Duration(seconds: 4));
       rethrow;
     }
   }
@@ -121,8 +131,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   /// 上传壁纸
+  /// 上传壁纸：仅做格式 + 大小校验（不做任何图片处理）
   Future<void> _handleUploadTap() async {
-    final l10n = context.l10n; // ✅ 缓存，后面别再用 context.l10n
+    final l10n = context.l10n;
     final notifier = ref.read(deviceCustomizationProvider.notifier);
     final state = ref.read(deviceCustomizationProvider);
 
@@ -141,27 +152,21 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
 
     final picker = ImagePicker();
-    final maxCount = DeviceCustomization.maxCustomWallpapers;
+    const maxCount = DeviceCustomization.maxCustomWallpapers;
 
-    const int softMaxDim = 1920;
-    const int softQuality = 90;
-
-    // 设置 imageQuality 可促使部分平台（如 iOS HEIC）返回转码后的 JPEG，避免后续解析失败。
-    final picked = await picker.pickMultiImage(
-      limit: maxCount,
-      imageQuality: softQuality,
-      maxWidth: softMaxDim.toDouble(),
-      maxHeight: softMaxDim.toDouble(),
-    );
+    final picked = await picker.pickMultiImage(limit: maxCount);
     if (!mounted || picked == null || picked.isEmpty) return;
 
-    List<XFile> selected = picked;
+    var selected = picked;
     if (picked.length > maxCount) {
-      // 部分平台可能未严格限制，再次兜底截取并提示。
+      AppLog.instance.info("[${BizLogTag
+          .wallpaper.tag}][$TAG]_handleUploadTap: 数量超过限制 picked=${picked
+          .length}(>maxCount=$maxCount)");
       _safelyShowToast(l10n.wallpaper_upload_limit(maxCount));
       selected = picked.take(maxCount).toList();
     }
 
+    // 1) 扩展名校验（content:// 没扩展名则跳过）
     for (final file in selected) {
       final validationMessage = _validateImageFormat(file, l10n);
       if (validationMessage != null) {
@@ -172,37 +177,97 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final progress = await showProgressDialog(
       context,
-      initialMessage: '',
+      initialMessage: l10n.wallpaper_uploading_ellipsis,
     );
+
     try {
-      final processedList = <ImageProcessingResult>[];
+      // 2) 逐个校验
+      final uploadList = <ImageProcessingResult>[];
       for (var i = 0; i < selected.length; i++) {
-        if (mounted) {
-          progress.update(l10n.wallpaper_processing_index_total(
-            i + 1,
-            selected.length,
-          ));
+        final file = selected[i];
+        final bytes = await file.readAsBytes();
+
+        // 1) 大小校验
+        if (bytes.length > _maxWallpaperBytes) {
+          throw ImageProcessingException(
+            l10n.wallpaper_upload_too_large(_formatBytes(_maxWallpaperBytes)),
+          );
         }
-        final processed = await _processSingleWallpaper(
-          selected[i],
-          index: i,
-          l10n: l10n,
-        ).timeout(
-          _singleProcessingTimeout,
-          onTimeout: () =>
-          throw TimeoutException(
-            l10n.wallpaper_processing_timeout_index(i + 1),
+
+        // 2) 格式校验（magic header，确保是图片）
+        final detected = WallpaperImageUtil.detectFormat(bytes);
+        const allowedFormats = {'jpeg', 'png', 'webp'};
+        if (!allowedFormats.contains(detected)) {
+          throw ImageProcessingException(
+              l10n.image_format_not_supported("JPG/PNG/WebP"));
+        }
+
+        // 3) 强制读宽高（读不到直接报错：无法识别图片尺寸...）
+        late final int w;
+        late final int h;
+
+        try {
+          final size = await WallpaperImageUtil.readImageSize(bytes);
+          w = size.$1;
+          h = size.$2;
+        } catch (e) {
+          throw ImageProcessingException(
+              l10n.wallpaper_image_size_unrecognized);
+        }
+
+        // ✅ 3.5) 最大边长校验（比总像素更关键）
+        final maxDim = (w > h) ? w : h;
+        if (maxDim > _maxWallpaperMaxDim) {
+          throw ImageProcessingException(
+            l10n.wallpaper_dimension_too_large(
+              w,
+              h,
+              _maxWallpaperMaxDim,
+            ),
+          );
+        }
+
+        // 4) 像素校验（避免极端大图解码撑爆内存）
+        final pixels = BigInt.from(w) * BigInt.from(h);
+        if (pixels > BigInt.from(_maxWallpaperPixels)) {
+          final mpText = (pixels.toDouble() / 1e6).toStringAsFixed(1);
+          final maxMpText = (_maxWallpaperPixels / 1e6).toStringAsFixed(1);
+          throw ImageProcessingException(
+            l10n.wallpaper_pixels_too_large(
+              w, h, mpText, maxMpText, _maxWallpaperMaxDim, _maxShortSide,
+            ),
+          );
+        }
+
+        // 5) 打包上传（这里 mime/ext 走 detectFormat 映射；path ext 有就优先用）
+        final (mime, ext) = WallpaperImageUtil.mimeAndExtForFormat(detected);
+
+        // ✅ 6) 日志：记录真实上传的图片规格（不影响用户）
+        AppLog.instance.info(
+            "[${BizLogTag.wallpaper.tag}][$TAG] wallpaper accepted: "
+                "size=${_formatBytes(bytes.length)}, "
+                "dim=${w}x${h}, "
+                "mp=${(pixels.toDouble() / 1e6).toStringAsFixed(1)}MP, "
+                "maxDim=$maxDim, "
+                "format=$detected"
+        );
+
+        uploadList.add(
+          ImageProcessingResult(
+            bytes: bytes,
+            mimeType: mime,
+            extension: ext,
+            sizeBytes: bytes.length,
           ),
         );
-        processedList.add(processed);
       }
-      if (mounted) {
-        progress.update(l10n.wallpaper_uploading_ellipsis);
-      }
+
+      // 3) 直接上传（沿用你现有 notifier API）
       await notifier.applyProcessedWallpapers(
         deviceId: deviceId,
-        processedList: processedList,
+        processedList: uploadList,
       );
+
       if (mounted) {
         _setCurrentWallpaperLocal(1);
         await _saveRemoteWithProgress(progress, l10n);
@@ -210,44 +275,28 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     } catch (error) {
       if (mounted) {
         final message = switch (error) {
-          TimeoutException _ =>
-          error.message ?? l10n.image_processing_timeout_hint,
-          String s when s.isNotEmpty => s,
           ImageProcessingException e => e.message,
+          String s when s.isNotEmpty => s,
           _ => l10n.image_processing_failed(error.toString()),
         };
+        AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 处理失败 $message");
         progress.error(message);
-        await Future.delayed(const Duration(milliseconds: 1200));
+        await Future.delayed(const Duration(seconds: 4));
       }
     } finally {
-      if (mounted) {
-        progress.close();
-      }
+      if (mounted) progress.close();
     }
   }
 
-  Future<ImageProcessingResult> _processSingleWallpaper(XFile file, {
-    required int index,
-    required AppLocalizations l10n,
-  }) async {
-    try {
-      final bytes = await file.readAsBytes();
-      return await WallpaperImageProcessor.processWallpaperAuto(
-        bytes: bytes,
-        sourcePath: file.path,
-      );
-    } on ImageProcessingException catch (error) {
-      throw ImageProcessingException(
-        l10n.image_processing_failed_index(
-          index + 1,
-          error.message,
-        ),
-      );
-    } catch (_) {
-      throw ImageProcessingException(
-        l10n.image_processing_failed_index_retry(index + 1),
-      );
+  static String _formatBytes(int bytes) {
+    if (bytes < _oneMb) {
+      return '${(bytes / 1024).ceil()}KB';
     }
+    final mb = bytes / _oneMb;
+    final value = mb == mb.roundToDouble()
+        ? mb.toStringAsFixed(0)
+        : mb.toStringAsFixed(1);
+    return '${value}MB';
   }
 
   /// 删除壁纸
@@ -337,11 +386,18 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   String? _validateImageFormat(XFile file, AppLocalizations l10n) {
     final ext = p.extension(file.path).toLowerCase();
-    const allowed = ['.jpg', '.jpeg', '.png'];
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
 
-    if (ext.isEmpty) return null; // content:// 场景
-
-    if (!allowed.contains(ext)) return l10n.image_format_not_supported;
+    if (ext.isEmpty) {
+      AppLog.instance.info("[${BizLogTag
+          .wallpaper.tag}][$TAG]_validateImageFormat: ext.isEmpty");
+      return null; // content:// 场景
+    }
+    if (!allowed.contains(ext)) {
+      AppLog.instance.info("[${BizLogTag
+          .wallpaper.tag}][$TAG]_validateImageFormat: 扩展名校验失败 $ext (allowed = ['.jpg', '.jpeg', '.png', '.webp'])");
+      return l10n.image_format_not_supported("JPG/PNG/WebP");
+    }
     return null;
   }
 
@@ -350,6 +406,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     Fluttertoast.showToast(
       msg: message,
       gravity: ToastGravity.BOTTOM,
+      toastLength: Toast.LENGTH_LONG, // ✅ 变长（默认 SHORT）
+      timeInSecForIosWeb: 5, // ✅ iOS/web 额外控制（可调 2~5）
     );
   }
 

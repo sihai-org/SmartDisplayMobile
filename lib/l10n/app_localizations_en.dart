@@ -752,6 +752,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String wallpaper_upload_too_large(Object size) {
+    return 'Image exceeds $size. Please choose a smaller one.';
+  }
+
+  @override
+  String get wallpaper_image_size_unrecognized => 'Unable to read image size. Please try another image or export and retry.';
+
+  @override
+  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim) {
+    return 'Image dimensions are too large: $width×$height. Max long side is ${maxDim}px. Please crop or export and retry.';
+  }
+
+  @override
+  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight) {
+    return 'Image resolution is too large: $width×$height. Recommended not to exceed $maxWidth×$maxHeight.';
+  }
+
+  @override
   String get image_processing_wait => 'Processing images... This may take a few seconds.';
 
   @override
@@ -781,7 +799,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get missing_device_id_delete_wallpaper => 'Missing device ID. Unable to delete wallpaper.';
 
   @override
-  String get image_format_not_supported => 'Only JPG/PNG images are supported';
+  String image_format_not_supported(Object formatStr) {
+    return 'To ensure stable display on the device, only $formatStr images are supported.';
+  }
 
   @override
   String get viewDetails => 'View details';

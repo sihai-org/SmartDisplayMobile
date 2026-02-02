@@ -752,6 +752,24 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String wallpaper_upload_too_large(Object size) {
+    return '图片不能超过 $size，请选择更小的图片';
+  }
+
+  @override
+  String get wallpaper_image_size_unrecognized => '无法识别图片尺寸，请换一张或导出后重试';
+
+  @override
+  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim) {
+    return '图片尺寸过大：$width×$height，最长边上限 ${maxDim}px。请裁剪或导出后重试。';
+  }
+
+  @override
+  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight) {
+    return '图片分辨率过大：$width×$height，建议不超过 $maxWidth×$maxHeight。';
+  }
+
+  @override
   String get image_processing_wait => '图片处理中...需要几秒，请耐心等待';
 
   @override
@@ -781,7 +799,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get missing_device_id_delete_wallpaper => '缺少设备 ID，无法删除壁纸';
 
   @override
-  String get image_format_not_supported => '仅支持 JPG / PNG 格式的图片';
+  String image_format_not_supported(Object formatStr) {
+    return '为保证设备显示稳定，仅支持 $formatStr 格式的图片';
+  }
 
   @override
   String get viewDetails => '查看详情';
