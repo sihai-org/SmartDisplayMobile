@@ -660,6 +660,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wallpaper_section_title => 'Set Wallpaper';
 
   @override
+  String get wallpaper_aspect_ratio_hint => '16:9 aspect ratio recommended';
+
+  @override
   String get wallpaper_default => 'Default wallpaper';
 
   @override
@@ -708,6 +711,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get processing_ellipsis => 'Processing...';
+
+  @override
+  String get reading_ellipsis => 'Reading...';
 
   @override
   String get wallpaper_uploading_ellipsis => 'Uploading...';

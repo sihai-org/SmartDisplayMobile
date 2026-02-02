@@ -1301,6 +1301,12 @@ abstract class AppLocalizations {
   /// **'Set Wallpaper'**
   String get wallpaper_section_title;
 
+  /// No description provided for @wallpaper_aspect_ratio_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'16:9 aspect ratio recommended'**
+  String get wallpaper_aspect_ratio_hint;
+
   /// No description provided for @wallpaper_default.
   ///
   /// In en, this message translates to:
@@ -1396,6 +1402,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Processing...'**
   String get processing_ellipsis;
+
+  /// No description provided for @reading_ellipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading...'**
+  String get reading_ellipsis;
 
   /// No description provided for @wallpaper_uploading_ellipsis.
   ///

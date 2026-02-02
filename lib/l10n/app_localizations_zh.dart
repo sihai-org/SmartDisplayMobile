@@ -660,6 +660,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wallpaper_section_title => '设置壁纸';
 
   @override
+  String get wallpaper_aspect_ratio_hint => '建议使用 16:9 比例的图片';
+
+  @override
   String get wallpaper_default => '默认壁纸';
 
   @override
@@ -708,6 +711,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get processing_ellipsis => '处理中...';
+
+  @override
+  String get reading_ellipsis => '正在读取...';
 
   @override
   String get wallpaper_uploading_ellipsis => '上传中...';

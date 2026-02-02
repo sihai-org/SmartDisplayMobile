@@ -144,7 +144,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       _safelyShowToast(l10n.missing_device_id_upload_wallpaper);
       return;
     }
-
     final hasPermission = await _ensurePhotoPermission();
     if (!hasPermission) {
       _safelyShowToast(l10n.photo_permission_required_upload_wallpaper);
@@ -154,33 +153,32 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final picker = ImagePicker();
     const maxCount = DeviceCustomization.maxCustomWallpapers;
 
-    final picked = await picker.pickMultiImage(limit: maxCount);
-    if (!mounted || picked == null || picked.isEmpty) return;
-
-    var selected = picked;
-    if (picked.length > maxCount) {
-      AppLog.instance.info("[${BizLogTag
-          .wallpaper.tag}][$TAG]_handleUploadTap: 数量超过限制 picked=${picked
-          .length}(>maxCount=$maxCount)");
-      _safelyShowToast(l10n.wallpaper_upload_limit(maxCount));
-      selected = picked.take(maxCount).toList();
-    }
-
-    // 1) 扩展名校验（content:// 没扩展名则跳过）
-    for (final file in selected) {
-      final validationMessage = _validateImageFormat(file, l10n);
-      if (validationMessage != null) {
-        _safelyShowToast(validationMessage);
-        return;
-      }
-    }
-
     final progress = await showProgressDialog(
       context,
-      initialMessage: l10n.wallpaper_uploading_ellipsis,
+      initialMessage: l10n.reading_ellipsis,
     );
-
     try {
+      final picked = await picker.pickMultiImage(limit: maxCount);
+      if (!mounted || picked == null || picked.isEmpty) return;
+
+      var selected = picked;
+      if (picked.length > maxCount) {
+        AppLog.instance.info("[${BizLogTag
+            .wallpaper.tag}][$TAG]_handleUploadTap: 数量超过限制 picked=${picked
+            .length}(>maxCount=$maxCount)");
+        _safelyShowToast(l10n.wallpaper_upload_limit(maxCount));
+        selected = picked.take(maxCount).toList();
+      }
+
+      // 1) 扩展名校验（content:// 没扩展名则跳过）
+      for (final file in selected) {
+        final validationMessage = _validateImageFormat(file, l10n);
+        if (validationMessage != null) {
+          _safelyShowToast(validationMessage);
+          return;
+        }
+      }
+      progress.update(l10n.wallpaper_uploading_ellipsis);
       // 2) 逐个校验
       final uploadList = <ImageProcessingResult>[];
       for (var i = 0; i < selected.length; i++) {
@@ -189,6 +187,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
         // 1) 大小校验
         if (bytes.length > _maxWallpaperBytes) {
+          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 文件太大了 ${bytes.length} > $_maxWallpaperBytes");
+
           throw ImageProcessingException(
             l10n.wallpaper_upload_too_large(_formatBytes(_maxWallpaperBytes)),
           );
@@ -198,6 +198,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         final detected = WallpaperImageUtil.detectFormat(bytes);
         const allowedFormats = {'jpeg', 'png', 'webp'};
         if (!allowedFormats.contains(detected)) {
+          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 格式不对 $detected");
+
           throw ImageProcessingException(
               l10n.image_format_not_supported("JPG/PNG/WebP"));
         }
@@ -211,6 +213,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           w = size.$1;
           h = size.$2;
         } catch (e) {
+          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 读不到尺寸");
+
           throw ImageProcessingException(
               l10n.wallpaper_image_size_unrecognized);
         }
@@ -218,6 +222,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         // ✅ 3.5) 最大边长校验（比总像素更关键）
         final maxDim = (w > h) ? w : h;
         if (maxDim > _maxWallpaperMaxDim) {
+          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 边长校验超了 $maxDim > $_maxWallpaperMaxDim");
+
           throw ImageProcessingException(
             l10n.wallpaper_dimension_too_large(
               w,
@@ -232,6 +238,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         if (pixels > BigInt.from(_maxWallpaperPixels)) {
           final mpText = (pixels.toDouble() / 1e6).toStringAsFixed(1);
           final maxMpText = (_maxWallpaperPixels / 1e6).toStringAsFixed(1);
+
+          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 像素校验超了 $w * $h");
           throw ImageProcessingException(
             l10n.wallpaper_pixels_too_large(
               w, h, mpText, maxMpText, _maxWallpaperMaxDim, _maxShortSide,
@@ -284,7 +292,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         await Future.delayed(const Duration(seconds: 4));
       }
     } finally {
-      if (mounted) progress.close();
+      if (mounted) {
+        progress.close();
+      }
     }
   }
 
@@ -514,17 +524,30 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     return Card(
       elevation: 0,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                l10n.wallpaper_section_title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.wallpaper_section_title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.wallpaper_aspect_ratio_hint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 14
+                    ),
+                  ),
+                ],
               ),
             ),
             Column(
