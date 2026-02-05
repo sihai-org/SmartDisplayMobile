@@ -623,6 +623,12 @@ abstract class AppLocalizations {
   /// **'Unable to get network status. Showing available Wi‑Fi networks:'**
   String get wifi_status_unknown;
 
+  /// No description provided for @network_status_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching network status…'**
+  String get network_status_loading;
+
   /// No description provided for @unknown_network.
   ///
   /// In en, this message translates to:

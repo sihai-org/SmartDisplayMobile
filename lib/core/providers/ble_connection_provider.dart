@@ -310,6 +310,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return;
     }
     try {
+      state = state.copyWith(isCheckingNetwork: true);
       final info = await sendBleMsg(
         'device.info',
         null,
@@ -341,6 +342,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _log('syncDeviceInfo 完成');
     } catch (e) {
       _log('syncDeviceInfo 失败: $e');
+    } finally {
+      state = state.copyWith(isCheckingNetwork: false);
     }
   }
 
@@ -580,6 +583,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     if (state.isCheckingNetwork) return null;
 
     try {
+      state = state.copyWith(isCheckingNetwork: true);
       final data = await sendBleMsg(
         'network.status',
         null,
@@ -597,6 +601,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return null;
     } catch (e) {
       return null;
+    } finally {
+      state = state.copyWith(isCheckingNetwork: false);
     }
   }
 

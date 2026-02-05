@@ -285,6 +285,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wifi_status_unknown => '无法获取网络状态，显示可用Wi‑Fi网络：';
 
   @override
+  String get network_status_loading => '正在获取网络状态…';
+
+  @override
   String get unknown_network => '未知网络';
 
   @override

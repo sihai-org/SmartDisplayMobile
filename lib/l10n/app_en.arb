@@ -96,6 +96,7 @@
   "add_device": "Add Device",
   "wifi_not_connected": "Device not connected to network. Select a Wi‑Fi to provision:",
   "wifi_status_unknown": "Unable to get network status. Showing available Wi‑Fi networks:",
+  "network_status_loading": "Fetching network status…",
   "unknown_network": "Unknown",
   "band": "Band",
   "no_wifi_found": "No Wi‑Fi networks found",

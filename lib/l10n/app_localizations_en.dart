@@ -285,6 +285,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_status_unknown => 'Unable to get network status. Showing available Wi‑Fi networks:';
 
   @override
+  String get network_status_loading => 'Fetching network status…';
+
+  @override
   String get unknown_network => 'Unknown';
 
   @override

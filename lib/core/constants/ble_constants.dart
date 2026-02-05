@@ -24,11 +24,11 @@ class BleConstants {
   static const int connectionLatency = 0;
   static const int supervisionTimeoutMs = 20000;
 
-  static const Duration kDisconnectStabilize = Duration(milliseconds: 500);
+  static const Duration kDisconnectStabilize = Duration(milliseconds: 300);
 
-  static const kStabilizeAfterConnect = Duration(milliseconds: 250); // 原 800
-  static const kStabilizeBeforeDiscover = Duration(milliseconds: 200); // 原 800
-  static const kStabilizeAfterMtu = Duration(milliseconds: 200); // 原 800
+  static const kStabilizeAfterConnect = Duration(milliseconds: 150); // 原 800
+  static const kStabilizeBeforeDiscover = Duration(milliseconds: 150); // 原 800
+  static const kStabilizeAfterMtu = Duration(milliseconds: 150); // 原 800
 
   // Heartbeat (connectivity check / state correction only)
   static const Duration kHeartbeatInterval = Duration(seconds: 6);

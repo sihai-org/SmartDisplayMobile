@@ -485,7 +485,23 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (connState.networkStatus?.connected == true) ...[
+            if (connState.isCheckingNetwork &&
+                connState.networkStatus == null) ...[
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.l10n.network_status_loading,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ] else if (connState.networkStatus?.connected == true) ...[
               _buildCurrentNetworkInfo(context, connState.networkStatus!),
               const SizedBox(height: 18),
               if (connState.networkStatusUpdatedAt != null)
