@@ -626,7 +626,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get update_started => 'Device update started. Keep power and network on';
 
   @override
+  String get update_in_progress => 'Update already in progress';
+
+  @override
   String get already_latest_version => 'Already on the latest version';
+
+  @override
+  String get optional_update_available => 'Optional update available';
+
+  @override
+  String get update_throttled_retry => 'Too many requests. Please try again later';
+
+  @override
+  String get update_low_storage_retry => 'Insufficient storage. Restart the device and try again';
 
   @override
   String get check_update_failed_retry => 'Check for update failed, please try again later';

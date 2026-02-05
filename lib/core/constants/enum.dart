@@ -1,4 +1,12 @@
-enum DeviceUpdateVersionResult { updating, latest, failed }
+enum DeviceUpdateVersionResult {
+  updating,        // 正在更新（ACCEPTED）
+  alreadyInFlight, // 已有更新流程在跑
+  latest,          // 无需更新
+  optionalUpdate,  // 可选更新
+  throttled,       // 被限流 / 距离上次太近
+  rejectedLowStorage, // 存储空间不足
+  failed,           // 检查失败/异常
+}
 
 /// BLE 连接结果（区分成功 / 失败 / 竞态取消等场景）
 enum BleConnectResult {

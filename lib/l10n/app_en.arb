@@ -210,7 +210,11 @@
   "sync_devices_failed": "Failed to sync devices"
   ,
   "update_started": "Device update started. Keep power and network on",
+  "update_in_progress": "Update already in progress",
   "already_latest_version": "Already on the latest version",
+  "optional_update_available": "Optional update available",
+  "update_throttled_retry": "Too many requests. Please try again later",
+  "update_low_storage_retry": "Insufficient storage. Restart the device and try again",
   "check_update_failed_retry": "Check for update failed, please try again later",
   "check_update_failed_error": "Check for update failed: {error}"
   ,

@@ -626,7 +626,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get update_started => '设备开始更新，请保持电源与网络畅通';
 
   @override
+  String get update_in_progress => '正在更新…';
+
+  @override
   String get already_latest_version => '当前已是最新版本';
+
+  @override
+  String get optional_update_available => '检测到可选更新';
+
+  @override
+  String get update_throttled_retry => '操作太频繁，请稍候再试';
+
+  @override
+  String get update_low_storage_retry => '存储空间不足，请重启设备后再试';
 
   @override
   String get check_update_failed_retry => '检查更新失败，请稍后重试';

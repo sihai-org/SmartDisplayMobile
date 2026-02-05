@@ -89,7 +89,7 @@ class DeviceCard extends StatelessWidget {
                       children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 12,
+                          spacing: 8,
                           children: [
                             Text(
                               context.l10n.firmware_version_label,
@@ -115,7 +115,7 @@ class DeviceCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 12,
+                          spacing: 8,
                           children: [
                             Text(
                               context.l10n.last_connected_at,

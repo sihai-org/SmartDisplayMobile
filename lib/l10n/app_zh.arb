@@ -210,7 +210,11 @@
   "sync_devices_failed": "设备同步失败"
   ,
   "update_started": "设备开始更新，请保持电源与网络畅通",
+  "update_in_progress": "正在更新…",
   "already_latest_version": "当前已是最新版本",
+  "optional_update_available": "检测到可选更新",
+  "update_throttled_retry": "操作太频繁，请稍候再试",
+  "update_low_storage_retry": "存储空间不足，请重启设备后再试",
   "check_update_failed_retry": "检查更新失败，请稍后重试",
   "check_update_failed_error": "检查更新失败：{error}"
   ,

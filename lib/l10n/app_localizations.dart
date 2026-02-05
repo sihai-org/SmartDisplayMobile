@@ -1241,11 +1241,35 @@ abstract class AppLocalizations {
   /// **'Device update started. Keep power and network on'**
   String get update_started;
 
+  /// No description provided for @update_in_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Update already in progress'**
+  String get update_in_progress;
+
   /// No description provided for @already_latest_version.
   ///
   /// In en, this message translates to:
   /// **'Already on the latest version'**
   String get already_latest_version;
+
+  /// No description provided for @optional_update_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional update available'**
+  String get optional_update_available;
+
+  /// No description provided for @update_throttled_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests. Please try again later'**
+  String get update_throttled_retry;
+
+  /// No description provided for @update_low_storage_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient storage. Restart the device and try again'**
+  String get update_low_storage_retry;
 
   /// No description provided for @check_update_failed_retry.
   ///

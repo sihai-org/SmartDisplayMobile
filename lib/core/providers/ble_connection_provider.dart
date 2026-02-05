@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:smart_display_mobile/core/utils/device_update_result.dart';
+
 import '../log/app_log.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
@@ -500,6 +502,30 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
+  // 用户发送蓝牙消息 3/3：【完整响应】返回完整 resp，调用处自己处理 ok/error
+  Future<Map<String, dynamic>> sendBleResp(String type,
+      dynamic data, {
+        Duration? timeout,
+        int retries = 0,
+        bool Function(Map<String, dynamic>)? isFinal,
+      }) async {
+    _log('sendBleResp: $type, $data');
+    _activeOps++;
+    _lastActivityAt = DateTime.now();
+    try {
+      final resp = await _ref.read(secureChannelManagerProvider).send(
+        {'type': type, 'data': data},
+        timeout: timeout,
+        retries: retries,
+        isFinal: isFinal,
+      );
+      _log('✅ sendBleResp 成功: type=$type, resp=$resp');
+      return resp;
+    } finally {
+      _activeOps--;
+    }
+  }
+
   // 绑定
   Future<bool> sendDeviceLoginCode(String email, String code) async {
     _log('sendDeviceLoginCode email=$email');
@@ -606,22 +632,41 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  /// 版本更新（参考 requestWifiScan 的通道确保逻辑）
+  /// 版本更新（先尝试v2，不兼容再回退v1）
   Future<DeviceUpdateVersionResult> requestUpdateCheck() async {
+    final v2 = await _requestUpdateCheckV2();
+    if (v2 != null) return v2;
+    return await _requestUpdateCheckV1();
+  }
+
+  Future<DeviceUpdateVersionResult?> _requestUpdateCheckV2() async {
     try {
-      final res = await sendBleMsg(
-        'update.version',
-        null,
-        retries: 0,
-      );
-      final s = (res is String) ? res : res?.toString();
-      _log('🔗 更新结果: $s');
-      if (s == 'update_updating') return DeviceUpdateVersionResult.updating;
-      if (s == 'update_latest') return DeviceUpdateVersionResult.latest;
+      final resp = await sendBleResp('update.version2', null, retries: 0);
+
+      if (resp['ok'] == true) {
+        return parseDeviceUpdateResultV2(resp['data']);
+      }
+
+      final err = resp['error'];
+      final code = (err is Map) ? err['code']?.toString() : null;
+      if (code == 'unknown_type') {
+        return null; // fallback v1
+      }
       return DeviceUpdateVersionResult.failed;
-    } catch (e) {
-      _log('❌ update.version 失败: $e');
-      // 异常时及时结束 loading
+    } catch (_) {
+      return DeviceUpdateVersionResult.failed;
+    }
+  }
+
+  Future<DeviceUpdateVersionResult> _requestUpdateCheckV1() async {
+    try {
+      final resp = await sendBleResp('update.version', null, retries: 0);
+      if (resp['ok'] == true) {
+        return parseDeviceUpdateResult(resp['data']);
+      }
+      _log('update.version ok=false: ${resp['error'] ?? resp}');
+      return DeviceUpdateVersionResult.failed;
+    } catch (_) {
       return DeviceUpdateVersionResult.failed;
     }
   }

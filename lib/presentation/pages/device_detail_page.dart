@@ -169,7 +169,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       ),
                       const SizedBox(height: 40),
                       Text(
-                        l10n?.no_device_title ?? '暂未添加设备',
+                        l10n.no_device_title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
@@ -180,8 +180,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                         width: MediaQuery.of(context).size.width *
                             0.6, // 宽度占屏幕 3/5
                         child: Text(
-                          l10n?.no_device_subtitle ??
-                              '显示器开机后，扫描显示器屏幕上的二维码可添加设备',
+                          l10n.no_device_subtitle,
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
@@ -240,11 +239,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                         child: Text(context.l10n.check_update),
                       ),
                       if (_checkingUpdate) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
                         ),
                       ],
                     ],
@@ -318,8 +317,20 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         case DeviceUpdateVersionResult.updating:
           Fluttertoast.showToast(msg: context.l10n.update_started);
           break;
+        case DeviceUpdateVersionResult.alreadyInFlight:
+          Fluttertoast.showToast(msg: context.l10n.update_in_progress);
+          break;
         case DeviceUpdateVersionResult.latest:
           Fluttertoast.showToast(msg: context.l10n.already_latest_version);
+          break;
+        case DeviceUpdateVersionResult.optionalUpdate:
+          Fluttertoast.showToast(msg: context.l10n.optional_update_available);
+          break;
+        case DeviceUpdateVersionResult.throttled:
+          Fluttertoast.showToast(msg: context.l10n.update_throttled_retry);
+          break;
+        case DeviceUpdateVersionResult.rejectedLowStorage:
+          Fluttertoast.showToast(msg: context.l10n.update_low_storage_retry);
           break;
         case DeviceUpdateVersionResult.failed:
           Fluttertoast.showToast(msg: context.l10n.check_update_failed_retry);
@@ -627,7 +638,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   color: Colors.green, size: 20),
               const SizedBox(width: 8),
               Text(
-                '${networkStatus.displaySsid ?? (l10n?.unknown_network ?? 'Unknown')}',
+                '${networkStatus.displaySsid ?? l10n.unknown_network}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: Colors.green.shade700,
                       fontWeight: FontWeight.w600,
