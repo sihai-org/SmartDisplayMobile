@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:collection/collection.dart';
 
 import '../utils/device_fingerprint.dart';
 import '../constants/ble_constants.dart';
@@ -15,9 +14,9 @@ class BleScannerImpl implements BleScanner {
 
   @override
   Future<String> findBleDeviceId(
-      DeviceQrData qr, {
-        Duration timeout = const Duration(seconds: 10),
-      }) async {
+    DeviceQrData qr, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     await BleServiceSimple.stopScan().catchError((_) {});
 
     final ok = await BleServiceSimple.ensureBleReady();
@@ -32,26 +31,29 @@ class BleScannerImpl implements BleScanner {
     });
 
     _targetFirstSeenAt = null;
+    final expectedFingerprint = createDeviceFingerprint(qr.bleDeviceId);
 
-    _sub = BleServiceSimple
-        .scanForDevice(timeout: timeout)
-        .listen((r) async {
-      if (_isTarget(r, qr.bleDeviceId, qr.deviceName)) {
-        final now = DateTime.now();
-        _targetFirstSeenAt ??= now;
+    _sub = BleServiceSimple.scanForDevice(timeout: timeout).listen(
+      (r) async {
+        if (_isTarget(r, expectedFingerprint, qr.deviceName)) {
+          final now = DateTime.now();
+          _targetFirstSeenAt ??= now;
 
-        final near = r.rssi >= BleConstants.rssiProximityThreshold;
-        final overGrace = now.difference(_targetFirstSeenAt!) >= const Duration(seconds: 2);
-        if (near || overGrace) {
-          final addr = Platform.isIOS ? r.deviceId : r.address;
-          await stop();
-          if (!c.isCompleted) c.complete(addr);
+          final near = r.rssi >= BleConstants.rssiProximityThreshold;
+          final overGrace =
+              now.difference(_targetFirstSeenAt!) >= const Duration(seconds: 2);
+          if (near || overGrace) {
+            final addr = Platform.isIOS ? r.deviceId : r.address;
+            await stop();
+            if (!c.isCompleted) c.complete(addr);
+          }
         }
-      }
-    }, onError: (e) async {
-      await stop();
-      if (!c.isCompleted) c.completeError(e);
-    });
+      },
+      onError: (e) async {
+        await stop();
+        if (!c.isCompleted) c.completeError(e);
+      },
+    );
 
     try {
       final addr = await c.future;
@@ -63,24 +65,43 @@ class BleScannerImpl implements BleScanner {
 
   @override
   Future<void> stop() async {
-    try { await _sub?.cancel(); } catch (_) {}
+    try {
+      await _sub?.cancel();
+    } catch (_) {}
     _sub = null;
-    try { await BleServiceSimple.stopScan(); } catch (_) {}
+    try {
+      await BleServiceSimple.stopScan();
+    } catch (_) {}
   }
 
   bool _isTarget(
-      SimpleBLEScanResult r, String targetDeviceId, String targetDeviceName) {
+    SimpleBLEScanResult r,
+    Uint8List expectedFingerprint,
+    String targetDeviceName,
+  ) {
     // 直接复用你现在的指纹/名称匹配
     if (r.manufacturerData != null) {
-      final expected = createDeviceFingerprint(targetDeviceId);
-      if (_containsSublist(r.manufacturerData!, expected)) return true;
+      if (_containsSublist(r.manufacturerData!, expectedFingerprint)) {
+        return true;
+      }
     }
     return r.name == targetDeviceName;
   }
 
   bool _containsSublist(Uint8List data, Uint8List pattern) {
-    for (int i = 0; i <= data.length - pattern.length; i++) {
-      if (const ListEquality().equals(data.sublist(i, i + pattern.length), pattern)) {
+    if (pattern.isEmpty) return true;
+    final limit = data.length - pattern.length;
+    if (limit < 0) return false;
+
+    for (int i = 0; i <= limit; i++) {
+      var matched = true;
+      for (int j = 0; j < pattern.length; j++) {
+        if (data[i + j] != pattern[j]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) {
         return true;
       }
     }

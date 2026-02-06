@@ -70,6 +70,9 @@ class SecureChannelImpl implements SecureChannel {
       if (_authenticated) return;
     }
 
+    Future<void>? keyGenFuture;
+    Future<void>? keyGenSettled;
+
     _preparing = true;
     try {
       _ensureNotDisposed('准备阶段前');
@@ -87,6 +90,16 @@ class SecureChannelImpl implements SecureChannel {
 
       // 3) 连接 + GATT
       _ensureNotDisposed('ensureBleReady 之后');
+      keyGenFuture = crypto.generateEphemeralKeyPair();
+      // 收敛异常路径：即便中途失败未 await keyGenFuture，也不会出现未捕获异步错误
+      keyGenSettled = keyGenFuture.catchError((e, st) {
+        AppLog.instance.error(
+          'keyGenFuture failed before await',
+          tag: 'Channel',
+          error: e,
+          stackTrace: st,
+        );
+      });
       final data = await BleServiceSimple.connectToDevice(
         bleDeviceData: BleDeviceData(
           displayDeviceId: displayDeviceId,
@@ -119,14 +132,11 @@ class SecureChannelImpl implements SecureChannel {
 
       // 6) 应用层握手（示例：与你现有逻辑一致）
       _ensureNotDisposed('队列准备完成');
-      await crypto.generateEphemeralKeyPair();
-      var initJson = await crypto.getHandshakeInitData();
+      await keyGenFuture;
+      final initObj = await crypto.getHandshakeInitData();
       if (userId.isNotEmpty) {
-        final o = jsonDecode(initJson) as Map<String, dynamic>;
-        o['userId'] = userId;
-        initJson = jsonEncode(o);
+        initObj['userId'] = userId;
       }
-      final initObj = jsonDecode(initJson) as Map<String, dynamic>;
 
       final resp = await _rq!.send(
         initObj,
@@ -148,7 +158,7 @@ class SecureChannelImpl implements SecureChannel {
       }
 
       _ensureNotDisposed('握手完成（resp 收到）');
-      final parsed = crypto.parseHandshakeResponse(jsonEncode(resp));
+      final parsed = crypto.parseHandshakeResponseMap(resp);
       final localPub = await crypto.getLocalPublicKey();
       await crypto.performKeyExchange(
         remoteEphemeralPubKey: parsed.publicKey,
@@ -191,8 +201,10 @@ class SecureChannelImpl implements SecureChannel {
       // Forward low-level connection and adapter status to upper layer
       await _linkSub?.cancel();
       _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
-        AppLog.instance
-            .debug("[SecureChannelImpl] e=${e.toString()}", tag: 'Channel');
+        AppLog.instance.debug(
+          "[SecureChannelImpl] e=${e.toString()}",
+          tag: 'Channel',
+        );
         final t = (e['type'] ?? '').toString();
         if (t == 'connection') {
           final st = (e['state'] ?? '').toString();
@@ -217,6 +229,11 @@ class SecureChannelImpl implements SecureChannel {
       });
 
       _authenticated = true;
+    } catch (e) {
+      if (keyGenSettled != null) {
+        await keyGenSettled;
+      }
+      rethrow;
     } finally {
       _preparing = false;
     }

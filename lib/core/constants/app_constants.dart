@@ -2,7 +2,7 @@
 class AppConstants {
   // App Info
   static const String appName = 'VznGPT';
-  static const String appVersion = '1.1.8';
+  static const String appVersion = '1.1.9';
 
   // UI Configuration
   static const double defaultPadding = 20.0;
