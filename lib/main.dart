@@ -45,7 +45,7 @@ void main() async {
           event.exceptions?.any((e) => e.mechanism?.handled == false) ?? false;
       return (isFatal || hasUnhandledException) ? event : null;
     };
-    options.debug = !kReleaseMode; // 调试模式下打印 SDK 日志
+    options.debug = false;
   }, appRunner: () async {
     // 在 app 启动前做初始化，以便 Sentry 能记录到潜在错误
     await Supabase.initialize(
