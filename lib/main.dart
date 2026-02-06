@@ -28,53 +28,57 @@ void main() async {
 
   // 使用 Sentry 进行全局错误上报与性能监控
   await dotenv.load();
-  await SentryFlutter.init((options) {
-    options.dsn = dotenv.env['SENTRY_DSN'];
-    options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
-    options.tracesSampleRate = 0.2; // 根据需要调整采样率
-    options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率
-    options.enableAutoSessionTracking = true;
-    options.attachStacktrace = true;
-    options.reportPackages = true;
-    options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
-    // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
-    options.beforeSend = (event, hint) {
-      if (!kReleaseMode) return event;
-      final isFatal = event.level == SentryLevel.fatal;
-      final hasUnhandledException =
-          event.exceptions?.any((e) => e.mechanism?.handled == false) ?? false;
-      return (isFatal || hasUnhandledException) ? event : null;
-    };
-    options.debug = false;
-  }, appRunner: () async {
-    // 在 app 启动前做初始化，以便 Sentry 能记录到潜在错误
-    await Supabase.initialize(
-      url: 'https://udrksmcgdqztosaouxwm.supabase.co',
-      anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmtzbWNnZHF6dG9zYW91eHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MDIxMjMsImV4cCI6MjA3NDE3ODEyM30.zTi71CQrNfRf7pvSx_XmO1Em0YBpHiKEFgN2aNdtxyE',
-    );
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = dotenv.env['SENTRY_DSN'];
+      options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
+      options.tracesSampleRate = 0.2; // 根据需要调整采样率
+      options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率
+      options.enableAutoSessionTracking = true;
+      options.attachStacktrace = true;
+      options.reportPackages = true;
+      options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
+      // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
+      options.beforeSend = (event, hint) {
+        if (!kReleaseMode) return event;
+        final isFatal = event.level == SentryLevel.fatal;
+        final hasUnhandledException =
+            event.exceptions?.any((e) => e.mechanism?.handled == false) ??
+            false;
+        return (isFatal || hasUnhandledException) ? event : null;
+      };
+      options.debug = false;
+    },
+    appRunner: () async {
+      // 在 app 启动前做初始化，以便 Sentry 能记录到潜在错误
+      await Supabase.initialize(
+        url: 'https://udrksmcgdqztosaouxwm.supabase.co',
+        anonKey:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmtzbWNnZHF6dG9zYW91eHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MDIxMjMsImV4cCI6MjA3NDE3ODEyM30.zTi71CQrNfRf7pvSx_XmO1Em0YBpHiKEFgN2aNdtxyE',
+      );
 
-    // Initialize iOS deep link channel and fetch any initial link
-    await DeepLinkHandler.init();
+      // Initialize iOS deep link channel and fetch any initial link
+      await DeepLinkHandler.init();
 
-    // Set preferred orientations
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+      // Set preferred orientations
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
 
-    // Set system UI overlay style
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-    );
+      // Set system UI overlay style
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+      );
 
-    runApp(const ProviderScope(child: SmartDisplayApp()));
-  });
+      runApp(const ProviderScope(child: SmartDisplayApp()));
+    },
+  );
 }
 
 class SmartDisplayApp extends ConsumerStatefulWidget {
@@ -133,8 +137,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     super.initState();
     _lastSignedInUserId = Supabase.instance.client.auth.currentUser?.id;
     // Listen to Supabase auth state changes
-    _authSub =
-        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) async {
       final event = data.event;
       if (event == AuthChangeEvent.signedOut) {
         // 清空 Sentry 用户信息
@@ -162,7 +167,8 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         // After sign-in or token refresh, sync devices from server
         if (!mounted) return;
         _lastSignedInUserId =
-            data.session?.user?.id ?? Supabase.instance.client.auth.currentUser?.id;
+            data.session?.user?.id ??
+            Supabase.instance.client.auth.currentUser?.id;
         // 设置 Sentry 用户上下文（仅在你愿意上报用户信息时）
         final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
@@ -171,9 +177,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
           });
         }
         // Silent sync on auth events (default is silent)
-        Future.microtask(() => ref
-            .read(savedDevicesProvider.notifier)
-            .syncFromServer());
+        Future.microtask(
+          () => ref.read(savedDevicesProvider.notifier).syncFromServer(),
+        );
       }
     });
 
@@ -181,9 +187,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
-        ref
-            .read(savedDevicesProvider.notifier)
-            .syncFromServer();
+        ref.read(savedDevicesProvider.notifier).syncFromServer();
       }
     });
   }
@@ -201,8 +205,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     // satisfies Riverpod's requirement for ref.listen in Consumer widgets.
     ref.listen<bool>(isForegroundProvider, (prev, curr) {
       if (prev == false && curr == true) {
-        Future.microtask(() =>
-            ref.read(savedDevicesProvider.notifier).syncFromServer());
+        Future.microtask(
+          () => ref.read(savedDevicesProvider.notifier).syncFromServer(),
+        );
         // Force-update check when returning to foreground
         Future.microtask(() => checkUpdateOnce(ref));
       }

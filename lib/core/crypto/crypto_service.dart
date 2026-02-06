@@ -66,12 +66,15 @@ class CryptoService {
 
     try {
       AppLog.instance.info('🔑 开始执行密钥交换 + 公钥认证', tag: 'Crypto');
+      final totalSw = Stopwatch()..start();
 
       if (signature == null) {
         throw Exception('❌ 缺少公钥签名');
       }
 
+      final extractSw = Stopwatch()..start();
       final keyPairData = await _ephemeralKeyPair!.extract();
+      extractSw.stop();
 
       final workerInput = _KeyExchangeWorkerInput(
         localPrivateKey: keyPairData.bytes,
@@ -81,9 +84,11 @@ class CryptoService {
         devicePublicKeyHex: devicePublicKeyHex,
         clientTimestamp: clientTimestamp,
       );
+      final isolateSw = Stopwatch()..start();
       final result = await Isolate.run<_KeyExchangeWorkerResult>(
         () => _runKeyExchangeWorker(workerInput),
       );
+      isolateSw.stop();
       _sharedSecret = result.sharedSecret;
       _sessionKey = result.sessionKey;
       AppLog.instance.info('✅ 设备公钥签名验证通过', tag: 'Crypto');
@@ -93,6 +98,20 @@ class CryptoService {
       );
       AppLog.instance.debug(
         '🔑 会话密钥派生完成，长度: ${_sessionKey!.length}',
+        tag: 'Crypto',
+      );
+      totalSw.stop();
+      AppLog.instance.debug(
+        '⏱ performKeyExchange.total(${totalSw.elapsedMilliseconds}ms), '
+        'extractLocalKey(${extractSw.elapsedMilliseconds}ms), '
+        'isolate.run(${isolateSw.elapsedMilliseconds}ms)',
+        tag: 'Crypto',
+      );
+      AppLog.instance.debug(
+        '⏱ performKeyExchange.worker.total(${result.totalMs}ms), '
+        'verifySig(${result.verifyMs}ms), '
+        'ecdh(${result.ecdhMs}ms), '
+        'hkdf(${result.hkdfMs}ms)',
         tag: 'Crypto',
       );
     } catch (e) {
@@ -276,10 +295,18 @@ class _KeyExchangeWorkerInput {
 class _KeyExchangeWorkerResult {
   final List<int> sharedSecret;
   final List<int> sessionKey;
+  final int verifyMs;
+  final int ecdhMs;
+  final int hkdfMs;
+  final int totalMs;
 
   const _KeyExchangeWorkerResult({
     required this.sharedSecret,
     required this.sessionKey,
+    required this.verifyMs,
+    required this.ecdhMs,
+    required this.hkdfMs,
+    required this.totalMs,
   });
 }
 
@@ -309,6 +336,7 @@ Future<_EphemeralKeyPairSnapshot> _generateEphemeralKeyPairSnapshot() async {
 Future<_KeyExchangeWorkerResult> _runKeyExchangeWorker(
   _KeyExchangeWorkerInput input,
 ) async {
+  final totalSw = Stopwatch()..start();
   final verifier = DartEd25519();
   final deviceLongtermPk = SimplePublicKey(
     _hexToBytesWorker(input.devicePublicKeyHex),
@@ -317,10 +345,12 @@ Future<_KeyExchangeWorkerResult> _runKeyExchangeWorker(
   final message = Uint8List.fromList(
     input.clientEphemeralPubKey + _longToBytesWorker(input.clientTimestamp),
   );
+  final verifySw = Stopwatch()..start();
   final ok = await verifier.verify(
     message,
     signature: Signature(input.signature, publicKey: deviceLongtermPk),
   );
+  verifySw.stop();
   if (!ok) {
     throw Exception('❌ 设备公钥签名验证失败');
   }
@@ -338,22 +368,31 @@ Future<_KeyExchangeWorkerResult> _runKeyExchangeWorker(
     input.remoteEphemeralPubKey,
     type: KeyPairType.x25519,
   );
+  final ecdhSw = Stopwatch()..start();
   final sharedSecretKey = await x25519.sharedSecretKey(
     keyPair: localKeyPair,
     remotePublicKey: remoteEphemeralKey,
   );
   final sharedSecret = await sharedSecretKey.extractBytes();
+  ecdhSw.stop();
 
   final hkdf = DartHkdf(hmac: Hmac.sha256(), outputLength: 32);
+  final hkdfSw = Stopwatch()..start();
   final sessionKeyObject = await hkdf.deriveKey(
     secretKey: SecretKey(sharedSecret),
     info: utf8.encode('BLE_SESSION_KEY_V1'),
     nonce: List<int>.filled(32, 0),
   );
   final sessionKey = await sessionKeyObject.extractBytes();
+  hkdfSw.stop();
+  totalSw.stop();
   return _KeyExchangeWorkerResult(
     sharedSecret: sharedSecret,
     sessionKey: sessionKey,
+    verifyMs: verifySw.elapsedMilliseconds,
+    ecdhMs: ecdhSw.elapsedMilliseconds,
+    hkdfMs: hkdfSw.elapsedMilliseconds,
+    totalMs: totalSw.elapsedMilliseconds,
   );
 }
 

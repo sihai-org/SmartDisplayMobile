@@ -60,7 +60,6 @@ dependencies:
   
   # Cryptography
   cryptography: ^2.5.0
-  cryptography_flutter: ^2.3.4
   
   # Secure Storage (downgraded to avoid win32 conflict)
   flutter_secure_storage: ^8.1.0
