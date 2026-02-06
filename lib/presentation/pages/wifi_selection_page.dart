@@ -22,6 +22,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   final _ssidController = TextEditingController();
   final _pwdController = TextEditingController();
   bool _sending = false;
+  bool _obscurePwd = true;
   Future<void> _disconnectAndClearOnUserExit() async {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
@@ -214,8 +215,18 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         decoration: InputDecoration(
                           labelText: context.l10n.wifi_password_label,
                           border: OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePwd
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setState(() => _obscurePwd = !_obscurePwd);
+                            },
+                          ),
                         ),
-                        obscureText: true,
+                        obscureText: _obscurePwd,
                       ),
 
                       const SizedBox(height: 16),
