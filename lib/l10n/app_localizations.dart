@@ -905,17 +905,23 @@ abstract class AppLocalizations {
   /// **'The user bound to the device does not match with you'**
   String get device_bound_elsewhere;
 
-  /// No description provided for @ble_connect_failed_toast.
-  ///
-  /// In en, this message translates to:
-  /// **'Connection failed. Please turn on Bluetooth and check permissions.'**
-  String get ble_connect_failed_toast;
-
   /// No description provided for @ble_connect_timeout_relaunch_toast.
   ///
   /// In en, this message translates to:
   /// **'Connection timed out. Please fully close the app and reopen it to try again.'**
   String get ble_connect_timeout_relaunch_toast;
+
+  /// No description provided for @ble_scan_timeout_device_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed. The device may not be nearby.'**
+  String get ble_scan_timeout_device_not_found;
+
+  /// No description provided for @ble_not_ready_enable_bluetooth_check_permission.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enable Bluetooth and check permissions'**
+  String get ble_not_ready_enable_bluetooth_check_permission;
 
   /// No description provided for @error_title.
   ///

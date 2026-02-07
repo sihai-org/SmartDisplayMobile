@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:smart_display_mobile/core/constants/enum.dart';
 import '../log/app_log.dart';
 
 import '../ble/ble_service_simple.dart';
@@ -103,7 +104,7 @@ class SecureChannelImpl implements SecureChannel {
       _ensureNotDisposed('disconnect 之后');
       final ok = await BleServiceSimple.ensureBleReady();
       if (!ok) {
-        throw StateError('BLE 未就绪');
+        throw StateError(BleConnectResult.notReady.name);
       }
 
       // 3) 连接 + GATT

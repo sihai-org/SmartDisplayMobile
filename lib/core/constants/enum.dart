@@ -16,6 +16,8 @@ enum BleConnectResult {
   userMismatch,
   failed,
   timeout, // 👈 新增：连接超时
+  scanTimeout, // 扫描超时（提示：设备不在附近）
+  notReady, // BLE 未就绪（提示：开启蓝牙、设置权限）
 }
 
 enum CheckBoundRes {

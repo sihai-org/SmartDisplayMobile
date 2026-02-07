@@ -65,8 +65,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   void initState() {
     super.initState();
     // 根据param选中（仅一次）
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _trySelectAndConnectByParam());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _trySelectAndConnectByParam(),
+    );
   }
 
   @override
@@ -82,8 +83,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final curr = widget.deviceId ?? '';
     if (curr.isNotEmpty && curr != prev) {
       _paramSelectTried = false; // 允许对新的参数再次尝试
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _trySelectAndConnectByParam());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _trySelectAndConnectByParam(),
+      );
     }
   }
 
@@ -93,7 +95,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     if (_paramSelectTried) return;
     _paramSelectTried = true;
 
-    AppLog.instance.info("[ble_connection_provider] trySelectByParamOnce ${widget.deviceId}");
+    AppLog.instance.info(
+      "[ble_connection_provider] trySelectByParamOnce ${widget.deviceId}",
+    );
 
     // 空就保持现状
     final targetId = widget.deviceId;
@@ -103,11 +107,14 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final notifier = ref.read(savedDevicesProvider.notifier);
     final rec = notifier.findById(targetId);
     if (rec != null) {
-      AppLog.instance.info("[ble_connection_provider] trySelectByParamOnce select ${targetId}");
+      AppLog.instance.info(
+        "[ble_connection_provider] trySelectByParamOnce select ${targetId}",
+      );
       await notifier.select(targetId);
-      await ref
+      final result = await ref
           .read(conn.bleConnectionProvider.notifier)
           .enableBleConnection(savedDeviceRecordToQrData(rec));
+      _safelyToastConnectRes(result);
     }
   }
 
@@ -151,7 +158,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             if (saved.devices.isEmpty) ...[
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
+                  minHeight:
+                      MediaQuery.of(context).size.height -
                       MediaQuery.of(context).padding.top -
                       kToolbarHeight -
                       AppConstants.defaultPadding * 2 -
@@ -171,19 +179,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       Text(
                         l10n.no_device_title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
-                        width: MediaQuery.of(context).size.width *
+                        width:
+                            MediaQuery.of(context).size.width *
                             0.6, // 宽度占屏幕 3/5
                         child: Text(
                           l10n.no_device_subtitle,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
+                          style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: Colors.grey[600]),
                           textAlign: TextAlign.center,
                         ),
@@ -195,16 +202,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                         icon: const Icon(Icons.qr_code_scanner_rounded),
                         label: Text(context.l10n.scan_qr_add_device),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                          foregroundColor:
-                              Theme.of(context).colorScheme.onPrimary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
-                          textStyle:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          textStyle: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -216,52 +225,55 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ),
             ] else ...[
               // 选择要展示的设备及其扩展信息
-              Builder(builder: (context) {
-                final rec = bleView.currentDevice;
-                final versionSlot = Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
-                    if (bleView.bleStatus == BleDeviceStatus.authenticated) ...[
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: Theme.of(context).textTheme.bodyMedium,
-                          overlayColor: Colors.transparent,
+              Builder(
+                builder: (context) {
+                  final rec = bleView.currentDevice;
+                  final versionSlot = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
+                      if (bleView.bleStatus ==
+                          BleDeviceStatus.authenticated) ...[
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: Theme.of(context).textTheme.bodyMedium,
+                            overlayColor: Colors.transparent,
+                          ),
+                          onPressed: _checkingUpdate
+                              ? null
+                              : () {
+                                  _sendCheckUpdate(rec);
+                                },
+                          child: Text(context.l10n.check_update),
                         ),
-                        onPressed: _checkingUpdate
-                            ? null
-                            : () {
-                                _sendCheckUpdate(rec);
-                              },
-                        child: Text(context.l10n.check_update),
-                      ),
-                      if (_checkingUpdate) ...[
-                        const SizedBox(width: 6),
-                        const SizedBox(
-                          width: 10,
-                          height: 10,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        ),
+                        if (_checkingUpdate) ...[
+                          const SizedBox(width: 6),
+                          const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          ),
+                        ],
                       ],
                     ],
-                  ],
-                );
+                  );
 
-                return Stack(
-                  children: [
-                    DeviceCard(
-                      name: rec.deviceName,
-                      id: rec.displayDeviceId,
-                      version: rec.firmwareVersion,
-                      lastConnectedAt: rec.lastConnectedAt,
-                      versionSlot: versionSlot,
-                    ),
-                  ],
-                );
-              }),
+                  return Stack(
+                    children: [
+                      DeviceCard(
+                        name: rec.deviceName,
+                        id: rec.displayDeviceId,
+                        version: rec.firmwareVersion,
+                        lastConnectedAt: rec.lastConnectedAt,
+                        versionSlot: versionSlot,
+                      ),
+                    ],
+                  );
+                },
+              ),
 
               const SizedBox(height: 16),
               _buildBLESection(
@@ -279,8 +291,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).cardColor, // 背景颜色
-                    foregroundColor:
-                        Theme.of(context).colorScheme.error, // 文字颜色
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.error, // 文字颜色
                     elevation: 0, // 阴影高度
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12), // 圆角
@@ -290,7 +303,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                     _showDeleteDialog(context, bleView.currentDevice);
                   },
                   child: Text(context.l10n.delete_device),
-                )
+                ),
               ],
             ],
 
@@ -304,6 +317,70 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     );
   }
 
+  void _safelyToastConnectRes(BleConnectResult res) {
+    if (!mounted) return;
+    switch (res) {
+      case BleConnectResult.success:
+      case BleConnectResult.alreadyConnected:
+      case BleConnectResult.cancelled:
+        // 成功或被新会话覆盖的旧请求，都无需在此处提示
+        break;
+      case BleConnectResult.userMismatch:
+        Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+        AppLog.instance.info("ble: 用户不匹配");
+        break;
+      case BleConnectResult.failed:
+        Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
+        AppLog.instance.info("ble: 连接失败");
+        break;
+      case BleConnectResult.timeout:
+        Fluttertoast.showToast(
+          msg: context.l10n.ble_connect_timeout_relaunch_toast,
+        );
+        AppLog.instance.error("[device_detail_page] ble: 连接超时（提示重启App）");
+        break;
+      case BleConnectResult.scanTimeout:
+        Fluttertoast.showToast(
+          msg: context.l10n.ble_scan_timeout_device_not_found,
+        );
+        AppLog.instance.info("ble: 扫描超时");
+        break;
+      case BleConnectResult.notReady:
+        Fluttertoast.showToast(
+          msg: context.l10n.ble_not_ready_enable_bluetooth_check_permission,
+        );
+        AppLog.instance.info("ble: 蓝牙未就绪");
+        break;
+    }
+  }
+
+  void _safelyToastDeviceUpdateCheckRes(DeviceUpdateVersionResult res) {
+    if (!mounted) return;
+    switch (res) {
+      case DeviceUpdateVersionResult.updating:
+        Fluttertoast.showToast(msg: context.l10n.update_started);
+        break;
+      case DeviceUpdateVersionResult.alreadyInFlight:
+        Fluttertoast.showToast(msg: context.l10n.update_in_progress);
+        break;
+      case DeviceUpdateVersionResult.latest:
+        Fluttertoast.showToast(msg: context.l10n.already_latest_version);
+        break;
+      case DeviceUpdateVersionResult.optionalUpdate:
+        Fluttertoast.showToast(msg: context.l10n.optional_update_available);
+        break;
+      case DeviceUpdateVersionResult.throttled:
+        Fluttertoast.showToast(msg: context.l10n.update_throttled_retry);
+        break;
+      case DeviceUpdateVersionResult.rejectedLowStorage:
+        Fluttertoast.showToast(msg: context.l10n.update_low_storage_retry);
+        break;
+      case DeviceUpdateVersionResult.failed:
+        Fluttertoast.showToast(msg: context.l10n.check_update_failed_retry);
+        break;
+    }
+  }
+
   void _sendCheckUpdate(SavedDeviceRecord device) async {
     if (_checkingUpdate) return; // 简单防抖
     setState(() => _checkingUpdate = true);
@@ -311,35 +388,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     try {
       final notifier = ref.read(conn.bleConnectionProvider.notifier);
       final result = await notifier.requestUpdateCheck();
-
-      if (!mounted) return;
-      switch (result) {
-        case DeviceUpdateVersionResult.updating:
-          Fluttertoast.showToast(msg: context.l10n.update_started);
-          break;
-        case DeviceUpdateVersionResult.alreadyInFlight:
-          Fluttertoast.showToast(msg: context.l10n.update_in_progress);
-          break;
-        case DeviceUpdateVersionResult.latest:
-          Fluttertoast.showToast(msg: context.l10n.already_latest_version);
-          break;
-        case DeviceUpdateVersionResult.optionalUpdate:
-          Fluttertoast.showToast(msg: context.l10n.optional_update_available);
-          break;
-        case DeviceUpdateVersionResult.throttled:
-          Fluttertoast.showToast(msg: context.l10n.update_throttled_retry);
-          break;
-        case DeviceUpdateVersionResult.rejectedLowStorage:
-          Fluttertoast.showToast(msg: context.l10n.update_low_storage_retry);
-          break;
-        case DeviceUpdateVersionResult.failed:
-          Fluttertoast.showToast(msg: context.l10n.check_update_failed_retry);
-          break;
-      }
+      _safelyToastDeviceUpdateCheckRes(result);
     } catch (e) {
       if (mounted) {
         Fluttertoast.showToast(
-            msg: context.l10n.check_update_failed_error(e.toString()));
+          msg: context.l10n.check_update_failed_error(e.toString()),
+        );
       }
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -410,8 +464,10 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         case BleDeviceStatus.timeout:
         case BleDeviceStatus.disconnected:
         default:
-          return Icon(Icons.error_outline,
-              color: Theme.of(context).disabledColor);
+          return Icon(
+            Icons.error_outline,
+            color: Theme.of(context).disabledColor,
+          );
       }
     }();
 
@@ -425,28 +481,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         final result = await ref
             .read(conn.bleConnectionProvider.notifier)
             .enableBleConnection(qr);
-        if (!mounted) return;
-        switch (result) {
-          case BleConnectResult.success:
-          case BleConnectResult.alreadyConnected:
-          case BleConnectResult.cancelled:
-            // 成功或被新会话覆盖的旧请求，都无需在此处提示
-            break;
-          case BleConnectResult.userMismatch:
-            Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
-            AppLog.instance.info("ble: 用户不匹配");
-            break;
-          case BleConnectResult.failed:
-            Fluttertoast.showToast(
-                msg: context.l10n.ble_connect_failed_toast);
-            AppLog.instance.info("ble: 连接失败");
-            break;
-          case BleConnectResult.timeout:
-            Fluttertoast.showToast(
-                msg: context.l10n.ble_connect_timeout_relaunch_toast);
-            AppLog.instance.error("[device_detail_page] ble: 连接超时（提示重启App）");
-            break;
-        }
+        _safelyToastConnectRes(result);
       } else {
         // 关闭：主动断开
         await ref
@@ -474,7 +509,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             ),
             Switch(
               value: computedIsOn(),
-              onChanged: (!bleOnLoadingForCurrent &&
+              onChanged:
+                  (!bleOnLoadingForCurrent &&
                       saved.loaded &&
                       saved.lastSelectedId != null)
                   ? handleToggle
@@ -487,8 +523,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   // 构建网络状态或WiFi列表部分
-  Widget _buildNetworkSection(
-      BuildContext context, conn.BleConnectionState connState) {
+  Widget _buildNetworkSection(BuildContext context,
+      conn.BleConnectionState connState,) {
     final textButtonStyle = TextButton.styleFrom(
       padding: EdgeInsets.zero, // 去掉默认 padding
       minimumSize: Size.zero, // 可选：去掉最小尺寸限制
@@ -554,9 +590,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.refresh, size: 16),
                     label: Text(context.l10n.refresh),
@@ -577,9 +611,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   Text(
                     context.l10n.network_not_connected,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -608,9 +642,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.refresh, size: 16),
                     label: Text(context.l10n.refresh),
@@ -625,8 +657,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   // 构建当前网络信息
-  Widget _buildCurrentNetworkInfo(
-      BuildContext context, NetworkStatus networkStatus) {
+  Widget _buildCurrentNetworkInfo(BuildContext context,
+      NetworkStatus networkStatus,) {
     final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -640,15 +672,18 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         children: [
           Row(
             children: [
-              Icon(wifiSignalIconFromRssiDbm(networkStatus.rawRssi),
-                  color: Colors.green, size: 20),
+              Icon(
+                wifiSignalIconFromRssiDbm(networkStatus.rawRssi),
+                color: Colors.green,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 '${networkStatus.displaySsid ?? l10n.unknown_network}',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const Spacer(),
             ],
@@ -660,9 +695,9 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 wifiSignalStrengthLabel(l10n, networkStatus.rawRssi),
                 l10n.wifi_rssi_dbm_label(networkStatus.rawRssi!),
               ].join(' · '),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.green.shade700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.green.shade700),
             ),
           ],
         ],
@@ -703,15 +738,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                       Text(
                         '${ctx.l10n.device_name_label}: ${device.deviceName}',
                         style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '${ctx.l10n.device_id_label}: ${device.displayDeviceId}',
                         style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                            ),
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ],
                   ),
@@ -720,8 +755,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                 Text(
                   ctx.l10n.delete_consequence_hint,
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.error,
-                      ),
+                    color: Theme.of(ctx).colorScheme.error,
+                  ),
                 ),
               ],
             ),
@@ -796,8 +831,12 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         }
       }
     } catch (e, st) {
-      AppLog.instance.error('❌ _deleteDevice 出错',
-          tag: 'DeviceDetail', error: e, stackTrace: st);
+      AppLog.instance.error(
+        '❌ _deleteDevice 出错',
+        tag: 'DeviceDetail',
+        error: e,
+        stackTrace: st,
+      );
       if (context.mounted) {
         Fluttertoast.showToast(msg: context.l10n.delete_failed);
       }

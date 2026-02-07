@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:smart_display_mobile/core/constants/enum.dart';
+
 import '../utils/device_fingerprint.dart';
 import '../constants/ble_constants.dart';
 import '../models/device_qr_data.dart';
@@ -19,13 +21,13 @@ class BleScannerImpl implements BleScanner {
   }) async {
     final ok = await BleServiceSimple.ensureBleReady();
     if (!ok) {
-      throw StateError('BLE 未就绪');
+      throw StateError(BleConnectResult.notReady.name);
     }
 
     final c = Completer<String>();
     final timer = Timer(timeout, () async {
       await stop();
-      if (!c.isCompleted) c.completeError(TimeoutException('扫描超时'));
+      if (!c.isCompleted) c.completeError(TimeoutException(BleConnectResult.scanTimeout.name));
     });
 
     _targetFirstSeenAt = null;

@@ -434,10 +434,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get device_bound_elsewhere => '您与设备绑定用户不匹配';
 
   @override
-  String get ble_connect_failed_toast => '蓝牙连接失败，请开启蓝牙并检查权限';
+  String get ble_connect_timeout_relaunch_toast => '蓝牙连接超时，请重启 App 后再试';
 
   @override
-  String get ble_connect_timeout_relaunch_toast => '蓝牙连接超时，请重启 App 后再试';
+  String get ble_scan_timeout_device_not_found => '连接失败，设备可能不在附近';
+
+  @override
+  String get ble_not_ready_enable_bluetooth_check_permission => '请开启蓝牙并检查权限';
 
   @override
   String get error_title => '错误';

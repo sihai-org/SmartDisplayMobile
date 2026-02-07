@@ -434,10 +434,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get device_bound_elsewhere => 'The user bound to the device does not match with you';
 
   @override
-  String get ble_connect_failed_toast => 'Connection failed. Please turn on Bluetooth and check permissions.';
+  String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
 
   @override
-  String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
+  String get ble_scan_timeout_device_not_found => 'Connection failed. The device may not be nearby.';
+
+  @override
+  String get ble_not_ready_enable_bluetooth_check_permission => 'Please enable Bluetooth and check permissions';
 
   @override
   String get error_title => 'Error';

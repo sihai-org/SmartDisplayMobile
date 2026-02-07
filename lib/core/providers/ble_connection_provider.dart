@@ -452,6 +452,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           error: e);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
+
       BleConnectResult result = BleConnectResult.failed;
       if (session == _sessionCount) {
         if (e is UserMismatchException) {
@@ -463,6 +464,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           state = state.copyWith(
             bleDeviceStatus: BleDeviceStatus.error,
           );
+          if (e is TimeoutException &&
+              e.message == BleConnectResult.scanTimeout.name) {
+            result = BleConnectResult.scanTimeout;
+          } else
+          if (e is StateError && e.message == BleConnectResult.notReady.name) {
+            result = BleConnectResult.notReady;
+          }
         }
       }
       return result;
