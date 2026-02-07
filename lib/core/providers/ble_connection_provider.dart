@@ -38,7 +38,6 @@ class BleConnectionState {
   final BleDeviceData? bleDeviceData;
   final BleDeviceStatus bleDeviceStatus;
   final bool enableBleConnectionLoading;
-  final String? lastErrorCode; // e.g., 'user_mismatch'
   final bool emptyBound; // 握手后设备同步自身状态
 
   /// wifi
@@ -53,7 +52,6 @@ class BleConnectionState {
     this.bleDeviceData,
     this.bleDeviceStatus = BleDeviceStatus.disconnected,
     this.enableBleConnectionLoading = false,
-    this.lastErrorCode,
     this.emptyBound = false,
     this.wifiNetworks = const [],
     this.networkStatus,
@@ -67,7 +65,6 @@ class BleConnectionState {
     BleDeviceData? bleDeviceData,
     BleDeviceStatus? bleDeviceStatus,
     bool? enableBleConnectionLoading,
-    String? lastErrorCode,
     bool? emptyBound,
     String? errorMessage,
     String? provisionStatus,
@@ -85,7 +82,6 @@ class BleConnectionState {
       bleDeviceStatus: bleDeviceStatus ?? this.bleDeviceStatus,
       enableBleConnectionLoading:
           enableBleConnectionLoading ?? this.enableBleConnectionLoading,
-      lastErrorCode: lastErrorCode ?? this.lastErrorCode,
       emptyBound: emptyBound ?? this.emptyBound,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
       networkStatus: networkStatus ?? this.networkStatus,
@@ -267,8 +263,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       // 新会话从“连接中”开始
       bleDeviceStatus: BleDeviceStatus.connecting,
       enableBleConnectionLoading: true,
-      // 清理上一台设备残留的派生状态
-      lastErrorCode: null,
       emptyBound: false,
       wifiNetworks: const [],
       isScanningWifi: false,
@@ -356,7 +350,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     if (state.bleDeviceData != null &&
         state.bleDeviceData!.displayDeviceId == qrData.displayDeviceId &&
         state.bleDeviceStatus == BleDeviceStatus.authenticated) {
-      AppLog.instance.info("~~~~~~~enableBleConnection already connected");
+      AppLog.instance.info(
+          "[ble_connection_provider] enableBleConnection already connected");
       return BleConnectResult.alreadyConnected;
     }
 
@@ -380,13 +375,37 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
     /// 3. 重置 UI state
     _startSessionStateForDevice(qrData);
+    bool isTimeout = false;
     try {
       /// 4. 建连
       final mgr = _ref.read(secureChannelManagerProvider);
       _activeOps++;
       final bool ok;
       try {
-        ok = await mgr.use(qrData);
+        ok = await mgr
+            .use(qrData)
+            .timeout(BleConstants.kLoadingMaxS,
+            onTimeout: () async {
+              isTimeout = true;
+              _log(
+                  '---------⏰ mgr.use 超时(${BleConstants
+                      .kLoadingMaxS}s)，dispose 中止连接');
+              AppLog.instance.error(
+                  "[ble_connection_provider] mgr.use 超时(${BleConstants
+                      .kLoadingMaxS}s)，dispose 中止连接");
+              try {
+                await mgr.dispose(); // ✅ 中止底层连接/扫描，不改变 session
+              } catch (_) {}
+
+              // 可选：把 UI 状态拉回断开（不 reset，不影响 session）
+              if (session == _sessionCount) {
+                state = state.copyWith(
+                  bleDeviceStatus: BleDeviceStatus.disconnected,
+                );
+              }
+              return false; // 让 ok=false -> BleConnectResult.failed
+            }
+        );
       } finally {
         _activeOps--;
       }
@@ -396,9 +415,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         return BleConnectResult.cancelled;
       }
 
+      if (isTimeout) {
+        return BleConnectResult.timeout;
+      }
+
       if (!ok) {
-        // Manager 这一层认为自己被 cancel 了（可能是 disconnect / 其他 use）
-        return BleConnectResult.cancelled;
+        return BleConnectResult.failed;
       }
 
       /// 5. 握手状态
@@ -416,7 +438,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       /// 7. 更新 UI state
       state = state.copyWith(
         bleDeviceStatus: BleDeviceStatus.authenticated,
-        lastErrorCode: null,
       );
       _lastActivityAt = DateTime.now();
 
@@ -436,13 +457,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         if (e is UserMismatchException) {
           state = state.copyWith(
             bleDeviceStatus: BleDeviceStatus.error,
-            lastErrorCode: 'user_mismatch',
           );
           result = BleConnectResult.userMismatch;
         } else {
           state = state.copyWith(
             bleDeviceStatus: BleDeviceStatus.error,
-            lastErrorCode: null,
           );
         }
       }

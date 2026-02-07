@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import '../log/app_log.dart';
 
 import '../ble/ble_service_simple.dart';
@@ -18,7 +20,7 @@ class SecureChannelImpl implements SecureChannel {
     required this.devicePublicKeyHex,
     required this.createQueue,
     required this.crypto,
-    this.connectTimeout = const Duration(seconds: 15),
+    this.connectTimeout = const Duration(seconds: 6),
   });
 
   @override
@@ -77,9 +79,25 @@ class SecureChannelImpl implements SecureChannel {
     try {
       _ensureNotDisposed('准备阶段前');
 
-      // 1) 保守断开以稳定状态
-      await BleServiceSimple.disconnect();
-      await Future.delayed(BleConstants.kDisconnectStabilize);
+      // 1) 仅在检测到活跃 GATT 时断开，避免无条件重置蓝牙栈状态
+      if (BleServiceSimple.hasActiveConnection) {
+        final previousDeviceId = BleServiceSimple.activeDeviceId;
+        AppLog.instance.debug(
+          'active gatt exists, disconnect first: active=$previousDeviceId target=$bleDeviceId',
+          tag: 'Channel',
+        );
+        final waitDisconnected = BleServiceSimple.waitForDisconnected(
+          deviceId: previousDeviceId,
+          timeout: const Duration(seconds: 2),
+        );
+        await BleServiceSimple.disconnect();
+        final gotDisconnected = await waitDisconnected;
+        if (!gotDisconnected) {
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+      }
 
       // 2) BLE 就绪
       _ensureNotDisposed('disconnect 之后');
@@ -91,6 +109,40 @@ class SecureChannelImpl implements SecureChannel {
       // 3) 连接 + GATT
       _ensureNotDisposed('ensureBleReady 之后');
       keyGenFuture = crypto.generateEphemeralKeyPair();
+      final keyGenSw = Stopwatch()..start();
+      var keyGenCompleted = false;
+      final mode =
+          kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug');
+      AppLog.instance.info(
+        'keyGenFuture created (mode=$mode, isolate=${Isolate.current.hashCode})',
+        tag: 'Channel',
+      );
+      keyGenFuture.whenComplete(() {
+        keyGenCompleted = true;
+        keyGenSw.stop();
+        AppLog.instance.info(
+          'keyGenFuture completed in ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+          tag: 'Channel',
+        );
+      });
+      unawaited(Future<void>.delayed(const Duration(seconds: 3), () {
+        if (!keyGenCompleted) {
+          AppLog.instance.warning(
+            'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+            tag: 'Channel',
+          );
+        }
+      }));
+      unawaited(Future<void>.delayed(const Duration(seconds: 15), () {
+        if (!keyGenCompleted) {
+          AppLog.instance.error(
+            'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+            tag: 'Channel',
+            error: StateError('keyGenFuture appears stuck'),
+            stackTrace: StackTrace.current,
+          );
+        }
+      }));
       // 收敛异常路径：即便中途失败未 await keyGenFuture，也不会出现未捕获异步错误
       keyGenSettled = keyGenFuture.catchError((e, st) {
         AppLog.instance.error(
@@ -126,18 +178,27 @@ class SecureChannelImpl implements SecureChannel {
 
       // 5) 准备可靠队列
       _ensureNotDisposed('connectToDevice + ensureGattReady + hasRxTx 之后');
+      AppLog.instance.info("[ble_connection_provider] call _rq?.dispose()");
       await _rq?.dispose();
+      AppLog.instance.info("[ble_connection_provider] call createQueue()");
       _rq = createQueue(data.bleDeviceId);
+      AppLog.instance.info("[ble_connection_provider] call _rq!.prepare()");
       await _rq!.prepare();
 
       // 6) 应用层握手（示例：与你现有逻辑一致）
       _ensureNotDisposed('队列准备完成');
+      AppLog.instance.info("[ble_connection_provider] call keyGenFuture");
+      AppLog.instance.info(
+        'await keyGenFuture... (mode=$mode, isolate=${Isolate.current.hashCode})',
+        tag: 'Channel',
+      );
       await keyGenFuture;
+      AppLog.instance.info("[ble_connection_provider] call getHandshakeInitData");
       final initObj = await crypto.getHandshakeInitData();
       if (userId.isNotEmpty) {
         initObj['userId'] = userId;
       }
-
+      AppLog.instance.info("[ble_connection_provider] handshake_init userId=${userId}");
       final resp = await _rq!.send(
         initObj,
         timeout: const Duration(seconds: 8),

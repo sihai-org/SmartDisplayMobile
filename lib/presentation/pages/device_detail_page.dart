@@ -93,7 +93,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     if (_paramSelectTried) return;
     _paramSelectTried = true;
 
-    AppLog.instance.info("~~~~_trySelectByParamOnce ${widget.deviceId}");
+    AppLog.instance.info("[ble_connection_provider] trySelectByParamOnce ${widget.deviceId}");
 
     // 空就保持现状
     final targetId = widget.deviceId;
@@ -103,7 +103,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final notifier = ref.read(savedDevicesProvider.notifier);
     final rec = notifier.findById(targetId);
     if (rec != null) {
-      AppLog.instance.info("~~~~_trySelectByParamOnce select ${targetId}");
+      AppLog.instance.info("[ble_connection_provider] trySelectByParamOnce select ${targetId}");
       await notifier.select(targetId);
       await ref
           .read(conn.bleConnectionProvider.notifier)
@@ -434,11 +434,17 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
             break;
           case BleConnectResult.userMismatch:
             Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+            AppLog.instance.info("ble: 用户不匹配");
             break;
           case BleConnectResult.failed:
             Fluttertoast.showToast(
-                msg: context.l10n.connect_failed_move_closer);
-            AppLog.instance.error("蓝牙连接失败，请检查手机蓝牙或靠近设备");
+                msg: context.l10n.ble_connect_failed_toast);
+            AppLog.instance.info("ble: 连接失败");
+            break;
+          case BleConnectResult.timeout:
+            Fluttertoast.showToast(
+                msg: context.l10n.ble_connect_timeout_relaunch_toast);
+            AppLog.instance.error("[device_detail_page] ble: 连接超时（提示重启App）");
             break;
         }
       } else {

@@ -112,8 +112,6 @@
   "connecting_to": "正在连接 {ssid}...",
   "wifi_credentials_sent": "Wi‑Fi 凭证已发送到 TV：{ssid}",
   "wifi_credentials_failed": "发送 Wi‑Fi 凭证失败",
-  "connect_failed": "连接失败：{error}"
-  ,
   "unknown_device": "未知设备",
   "current_selected": "当前选中",
   "set_current_device": "设为当前设备",
@@ -148,7 +146,8 @@
   "connect_success": "连接成功",
   "connect_failed_retry": "连接失败，请重试",
   "device_bound_elsewhere": "您与设备绑定用户不匹配",
-  "connect_failed_move_closer": "连接失败，请靠近重试",
+  "ble_connect_failed_toast": "蓝牙连接失败，请开启蓝牙并检查权限",
+  "ble_connect_timeout_relaunch_toast": "蓝牙连接超时，请重启 App 后再试",
   "error_title": "错误",
   "no_device_data_message": "未找到设备数据，请重新扫描二维码。",
   "rescan": "重新扫描",

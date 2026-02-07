@@ -11,18 +11,17 @@ class BleConstants {
   static const int preferredMtu = 247;
   static const int minMtu = 23;
   static const int maxMtu = 517;
-  // Stabilization and retries
-  static const int postConnectStabilizeDelayMs = 200;
   static const int writeRetryDelayMs = 200;
   // Proximity & backoff
   static const int rssiProximityThreshold = -80;
-  static const int reconnectBackoffStartMs = 1000;
-  static const int reconnectBackoffMaxMs = 10000;
-  
-  // Connection Parameters
-  static const int connectionIntervalMs = 100;
-  static const int connectionLatency = 0;
-  static const int supervisionTimeoutMs = 20000;
+
+  // 扫描超时
+  static const Duration scanTimeout = Duration(milliseconds: 1200);
+  // 扫描容忍期限
+  static const Duration scanGrace = Duration(milliseconds: 600);
+
+  // 顶层 UI 调用最多等10秒
+  static const Duration kLoadingMaxS = Duration(seconds: 10);
 
   static const Duration kDisconnectStabilize = Duration(milliseconds: 300);
 

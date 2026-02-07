@@ -337,11 +337,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_credentials_failed => 'Failed to send Wi‑Fi credentials';
 
   @override
-  String connect_failed(Object error) {
-    return 'Connect failed: $error';
-  }
-
-  @override
   String get unknown_device => 'Unknown Device';
 
   @override
@@ -439,7 +434,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get device_bound_elsewhere => 'The user bound to the device does not match with you';
 
   @override
-  String get connect_failed_move_closer => 'Connection failed, move closer and retry';
+  String get ble_connect_failed_toast => 'Connection failed. Please turn on Bluetooth and check permissions.';
+
+  @override
+  String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
 
   @override
   String get error_title => 'Error';

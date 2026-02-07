@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:cryptography/dart.dart';
 import '../log/app_log.dart';
@@ -9,6 +11,7 @@ import '../log/app_log.dart';
 /// BLE认证加密服务
 /// 实现X25519 ECDH密钥交换 + AES-256-GCM加密
 class CryptoService {
+  static final _keyExchangeWorker = _KeyExchangeWorkerClient();
   SimpleKeyPair? _ephemeralKeyPair; // 临时密钥对
   List<int>? _ephemeralPublicKey; // 缓存公钥，避免主线程重复提取
   List<int>? _sharedSecret; // 共享密钥
@@ -25,17 +28,61 @@ class CryptoService {
 
   /// 生成临时密钥对
   Future<void> generateEphemeralKeyPair() async {
+    unawaited(_keyExchangeWorker.ensureStarted().catchError((e, st) {
+      AppLog.instance.warning(
+        'key exchange worker warm-up failed: $e',
+        tag: 'Crypto',
+        error: e,
+        stackTrace: st,
+      );
+    }));
+    final mode =
+        kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug');
+    final sw = Stopwatch()..start();
+    var done = false;
+    AppLog.instance.debug(
+      'generateEphemeralKeyPair.start (mode=$mode, isolate=${Isolate.current.hashCode})',
+      tag: 'Crypto',
+    );
+    unawaited(Future<void>.delayed(const Duration(seconds: 3), () {
+      if (!done) {
+        AppLog.instance.warning(
+          'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+          tag: 'Crypto',
+        );
+      }
+    }));
+    unawaited(Future<void>.delayed(const Duration(seconds: 15), () {
+      if (!done) {
+        AppLog.instance.error(
+          'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+          tag: 'Crypto',
+          error: StateError('Isolate.run did not return'),
+          stackTrace: StackTrace.current,
+        );
+      }
+    }));
     final epoch = ++_ephemeralKeyGenEpoch;
-    final snapshot = await Isolate.run<_EphemeralKeyPairSnapshot>(
-      _generateEphemeralKeyPairSnapshot,
-    );
-    if (epoch != _ephemeralKeyGenEpoch) return; // 被更新/清理，丢弃旧结果
-    _ephemeralKeyPair = SimpleKeyPairData(
-      snapshot.privateKey,
-      publicKey: SimplePublicKey(snapshot.publicKey, type: KeyPairType.x25519),
-      type: KeyPairType.x25519,
-    );
-    _ephemeralPublicKey = snapshot.publicKey;
+    try {
+      final snapshot = await Isolate.run<_EphemeralKeyPairSnapshot>(
+        _generateEphemeralKeyPairSnapshot,
+      );
+      if (epoch != _ephemeralKeyGenEpoch) return; // 被更新/清理，丢弃旧结果
+      _ephemeralKeyPair = SimpleKeyPairData(
+        snapshot.privateKey,
+        publicKey:
+            SimplePublicKey(snapshot.publicKey, type: KeyPairType.x25519),
+        type: KeyPairType.x25519,
+      );
+      _ephemeralPublicKey = snapshot.publicKey;
+    } finally {
+      done = true;
+      sw.stop();
+      AppLog.instance.debug(
+        'generateEphemeralKeyPair.done (${sw.elapsedMilliseconds}ms) (mode=$mode, isolate=${Isolate.current.hashCode})',
+        tag: 'Crypto',
+      );
+    }
   }
 
   /// 获取本地公钥 (32字节)
@@ -85,9 +132,7 @@ class CryptoService {
         clientTimestamp: clientTimestamp,
       );
       final isolateSw = Stopwatch()..start();
-      final result = await Isolate.run<_KeyExchangeWorkerResult>(
-        () => _runKeyExchangeWorker(workerInput),
-      );
+      final result = await _keyExchangeWorker.run(workerInput);
       isolateSw.stop();
       _sharedSecret = result.sharedSecret;
       _sessionKey = result.sessionKey;
@@ -290,6 +335,28 @@ class _KeyExchangeWorkerInput {
     required this.devicePublicKeyHex,
     required this.clientTimestamp,
   });
+
+  Map<String, dynamic> toMessage() {
+    return {
+      'localPrivateKey': localPrivateKey,
+      'clientEphemeralPubKey': clientEphemeralPubKey,
+      'remoteEphemeralPubKey': remoteEphemeralPubKey,
+      'signature': signature,
+      'devicePublicKeyHex': devicePublicKeyHex,
+      'clientTimestamp': clientTimestamp,
+    };
+  }
+
+  static _KeyExchangeWorkerInput fromMessage(Map<dynamic, dynamic> m) {
+    return _KeyExchangeWorkerInput(
+      localPrivateKey: List<int>.from(m['localPrivateKey'] as List),
+      clientEphemeralPubKey: List<int>.from(m['clientEphemeralPubKey'] as List),
+      remoteEphemeralPubKey: List<int>.from(m['remoteEphemeralPubKey'] as List),
+      signature: List<int>.from(m['signature'] as List),
+      devicePublicKeyHex: (m['devicePublicKeyHex'] ?? '').toString(),
+      clientTimestamp: (m['clientTimestamp'] as num).toInt(),
+    );
+  }
 }
 
 class _KeyExchangeWorkerResult {
@@ -308,6 +375,111 @@ class _KeyExchangeWorkerResult {
     required this.hkdfMs,
     required this.totalMs,
   });
+
+  Map<String, dynamic> toMessage() {
+    return {
+      'sharedSecret': sharedSecret,
+      'sessionKey': sessionKey,
+      'verifyMs': verifyMs,
+      'ecdhMs': ecdhMs,
+      'hkdfMs': hkdfMs,
+      'totalMs': totalMs,
+    };
+  }
+
+  static _KeyExchangeWorkerResult fromMessage(Map<dynamic, dynamic> m) {
+    return _KeyExchangeWorkerResult(
+      sharedSecret: List<int>.from(m['sharedSecret'] as List),
+      sessionKey: List<int>.from(m['sessionKey'] as List),
+      verifyMs: (m['verifyMs'] as num).toInt(),
+      ecdhMs: (m['ecdhMs'] as num).toInt(),
+      hkdfMs: (m['hkdfMs'] as num).toInt(),
+      totalMs: (m['totalMs'] as num).toInt(),
+    );
+  }
+}
+
+class _KeyExchangeWorkerClient {
+  SendPort? _workerSendPort;
+  Completer<void>? _starting;
+  int _nextReqId = 0;
+  final Map<int, Completer<_KeyExchangeWorkerResult>> _pending = {};
+
+  Future<void> ensureStarted() async {
+    if (_workerSendPort != null) return;
+    if (_starting != null) return _starting!.future;
+
+    final starting = Completer<void>();
+    _starting = starting;
+    try {
+      final receivePort = ReceivePort();
+      await Isolate.spawn(_keyExchangeWorkerIsolateEntry, receivePort.sendPort);
+      receivePort.listen((message) {
+        if (message is! Map) return;
+        final type = message['type']?.toString();
+        if (type == 'ready') {
+          final sendPort = message['sendPort'];
+          if (sendPort is SendPort) {
+            _workerSendPort = sendPort;
+            if (!starting.isCompleted) starting.complete();
+          }
+          return;
+        }
+        if (type == 'result') {
+          final reqId = (message['id'] as num).toInt();
+          final c = _pending.remove(reqId);
+          if (c != null && !c.isCompleted) {
+            final payload = message['payload'];
+            if (payload is Map) {
+              c.complete(_KeyExchangeWorkerResult.fromMessage(payload));
+            } else {
+              c.completeError(StateError('worker result payload invalid'));
+            }
+          }
+          return;
+        }
+        if (type == 'error') {
+          final reqId = (message['id'] as num).toInt();
+          final c = _pending.remove(reqId);
+          if (c != null && !c.isCompleted) {
+            final errorMsg =
+                (message['error'] ?? 'key exchange worker error').toString();
+            final stack = (message['stack'] ?? '').toString();
+            c.completeError(Exception(errorMsg), StackTrace.fromString(stack));
+          }
+        }
+      });
+      await starting.future.timeout(const Duration(seconds: 2));
+    } catch (e) {
+      if (!starting.isCompleted) starting.completeError(e);
+      rethrow;
+    } finally {
+      _starting = null;
+    }
+  }
+
+  Future<_KeyExchangeWorkerResult> run(_KeyExchangeWorkerInput input) async {
+    await ensureStarted();
+    final sendPort = _workerSendPort;
+    if (sendPort == null) {
+      throw StateError('key exchange worker not ready');
+    }
+    final reqId = ++_nextReqId;
+    final c = Completer<_KeyExchangeWorkerResult>();
+    _pending[reqId] = c;
+    sendPort.send({
+      'type': 'run',
+      'id': reqId,
+      'payload': input.toMessage(),
+    });
+    return c.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        _pending.remove(reqId);
+        throw TimeoutException('key exchange worker timeout (id=$reqId)');
+      },
+    );
+  }
 }
 
 class _EphemeralKeyPairSnapshot {
@@ -331,6 +503,36 @@ Future<_EphemeralKeyPairSnapshot> _generateEphemeralKeyPairSnapshot() async {
     privateKey: extracted.bytes,
     publicKey: pub.bytes,
   );
+}
+
+void _keyExchangeWorkerIsolateEntry(SendPort mainSendPort) {
+  final receivePort = ReceivePort();
+  mainSendPort.send({'type': 'ready', 'sendPort': receivePort.sendPort});
+  receivePort.listen((message) async {
+    if (message is! Map) return;
+    if ((message['type'] ?? '').toString() != 'run') return;
+    final reqId = (message['id'] as num).toInt();
+    try {
+      final payload = message['payload'];
+      if (payload is! Map) {
+        throw StateError('worker payload missing');
+      }
+      final input = _KeyExchangeWorkerInput.fromMessage(payload);
+      final result = await _runKeyExchangeWorker(input);
+      mainSendPort.send({
+        'type': 'result',
+        'id': reqId,
+        'payload': result.toMessage(),
+      });
+    } catch (e, st) {
+      mainSendPort.send({
+        'type': 'error',
+        'id': reqId,
+        'error': e.toString(),
+        'stack': st.toString(),
+      });
+    }
+  });
 }
 
 Future<_KeyExchangeWorkerResult> _runKeyExchangeWorker(

@@ -719,12 +719,6 @@ abstract class AppLocalizations {
   /// **'Failed to send Wi‑Fi credentials'**
   String get wifi_credentials_failed;
 
-  /// No description provided for @connect_failed.
-  ///
-  /// In en, this message translates to:
-  /// **'Connect failed: {error}'**
-  String connect_failed(Object error);
-
   /// No description provided for @unknown_device.
   ///
   /// In en, this message translates to:
@@ -911,11 +905,17 @@ abstract class AppLocalizations {
   /// **'The user bound to the device does not match with you'**
   String get device_bound_elsewhere;
 
-  /// No description provided for @connect_failed_move_closer.
+  /// No description provided for @ble_connect_failed_toast.
   ///
   /// In en, this message translates to:
-  /// **'Connection failed, move closer and retry'**
-  String get connect_failed_move_closer;
+  /// **'Connection failed. Please turn on Bluetooth and check permissions.'**
+  String get ble_connect_failed_toast;
+
+  /// No description provided for @ble_connect_timeout_relaunch_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection timed out. Please fully close the app and reopen it to try again.'**
+  String get ble_connect_timeout_relaunch_toast;
 
   /// No description provided for @error_title.
   ///

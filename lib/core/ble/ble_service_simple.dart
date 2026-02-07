@@ -14,6 +14,7 @@ class BleServiceSimple {
   static StreamSubscription<DiscoveredDevice>? _scanSubscription;
   static StreamSubscription<ConnectionStateUpdate>?
   _deviceConnectionSubscription;
+  static Future<void>? _stopScanInFlight;
   static bool _hasActiveConnection = false;
   static String? _activeDeviceId;
 
@@ -30,6 +31,7 @@ class BleServiceSimple {
 
   // Track negotiated MTU per device for framing without re-requesting MTU each time
   static final Map<String, int> _mtuByDevice = {};
+  static final Map<String, List<DiscoveredService>> _servicesByDevice = {};
 
   // 打点：统一会话起点
   static DateTime? _sessionStart;
@@ -58,6 +60,27 @@ class BleServiceSimple {
       _connectionEventController.stream;
   static bool get hasActiveConnection => _hasActiveConnection;
   static String? get activeDeviceId => _activeDeviceId;
+
+  static Future<bool> waitForDisconnected({
+    String? deviceId,
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (!_hasActiveConnection) return true;
+    try {
+      await _connectionEventController.stream
+          .firstWhere((e) {
+            if ((e['type'] ?? '').toString() != 'connection') return false;
+            if ((e['state'] ?? '').toString() != 'disconnected') return false;
+            if (deviceId == null || deviceId.isEmpty) return true;
+            final eventDeviceId = (e['deviceId'] ?? '').toString();
+            return eventDeviceId.isEmpty || eventDeviceId == deviceId;
+          })
+          .timeout(timeout);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // Forward adapter status to upper layers
   static StreamSubscription<BleStatus>? _bleStatusSub;
@@ -284,18 +307,34 @@ class BleServiceSimple {
   }
 
   static Future<void> stopScan() async {
-    final t0 = DateTime.now();
-    _log('⏹️ stopScan 开始');
-    if (!_isScanning && _scanSubscription == null) return;
-    _isScanning = false;
-    await _scanSubscription?.cancel();
-    _scanSubscription = null;
-    if (_scanController != null && !_scanController!.isClosed) {
-      await _scanController?.close();
+    if (_stopScanInFlight != null) {
+      _log('⏹️ stopScan 复用进行中的请求');
+      return _stopScanInFlight!;
     }
-    _scanController = null;
-    final elapsed = DateTime.now().difference(t0).inMilliseconds;
-    _logWithTime('stopScan.done(${elapsed}ms)');
+
+    final op = () async {
+      final t0 = DateTime.now();
+      _log('⏹️ stopScan 开始');
+      if (!_isScanning && _scanSubscription == null) {
+        return;
+      }
+      _isScanning = false;
+      await _scanSubscription?.cancel();
+      _scanSubscription = null;
+      if (_scanController != null && !_scanController!.isClosed) {
+        await _scanController?.close();
+      }
+      _scanController = null;
+      final elapsed = DateTime.now().difference(t0).inMilliseconds;
+      _logWithTime('stopScan.done(${elapsed}ms)');
+    }();
+
+    _stopScanInFlight = op;
+    try {
+      await op;
+    } finally {
+      _stopScanInFlight = null;
+    }
   }
 
   // 放在 BleServiceSimple 类内部的任意位置（比如 stopScan() 下面）
@@ -403,7 +442,9 @@ class BleServiceSimple {
     bool sawGatt135 = false; // 👈 这一轮有没有遇到 135
 
     try {
-      await stopScan();
+      if (_isScanning || _scanSubscription != null) {
+        await stopScan();
+      }
 
       final connectionStream = _ble.connectToDevice(
         id: bleDeviceData.bleDeviceId,
@@ -514,6 +555,7 @@ class BleServiceSimple {
       final res = await completer.future;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('connect.complete(${elapsed}ms) -> ${res != null}');
+      // TODO: 如果连接超时，可以重试一次？看下状态清理问题
 
       // ⚠️ 关键逻辑：这一轮没连上 + 确认是 135 → 认为是“残留连接”，做一次彻底冷却 + 重试
       if (res == null && sawGatt135 && attempt == 1) {
@@ -542,11 +584,16 @@ class BleServiceSimple {
   static Future<void> disconnect() async {
     final t0 = DateTime.now();
     _log('🔌 disconnect 开始');
+    final prevActiveDeviceId = _activeDeviceId;
     await stopScan();
     await _deviceConnectionSubscription?.cancel();
     _deviceConnectionSubscription = null;
     _hasActiveConnection = false;
     _activeDeviceId = null;
+    if (prevActiveDeviceId != null) {
+      _mtuByDevice.remove(prevActiveDeviceId);
+      _servicesByDevice.remove(prevActiveDeviceId);
+    }
 
     // ✅ 仅保留这一处固定等待
     await Future.delayed(BleConstants.kDisconnectStabilize);
@@ -562,6 +609,7 @@ class BleServiceSimple {
       _connectionEventController.add({
         'type': 'connection',
         'state': 'disconnected',
+        if (prevActiveDeviceId != null) 'deviceId': prevActiveDeviceId,
       });
     } catch (_) {}
   }
@@ -599,6 +647,9 @@ class BleServiceSimple {
     _log('🧭 discoverServices 开始: device=$deviceId');
     try {
       final services = await _ble.discoverServices(deviceId);
+      if (services.isNotEmpty) {
+        _servicesByDevice[deviceId] = services;
+      }
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime(
         'discoverServices.done(${elapsed}ms), count=${services.length}',
@@ -792,10 +843,20 @@ class BleServiceSimple {
     final t0 = DateTime.now();
     _log('🔎 hasRxTx 开始: svc=$serviceUuid, rx=$rxUuid, tx=$txUuid');
     try {
-      final services = await _ble.discoverServices(deviceId);
+      var services = _servicesByDevice[deviceId];
+      if (services == null || services.isEmpty) {
+        final ok = await discoverServices(deviceId);
+        if (!ok) {
+          final elapsed = DateTime.now().difference(t0).inMilliseconds;
+          _logWithTime('hasRxTx.result(${elapsed}ms) -> false (discover fail)');
+          return false;
+        }
+        services = _servicesByDevice[deviceId];
+      }
+      services ??= const <DiscoveredService>[];
 
       // 调试用：打印出来看设备实际暴露的服务
-      _log('~~~~~~~~services=$services');
+      _log('[ble_connection_provider] services=$services');
 
       // 1. 先找到匹配的 service
       DiscoveredService? s;
@@ -862,6 +923,7 @@ class BleServiceSimple {
     _hasActiveConnection = false;
     _activeDeviceId = null;
     _mtuByDevice.clear();
+    _servicesByDevice.clear();
     _sessionStart = null;
   }
 }

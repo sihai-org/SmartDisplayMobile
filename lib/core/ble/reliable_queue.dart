@@ -24,6 +24,7 @@ class ReliableRequestQueue {
   // Optional crypto handlers installed after handshake
   Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _wrapEncrypt;
   Future<Map<String, dynamic>> Function(Map<String, dynamic>)? _unwrapDecrypt;
+  bool _firstSendAfterPrepare = false;
 
   ReliableRequestQueue({
     required this.deviceId,
@@ -33,6 +34,7 @@ class ReliableRequestQueue {
   });
 
   Future<void> prepare() async {
+    _firstSendAfterPrepare = true;
     _sub = BleServiceSimple.subscribeToIndications(
       deviceId: deviceId,
       serviceUuid: serviceUuid,
@@ -150,8 +152,6 @@ class ReliableRequestQueue {
       _log('Subscribe error: $e');
     });
 
-    // Give CCCD enable a brief settle time before first write
-    await Future.delayed(const Duration(milliseconds: 300));
   }
 
   final Map<int, _Pending> _inflight = {};
@@ -173,6 +173,8 @@ class ReliableRequestQueue {
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
     return _serializeSend(() async {
+    final isFirstSendWindow = _firstSendAfterPrepare;
+    _firstSendAfterPrepare = false;
     // Use negotiated MTU if available; fallback to safe minimum
     final mtu = BleServiceSimple.getNegotiatedMtu(deviceId);
     final encoder = FrameEncoder(mtu);
@@ -209,6 +211,9 @@ class ReliableRequestQueue {
         await Future.delayed(Duration(milliseconds: 10));
       }
       if (!okAll) {
+        if (isFirstSendWindow) {
+          await Future.delayed(const Duration(milliseconds: 180));
+        }
         await Future.delayed(Duration(milliseconds: 120));
         continue;
       }
@@ -221,6 +226,9 @@ class ReliableRequestQueue {
         if (attempt > retries) {
           _inflight.remove(reqId);
           rethrow;
+        }
+        if (isFirstSendWindow) {
+          await Future.delayed(const Duration(milliseconds: 180));
         }
         // continue retry loop
       } catch (e) {

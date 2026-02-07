@@ -337,11 +337,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wifi_credentials_failed => '发送 Wi‑Fi 凭证失败';
 
   @override
-  String connect_failed(Object error) {
-    return '连接失败：$error';
-  }
-
-  @override
   String get unknown_device => '未知设备';
 
   @override
@@ -439,7 +434,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get device_bound_elsewhere => '您与设备绑定用户不匹配';
 
   @override
-  String get connect_failed_move_closer => '连接失败，请靠近重试';
+  String get ble_connect_failed_toast => '蓝牙连接失败，请开启蓝牙并检查权限';
+
+  @override
+  String get ble_connect_timeout_relaunch_toast => '蓝牙连接超时，请重启 App 后再试';
 
   @override
   String get error_title => '错误';

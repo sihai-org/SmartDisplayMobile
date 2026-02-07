@@ -15,6 +15,7 @@ enum BleConnectResult {
   cancelled,
   userMismatch,
   failed,
+  timeout, // 👈 新增：连接超时
 }
 
 enum CheckBoundRes {

@@ -83,7 +83,13 @@ class SecureChannelManager {
     try {
       _checkGen(ticket); // ✅ 进来先确认自己没过期
 
+      // final start = DateTime.now();
+
       final String targetBleDeviceId = await _scanner.findBleDeviceId(qrData);
+
+      // final end = DateTime.now();
+      // AppLog.instance.info('~~~~~~~执行耗时: ${end.difference(start).inMilliseconds} ms');
+
       _checkGen(ticket); // ✅
 
       // 同设备尝试复用，但必须确保已认证
@@ -122,13 +128,14 @@ class SecureChannelManager {
         await _channelEvtSub?.cancel();
       } catch (_) {}
       _channelEvtSub = null;
+      _checkGen(ticket); // ✅ 防止在 await cancel 期间被 dispose 后仍写回 channel
 
       _bleDeviceId = targetBleDeviceId;
       _channel = ch;
       _creatingChannel = null;
       // 监听断开/蓝牙关闭，立刻清理引用
       _channelEvtSub = ch.events.listen((e) async {
-        AppLog.instance.debug("=============设备测推送事件 ${e.toString()}", tag: 'Channel');
+        AppLog.instance.debug("=============收到设备推送事件 ${e.toString()}", tag: 'Channel');
         final t = (e['type'] ?? '').toString();
         if (t == 'status') {
           final v = (e['value'] ?? '').toString();

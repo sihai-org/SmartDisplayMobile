@@ -59,6 +59,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         return;
       }
 
+      if (result == BleConnectResult.timeout) {
+        Fluttertoast.showToast(msg: context.l10n.ble_connect_timeout_relaunch_toast);
+        AppLog.instance.error("[device_connection_page] ble: 连接超时（提示重启App）");
+        _goBackOrHome();
+        return;
+      }
+
       if (result == BleConnectResult.failed ||
           result == BleConnectResult.cancelled) {
         Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);

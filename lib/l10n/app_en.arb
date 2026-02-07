@@ -112,8 +112,6 @@
   "connecting_to": "Connecting to {ssid}...",
   "wifi_credentials_sent": "Wi‑Fi credentials sent to TV: {ssid}",
   "wifi_credentials_failed": "Failed to send Wi‑Fi credentials",
-  "connect_failed": "Connect failed: {error}"
-  ,
   "unknown_device": "Unknown Device",
   "current_selected": "Selected",
   "set_current_device": "Set as current",
@@ -148,7 +146,8 @@
   "connect_success": "Connected successfully",
   "connect_failed_retry": "Connection failed, please retry",
   "device_bound_elsewhere": "The user bound to the device does not match with you",
-  "connect_failed_move_closer": "Connection failed, move closer and retry",
+  "ble_connect_failed_toast": "Connection failed. Please turn on Bluetooth and check permissions.",
+  "ble_connect_timeout_relaunch_toast": "Connection timed out. Please fully close the app and reopen it to try again.",
   "error_title": "Error",
   "no_device_data_message": "No device data found. Please rescan the QR code.",
   "rescan": "Rescan",

@@ -15,10 +15,8 @@ class BleScannerImpl implements BleScanner {
   @override
   Future<String> findBleDeviceId(
     DeviceQrData qr, {
-    Duration timeout = const Duration(seconds: 10),
+    Duration timeout = BleConstants.scanTimeout,
   }) async {
-    await BleServiceSimple.stopScan().catchError((_) {});
-
     final ok = await BleServiceSimple.ensureBleReady();
     if (!ok) {
       throw StateError('BLE 未就绪');
@@ -41,7 +39,7 @@ class BleScannerImpl implements BleScanner {
 
           final near = r.rssi >= BleConstants.rssiProximityThreshold;
           final overGrace =
-              now.difference(_targetFirstSeenAt!) >= const Duration(seconds: 2);
+              now.difference(_targetFirstSeenAt!) >= BleConstants.scanGrace;
           if (near || overGrace) {
             final addr = Platform.isIOS ? r.deviceId : r.address;
             await stop();
