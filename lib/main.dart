@@ -17,6 +17,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'core/l10n/l10n_extensions.dart';
 import 'core/providers/lifecycle_provider.dart';
 import 'core/providers/saved_devices_provider.dart';
+import 'core/providers/gray_key_map_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 如果你要清 SharedPreferences
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/log/app_log.dart';
@@ -107,6 +108,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     ref.invalidate(isForegroundProvider);
     ref.invalidate(appStateProvider);
     ref.invalidate(bleConnectionProvider);
+    ref.read(grayKeyMapProvider.notifier).clear();
 
     // 3) 清理本地缓存/偏好（按你的项目来定）
     try {
@@ -180,6 +182,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         Future.microtask(
           () => ref.read(savedDevicesProvider.notifier).syncFromServer(),
         );
+        Future.microtask(
+          () => ref.read(grayKeyMapProvider.notifier).refreshIfLoggedIn(),
+        );
       }
     });
 
@@ -188,6 +193,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
         ref.read(savedDevicesProvider.notifier).syncFromServer();
+        ref.read(grayKeyMapProvider.notifier).refreshIfLoggedIn();
       }
     });
   }

@@ -251,6 +251,78 @@ abstract class AppLocalizations {
   /// **'Account & Security'**
   String get account_security;
 
+  /// No description provided for @serial_number_stats.
+  ///
+  /// In en, this message translates to:
+  /// **'Serial Number Stats'**
+  String get serial_number_stats;
+
+  /// No description provided for @serial_number.
+  ///
+  /// In en, this message translates to:
+  /// **'Serial number'**
+  String get serial_number;
+
+  /// No description provided for @positive_integer_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a positive integer'**
+  String get positive_integer_hint;
+
+  /// No description provided for @original_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Original link'**
+  String get original_link;
+
+  /// No description provided for @device_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Device name'**
+  String get device_name;
+
+  /// No description provided for @device_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID'**
+  String get device_id;
+
+  /// No description provided for @copy_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get copy_link;
+
+  /// No description provided for @report.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get report;
+
+  /// No description provided for @copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get copied;
+
+  /// No description provided for @reported_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported successfully'**
+  String get reported_success;
+
+  /// No description provided for @reported_mock.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported (mock)'**
+  String get reported_mock;
+
+  /// No description provided for @parse_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Parse failed'**
+  String get parse_failed;
+
   /// No description provided for @delete_account.
   ///
   /// In en, this message translates to:
@@ -454,6 +526,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan QR'**
   String get scan_qr;
+
+  /// No description provided for @tap_to_scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to scan'**
+  String get tap_to_scan;
 
   /// No description provided for @provision.
   ///

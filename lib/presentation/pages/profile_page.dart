@@ -15,6 +15,7 @@ import '../../core/audit/audit_mode.dart';
 import '../../core/providers/audit_mode_provider.dart';
 import '../../core/log/app_log.dart';
 import '../../core/constants/app_environment.dart';
+import '../../core/providers/gray_key_map_provider.dart';
 import 'package:flutter/foundation.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -39,6 +40,9 @@ class ProfilePage extends ConsumerWidget {
       } catch (_) {}
       try {
         ref.read(appStateProvider.notifier).clearScannedData();
+      } catch (_) {}
+      try {
+        ref.read(grayKeyMapProvider.notifier).clear();
       } catch (_) {}
       ref.read(auditModeProvider.notifier).disable();
       if (!context.mounted) return;
@@ -118,6 +122,13 @@ class ProfilePage extends ConsumerWidget {
         ? displayName!
         : (email ?? l10n.user_fallback);
 
+    // 所有人都请求灰度开关（服务端自行返回对应可见的 keys）
+    final grayKeyMapAsync = ref.watch(grayKeyMapProvider);
+    final showSerialNumberStats = grayKeyMapAsync.maybeWhen(
+      data: (m) => m['factory_test'] == true,
+      orElse: () => false,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.profile_title),
@@ -192,6 +203,13 @@ class ProfilePage extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: _whiteListSection(context,
               tiles: [
+                if (showSerialNumberStats)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(l10n.serial_number_stats),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.serialNumberStats),
+                  ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.account_security),

@@ -87,6 +87,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get account_security => '账号与安全';
 
   @override
+  String get serial_number_stats => '编号统计';
+
+  @override
+  String get serial_number => '编号';
+
+  @override
+  String get positive_integer_hint => '请输入正整数';
+
+  @override
+  String get original_link => '原始链接';
+
+  @override
+  String get device_name => '设备名称';
+
+  @override
+  String get device_id => '设备ID';
+
+  @override
+  String get copy_link => '复制链接';
+
+  @override
+  String get report => '上报';
+
+  @override
+  String get copied => '已复制';
+
+  @override
+  String get reported_success => '上报成功';
+
+  @override
+  String get reported_mock => '已上报（mock）';
+
+  @override
+  String get parse_failed => '解析失败';
+
+  @override
   String get delete_account => '注销账号';
 
   @override
@@ -191,6 +227,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get scan_qr => '扫码';
+
+  @override
+  String get tap_to_scan => '点我扫码';
 
   @override
   String get provision => '配网';

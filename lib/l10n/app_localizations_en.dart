@@ -87,6 +87,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get account_security => 'Account & Security';
 
   @override
+  String get serial_number_stats => 'Serial Number Stats';
+
+  @override
+  String get serial_number => 'Serial number';
+
+  @override
+  String get positive_integer_hint => 'Enter a positive integer';
+
+  @override
+  String get original_link => 'Original link';
+
+  @override
+  String get device_name => 'Device name';
+
+  @override
+  String get device_id => 'Device ID';
+
+  @override
+  String get copy_link => 'Copy link';
+
+  @override
+  String get report => 'Report';
+
+  @override
+  String get copied => 'Copied';
+
+  @override
+  String get reported_success => 'Reported successfully';
+
+  @override
+  String get reported_mock => 'Reported (mock)';
+
+  @override
+  String get parse_failed => 'Parse failed';
+
+  @override
   String get delete_account => 'Delete Account';
 
   @override
@@ -191,6 +227,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scan_qr => 'Scan QR';
+
+  @override
+  String get tap_to_scan => 'Tap to scan';
 
   @override
   String get provision => 'Provision';

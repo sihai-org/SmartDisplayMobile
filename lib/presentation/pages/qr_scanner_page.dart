@@ -15,8 +15,21 @@ import '../../core/router/app_router.dart';
 import '../../core/utils/device_entry_coordinator.dart';
 import '../../core/log/app_log.dart';
 
+enum QrScannerSuccessAction {
+  /// 保持现有链路：扫描成功后进入设备绑定/连接流程
+  deviceEntry,
+
+  /// 扫描成功后直接 pop 返回扫码结果（不触发现有链路）
+  popResult,
+}
+
 class QrScannerPage extends ConsumerStatefulWidget {
-  const QrScannerPage({super.key});
+  const QrScannerPage({
+    super.key,
+    this.successAction = QrScannerSuccessAction.deviceEntry,
+  });
+
+  final QrScannerSuccessAction successAction;
 
   @override
   ConsumerState<QrScannerPage> createState() => _QrScannerPageState();
@@ -199,14 +212,25 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     });
 
     // 导航：和之前 ref.listen 中的逻辑类似
-    Fluttertoast.showToast(msg: context.l10n.qr_scan_success);
+    // 编号统计页走 popResult，只需要返回结果即可，不需要额外 toast
+    if (widget.successAction != QrScannerSuccessAction.popResult) {
+      Fluttertoast.showToast(msg: context.l10n.qr_scan_success);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _qrContent == null) return;
 
       _stopScanning();
 
-      await DeviceEntryCoordinator.handle(context, ref, _qrContent!);
+      final content = _qrContent!;
+      if (widget.successAction == QrScannerSuccessAction.popResult) {
+        if (context.mounted) {
+          context.pop(content);
+        }
+        return;
+      }
+
+      await DeviceEntryCoordinator.handle(context, ref, content);
     });
   }
 
@@ -256,7 +280,11 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               _stopScanning();
-              context.go(AppRoutes.home);
+              if (widget.successAction == QrScannerSuccessAction.popResult) {
+                context.pop();
+              } else {
+                context.go(AppRoutes.home);
+              }
             },
           ),
           actions: const [

@@ -17,6 +17,7 @@ import '../../presentation/pages/ble_one_click_test_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
 import '../../presentation/pages/force_update_page.dart';
+import '../../presentation/pages/serial_number_stats_page.dart';
 import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
 import '../audit/audit_mode.dart';
@@ -40,6 +41,7 @@ class AppRoutes {
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
   static const String forceUpdate = '/force-update';
+  static const String serialNumberStats = '/serial-number-stats';
 }
 
 /// Router configuration
@@ -114,7 +116,12 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.qrScanner,
       name: 'qr-scanner',
-      builder: (context, state) => const QrScannerPage(),
+      builder: (context, state) {
+        final action = state.extra as QrScannerSuccessAction?;
+        return QrScannerPage(
+          successAction: action ?? QrScannerSuccessAction.deviceEntry,
+        );
+      },
     ),
 
     // QR 原文展示（不可解析时）
@@ -212,6 +219,13 @@ final GoRouter appRouter = GoRouter(
         final item = state.extra as MeetingMinutesItem?;
         return MeetingMinutesDetailPage(item: item);
       },
+    ),
+
+    // 编号统计（入口有灰度）
+    GoRoute(
+      path: AppRoutes.serialNumberStats,
+      name: 'serial-number-stats',
+      builder: (context, state) => const SerialNumberStatsPage(),
     ),
   ],
 
