@@ -15,15 +15,13 @@ class BleScannerImpl implements BleScanner {
   DateTime? _targetFirstSeenAt;
 
   @override
-  Future<String> findBleDeviceId(
-    DeviceQrData qr, {
-    Duration timeout = BleConstants.scanTimeout,
-  }) async {
+  Future<String> findBleDeviceId(DeviceQrData qr) async {
     final ok = await BleServiceSimple.ensureBleReady();
     if (!ok) {
       throw StateError(BleConnectResult.notReady.name);
     }
 
+    const timeout = BleConstants.scanTimeout;
     final c = Completer<String>();
     final timer = Timer(timeout, () async {
       await stop();

@@ -20,7 +20,7 @@ class BleConstants {
   static const int rssiProximityThreshold = -80;
 
   // 1. 扫描超时
-  static const Duration scanTimeout = Duration(milliseconds: 1200);
+  static const Duration scanTimeout = Duration(seconds: 3);
   // 扫描容忍期限
   static const Duration scanGrace = Duration(milliseconds: 600);
   static const Duration scanSwitchWait = Duration(milliseconds: 60);
