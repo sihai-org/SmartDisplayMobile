@@ -105,25 +105,24 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     });
 
     // 2) 只在 manager 实例变化时尝试重绑
-    _managerSub = _ref.listen(
-      secureChannelManagerProvider,
-      (prev, curr) {
-        if (!identical(prev, curr)) {
-          _attachChannelEvents(curr);
-        }
-      },
-    );
+    _managerSub = _ref.listen(secureChannelManagerProvider, (prev, curr) {
+      if (!identical(prev, curr)) {
+        _attachChannelEvents(curr);
+      }
+    });
 
     // 3) 心跳：仅用于“状态纠偏”，不触发重连；失败达到阈值则走现有断开清理链路
-    _heartbeatTimer =
-        Timer.periodic(const Duration(seconds: 2), (_) => _tickHeartbeat());
+    _heartbeatTimer = Timer.periodic(
+      BleConstants.kHeartbeatTickInterval,
+      (_) => _tickHeartbeat(),
+    );
   }
 
   final Ref _ref;
   int _sessionCount = 0;
 
   ProviderSubscription<bool>? _foregroundSub;
-  ProviderSubscription<dynamic /*SecureChannelManager*/ >? _managerSub;
+  ProviderSubscription<dynamic /*SecureChannelManager*/>? _managerSub;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
   Stream<Map<String, dynamic>>? _boundStream; // 记住当前已绑定的事件流
 
@@ -209,15 +208,16 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _activeOps++;
     _lastHeartbeatAt = now;
     _heartbeatSeq += 1;
-    _log(
-        '心跳开始(#$_heartbeatSeq) device.info timeout=${BleConstants.kHeartbeatTimeout.inMilliseconds}ms');
+    _log('心跳开始(#$_heartbeatSeq) device.info');
     try {
       // 使用现有 device.info 作为联通检测，但不更新业务状态，也不触发 ensure/reconnect
-      await _ref.read(secureChannelManagerProvider).sendIfReady(
-        {'type': 'device.info', 'data': null},
-        timeout: BleConstants.kHeartbeatTimeout,
-        retries: 0,
-      );
+      await _ref
+          .read(secureChannelManagerProvider)
+          .sendIfReady(
+            {'type': 'device.info', 'data': null},
+            timeout: BleConstants.kHeartbeatTimeout,
+            retries: 0,
+          );
       if (session != _sessionCount) return;
       if (_heartbeatFailures > 0 || (_heartbeatSeq % 10 == 0)) {
         _log('心跳成功(#$_heartbeatSeq)');
@@ -227,7 +227,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       if (session != _sessionCount) return;
       _heartbeatFailures += 1;
       _log(
-          '心跳失败($_heartbeatFailures/${BleConstants.kHeartbeatFailThreshold}): $e');
+        '心跳失败($_heartbeatFailures/${BleConstants.kHeartbeatFailThreshold}): $e',
+      );
       if (_heartbeatFailures >= BleConstants.kHeartbeatFailThreshold) {
         _heartbeatFailures = 0;
         _log('心跳判定失联：执行断开清理（等价用户手动断开）');
@@ -244,7 +245,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 每次蓝牙连接后自动同步设备信息
   DateTime? _lastSyncAt;
 
-  Duration _minSyncGap = Duration(seconds: 1);
+  Duration _minSyncGap = BleConstants.minSyncGap;
 
   @override
   set state(BleConnectionState next) {
@@ -307,12 +308,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
     try {
       state = state.copyWith(isCheckingNetwork: true);
-      final info = await sendBleMsg(
-        'device.info',
-        null,
-        timeout: const Duration(seconds: 5),
-        retries: 0,
-      );
+      final info = await sendBleMsg('device.info', null, retries: 0);
       if (info is Map<String, dynamic>) {
         // 更新网络状态到连接状态
         state = state.copyWith(
@@ -325,13 +321,17 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         final fw = info['firmwareVersion']?.toString();
         if (deviceId != null && deviceId.isNotEmpty) {
           try {
-            await _ref.read(savedDevicesProvider.notifier).updateFields(
+            await _ref
+                .read(savedDevicesProvider.notifier)
+                .updateFields(
                   displayDeviceId: deviceId,
                   firmwareVersion: fw,
                   lastConnectedAt: DateTime.now(),
                 );
           } catch (e) {
-            _log('更新 firmwareVersion/lastConnectedAt 到 SavedDevicesNotifier 失败: $e');
+            _log(
+              '更新 firmwareVersion/lastConnectedAt 到 SavedDevicesNotifier 失败: $e',
+            );
           }
         }
       }
@@ -351,7 +351,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         state.bleDeviceData!.displayDeviceId == qrData.displayDeviceId &&
         state.bleDeviceStatus == BleDeviceStatus.authenticated) {
       AppLog.instance.info(
-          "[ble_connection_provider] enableBleConnection already connected");
+        "[ble_connection_provider] enableBleConnection already connected",
+      );
       return BleConnectResult.alreadyConnected;
     }
 
@@ -384,28 +385,29 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       try {
         ok = await mgr
             .use(qrData)
-            .timeout(BleConstants.kLoadingMaxS,
-            onTimeout: () async {
-              isTimeout = true;
-              _log(
-                  '---------⏰ mgr.use 超时(${BleConstants
-                      .kLoadingMaxS}s)，dispose 中止连接');
-              AppLog.instance.error(
-                  "[ble_connection_provider] mgr.use 超时(${BleConstants
-                      .kLoadingMaxS}s)，dispose 中止连接");
-              try {
-                await mgr.dispose(); // ✅ 中止底层连接/扫描，不改变 session
-              } catch (_) {}
-
-              // 可选：把 UI 状态拉回断开（不 reset，不影响 session）
-              if (session == _sessionCount) {
-                state = state.copyWith(
-                  bleDeviceStatus: BleDeviceStatus.disconnected,
+            .timeout(
+              BleConstants.kLoadingMaxS,
+              onTimeout: () async {
+                isTimeout = true;
+                _log(
+                  '---------⏰ mgr.use 超时(${BleConstants.kLoadingMaxS}s)，dispose 中止连接',
                 );
-              }
-              return false; // 让 ok=false -> BleConnectResult.failed
-            }
-        );
+                AppLog.instance.error(
+                  "[ble_connection_provider] mgr.use 超时(${BleConstants.kLoadingMaxS}s)，dispose 中止连接",
+                );
+                try {
+                  await mgr.dispose(); // ✅ 中止底层连接/扫描，不改变 session
+                } catch (_) {}
+
+                // 可选：把 UI 状态拉回断开（不 reset，不影响 session）
+                if (session == _sessionCount) {
+                  state = state.copyWith(
+                    bleDeviceStatus: BleDeviceStatus.disconnected,
+                  );
+                }
+                return false; // 让 ok=false -> BleConnectResult.failed
+              },
+            );
       } finally {
         _activeOps--;
       }
@@ -436,9 +438,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
 
       /// 7. 更新 UI state
-      state = state.copyWith(
-        bleDeviceStatus: BleDeviceStatus.authenticated,
-      );
+      state = state.copyWith(bleDeviceStatus: BleDeviceStatus.authenticated);
       _lastActivityAt = DateTime.now();
 
       /// 8. 连接成功时，sync 一次
@@ -448,27 +448,24 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return BleConnectResult.success;
     } catch (e) {
       AppLog.instance.error(
-          'enableBleConnection failed $session, $_sessionCount',
-          error: e);
+        'enableBleConnection failed $session, $_sessionCount',
+        error: e,
+      );
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
 
       BleConnectResult result = BleConnectResult.failed;
       if (session == _sessionCount) {
         if (e is UserMismatchException) {
-          state = state.copyWith(
-            bleDeviceStatus: BleDeviceStatus.error,
-          );
+          state = state.copyWith(bleDeviceStatus: BleDeviceStatus.error);
           result = BleConnectResult.userMismatch;
         } else {
-          state = state.copyWith(
-            bleDeviceStatus: BleDeviceStatus.error,
-          );
+          state = state.copyWith(bleDeviceStatus: BleDeviceStatus.error);
           if (e is TimeoutException &&
               e.message == BleConnectResult.scanTimeout.name) {
             result = BleConnectResult.scanTimeout;
-          } else
-          if (e is StateError && e.message == BleConnectResult.notReady.name) {
+          } else if (e is StateError &&
+              e.message == BleConnectResult.notReady.name) {
             result = BleConnectResult.notReady;
           }
         }
@@ -482,18 +479,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
-  Future<bool> sendSimpleBleMsg(
-    String type,
-    dynamic data, {
-    Duration? timeout,
-  }) async {
+  Future<bool> sendSimpleBleMsg(String type, dynamic data) async {
     _log('sendPureBleMsg: $type, $data');
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
-      final resp = await _ref
-          .read(secureChannelManagerProvider)
-          .send({'type': type, 'data': data}, timeout: timeout);
+      final resp = await _ref.read(secureChannelManagerProvider).send({
+        'type': type,
+        'data': data,
+      });
       _log('✅ sendPureBleMsg 成功: type=$type, resp=$resp');
       return resp['ok'] == true;
     } catch (e) {
@@ -508,7 +502,6 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   Future<dynamic> sendBleMsg(
     String type,
     dynamic data, {
-    Duration? timeout,
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
@@ -516,12 +509,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
-      final resp = await _ref.read(secureChannelManagerProvider).send(
-        {'type': type, 'data': data},
-        timeout: timeout,
-        retries: retries,
-        isFinal: isFinal,
-      );
+      final resp = await _ref
+          .read(secureChannelManagerProvider)
+          .send(
+            {'type': type, 'data': data},
+            retries: retries,
+            isFinal: isFinal,
+          );
       _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
       return resp['data'];
     } finally {
@@ -530,22 +524,23 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   // 用户发送蓝牙消息 3/3：【完整响应】返回完整 resp，调用处自己处理 ok/error
-  Future<Map<String, dynamic>> sendBleResp(String type,
-      dynamic data, {
-        Duration? timeout,
-        int retries = 0,
-        bool Function(Map<String, dynamic>)? isFinal,
-      }) async {
+  Future<Map<String, dynamic>> sendBleResp(
+    String type,
+    dynamic data, {
+    int retries = 0,
+    bool Function(Map<String, dynamic>)? isFinal,
+  }) async {
     _log('sendBleResp: $type, $data');
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
-      final resp = await _ref.read(secureChannelManagerProvider).send(
-        {'type': type, 'data': data},
-        timeout: timeout,
-        retries: retries,
-        isFinal: isFinal,
-      );
+      final resp = await _ref
+          .read(secureChannelManagerProvider)
+          .send(
+            {'type': type, 'data': data},
+            retries: retries,
+            isFinal: isFinal,
+          );
       _log('✅ sendBleResp 成功: type=$type, resp=$resp');
       return resp;
     } finally {
@@ -556,17 +551,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 绑定
   Future<bool> sendDeviceLoginCode(String email, String code) async {
     _log('sendDeviceLoginCode email=$email');
-    return await sendSimpleBleMsg(
-        'login.auth', {'email': email, 'otpToken': code});
+    return await sendSimpleBleMsg('login.auth', {
+      'email': email,
+      'otpToken': code,
+    });
   }
 
   // 解绑
   Future<bool> sendDeviceLogout() async {
-    return await sendSimpleBleMsg(
-      'logout',
-      null,
-      timeout: const Duration(seconds: 10),
-    );
+    return await sendSimpleBleMsg('logout', null);
   }
 
   // 可用 wifi
@@ -579,21 +572,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     state = state.copyWith(isScanningWifi: true);
     try {
       _log('⏳ 开始扫描附近Wi-Fi...');
-      final data = await sendBleMsg(
-        'wifi.scan',
-        null,
-        timeout: const Duration(seconds: 5),
-        retries: 0,
-      );
+      final data = await sendBleMsg('wifi.scan', null, retries: 0);
       if (data is List) {
         final networks = data
-            .map((e) => WifiAp(
-                  ssid: (e['ssid'] ?? '').toString(),
-                  rssi: int.tryParse((e['rawRssi'] ?? '0').toString()) ?? 0,
-                  secure: (e['secure'] == true),
-                  bssid: e['bssid']?.toString(),
-                  frequency: int.tryParse((e['frequency'] ?? '').toString()),
-                ))
+            .map(
+              (e) => WifiAp(
+                ssid: (e['ssid'] ?? '').toString(),
+                rssi: int.tryParse((e['rawRssi'] ?? '0').toString()) ?? 0,
+                secure: (e['secure'] == true),
+                bssid: e['bssid']?.toString(),
+                frequency: int.tryParse((e['frequency'] ?? '').toString()),
+              ),
+            )
             .toList();
         state = state.copyWith(
           wifiNetworks: networks,
@@ -614,11 +604,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   Future<bool> sendWifiConfig(String ssid, String password) async {
     _log('sendWifiConfig: ssid=$ssid');
     try {
-      final data = await sendBleMsg(
-        'wifi.config',
-        {'ssid': ssid, 'password': password},
-        timeout: const Duration(seconds: 10),
-      );
+      final data = await sendBleMsg('wifi.config', {
+        'ssid': ssid,
+        'password': password,
+      });
       // 成功时设备返回 data: {status: 'connected'}
       if (data is Map<String, dynamic>) {
         final s = data['status']?.toString();
@@ -637,12 +626,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
     try {
       state = state.copyWith(isCheckingNetwork: true);
-      final data = await sendBleMsg(
-        'network.status',
-        null,
-        timeout: const Duration(seconds: 5),
-        retries: 0,
-      );
+      final data = await sendBleMsg('network.status', null, retries: 0);
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
         state = state.copyWith(
@@ -754,7 +738,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
 final bleConnectionProvider =
     StateNotifierProvider<BleConnectionNotifier, BleConnectionState>((ref) {
-  final notifier = BleConnectionNotifier(ref);
-  ref.onDispose(() => notifier.dispose());
-  return notifier;
-});
+      final notifier = BleConnectionNotifier(ref);
+      ref.onDispose(() => notifier.dispose());
+      return notifier;
+    });

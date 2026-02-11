@@ -35,123 +35,130 @@ class ReliableRequestQueue {
 
   Future<void> prepare() async {
     _firstSendAfterPrepare = true;
-    _sub = BleServiceSimple.subscribeToIndications(
-      deviceId: deviceId,
-      serviceUuid: serviceUuid,
-      txCharacteristicUuid: txUuid,
-    ).listen((evt) async {
-      try {
-        // Log each incoming fragment with parsed header for debugging
-        if (evt.isNotEmpty && evt.length >= 10) {
-          int u8(int i) => evt[i] & 0xFF;
-          int u16(int i) => ((evt[i] & 0xFF) << 8) | (evt[i + 1] & 0xFF);
-          final ver = u8(0);
-          final flags = u8(1);
-          final reqId = u16(2);
-          final total = u16(4);
-          final index = u16(6);
-          final payloadLen = u16(8);
-          _log('RX frag ver=$ver flags=$flags req=$reqId ${index + 1}/$total len=${evt.length} payload=$payloadLen');
-        } else {
-          _log('RX frag len=${evt.length}');
-        }
-        final decoded = _decoder.addPacket(Uint8List.fromList(evt));
-        if (decoded != null) {
-          // Work with a guaranteed non-null map inside this block
-          Map<String, dynamic> msg = decoded;
-          // If post-handshake, require encrypted envelope for non-handshake messages
-          if (_unwrapDecrypt != null) {
+    _sub =
+        BleServiceSimple.subscribeToIndications(
+          deviceId: deviceId,
+          serviceUuid: serviceUuid,
+          txCharacteristicUuid: txUuid,
+        ).listen(
+          (evt) async {
             try {
-              final t = (msg['type'] ?? '').toString();
-              if (t == 'handshake_response') {
-                // handshake_response is allowed in plain during handshake phase (handlers not installed then)
-                // but in case we still see it here, just pass through
-              } else if (t == 'enc') {
-                msg = await _unwrapDecrypt!(msg);
+              // Log each incoming fragment with parsed header for debugging
+              if (evt.isNotEmpty && evt.length >= 10) {
+                int u8(int i) => evt[i] & 0xFF;
+                int u16(int i) => ((evt[i] & 0xFF) << 8) | (evt[i + 1] & 0xFF);
+                final ver = u8(0);
+                final flags = u8(1);
+                final reqId = u16(2);
+                final total = u16(4);
+                final index = u16(6);
+                final payloadLen = u16(8);
+                _log(
+                  'RX frag ver=$ver flags=$flags req=$reqId ${index + 1}/$total len=${evt.length} payload=$payloadLen',
+                );
               } else {
-                // Post-handshake plaintext is not allowed
-                final reqIdFromHeader = msg['hReqId'] as int?;
-                msg = {
-                  'type': 'error',
-                  'ok': false,
-                  'error': {
-                    'code': 'require_encrypted',
-                    'message': 'use encrypted envelope {type: "enc"}'
-                  },
-                  if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
-                  if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
-                };
+                _log('RX frag len=${evt.length}');
+              }
+              final decoded = _decoder.addPacket(Uint8List.fromList(evt));
+              if (decoded != null) {
+                // Work with a guaranteed non-null map inside this block
+                Map<String, dynamic> msg = decoded;
+                // If post-handshake, require encrypted envelope for non-handshake messages
+                if (_unwrapDecrypt != null) {
+                  try {
+                    final t = (msg['type'] ?? '').toString();
+                    if (t == 'handshake_response') {
+                      // handshake_response is allowed in plain during handshake phase (handlers not installed then)
+                      // but in case we still see it here, just pass through
+                    } else if (t == 'enc') {
+                      msg = await _unwrapDecrypt!(msg);
+                    } else {
+                      // Post-handshake plaintext is not allowed
+                      final reqIdFromHeader = msg['hReqId'] as int?;
+                      msg = {
+                        'type': 'error',
+                        'ok': false,
+                        'error': {
+                          'code': 'require_encrypted',
+                          'message': 'use encrypted envelope {type: "enc"}',
+                        },
+                        if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
+                        if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
+                      };
+                    }
+                  } catch (e) {
+                    // Decrypt failed: surface as error to the pending request
+                    final reqIdFromHeader = msg['hReqId'] as int?;
+                    msg = {
+                      'type': 'error',
+                      'ok': false,
+                      'error': {
+                        'code': 'decrypt_failed',
+                        'message': e.toString(),
+                      },
+                      if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
+                      if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
+                    };
+                  }
+                }
+                // Robustly extract reqId (support int or numeric string); fallback to header reqId
+                int? reqId;
+                final v = msg['reqId'];
+                if (v is int) {
+                  reqId = v;
+                } else if (v is String) {
+                  final p = int.tryParse(v);
+                  if (p != null) reqId = p;
+                }
+                reqId ??= msg['hReqId'] as int?;
+                _log('RX msg type=${msg['type']} reqId=$reqId');
+
+                _Pending? pending;
+                if (reqId != null) {
+                  pending = _inflight[reqId];
+                } else if (_inflight.length == 1) {
+                  // Fallback: if only one inflight, attribute to it
+                  pending = _inflight.values.first;
+                }
+
+                // Early-fail specific binding error to avoid pointless handshake timeout
+                try {
+                  final ok = (msg['ok'] == true);
+                  final err = msg['error'];
+                  final code = (err is Map && err['code'] is String)
+                      ? (err['code'] as String)
+                      : null;
+                  if (pending != null && !ok && code == 'user_mismatch') {
+                    if (reqId != null) _inflight.remove(reqId);
+                    pending.completer.completeError(UserMismatchException());
+                    return; // stop further processing for this fragment
+                  }
+                } catch (_) {
+                  // best effort; fall through
+                }
+                if (pending != null && !pending.completer.isCompleted) {
+                  final done = pending.isFinal == null
+                      ? true
+                      : pending.isFinal!(msg);
+                  if (done) {
+                    if (reqId != null) _inflight.remove(reqId);
+                    pending.completer.complete(msg);
+                  }
+                  // else: keep waiting for the final message for this reqId
+                } else {
+                  // Unsolicited or no matching in-flight request: publish as push event
+                  _eventsController.add(msg);
+                }
               }
             } catch (e) {
-              // Decrypt failed: surface as error to the pending request
-              final reqIdFromHeader = msg['hReqId'] as int?;
-              msg = {
-                'type': 'error',
-                'ok': false,
-                'error': {
-                  'code': 'decrypt_failed',
-                  'message': e.toString(),
-                },
-                if (reqIdFromHeader != null) 'hReqId': reqIdFromHeader,
-                if (reqIdFromHeader != null) 'reqId': reqIdFromHeader,
-              };
+              _log('Decoder/dispatch error: $e');
             }
-          }
-          // Robustly extract reqId (support int or numeric string); fallback to header reqId
-          int? reqId;
-          final v = msg['reqId'];
-          if (v is int) {
-            reqId = v;
-          } else if (v is String) {
-            final p = int.tryParse(v);
-            if (p != null) reqId = p;
-          }
-          reqId ??= msg['hReqId'] as int?;
-          _log('RX msg type=${msg['type']} reqId=$reqId');
-
-          _Pending? pending;
-          if (reqId != null) {
-            pending = _inflight[reqId];
-          } else if (_inflight.length == 1) {
-            // Fallback: if only one inflight, attribute to it
-            pending = _inflight.values.first;
-          }
-
-          // Early-fail specific binding error to avoid pointless handshake timeout
-          try {
-            final ok = (msg['ok'] == true);
-            final err = msg['error'];
-            final code = (err is Map && err['code'] is String)
-                ? (err['code'] as String)
-                : null;
-            if (pending != null && !ok && code == 'user_mismatch') {
-              if (reqId != null) _inflight.remove(reqId);
-              pending.completer.completeError(UserMismatchException());
-              return; // stop further processing for this fragment
-            }
-          } catch (_) {
-            // best effort; fall through
-          }
-          if (pending != null && !pending.completer.isCompleted) {
-            final done = pending.isFinal == null ? true : pending.isFinal!(msg);
-            if (done) {
-              if (reqId != null) _inflight.remove(reqId);
-              pending.completer.complete(msg);
-            }
-            // else: keep waiting for the final message for this reqId
-          } else {
-            // Unsolicited or no matching in-flight request: publish as push event
-            _eventsController.add(msg);
-          }
-        }
-      } catch (e) {
-        _log('Decoder/dispatch error: $e');
-      }
-    }, onError: (Object e, StackTrace st) {
-      // Do not crash app on characteristic update errors; just log and continue
-      _log('Subscribe error: $e');
-    });
-
+          },
+          onError: (Object e, StackTrace st) {
+            // Do not crash app on characteristic update errors; just log and continue
+            _log('Subscribe error: $e');
+          },
+        );
   }
 
   final Map<int, _Pending> _inflight = {};
@@ -168,83 +175,96 @@ class ReliableRequestQueue {
 
   Future<Map<String, dynamic>> send(
     Map<String, dynamic> json, {
-    Duration timeout = const Duration(seconds: 5),
+    Duration timeout = BleConstants.reliableQueueSendTimeout,
     int retries = 2,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
     return _serializeSend(() async {
-    final isFirstSendWindow = _firstSendAfterPrepare;
-    _firstSendAfterPrepare = false;
-    // Use negotiated MTU if available; fallback to safe minimum
-    final mtu = BleServiceSimple.getNegotiatedMtu(deviceId);
-    final encoder = FrameEncoder(mtu);
-    final reqId = (_nextReqId++ & 0xFFFF);
-    // Apply encryption wrapper if installed and not handshake
-    Map<String, dynamic> payload = json;
-    if (_wrapEncrypt != null) {
-      final t = (json['type'] ?? '').toString();
-      if (t != 'handshake_init') {
-        // Post-handshake: enforce encryption; if wrapper fails, do not fall back to plain
-        payload = await _wrapEncrypt!(json);
-      }
-    }
-    final frames = encoder.encodeJson(reqId, payload);
-    final completer = Completer<Map<String, dynamic>>();
-    _inflight.remove(reqId);
-    _inflight[reqId] = _Pending(completer, isFinal);
-
-    int attempt = 0;
-    while (attempt <= retries && !completer.isCompleted) {
-      attempt += 1;
-      _log('TX send reqId=$reqId attempt=$attempt frames=${frames.length}');
-      // 逐片写入 RX（withResponse）
-      bool okAll = true;
-      for (final pkt in frames) {
-        final ok = await BleServiceSimple.writeCharacteristic(
-          deviceId: deviceId,
-          serviceUuid: serviceUuid,
-          characteristicUuid: rxUuid,
-          data: pkt,
-          withResponse: true,
-        );
-        if (!ok) { okAll = false; break; }
-        await Future.delayed(Duration(milliseconds: 10));
-      }
-      if (!okAll) {
-        if (isFirstSendWindow) {
-          await Future.delayed(const Duration(milliseconds: 180));
+      final isFirstSendWindow = _firstSendAfterPrepare;
+      _firstSendAfterPrepare = false;
+      // Use negotiated MTU if available; fallback to safe minimum
+      final mtu = BleServiceSimple.getNegotiatedMtu(deviceId);
+      final encoder = FrameEncoder(mtu);
+      final reqId = (_nextReqId++ & 0xFFFF);
+      // Apply encryption wrapper if installed and not handshake
+      Map<String, dynamic> payload = json;
+      if (_wrapEncrypt != null) {
+        final t = (json['type'] ?? '').toString();
+        if (t != 'handshake_init') {
+          // Post-handshake: enforce encryption; if wrapper fails, do not fall back to plain
+          payload = await _wrapEncrypt!(json);
         }
-        await Future.delayed(Duration(milliseconds: 120));
-        continue;
       }
-      try {
-        final resp = await completer.future.timeout(timeout);
-        resp['reqId'] = reqId;
-        return resp;
-      } on TimeoutException {
-        _log('Timeout waiting for resp reqId=$reqId after ${timeout.inMilliseconds}ms');
-        if (attempt > retries) {
+      final frames = encoder.encodeJson(reqId, payload);
+      final completer = Completer<Map<String, dynamic>>();
+      _inflight.remove(reqId);
+      _inflight[reqId] = _Pending(completer, isFinal);
+
+      int attempt = 0;
+      while (attempt <= retries && !completer.isCompleted) {
+        attempt += 1;
+        _log(
+          'TX send reqId=$reqId attempt=$attempt frames=${frames.length} mtu=$mtu',
+        );
+        // 逐片写入 RX（withResponse）
+        bool okAll = true;
+        for (final pkt in frames) {
+          final ok = await BleServiceSimple.writeCharacteristic(
+            deviceId: deviceId,
+            serviceUuid: serviceUuid,
+            characteristicUuid: rxUuid,
+            data: pkt,
+            withResponse: true,
+          );
+          if (!ok) {
+            okAll = false;
+            break;
+          }
+          await Future.delayed(BleConstants.reliableQueueInterFrameDelay);
+        }
+        if (!okAll) {
+          if (isFirstSendWindow) {
+            await Future.delayed(
+              BleConstants.reliableQueueFirstSendExtraBackoff,
+            );
+          }
+          await Future.delayed(BleConstants.reliableQueueRetryBackoff);
+          continue;
+        }
+        try {
+          final resp = await completer.future.timeout(timeout);
+          resp['reqId'] = reqId;
+          return resp;
+        } on TimeoutException {
+          _log(
+            'Timeout waiting for resp reqId=$reqId after ${timeout.inMilliseconds}ms',
+          );
+          if (attempt > retries) {
+            _inflight.remove(reqId);
+            rethrow;
+          }
+          if (isFirstSendWindow) {
+            await Future.delayed(
+              BleConstants.reliableQueueFirstSendExtraBackoff,
+            );
+          }
+          // continue retry loop
+        } catch (e) {
+          // Propagate non-timeout errors (e.g., UserMismatchException) to caller immediately
           _inflight.remove(reqId);
           rethrow;
         }
-        if (isFirstSendWindow) {
-          await Future.delayed(const Duration(milliseconds: 180));
-        }
-        // continue retry loop
-      } catch (e) {
-        // Propagate non-timeout errors (e.g., UserMismatchException) to caller immediately
-        _inflight.remove(reqId);
-        rethrow;
       }
-    }
-    _inflight.remove(reqId);
-    throw TimeoutException('BLE request timeout');
+      _inflight.remove(reqId);
+      throw TimeoutException('BLE request timeout');
     });
   }
 
   void setCryptoHandlers({
-    required Future<Map<String, dynamic>> Function(Map<String, dynamic>) encrypt,
-    required Future<Map<String, dynamic>> Function(Map<String, dynamic>) decrypt,
+    required Future<Map<String, dynamic>> Function(Map<String, dynamic>)
+    encrypt,
+    required Future<Map<String, dynamic>> Function(Map<String, dynamic>)
+    decrypt,
   }) {
     _wrapEncrypt = encrypt;
     _unwrapDecrypt = decrypt;

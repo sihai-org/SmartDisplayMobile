@@ -27,7 +27,8 @@ class BleServiceSimple {
   // 每个设备的最近一次打印时间与RSSI，用于节流日志
   static final Map<String, DateTime> _lastLogAt = {};
   static final Map<String, int> _lastLogRssi = {};
-  static const Duration _perDeviceLogInterval = Duration(seconds: 3);
+  static const Duration _perDeviceLogInterval =
+      BleConstants.perDeviceLogInterval;
 
   // Track negotiated MTU per device for framing without re-requesting MTU each time
   static final Map<String, int> _mtuByDevice = {};
@@ -63,7 +64,7 @@ class BleServiceSimple {
 
   static Future<bool> waitForDisconnected({
     String? deviceId,
-    Duration timeout = const Duration(seconds: 2),
+    Duration timeout = BleConstants.waitForDisconnectedTimeout,
   }) async {
     if (!_hasActiveConnection) return true;
     try {
@@ -123,7 +124,7 @@ class BleServiceSimple {
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('requestMtu.fail(${elapsed}ms): $e');
-      return 23; // 默认最小MTU
+      return BleConstants.minMtu; // 默认最小MTU
     }
   }
 
@@ -141,7 +142,7 @@ class BleServiceSimple {
             (s) => s != BleStatus.unknown,
             orElse: () => BleStatus.unknown,
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(BleConstants.bleStatusCheckTimeout);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('checkBleStatus.done(${elapsed}ms) -> $status');
       return status;
@@ -198,7 +199,7 @@ class BleServiceSimple {
         }
       }
 
-      // 单次等 Ready（2s），失败再兜底等 2s
+      // 单次等 Ready，失败再兜底再等一次
       Future<BleStatus> waitReady(Duration t) => _ble.statusStream
           .timeout(t, onTimeout: (sink) {})
           .firstWhere(
@@ -207,8 +208,10 @@ class BleServiceSimple {
           );
 
       final w0 = DateTime.now();
-      var s = await waitReady(const Duration(seconds: 2));
-      if (s != BleStatus.ready) s = await waitReady(const Duration(seconds: 2));
+      var s = await waitReady(BleConstants.bleReadyWaitTimeout);
+      if (s != BleStatus.ready) {
+        s = await waitReady(BleConstants.bleReadyWaitTimeout);
+      }
       final wElapsed = DateTime.now().difference(w0).inMilliseconds;
       _logWithTime('status.waitReady.done(${wElapsed}ms) -> $s');
 
@@ -430,13 +433,12 @@ class BleServiceSimple {
   /// [attempt] 用于内部递归时标记第几次尝试，外部调用不要传
   static Future<BleDeviceData?> connectToDevice({
     required BleDeviceData bleDeviceData,
-    required Duration timeout,
     int attempt = 1,
   }) async {
     final t0 = DateTime.now();
     _sessionStart ??= t0;
     _log(
-      '🔗 connectToDevice 开始: id=${bleDeviceData.bleDeviceId}, timeout=${timeout.inSeconds}s',
+      '🔗 connectToDevice 开始: id=${bleDeviceData.bleDeviceId}, timeout=${BleConstants.connectToServiceTimeout}s',
     );
 
     bool sawGatt135 = false; // 👈 这一轮有没有遇到 135
@@ -448,7 +450,7 @@ class BleServiceSimple {
 
       final connectionStream = _ble.connectToDevice(
         id: bleDeviceData.bleDeviceId,
-        connectionTimeout: timeout,
+        connectionTimeout: BleConstants.connectToServiceTimeout,
       );
 
       final completer = Completer<BleDeviceData?>();
@@ -549,7 +551,10 @@ class BleServiceSimple {
       );
 
       // ▼ 超时兜底（会在 completeOnce 里被 cancel）
-      timer = Timer(timeout, () => completeOnce(null));
+      timer = Timer(
+        BleConstants.connectToServiceTimeout,
+        () => completeOnce(null),
+      );
       // ▲
 
       final res = await completer.future;
@@ -564,12 +569,8 @@ class BleServiceSimple {
           await disconnect(); // 把所有 subscription / state 清理掉
         } catch (_) {}
         // 冷却时间可以视设备情况调整，1~2 秒比较常见
-        await Future.delayed(const Duration(seconds: 2));
-        return connectToDevice(
-          bleDeviceData: bleDeviceData,
-          timeout: timeout,
-          attempt: 2,
-        );
+        await Future.delayed(BleConstants.connectGatt135Cooldown);
+        return connectToDevice(bleDeviceData: bleDeviceData, attempt: 2);
       }
 
       return res;
@@ -719,7 +720,7 @@ class BleServiceSimple {
       'ensureGattReady.discover.attempt1(${DateTime.now().difference(d0).inMilliseconds}ms) -> $ok',
     );
     if (!ok) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(BleConstants.discoverRetryDelay);
       final d1 = DateTime.now();
       ok = await discoverServices(deviceId);
       _logWithTime(
@@ -730,15 +731,20 @@ class BleServiceSimple {
     if (!ok) return false;
 
     // Request MTU once per connection; cache result for framing
+    final m0 = DateTime.now();
     if (Platform.isAndroid) {
       try {
-        final m0 = DateTime.now();
         final mtu = await requestMtu(deviceId, BleConstants.preferredMtu);
         if (mtu > 0) _mtuByDevice[deviceId] = mtu;
         _logWithTime(
-          'ensureGattReady.mtu(${DateTime.now().difference(m0).inMilliseconds}ms) -> $mtu',
+          'ensureGattReady.mtu(${DateTime.now().difference(m0).inMilliseconds}ms) -> ${_mtuByDevice[deviceId]} android',
         );
       } catch (_) {}
+    } else {
+      _mtuByDevice[deviceId] = BleConstants.iosWithResponseCapMtu;
+      _logWithTime(
+        'ensureGattReady.mtu(${DateTime.now().difference(m0).inMilliseconds}ms) -> ${_mtuByDevice[deviceId]} ios',
+      );
     }
 
     await Future.delayed(BleConstants.kStabilizeAfterMtu);
@@ -781,9 +787,7 @@ class BleServiceSimple {
       final firstElapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('writeCharacteristic.fail1(${firstElapsed}ms): $e');
       try {
-        await Future.delayed(
-          Duration(milliseconds: BleConstants.writeRetryDelayMs),
-        );
+        await Future.delayed(BleConstants.writeRetryDelay);
         if (withResponse) {
           await _ble.writeCharacteristicWithResponse(q, value: data);
         } else {

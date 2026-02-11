@@ -21,7 +21,6 @@ class SecureChannelImpl implements SecureChannel {
     required this.devicePublicKeyHex,
     required this.createQueue,
     required this.crypto,
-    this.connectTimeout = const Duration(seconds: 6),
   });
 
   @override
@@ -35,7 +34,6 @@ class SecureChannelImpl implements SecureChannel {
 
   final ReliableRequestQueue Function(String deviceId) createQueue;
   final CryptoService crypto;
-  final Duration connectTimeout;
 
   ReliableRequestQueue? _rq;
   StreamSubscription<Map<String, dynamic>>? _evtSub;
@@ -68,7 +66,7 @@ class SecureChannelImpl implements SecureChannel {
     if (_preparing) {
       // 等待并发的首次准备完成
       while (_preparing && !_authenticated && !_disposed) {
-        await Future.delayed(const Duration(milliseconds: 80));
+        await Future.delayed(BleConstants.prepareSpinWait);
       }
       if (_authenticated) return;
     }
@@ -89,14 +87,14 @@ class SecureChannelImpl implements SecureChannel {
         );
         final waitDisconnected = BleServiceSimple.waitForDisconnected(
           deviceId: previousDeviceId,
-          timeout: const Duration(seconds: 2),
+          timeout: BleConstants.waitForDisconnectedTimeout,
         );
         await BleServiceSimple.disconnect();
         final gotDisconnected = await waitDisconnected;
         if (!gotDisconnected) {
-          await Future.delayed(const Duration(milliseconds: 300));
+          await Future.delayed(BleConstants.connectPostDisconnectFallbackDelay);
         } else {
-          await Future.delayed(const Duration(milliseconds: 200));
+          await Future.delayed(BleConstants.connectPostDisconnectDelay);
         }
       }
 
@@ -112,8 +110,9 @@ class SecureChannelImpl implements SecureChannel {
       keyGenFuture = crypto.generateEphemeralKeyPair();
       final keyGenSw = Stopwatch()..start();
       var keyGenCompleted = false;
-      final mode =
-          kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug');
+      final mode = kReleaseMode
+          ? 'release'
+          : (kProfileMode ? 'profile' : 'debug');
       AppLog.instance.info(
         'keyGenFuture created (mode=$mode, isolate=${Isolate.current.hashCode})',
         tag: 'Channel',
@@ -126,24 +125,28 @@ class SecureChannelImpl implements SecureChannel {
           tag: 'Channel',
         );
       });
-      unawaited(Future<void>.delayed(const Duration(seconds: 3), () {
-        if (!keyGenCompleted) {
-          AppLog.instance.warning(
-            'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
-            tag: 'Channel',
-          );
-        }
-      }));
-      unawaited(Future<void>.delayed(const Duration(seconds: 15), () {
-        if (!keyGenCompleted) {
-          AppLog.instance.error(
-            'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
-            tag: 'Channel',
-            error: StateError('keyGenFuture appears stuck'),
-            stackTrace: StackTrace.current,
-          );
-        }
-      }));
+      unawaited(
+        Future<void>.delayed(BleConstants.keyGenWarnDelay, () {
+          if (!keyGenCompleted) {
+            AppLog.instance.warning(
+              'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+              tag: 'Channel',
+            );
+          }
+        }),
+      );
+      unawaited(
+        Future<void>.delayed(BleConstants.keyGenErrorDelay, () {
+          if (!keyGenCompleted) {
+            AppLog.instance.error(
+              'keyGenFuture still pending after ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+              tag: 'Channel',
+              error: StateError('keyGenFuture appears stuck'),
+              stackTrace: StackTrace.current,
+            );
+          }
+        }),
+      );
       // 收敛异常路径：即便中途失败未 await keyGenFuture，也不会出现未捕获异步错误
       keyGenSettled = keyGenFuture.catchError((e, st) {
         AppLog.instance.error(
@@ -161,7 +164,6 @@ class SecureChannelImpl implements SecureChannel {
           publicKey: devicePublicKeyHex,
           status: BleDeviceStatus.connecting,
         ),
-        timeout: connectTimeout,
       );
       if (data == null) throw StateError('连接失败');
 
@@ -194,15 +196,18 @@ class SecureChannelImpl implements SecureChannel {
         tag: 'Channel',
       );
       await keyGenFuture;
-      AppLog.instance.info("[ble_connection_provider] call getHandshakeInitData");
+      AppLog.instance.info(
+        "[ble_connection_provider] call getHandshakeInitData",
+      );
       final initObj = await crypto.getHandshakeInitData();
       if (userId.isNotEmpty) {
         initObj['userId'] = userId;
       }
-      AppLog.instance.info("[ble_connection_provider] handshake_init userId=${userId}");
+      AppLog.instance.info(
+        "[ble_connection_provider] handshake_init userId=${userId}",
+      );
       final resp = await _rq!.send(
         initObj,
-        timeout: const Duration(seconds: 8),
         retries: 1,
         isFinal: (m) => (m['type']?.toString() == 'handshake_response'),
       );
@@ -314,7 +319,7 @@ class SecureChannelImpl implements SecureChannel {
     }
     return _rq!.send(
       msg,
-      timeout: timeout ?? const Duration(seconds: 10),
+      timeout: timeout ?? BleConstants.reliableQueueSendTimeout,
       retries: retries,
       isFinal: isFinal,
     );

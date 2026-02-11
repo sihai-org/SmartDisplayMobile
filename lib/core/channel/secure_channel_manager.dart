@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../log/app_log.dart';
 import 'package:smart_display_mobile/core/ble/ble_scanner.dart';
+import 'package:smart_display_mobile/core/constants/ble_constants.dart';
 import 'package:smart_display_mobile/core/models/device_qr_data.dart';
 
 import 'secure_channel.dart';
@@ -12,8 +13,12 @@ class _CancelledError implements Exception {
   String toString() => 'SecureChannelManager: cancelled by newer generation';
 }
 
-typedef SecureChannelFactory = SecureChannel Function(
-    String displayDeviceId, String bleDeviceId, String devicePublicKeyHex);
+typedef SecureChannelFactory =
+    SecureChannel Function(
+      String displayDeviceId,
+      String bleDeviceId,
+      String devicePublicKeyHex,
+    );
 
 class SecureChannelManager {
   SecureChannelManager(this._factory, this._scanner);
@@ -77,7 +82,7 @@ class SecureChannelManager {
 
     // 并发保护（从这里开始包含复用与新建逻辑）
     while (_switching) {
-      await Future.delayed(const Duration(milliseconds: 60));
+      await Future.delayed(BleConstants.scanSwitchWait);
     }
     _switching = true;
     try {
@@ -109,7 +114,10 @@ class SecureChannelManager {
 
       // 创建新通道
       final ch = _factory(
-          targetDisplayDeviceId, targetBleDeviceId, targetDevicePublicKeyHex);
+        targetDisplayDeviceId,
+        targetBleDeviceId,
+        targetDevicePublicKeyHex,
+      );
       _creatingChannel = ch; // 标记为正在创建，确保失败时能 dispose
       // 连上（读取最新 userId，避免缓存过期）
       final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? "";
@@ -135,7 +143,10 @@ class SecureChannelManager {
       _creatingChannel = null;
       // 监听断开/蓝牙关闭，立刻清理引用
       _channelEvtSub = ch.events.listen((e) async {
-        AppLog.instance.debug("=============收到设备推送事件 ${e.toString()}", tag: 'Channel');
+        AppLog.instance.debug(
+          "=============收到设备推送事件 ${e.toString()}",
+          tag: 'Channel',
+        );
         final t = (e['type'] ?? '').toString();
         if (t == 'status') {
           final v = (e['value'] ?? '').toString();
@@ -172,7 +183,6 @@ class SecureChannelManager {
 
   Future<Map<String, dynamic>> send(
     Map<String, dynamic> msg, {
-    Duration? timeout,
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
@@ -185,7 +195,7 @@ class SecureChannelManager {
     _checkGen(ticket); // 中途被 clear/dispose 就直接抛 _CancelledError
 
     // 2. 发消息
-    return ch.send(msg, timeout: timeout, retries: retries, isFinal: isFinal);
+    return ch.send(msg, retries: retries, isFinal: isFinal);
   }
 
   /// Send a message only if the current channel is already authenticated/ready.
