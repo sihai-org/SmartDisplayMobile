@@ -270,13 +270,6 @@ class ProfilePage extends ConsumerWidget {
                   },
                 ),
                 if (kDebugMode)
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: const Text('BLE 一键测试'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push(AppRoutes.bleOneClickTest),
-                  ),
-                if (kDebugMode)
                   ValueListenableBuilder<AppEnvironmentStage>(
                     valueListenable: AppEnvironment.stage,
                     builder: (context, stage, _) {

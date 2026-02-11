@@ -13,7 +13,6 @@ import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
 import '../../presentation/pages/device_edit_page.dart';
-import '../../presentation/pages/ble_one_click_test_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
 import '../../presentation/pages/force_update_page.dart';
@@ -37,7 +36,6 @@ class AppRoutes {
   static const String deviceManagement = '/device-management';
   static const String accountSecurity = '/account-security';
   static const String deviceEdit = '/device-edit';
-  static const String bleOneClickTest = '/ble-one-click-test';
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
   static const String forceUpdate = '/force-update';
@@ -189,20 +187,6 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
         return BindConfirmPage(displayDeviceId: displayDeviceId);
-      },
-    ),
-
-    // Debug tools: BLE one-click test (only in debug builds)
-    GoRoute(
-      path: AppRoutes.bleOneClickTest,
-      name: 'ble-one-click-test',
-      builder: (context, state) {
-        if (!kDebugMode) {
-          return const Scaffold(
-            body: Center(child: Text('Not available in release build')),
-          );
-        }
-        return const BleOneClickTestPage();
       },
     ),
 
