@@ -27,9 +27,19 @@ class AppLog {
     _reportError(message, error: error, stackTrace: stackTrace, tag: tag);
   }
 
+  String _two(int n) => n.toString().padLeft(2, '0');
+  String _three(int n) => n.toString().padLeft(3, '0');
+
   void _local(String level, String message, {String? tag, Object? error, StackTrace? stackTrace}) {
+    final now = DateTime.now();
+    // 格式化时间：MM-dd HH:mm:ss.SSS
+    final time =
+        '${_two(now.month)}-${_two(now.day)} '
+        '${_two(now.hour)}:${_two(now.minute)}:${_two(now.second)}.'
+        '${_three(now.millisecond)}';
+
     final prefix = tag == null || tag.isEmpty ? level : '$level[$tag]';
-    final text = '$prefix $message';
+    final text = '$time $prefix $message';
     // Use debugPrint to avoid message truncation issues.
     debugPrint(text);
     if (error != null) {
