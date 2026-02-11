@@ -224,6 +224,9 @@ class SecureChannelImpl implements SecureChannel {
         _lastHandshakeStatus = null;
       }
 
+      AppLog.instance.info(
+        "[ble_connection_provider] 握手完成（resp 收到） _lastHandshakeStatus=${_lastHandshakeStatus}",
+      );
       _ensureNotDisposed('握手完成（resp 收到）');
       final parsed = crypto.parseHandshakeResponseMap(resp);
       final localPub = await crypto.getLocalPublicKey();
