@@ -10,8 +10,12 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+
+enum _PdfPreviewState { idle, loadingUrl, preparingPdf, ready, error }
 
 class TaskPdfPreviewPage extends StatefulWidget {
   const TaskPdfPreviewPage({super.key, required this.task});
@@ -29,9 +33,11 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
   bool _isDownloading = false;
   bool _isSharing = false;
-  bool _isPreparingPdf = false;
+  _PdfPreviewState _previewState = _PdfPreviewState.idle;
+  bool _retryPreparePhase = false;
   File? _cachedPdfFile;
-  String? _prepareError;
+  String? _pdfUrl;
+  String? _errorMessage;
   Future<File>? _inflightPdfFuture;
 
   @override
@@ -40,48 +46,162 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future<void>.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
-      _startPreparePdf();
+      _fetchPdfUrlAndPrepare();
     });
   }
 
   @override
   void didUpdateWidget(covariant TaskPdfPreviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldUrl = oldWidget.task?.pdfDownloadUrl?.trim() ?? '';
-    final newUrl = widget.task?.pdfDownloadUrl?.trim() ?? '';
-    if (oldUrl != newUrl) {
+    final oldTaskId = oldWidget.task?.id.trim() ?? '';
+    final newTaskId = widget.task?.id.trim() ?? '';
+    if (oldTaskId != newTaskId) {
       _cachedPdfFile = null;
-      _prepareError = null;
+      _pdfUrl = null;
+      _errorMessage = null;
+      _previewState = _PdfPreviewState.idle;
       _inflightPdfFuture = null;
-      _startPreparePdf();
+      _fetchPdfUrlAndPrepare();
     }
   }
 
-  void _startPreparePdf() {
-    final pdfUrl = widget.task?.pdfDownloadUrl?.trim() ?? '';
-    if (pdfUrl.isEmpty) return;
+  Future<void> _fetchPdfUrlAndPrepare() async {
+    final taskId = widget.task?.id.trim() ?? '';
+    if (taskId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _previewState = _PdfPreviewState.error;
+        _retryPreparePhase = false;
+        _errorMessage = '任务ID缺失';
+      });
+      return;
+    }
+
     setState(() {
-      _isPreparingPdf = true;
-      _prepareError = null;
+      _previewState = _PdfPreviewState.loadingUrl;
+      _retryPreparePhase = false;
+      _errorMessage = null;
+      _pdfUrl = null;
+      _cachedPdfFile = null;
+    });
+
+    try {
+      final url = await _fetchPdfDownloadUrl(taskId);
+      if (!mounted) return;
+      setState(() {
+        _pdfUrl = url;
+      });
+      _startPreparePdf();
+    } catch (e, stackTrace) {
+      _logError('fetchPdfUrl', e, stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _previewState = _PdfPreviewState.error;
+        _retryPreparePhase = false;
+        _errorMessage = _readableError(e);
+      });
+    }
+  }
+
+  Future<String> _fetchPdfDownloadUrl(String taskId) async {
+    final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      throw const HttpException('登录已过期，请重新登录');
+    }
+
+    final parsedTaskId = int.tryParse(taskId);
+    final body = <String, dynamic>{
+      'agent_task_id': parsedTaskId ?? taskId,
+    };
+
+    final response = await http.post(
+      Uri.parse('${AppEnvironment.apiServerUrl}/agent_task/deepresearch/get_pdf'),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Token': accessToken,
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw HttpException('HTTP ${response.statusCode}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    final pdfUrl = _extractPdfUrl(decoded);
+    if (pdfUrl == null || pdfUrl.isEmpty) {
+      throw const FormatException('无可用PDF链接');
+    }
+    return pdfUrl;
+  }
+
+  String? _extractPdfUrl(dynamic response) {
+    if (response is! Map) return null;
+    final map = response.map((k, v) => MapEntry(k.toString(), v));
+    final code = map['code'];
+    if (code != null && code != 200) return null;
+
+    final data = map['data'];
+    if (data is Map) {
+      final dataMap = data.map((k, v) => MapEntry(k.toString(), v));
+      final nested = _pickFirstString(dataMap, const [
+        'pdf_download_url',
+        'pdf_url',
+        'url',
+        'download_url',
+      ]);
+      if (nested != null) return nested;
+    }
+
+    return _pickFirstString(map, const [
+      'pdf_download_url',
+      'pdf_url',
+      'url',
+      'download_url',
+    ]);
+  }
+
+  String? _pickFirstString(Map<String, dynamic> map, List<String> keys) {
+    for (final key in keys) {
+      final value = map[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return null;
+  }
+
+  void _startPreparePdf() {
+    final pdfUrl = _pdfUrl?.trim() ?? '';
+    if (pdfUrl.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _previewState = _PdfPreviewState.error;
+        _retryPreparePhase = false;
+        _errorMessage = '暂无可预览文件';
+      });
+      return;
+    }
+    setState(() {
+      _previewState = _PdfPreviewState.preparingPdf;
+      _retryPreparePhase = true;
+      _errorMessage = null;
     });
     _resolveLocalPdfFile(pdfUrl)
         .then((file) {
           if (!mounted) return;
           setState(() {
             _cachedPdfFile = file;
+            _previewState = _PdfPreviewState.ready;
           });
         })
         .catchError((Object e, StackTrace stackTrace) {
           _logError('preparePdf', e, stackTrace);
           if (!mounted) return;
           setState(() {
-            _prepareError = _readableError(e);
-          });
-        })
-        .whenComplete(() {
-          if (!mounted) return;
-          setState(() {
-            _isPreparingPdf = false;
+            _previewState = _PdfPreviewState.error;
+            _retryPreparePhase = true;
+            _errorMessage = _readableError(e);
           });
         });
   }
@@ -326,7 +446,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
-    final pdfUrl = task?.pdfDownloadUrl?.trim() ?? '';
+    final pdfUrl = _pdfUrl?.trim() ?? '';
     final title = (task?.title.trim().isNotEmpty ?? false)
         ? task!.title
         : 'PDF预览';
@@ -394,51 +514,39 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
           ),
         ],
       ),
-      body: pdfUrl.isEmpty
-          ? const Center(child: Text('暂无可预览文件'))
-          : _buildPdfBody(pdfUrl),
+      body: _buildPdfBody(),
     );
   }
 
-  Widget _buildPdfBody(String pdfUrl) {
-    final cachedFile = _cachedPdfFile;
-    if (cachedFile != null) {
-      return SfPdfViewer.file(cachedFile);
+  Widget _buildPdfBody() {
+    switch (_previewState) {
+      case _PdfPreviewState.idle:
+        return const _PdfLoadingView(showIndicator: false);
+      case _PdfPreviewState.loadingUrl:
+      case _PdfPreviewState.preparingPdf:
+        return const _PdfLoadingView(showIndicator: true);
+      case _PdfPreviewState.ready:
+        final cachedFile = _cachedPdfFile;
+        if (cachedFile != null) {
+          return SfPdfViewer.file(cachedFile);
+        }
+        return const Center(child: Text('暂无可预览文件'));
+      case _PdfPreviewState.error:
+        final errorText = _errorMessage ?? '请稍后重试';
+        final retryAction = _retryPreparePhase
+            ? _startPreparePdf
+            : _fetchPdfUrlAndPrepare;
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('加载失败: $errorText'),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: retryAction, child: const Text('重试')),
+            ],
+          ),
+        );
     }
-    if (_isPreparingPdf) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('正在加载PDF...'),
-          ],
-        ),
-      );
-    }
-    if (_prepareError != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('加载失败: $_prepareError'),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _startPreparePdf, child: const Text('重试')),
-          ],
-        ),
-      );
-    }
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 12),
-          Text('正在加载PDF...'),
-        ],
-      ),
-    );
   }
 
   String _safeFileName(String name) {
@@ -450,5 +558,32 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   String _cacheFileNameFromUrl(String pdfUrl) {
     final digest = crypto.md5.convert(utf8.encode(pdfUrl)).toString();
     return 'pdf_cache_$digest.pdf';
+  }
+}
+
+class _PdfLoadingView extends StatelessWidget {
+  const _PdfLoadingView({required this.showIndicator});
+
+  final bool showIndicator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: showIndicator ? 1 : 0,
+            child: const SizedBox(
+              width: 36,
+              height: 36,
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('正在加载PDF...'),
+        ],
+      ),
+    );
   }
 }

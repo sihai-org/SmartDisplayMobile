@@ -5,7 +5,6 @@ class TaskVO {
   final String createTime;
   final String finishTime;
   final String type;
-  final String? pdfDownloadUrl;
 
   const TaskVO({
     required this.id,
@@ -14,7 +13,6 @@ class TaskVO {
     required this.createTime,
     required this.finishTime,
     required this.type,
-    this.pdfDownloadUrl,
   });
 }
 

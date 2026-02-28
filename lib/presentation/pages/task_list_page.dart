@@ -19,8 +19,6 @@ class TaskListPage extends StatefulWidget {
 
 class _TaskListPageState extends State<TaskListPage> {
   static const int _pageSize = 20;
-  static const String _mockPdfUrl =
-      'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
   final ScrollController _scrollController = ScrollController();
   final List<TaskVO> _items = [];
@@ -182,10 +180,6 @@ class _TaskListPageState extends State<TaskListPage> {
     final createTime = _stringValue(map, ['create_time']) ?? '';
     final finishTime = _stringValue(map, ['finish_time']) ?? '';
     final type = _stringValue(map, ['type']) ?? '';
-    final pdfDownloadUrl =
-        _stringValue(map, ['pdf_download_url']) ??
-        (status == TaskStatus.success ? _mockPdfUrl : null);
-
     return TaskVO(
       id: id,
       title: title,
@@ -193,9 +187,6 @@ class _TaskListPageState extends State<TaskListPage> {
       createTime: createTime,
       finishTime: finishTime,
       type: type,
-      // pdfDownloadUrl: pdfDownloadUrl,
-      // pdfDownloadUrl: "https://m.vzngpt.com/device_user_docs/2026%E5%85%A8%E7%90%83%E4%B8%AA%E4%BA%BA%E8%B5%84%E4%BA%A7%E4%B8%8E%E6%8A%95%E8%B5%84%E8%A1%8C%E4%B8%BA%E8%B6%8B%E5%8A%BF%E6%8A%A5%E5%91%8A.pdf"
-      pdfDownloadUrl: "https://91c937b6365042897cfba8b74f7fe349.r2.cloudflarestorage.com/smartdisplay-private/deepresearch/001/002/%E6%8A%A5%E5%91%8A.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=b394f54f779517304d5e9d69d326a4ba%2F20260228%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260228T082315Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=a586a43703d039f36308e79006741e6404c5810f8119ecbeb2762a8b4963ba20"
     );
   }
 
@@ -333,9 +324,7 @@ class _TaskListPageState extends State<TaskListPage> {
                     final task = _items[index];
                     final statusColor = _statusColor(context, task.status);
                     final isSuccess = task.status == TaskStatus.success;
-                    final hasPdf =
-                        (task.pdfDownloadUrl?.trim().isNotEmpty ?? false);
-                    final canPreviewPdf = isSuccess && hasPdf;
+                    final canPreviewPdf = isSuccess;
                     return Material(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
@@ -344,10 +333,6 @@ class _TaskListPageState extends State<TaskListPage> {
                         onTap: () {
                           if (!isSuccess) {
                             Fluttertoast.showToast(msg: '仅成功任务支持预览');
-                            return;
-                          }
-                          if (!hasPdf) {
-                            Fluttertoast.showToast(msg: '当前任务暂无PDF可预览');
                             return;
                           }
                           context.push(AppRoutes.taskPdfPreview, extra: task);
