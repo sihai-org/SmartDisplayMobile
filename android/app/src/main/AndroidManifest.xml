@@ -20,6 +20,9 @@
     <!-- Photo/Media access for gallery upload -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <!-- Internet permission for future use -->
     <uses-permission android:name="android.permission.INTERNET" />

@@ -3,14 +3,18 @@ class TaskVO {
   final String title;
   final String status;
   final String createTime;
+  final String finishTime;
   final String type;
+  final String? pdfDownloadUrl;
 
   const TaskVO({
     required this.id,
     required this.title,
     required this.status,
     required this.createTime,
+    required this.finishTime,
     required this.type,
+    this.pdfDownloadUrl,
   });
 }
 

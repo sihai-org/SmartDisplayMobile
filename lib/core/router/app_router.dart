@@ -16,10 +16,12 @@ import '../../presentation/pages/device_edit_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
 import '../../presentation/pages/task_list_page.dart';
+import '../../presentation/pages/task_pdf_preview_page.dart';
 import '../../presentation/pages/force_update_page.dart';
 import '../../presentation/pages/serial_number_stats_page.dart';
 import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
+import '../models/task_vo.dart';
 import '../audit/audit_mode.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -39,6 +41,7 @@ class AppRoutes {
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
   static const String taskList = '/tasks';
+  static const String taskPdfPreview = '/task-pdf-preview';
   static const String forceUpdate = '/force-update';
   static const String serialNumberStats = '/serial-number-stats';
 }
@@ -212,6 +215,15 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.taskList,
       name: 'task-list',
       builder: (context, state) => const TaskListPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.taskPdfPreview,
+      name: 'task-pdf-preview',
+      builder: (context, state) {
+        final task = state.extra as TaskVO?;
+        return TaskPdfPreviewPage(task: task);
+      },
     ),
 
     // 编号统计（入口有灰度）
