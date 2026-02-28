@@ -22,10 +22,7 @@ class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   void _showTopToast(BuildContext context, String message) {
-    Fluttertoast.showToast(
-      msg: message,
-      gravity: ToastGravity.TOP,
-    );
+    Fluttertoast.showToast(msg: message, gravity: ToastGravity.TOP);
   }
 
   // 只退出，不解绑（暂不调用 edge function: account_signout）
@@ -75,14 +72,15 @@ class ProfilePage extends ConsumerWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
+          color: Colors.grey[600],
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
-  Widget _whiteListSection(BuildContext context, {
+  Widget _whiteListSection(
+    BuildContext context, {
     required List<Widget> tiles,
   }) {
     return Container(
@@ -113,7 +111,9 @@ class ProfilePage extends ConsumerWidget {
     final saved = ref.watch(savedDevicesProvider);
     final locale = ref.watch(localeProvider);
     final devicesCount = saved.devices.length;
-    final Uri helpUri = Uri.parse('https://ccns7n13cske.feishu.cn/wiki/ZuTwwMAjxixf9LklncicER1Mnib?from=from_copylink');
+    final Uri helpUri = Uri.parse(
+      'https://ccns7n13cske.feishu.cn/wiki/ZuTwwMAjxixf9LklncicER1Mnib?from=from_copylink',
+    );
 
     final user = Supabase.instance.client.auth.currentUser;
     final displayName = (user?.userMetadata?['name'] as String?)?.trim();
@@ -167,8 +167,12 @@ class ProfilePage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        devicesCount > 0 ? l10n.devices_count(devicesCount) : l10n.empty_saved_devices,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                        devicesCount > 0
+                            ? l10n.devices_count(devicesCount)
+                            : l10n.empty_saved_devices,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
@@ -181,19 +185,32 @@ class ProfilePage extends ConsumerWidget {
           _sectionHeader(context, l10n.app_info),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _whiteListSection(context,
-            tiles: [
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                title: Text(l10n.app_name),
-                trailing: Text(AppConstants.appName, style: Theme.of(context).textTheme.bodyMedium),
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                title: Text(l10n.version),
-                trailing: Text(AppConstants.appVersion, style: Theme.of(context).textTheme.bodyMedium),
-              ),
-            ],
+            child: _whiteListSection(
+              context,
+              tiles: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  title: Text(l10n.app_name),
+                  trailing: Text(
+                    AppConstants.appName,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  title: Text(l10n.version),
+                  trailing: Text(
+                    AppConstants.appVersion,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -201,7 +218,8 @@ class ProfilePage extends ConsumerWidget {
           _sectionHeader(context, l10n.settings_title),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _whiteListSection(context,
+            child: _whiteListSection(
+              context,
               tiles: [
                 if (showSerialNumberStats)
                   ListTile(
@@ -222,8 +240,12 @@ class ProfilePage extends ConsumerWidget {
                   trailing: Text(
                     locale == null
                         ? l10n.language_system
-                        : (locale.languageCode == 'zh' ? l10n.language_zh : l10n.language_en),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                        : (locale.languageCode == 'zh'
+                              ? l10n.language_zh
+                              : l10n.language_en),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   onTap: () async {
                     final picked = await showDialog<Locale?>(
@@ -240,11 +262,13 @@ class ProfilePage extends ConsumerWidget {
                             child: SizedBox.shrink(),
                           ),
                           SimpleDialogOption(
-                            onPressed: () => Navigator.pop(context, const Locale('en')),
+                            onPressed: () =>
+                                Navigator.pop(context, const Locale('en')),
                             child: Text(l10n.language_en),
                           ),
                           SimpleDialogOption(
-                            onPressed: () => Navigator.pop(context, const Locale('zh')),
+                            onPressed: () =>
+                                Navigator.pop(context, const Locale('zh')),
                             child: Text(l10n.language_zh),
                           ),
                         ],
@@ -263,6 +287,12 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: const Text('任务'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.taskList),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.bluetooth_settings),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
@@ -274,13 +304,18 @@ class ProfilePage extends ConsumerWidget {
                     valueListenable: AppEnvironment.stage,
                     builder: (context, stage, _) {
                       return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
                         title: const Text('切换预发环境'),
                         subtitle: Text('当前：${AppEnvironment.label}'),
                         trailing: const Icon(Icons.swap_horiz),
                         onTap: () {
                           AppEnvironment.toggle();
-                          _showTopToast(context, '已切换至${AppEnvironment.label}环境');
+                          _showTopToast(
+                            context,
+                            '已切换至${AppEnvironment.label}环境',
+                          );
                         },
                       );
                     },
@@ -301,7 +336,8 @@ class ProfilePage extends ConsumerWidget {
           _sectionHeader(context, l10n.about),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _whiteListSection(context,
+            child: _whiteListSection(
+              context,
               tiles: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -319,7 +355,10 @@ class ProfilePage extends ConsumerWidget {
                   title: Text(l10n.feedback),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    _showTopToast(context, '${l10n.feedback} - ${l10n.google_signin_placeholder}');
+                    _showTopToast(
+                      context,
+                      '${l10n.feedback} - ${l10n.google_signin_placeholder}',
+                    );
                   },
                 ),
               ],

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
@@ -105,7 +106,7 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
     setState(() => _isReporting = true);
     try {
       final response = await http.post(
-        Uri.parse('https://api.smartdisplay.vzngpt.com/monitorapp/report'),
+        Uri.parse('${AppEnvironment.apiServerUrl}/monitorapp/report'),
         headers: {
           'X-Device-Id': 'test',
           'X-Access-Token': accessToken,

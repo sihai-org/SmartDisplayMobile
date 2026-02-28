@@ -15,13 +15,13 @@ import '../../presentation/pages/account_security_page.dart';
 import '../../presentation/pages/device_edit_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
+import '../../presentation/pages/task_list_page.dart';
 import '../../presentation/pages/force_update_page.dart';
 import '../../presentation/pages/serial_number_stats_page.dart';
 import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
 import '../audit/audit_mode.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:flutter/foundation.dart';
 
 /// App routes
 class AppRoutes {
@@ -38,6 +38,7 @@ class AppRoutes {
   static const String deviceEdit = '/device-edit';
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
+  static const String taskList = '/tasks';
   static const String forceUpdate = '/force-update';
   static const String serialNumberStats = '/serial-number-stats';
 }
@@ -47,9 +48,7 @@ final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
   // 采集导航面包屑/性能
-  observers: <NavigatorObserver>[
-    SentryNavigatorObserver(),
-  ],
+  observers: <NavigatorObserver>[SentryNavigatorObserver()],
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final loggedIn = session != null || AuditMode.enabled;
@@ -109,7 +108,6 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
-
     // QR Scanner Page
     GoRoute(
       path: AppRoutes.qrScanner,
@@ -165,7 +163,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.deviceConnection,
       name: 'device-connection',
       builder: (context, state) {
-        final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
+        final displayDeviceId =
+            state.uri.queryParameters['displayDeviceId'] ?? '';
         return DeviceConnectionPage(displayDeviceId: displayDeviceId);
       },
     ),
@@ -175,8 +174,11 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.wifiSelection,
       name: 'wifi-selection',
       builder: (context, state) {
-        final scannedDisplayDeviceId = state.uri.queryParameters['scannedDisplayDeviceId'];
-        return WiFiSelectionPage(scannedDisplayDeviceId: scannedDisplayDeviceId);
+        final scannedDisplayDeviceId =
+            state.uri.queryParameters['scannedDisplayDeviceId'];
+        return WiFiSelectionPage(
+          scannedDisplayDeviceId: scannedDisplayDeviceId,
+        );
       },
     ),
 
@@ -185,7 +187,8 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.bindConfirm,
       name: 'bind-confirm',
       builder: (context, state) {
-        final displayDeviceId = state.uri.queryParameters['displayDeviceId'] ?? '';
+        final displayDeviceId =
+            state.uri.queryParameters['displayDeviceId'] ?? '';
         return BindConfirmPage(displayDeviceId: displayDeviceId);
       },
     ),
@@ -205,6 +208,12 @@ final GoRouter appRouter = GoRouter(
       },
     ),
 
+    GoRoute(
+      path: AppRoutes.taskList,
+      name: 'task-list',
+      builder: (context, state) => const TaskListPage(),
+    ),
+
     // 编号统计（入口有灰度）
     GoRoute(
       path: AppRoutes.serialNumberStats,
@@ -217,18 +226,12 @@ final GoRouter appRouter = GoRouter(
   errorBuilder: (context, state) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.page_not_found),
-      ),
+      appBar: AppBar(title: Text(l10n.page_not_found)),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(
               l10n.page_not_found,

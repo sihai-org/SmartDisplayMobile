@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
@@ -147,8 +148,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
       final accessToken =
           Supabase.instance.client.auth.currentSession?.accessToken;
       final response = await http.post(
-        Uri.parse(
-            'https://api.smartdisplay.vzngpt.com/meeting/query_meeting_task'),
+        Uri.parse('${AppEnvironment.apiServerUrl}/meeting/query_meeting_task'),
         headers: {
           'Content-Type': 'application/json',
           if (accessToken != null && accessToken.isNotEmpty)
