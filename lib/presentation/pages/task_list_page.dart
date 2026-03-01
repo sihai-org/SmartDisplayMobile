@@ -177,8 +177,22 @@ class _TaskListPageState extends State<TaskListPage> {
     final id = _stringValue(map, ['id']) ?? '';
     final title = _stringValue(map, ['title']) ?? '未命名任务';
     final status = _normalizeStatus(_stringValue(map, ['status']) ?? '');
-    final createTime = _stringValue(map, ['create_time']) ?? '';
-    final finishTime = _stringValue(map, ['finish_time']) ?? '';
+    final createTime =
+        _stringValue(map, [
+          'createTime',
+          'create_time',
+          'created_at',
+          'createdAt',
+        ]) ??
+        '';
+    final finishTime =
+        _stringValue(map, [
+          'finishTime',
+          'finish_time',
+          'finished_at',
+          'finishAt',
+        ]) ??
+        '';
     final type = _stringValue(map, ['type']) ?? '';
     return TaskVO(
       id: id,
@@ -218,6 +232,50 @@ class _TaskListPageState extends State<TaskListPage> {
       default:
         return TaskStatus.pending;
     }
+  }
+
+  String _formatCreateTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '--';
+    final parsed = _parseServerDateTime(raw);
+    if (parsed == null) return trimmed;
+    final local = parsed.toLocal();
+    final year = local.year.toString().padLeft(4, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$year-$month-$day $hour:$minute';
+  }
+
+  DateTime? _parseServerDateTime(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    final unixMillis = int.tryParse(trimmed);
+    if (unixMillis != null) {
+      if (trimmed.length >= 13) {
+        return DateTime.fromMillisecondsSinceEpoch(unixMillis, isUtc: true);
+      }
+      if (trimmed.length == 10) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          unixMillis * 1000,
+          isUtc: true,
+        );
+      }
+    }
+
+    var normalized = trimmed.replaceFirst(' ', 'T');
+    normalized = normalized.replaceAll(
+      RegExp(r'([+-]\d{2})(\d{2})$'),
+      r'$1:$2',
+    );
+    normalized = normalized.replaceFirstMapped(
+      RegExp(r'([+-]\d{2})$'),
+      (match) => '${match[1]}:00',
+    );
+
+    return DateTime.tryParse(normalized);
   }
 
   Color _statusColor(BuildContext context, String status) {
@@ -386,8 +444,10 @@ class _TaskListPageState extends State<TaskListPage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '创建时间: ${task.createTime}',
-                                      style: Theme.of(context).textTheme.bodySmall
+                                      '创建时间: ${_formatCreateTime(task.createTime)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
                                           ?.copyWith(color: Colors.grey[600]),
                                     ),
                                   ),

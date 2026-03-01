@@ -23,6 +23,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/log/app_log.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'data/repositories/device_customization_repository.dart';
+import 'core/utils/app_cache_cleanup.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -129,6 +130,11 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       await DeviceCustomizationRepository().clearCurrentUserData(
         fallbackUserId: userId ?? _lastSignedInUserId,
       );
+    } catch (_) {}
+
+    // 6) 清理应用临时缓存（如 PDF 预览缓存）
+    try {
+      await AppCacheCleanup.clearOnLogout();
     } catch (_) {}
 
     AppLog.instance.info('_performGlobalCleanup end', tag: 'App');

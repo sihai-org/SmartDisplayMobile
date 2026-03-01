@@ -44,25 +44,59 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      // await Future<void>.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
-      _fetchPdfUrlAndPrepare();
+      _preparePdfOfflineFirst();
     });
   }
 
   @override
   void didUpdateWidget(covariant TaskPdfPreviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldTaskId = oldWidget.task?.id.trim() ?? '';
-    final newTaskId = widget.task?.id.trim() ?? '';
-    if (oldTaskId != newTaskId) {
+    final oldCacheIdentity = _cacheIdentityForTask(oldWidget.task);
+    final newCacheIdentity = _cacheIdentityForTask(widget.task);
+    if (oldCacheIdentity != newCacheIdentity) {
       _cachedPdfFile = null;
       _pdfUrl = null;
       _errorMessage = null;
       _previewState = _PdfPreviewState.idle;
       _inflightPdfFuture = null;
-      _fetchPdfUrlAndPrepare();
+      _preparePdfOfflineFirst();
     }
+  }
+
+  Future<void> _preparePdfOfflineFirst() async {
+    final taskId = widget.task?.id.trim() ?? '';
+    if (taskId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _previewState = _PdfPreviewState.error;
+        _retryPreparePhase = false;
+        _errorMessage = '任务ID缺失';
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _previewState = _PdfPreviewState.preparingPdf;
+        _retryPreparePhase = false;
+        _errorMessage = null;
+      });
+    }
+
+    final cachedFile = await _readValidCachedPdfForTask();
+    if (cachedFile != null) {
+      if (!mounted) return;
+      setState(() {
+        _cachedPdfFile = cachedFile;
+        _previewState = _PdfPreviewState.ready;
+        _retryPreparePhase = true;
+      });
+      return;
+    }
+
+    await _fetchPdfUrlAndPrepare();
   }
 
   Future<void> _fetchPdfUrlAndPrepare() async {
@@ -213,7 +247,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     });
 
     try {
-      final localPdfFile = await _resolveLocalPdfFile(pdfUrl);
+      final localPdfFile = await _getShareablePdfFile(pdfUrl);
       if (mounted) {
         setState(() {
           _cachedPdfFile = localPdfFile;
@@ -226,6 +260,26 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       }
 
       if (Platform.isAndroid) {
+        if (pdfUrl.trim().isEmpty) {
+          final fileToShare = await _prepareShareFile(
+            localPdfFile,
+            displayFileName,
+          );
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [
+                XFile(
+                  fileToShare.path,
+                  mimeType: 'application/pdf',
+                  name: displayFileName,
+                ),
+              ],
+              text: displayFileName,
+            ),
+          );
+          Fluttertoast.showToast(msg: '链接已失效，已打开本地文件导出');
+          return;
+        }
         await _downloadPdfOnAndroid(pdfUrl, displayFileName);
         return;
       }
@@ -250,7 +304,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     });
 
     try {
-      final localPdfFile = await _resolveLocalPdfFile(pdfUrl);
+      final localPdfFile = await _getShareablePdfFile(pdfUrl);
       if (mounted) {
         setState(() {
           _cachedPdfFile = localPdfFile;
@@ -390,17 +444,34 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     });
   }
 
-  Future<File> _downloadToCacheIfNeeded(String pdfUrl) async {
-    final dir = await getTemporaryDirectory();
-    final cacheFileName = _cacheFileNameFromUrl(pdfUrl);
-    final file = File('${dir.path}/$cacheFileName');
-    final exists = await file.exists();
-    if (exists) {
-      final length = await file.length();
-      if (length > 0) {
-        return file;
-      }
+  Future<File> _getShareablePdfFile(String pdfUrl) async {
+    final existingCached = await _readValidCachedPdfForTask();
+    if (existingCached != null) {
+      return existingCached;
     }
+    if (pdfUrl.trim().isNotEmpty) {
+      return _resolveLocalPdfFile(pdfUrl);
+    }
+    throw const HttpException('暂无可分享文件');
+  }
+
+  Future<File?> _readValidCachedPdfForTask() async {
+    final dir = await getTemporaryDirectory();
+    final cacheFileName = _cacheFileNameForTask(widget.task);
+    final file = File('${dir.path}/$cacheFileName');
+    if (!await file.exists()) return null;
+    if (await file.length() <= 0) return null;
+    return file;
+  }
+
+  Future<File> _downloadToCacheIfNeeded(String pdfUrl) async {
+    final cached = await _readValidCachedPdfForTask();
+    if (cached != null) {
+      return cached;
+    }
+    final dir = await getTemporaryDirectory();
+    final cacheFileName = _cacheFileNameForTask(widget.task);
+    final file = File('${dir.path}/$cacheFileName');
 
     final response = await http.get(Uri.parse(pdfUrl));
     if (response.statusCode != 200) {
@@ -460,9 +531,11 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
         actions: [
           if (Platform.isAndroid)
             TextButton(
-              onPressed: pdfUrl.isEmpty || _isDownloading
+              onPressed: _isDownloading
                   ? null
-                  : () => _downloadPdf(pdfUrl, displayFileName),
+                  : (pdfUrl.isNotEmpty || _cachedPdfFile != null
+                        ? () => _downloadPdf(pdfUrl, displayFileName)
+                        : null),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 0),
                 minimumSize: const Size(0, 36),
@@ -489,8 +562,10 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
           TextButton(
             onPressed: pdfUrl.isEmpty || _isSharing
-                ? null
-                : () => _sharePdf(pdfUrl, displayFileName),
+                    ? (_cachedPdfFile == null || _isSharing
+                          ? null
+                          : () => _sharePdf('', displayFileName))
+                    : () => _sharePdf(pdfUrl, displayFileName),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 0),
               minimumSize: const Size(0, 36),
@@ -555,8 +630,17 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     return fallback.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
   }
 
-  String _cacheFileNameFromUrl(String pdfUrl) {
-    final digest = crypto.md5.convert(utf8.encode(pdfUrl)).toString();
+  String _cacheIdentityForTask(TaskVO? task) {
+    final taskId = task?.id.trim() ?? '';
+    final createTime = task?.createTime.trim() ?? '';
+    final finishTime = task?.finishTime.trim() ?? '';
+    return '$taskId|$createTime|$finishTime';
+  }
+
+  String _cacheFileNameForTask(TaskVO? task) {
+    final identity = _cacheIdentityForTask(task);
+    // Keep filename stable and short; hash the identity triple.
+    final digest = crypto.md5.convert(utf8.encode(identity)).toString();
     return 'pdf_cache_$digest.pdf';
   }
 }

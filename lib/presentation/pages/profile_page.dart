@@ -17,6 +17,7 @@ import '../../core/log/app_log.dart';
 import '../../core/constants/app_environment.dart';
 import '../../core/providers/gray_key_map_provider.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/utils/app_cache_cleanup.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -40,6 +41,9 @@ class ProfilePage extends ConsumerWidget {
       } catch (_) {}
       try {
         ref.read(grayKeyMapProvider.notifier).clear();
+      } catch (_) {}
+      try {
+        await AppCacheCleanup.clearOnLogout();
       } catch (_) {}
       ref.read(auditModeProvider.notifier).disable();
       if (!context.mounted) return;
