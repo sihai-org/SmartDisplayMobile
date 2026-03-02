@@ -311,5 +311,62 @@
   "force_update_title": "Update Required",
   "force_update_message": "Please update to the latest version to continue.",
   "force_update_button": "Update Now",
-  "force_update_download_via_web": "Download via browser"
+  "force_update_download_via_web": "Download via browser",
+  "task_menu_item": "Tasks",
+  "task_list_title": "Tasks",
+  "task_unnamed": "Untitled task",
+  "task_loading_data": "Loading data...",
+  "task_empty": "No tasks yet",
+  "task_preview_only_success": "Only successful tasks can be previewed",
+  "task_status_pending": "Pending",
+  "task_status_running": "Running",
+  "task_status_success": "Success",
+  "task_status_failed": "Failed",
+  "task_status_cancelled": "Cancelled",
+  "task_created_time": "Created: {time}",
+  "@task_created_time": {
+    "placeholders": {
+      "time": {}
+    }
+  },
+  "task_view_result": "View result",
+  "task_pdf_default_title": "PDF Preview",
+  "task_pdf_missing_task_id": "Missing task ID",
+  "task_pdf_no_available_link": "No PDF link available",
+  "task_pdf_no_preview_file": "No preview file available",
+  "task_pdf_link_expired_open_local_export": "Link expired, local export is opened",
+  "task_pdf_file_cached": "File cached: {path}",
+  "@task_pdf_file_cached": {
+    "placeholders": {
+      "path": {}
+    }
+  },
+  "task_pdf_download_failed": "Download failed: {error}",
+  "@task_pdf_download_failed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "task_pdf_share_failed": "Share failed: {error}",
+  "@task_pdf_share_failed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "task_pdf_missing_storage_permission": "Missing storage permission, unable to download",
+  "task_pdf_download_started": "Download started, check Downloads later",
+  "task_pdf_no_shareable_file": "No file available to share",
+  "task_pdf_network_error": "Network error, please check connection",
+  "task_pdf_invalid_link": "Invalid link format",
+  "task_pdf_retry_later": "Please try again later",
+  "task_pdf_load_failed": "Load failed: {error}",
+  "@task_pdf_load_failed": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "task_pdf_retry": "Retry",
+  "task_pdf_download": "Download",
+  "task_pdf_share": "Share",
+  "task_pdf_loading": "Loading PDF..."
 }

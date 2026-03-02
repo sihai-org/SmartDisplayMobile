@@ -7,6 +7,7 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -175,7 +176,7 @@ class _TaskListPageState extends State<TaskListPage> {
     final map = raw.map((key, value) => MapEntry(key.toString(), value));
 
     final id = _stringValue(map, ['id']) ?? '';
-    final title = _stringValue(map, ['title']) ?? '未命名任务';
+    final title = _stringValue(map, ['title']) ?? '';
     final status = _normalizeStatus(_stringValue(map, ['status']) ?? '');
     final createTime =
         _stringValue(map, [
@@ -295,10 +296,32 @@ class _TaskListPageState extends State<TaskListPage> {
     }
   }
 
+  String _statusLabel(BuildContext context, String status) {
+    final l10n = context.l10n;
+    switch (status) {
+      case TaskStatus.pending:
+        return l10n.task_status_pending;
+      case TaskStatus.running:
+        return l10n.task_status_running;
+      case TaskStatus.success:
+        return l10n.task_status_success;
+      case TaskStatus.failed:
+        return l10n.task_status_failed;
+      case TaskStatus.cancelled:
+        return l10n.task_status_cancelled;
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('任务'), leading: const BackButton()),
+      appBar: AppBar(
+        title: Text(l10n.task_list_title),
+        leading: const BackButton(),
+      ),
       body: RefreshIndicator(
         displacement: 12,
         edgeOffset: 0,
@@ -314,12 +337,12 @@ class _TaskListPageState extends State<TaskListPage> {
                     height: constraints.maxHeight,
                     child: Center(
                       child: _isLoading
-                          ? const Column(
+                          ? Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                CircularProgressIndicator(),
+                                const CircularProgressIndicator(),
                                 SizedBox(height: 12),
-                                Text('正在获取数据...'),
+                                Text(l10n.task_loading_data),
                               ],
                             )
                           : Column(
@@ -341,7 +364,10 @@ class _TaskListPageState extends State<TaskListPage> {
                                   ),
                                 ),
                                 SizedBox(height: 16),
-                                Text('暂无任务', textAlign: TextAlign.center),
+                                Text(
+                                  l10n.task_empty,
+                                  textAlign: TextAlign.center,
+                                ),
                               ],
                             ),
                     ),
@@ -390,7 +416,9 @@ class _TaskListPageState extends State<TaskListPage> {
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
                           if (!isSuccess) {
-                            Fluttertoast.showToast(msg: '仅成功任务支持预览');
+                            Fluttertoast.showToast(
+                              msg: l10n.task_preview_only_success,
+                            );
                             return;
                           }
                           context.push(AppRoutes.taskPdfPreview, extra: task);
@@ -407,7 +435,9 @@ class _TaskListPageState extends State<TaskListPage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      task.title,
+                                      task.title.trim().isEmpty
+                                          ? l10n.task_unnamed
+                                          : task.title,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium,
@@ -427,7 +457,7 @@ class _TaskListPageState extends State<TaskListPage> {
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
-                                      task.status,
+                                      _statusLabel(context, task.status),
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -444,7 +474,9 @@ class _TaskListPageState extends State<TaskListPage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '创建时间: ${_formatCreateTime(task.createTime)}',
+                                      l10n.task_created_time(
+                                        _formatCreateTime(task.createTime),
+                                      ),
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -453,7 +485,7 @@ class _TaskListPageState extends State<TaskListPage> {
                                   ),
                                   if (canPreviewPdf)
                                     Text(
-                                      '查看结果',
+                                      l10n.task_view_result,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
@@ -482,7 +514,7 @@ class _TaskListPageState extends State<TaskListPage> {
                               if (!_isRefreshing)
                                 const CircularProgressIndicator(),
                               if (!_isRefreshing) const SizedBox(height: 12),
-                              const Text('正在获取数据...'),
+                              Text(l10n.task_loading_data),
                             ],
                           ),
                         ),

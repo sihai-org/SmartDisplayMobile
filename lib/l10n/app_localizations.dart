@@ -1708,6 +1708,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download via browser'**
   String get force_update_download_via_web;
+
+  /// No description provided for @task_menu_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get task_menu_item;
+
+  /// No description provided for @task_list_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get task_list_title;
+
+  /// No description provided for @task_unnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled task'**
+  String get task_unnamed;
+
+  /// No description provided for @task_loading_data.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading data...'**
+  String get task_loading_data;
+
+  /// No description provided for @task_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks yet'**
+  String get task_empty;
+
+  /// No description provided for @task_preview_only_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Only successful tasks can be previewed'**
+  String get task_preview_only_success;
+
+  /// No description provided for @task_status_pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get task_status_pending;
+
+  /// No description provided for @task_status_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get task_status_running;
+
+  /// No description provided for @task_status_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Success'**
+  String get task_status_success;
+
+  /// No description provided for @task_status_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get task_status_failed;
+
+  /// No description provided for @task_status_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get task_status_cancelled;
+
+  /// No description provided for @task_created_time.
+  ///
+  /// In en, this message translates to:
+  /// **'Created: {time}'**
+  String task_created_time(Object time);
+
+  /// No description provided for @task_view_result.
+  ///
+  /// In en, this message translates to:
+  /// **'View result'**
+  String get task_view_result;
+
+  /// No description provided for @task_pdf_default_title.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF Preview'**
+  String get task_pdf_default_title;
+
+  /// No description provided for @task_pdf_missing_task_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing task ID'**
+  String get task_pdf_missing_task_id;
+
+  /// No description provided for @task_pdf_no_available_link.
+  ///
+  /// In en, this message translates to:
+  /// **'No PDF link available'**
+  String get task_pdf_no_available_link;
+
+  /// No description provided for @task_pdf_no_preview_file.
+  ///
+  /// In en, this message translates to:
+  /// **'No preview file available'**
+  String get task_pdf_no_preview_file;
+
+  /// No description provided for @task_pdf_link_expired_open_local_export.
+  ///
+  /// In en, this message translates to:
+  /// **'Link expired, local export is opened'**
+  String get task_pdf_link_expired_open_local_export;
+
+  /// No description provided for @task_pdf_file_cached.
+  ///
+  /// In en, this message translates to:
+  /// **'File cached: {path}'**
+  String task_pdf_file_cached(Object path);
+
+  /// No description provided for @task_pdf_download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed: {error}'**
+  String task_pdf_download_failed(Object error);
+
+  /// No description provided for @task_pdf_share_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Share failed: {error}'**
+  String task_pdf_share_failed(Object error);
+
+  /// No description provided for @task_pdf_missing_storage_permission.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing storage permission, unable to download'**
+  String get task_pdf_missing_storage_permission;
+
+  /// No description provided for @task_pdf_download_started.
+  ///
+  /// In en, this message translates to:
+  /// **'Download started, check Downloads later'**
+  String get task_pdf_download_started;
+
+  /// No description provided for @task_pdf_no_shareable_file.
+  ///
+  /// In en, this message translates to:
+  /// **'No file available to share'**
+  String get task_pdf_no_shareable_file;
+
+  /// No description provided for @task_pdf_network_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error, please check connection'**
+  String get task_pdf_network_error;
+
+  /// No description provided for @task_pdf_invalid_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid link format'**
+  String get task_pdf_invalid_link;
+
+  /// No description provided for @task_pdf_retry_later.
+  ///
+  /// In en, this message translates to:
+  /// **'Please try again later'**
+  String get task_pdf_retry_later;
+
+  /// No description provided for @task_pdf_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Load failed: {error}'**
+  String task_pdf_load_failed(Object error);
+
+  /// No description provided for @task_pdf_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get task_pdf_retry;
+
+  /// No description provided for @task_pdf_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get task_pdf_download;
+
+  /// No description provided for @task_pdf_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get task_pdf_share;
+
+  /// No description provided for @task_pdf_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading PDF...'**
+  String get task_pdf_loading;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

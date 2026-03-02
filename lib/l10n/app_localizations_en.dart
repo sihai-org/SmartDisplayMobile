@@ -884,4 +884,110 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get force_update_download_via_web => 'Download via browser';
+
+  @override
+  String get task_menu_item => 'Tasks';
+
+  @override
+  String get task_list_title => 'Tasks';
+
+  @override
+  String get task_unnamed => 'Untitled task';
+
+  @override
+  String get task_loading_data => 'Loading data...';
+
+  @override
+  String get task_empty => 'No tasks yet';
+
+  @override
+  String get task_preview_only_success => 'Only successful tasks can be previewed';
+
+  @override
+  String get task_status_pending => 'Pending';
+
+  @override
+  String get task_status_running => 'Running';
+
+  @override
+  String get task_status_success => 'Success';
+
+  @override
+  String get task_status_failed => 'Failed';
+
+  @override
+  String get task_status_cancelled => 'Cancelled';
+
+  @override
+  String task_created_time(Object time) {
+    return 'Created: $time';
+  }
+
+  @override
+  String get task_view_result => 'View result';
+
+  @override
+  String get task_pdf_default_title => 'PDF Preview';
+
+  @override
+  String get task_pdf_missing_task_id => 'Missing task ID';
+
+  @override
+  String get task_pdf_no_available_link => 'No PDF link available';
+
+  @override
+  String get task_pdf_no_preview_file => 'No preview file available';
+
+  @override
+  String get task_pdf_link_expired_open_local_export => 'Link expired, local export is opened';
+
+  @override
+  String task_pdf_file_cached(Object path) {
+    return 'File cached: $path';
+  }
+
+  @override
+  String task_pdf_download_failed(Object error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String task_pdf_share_failed(Object error) {
+    return 'Share failed: $error';
+  }
+
+  @override
+  String get task_pdf_missing_storage_permission => 'Missing storage permission, unable to download';
+
+  @override
+  String get task_pdf_download_started => 'Download started, check Downloads later';
+
+  @override
+  String get task_pdf_no_shareable_file => 'No file available to share';
+
+  @override
+  String get task_pdf_network_error => 'Network error, please check connection';
+
+  @override
+  String get task_pdf_invalid_link => 'Invalid link format';
+
+  @override
+  String get task_pdf_retry_later => 'Please try again later';
+
+  @override
+  String task_pdf_load_failed(Object error) {
+    return 'Load failed: $error';
+  }
+
+  @override
+  String get task_pdf_retry => 'Retry';
+
+  @override
+  String get task_pdf_download => 'Download';
+
+  @override
+  String get task_pdf_share => 'Share';
+
+  @override
+  String get task_pdf_loading => 'Loading PDF...';
 }

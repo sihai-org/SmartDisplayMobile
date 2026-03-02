@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
+import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -66,13 +67,14 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<void> _preparePdfOfflineFirst() async {
+    final l10n = context.l10n;
     final taskId = widget.task?.id.trim() ?? '';
     if (taskId.isEmpty) {
       if (!mounted) return;
       setState(() {
         _previewState = _PdfPreviewState.error;
         _retryPreparePhase = false;
-        _errorMessage = '任务ID缺失';
+        _errorMessage = l10n.task_pdf_missing_task_id;
       });
       return;
     }
@@ -100,13 +102,14 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<void> _fetchPdfUrlAndPrepare() async {
+    final l10n = context.l10n;
     final taskId = widget.task?.id.trim() ?? '';
     if (taskId.isEmpty) {
       if (!mounted) return;
       setState(() {
         _previewState = _PdfPreviewState.error;
         _retryPreparePhase = false;
-        _errorMessage = '任务ID缺失';
+        _errorMessage = l10n.task_pdf_missing_task_id;
       });
       return;
     }
@@ -138,18 +141,19 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<String> _fetchPdfDownloadUrl(String taskId) async {
-    final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken =
+        Supabase.instance.client.auth.currentSession?.accessToken;
     if (accessToken == null || accessToken.isEmpty) {
-      throw const HttpException('登录已过期，请重新登录');
+      throw HttpException(context.l10n.login_expired);
     }
 
     final parsedTaskId = int.tryParse(taskId);
-    final body = <String, dynamic>{
-      'agent_task_id': parsedTaskId ?? taskId,
-    };
+    final body = <String, dynamic>{'agent_task_id': parsedTaskId ?? taskId};
 
     final response = await http.post(
-      Uri.parse('${AppEnvironment.apiServerUrl}/agent_task/deepresearch/get_pdf'),
+      Uri.parse(
+        '${AppEnvironment.apiServerUrl}/agent_task/deepresearch/get_pdf',
+      ),
       headers: {
         'Content-Type': 'application/json',
         'X-Access-Token': accessToken,
@@ -164,7 +168,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final decoded = jsonDecode(response.body);
     final pdfUrl = _extractPdfUrl(decoded);
     if (pdfUrl == null || pdfUrl.isEmpty) {
-      throw const FormatException('无可用PDF链接');
+      throw FormatException(context.l10n.task_pdf_no_available_link);
     }
     return pdfUrl;
   }
@@ -212,7 +216,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       setState(() {
         _previewState = _PdfPreviewState.error;
         _retryPreparePhase = false;
-        _errorMessage = '暂无可预览文件';
+        _errorMessage = context.l10n.task_pdf_no_preview_file;
       });
       return;
     }
@@ -277,17 +281,23 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
               text: displayFileName,
             ),
           );
-          Fluttertoast.showToast(msg: '链接已失效，已打开本地文件导出');
+          Fluttertoast.showToast(
+            msg: context.l10n.task_pdf_link_expired_open_local_export,
+          );
           return;
         }
         await _downloadPdfOnAndroid(pdfUrl, displayFileName);
         return;
       }
 
-      Fluttertoast.showToast(msg: '文件已缓存: ${localPdfFile.path}');
+      Fluttertoast.showToast(
+        msg: context.l10n.task_pdf_file_cached(localPdfFile.path),
+      );
     } catch (e, stackTrace) {
       _logError('downloadPdf', e, stackTrace);
-      Fluttertoast.showToast(msg: '下载失败: ${_readableError(e)}');
+      Fluttertoast.showToast(
+        msg: context.l10n.task_pdf_download_failed(_readableError(e)),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -334,7 +344,9 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       );
     } catch (e, stackTrace) {
       _logError('sharePdf', e, stackTrace);
-      Fluttertoast.showToast(msg: '分享失败: ${_readableError(e)}');
+      Fluttertoast.showToast(
+        msg: context.l10n.task_pdf_share_failed(_readableError(e)),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -395,7 +407,9 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   ) async {
     final hasPermission = await _ensureAndroidDownloadPermission();
     if (!hasPermission) {
-      Fluttertoast.showToast(msg: '缺少存储权限，无法下载');
+      Fluttertoast.showToast(
+        msg: context.l10n.task_pdf_missing_storage_permission,
+      );
       return;
     }
 
@@ -408,9 +422,11 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
           'title': displayFileName,
         },
       );
-      Fluttertoast.showToast(msg: '开始下载，稍后可在 Download 查看');
+      Fluttertoast.showToast(msg: context.l10n.task_pdf_download_started);
     } on PlatformException catch (e) {
-      Fluttertoast.showToast(msg: '下载失败: ${e.message ?? e.code}');
+      Fluttertoast.showToast(
+        msg: context.l10n.task_pdf_download_failed(e.message ?? e.code),
+      );
     }
   }
 
@@ -452,7 +468,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     if (pdfUrl.trim().isNotEmpty) {
       return _resolveLocalPdfFile(pdfUrl);
     }
-    throw const HttpException('暂无可分享文件');
+    throw HttpException(context.l10n.task_pdf_no_shareable_file);
   }
 
   Future<File?> _readValidCachedPdfForTask() async {
@@ -506,21 +522,22 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       return error.message;
     }
     if (error is SocketException) {
-      return '网络异常，请检查连接';
+      return context.l10n.task_pdf_network_error;
     }
     if (error is FormatException) {
-      return '链接格式错误';
+      return context.l10n.task_pdf_invalid_link;
     }
-    return '请稍后重试';
+    return context.l10n.task_pdf_retry_later;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final task = widget.task;
     final pdfUrl = _pdfUrl?.trim() ?? '';
     final title = (task?.title.trim().isNotEmpty ?? false)
         ? task!.title
-        : 'PDF预览';
+        : l10n.task_pdf_default_title;
     final displayFileName = '${_safeFileName(title)}.pdf';
 
     return Scaffold(
@@ -553,7 +570,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
                         )
                       : const Icon(Icons.download),
                   const SizedBox(width: 2),
-                  const Text('下载'),
+                  Text(l10n.task_pdf_download),
                 ],
               ),
             ),
@@ -562,10 +579,10 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
           TextButton(
             onPressed: pdfUrl.isEmpty || _isSharing
-                    ? (_cachedPdfFile == null || _isSharing
-                          ? null
-                          : () => _sharePdf('', displayFileName))
-                    : () => _sharePdf(pdfUrl, displayFileName),
+                ? (_cachedPdfFile == null || _isSharing
+                      ? null
+                      : () => _sharePdf('', displayFileName))
+                : () => _sharePdf(pdfUrl, displayFileName),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 0),
               minimumSize: const Size(0, 36),
@@ -583,7 +600,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
                       )
                     : const Icon(Icons.share),
                 const SizedBox(width: 2),
-                const Text('分享'),
+                Text(l10n.task_pdf_share),
               ],
             ),
           ),
@@ -594,6 +611,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Widget _buildPdfBody() {
+    final l10n = context.l10n;
     switch (_previewState) {
       case _PdfPreviewState.idle:
         return const _PdfLoadingView(showIndicator: false);
@@ -605,9 +623,9 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
         if (cachedFile != null) {
           return SfPdfViewer.file(cachedFile);
         }
-        return const Center(child: Text('暂无可预览文件'));
+        return Center(child: Text(l10n.task_pdf_no_preview_file));
       case _PdfPreviewState.error:
-        final errorText = _errorMessage ?? '请稍后重试';
+        final errorText = _errorMessage ?? l10n.task_pdf_retry_later;
         final retryAction = _retryPreparePhase
             ? _startPreparePdf
             : _fetchPdfUrlAndPrepare;
@@ -615,9 +633,12 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('加载失败: $errorText'),
+              Text(l10n.task_pdf_load_failed(errorText)),
               const SizedBox(height: 12),
-              FilledButton(onPressed: retryAction, child: const Text('重试')),
+              FilledButton(
+                onPressed: retryAction,
+                child: Text(l10n.task_pdf_retry),
+              ),
             ],
           ),
         );
@@ -652,6 +673,7 @@ class _PdfLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -665,7 +687,7 @@ class _PdfLoadingView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Text('正在加载PDF...'),
+          Text(l10n.task_pdf_loading),
         ],
       ),
     );

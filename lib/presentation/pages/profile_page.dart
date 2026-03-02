@@ -291,7 +291,7 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: const Text('任务'),
+                  title: Text(l10n.task_menu_item),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(AppRoutes.taskList),
                 ),

@@ -884,4 +884,110 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get force_update_download_via_web => '通过网页下载';
+
+  @override
+  String get task_menu_item => '任务';
+
+  @override
+  String get task_list_title => '任务';
+
+  @override
+  String get task_unnamed => '未命名任务';
+
+  @override
+  String get task_loading_data => '正在获取数据...';
+
+  @override
+  String get task_empty => '暂无任务';
+
+  @override
+  String get task_preview_only_success => '仅成功任务支持预览';
+
+  @override
+  String get task_status_pending => '待处理';
+
+  @override
+  String get task_status_running => '进行中';
+
+  @override
+  String get task_status_success => '成功';
+
+  @override
+  String get task_status_failed => '失败';
+
+  @override
+  String get task_status_cancelled => '已取消';
+
+  @override
+  String task_created_time(Object time) {
+    return '创建时间: $time';
+  }
+
+  @override
+  String get task_view_result => '查看结果';
+
+  @override
+  String get task_pdf_default_title => 'PDF预览';
+
+  @override
+  String get task_pdf_missing_task_id => '任务ID缺失';
+
+  @override
+  String get task_pdf_no_available_link => '无可用PDF链接';
+
+  @override
+  String get task_pdf_no_preview_file => '暂无可预览文件';
+
+  @override
+  String get task_pdf_link_expired_open_local_export => '链接已失效，已打开本地文件导出';
+
+  @override
+  String task_pdf_file_cached(Object path) {
+    return '文件已缓存: $path';
+  }
+
+  @override
+  String task_pdf_download_failed(Object error) {
+    return '下载失败: $error';
+  }
+
+  @override
+  String task_pdf_share_failed(Object error) {
+    return '分享失败: $error';
+  }
+
+  @override
+  String get task_pdf_missing_storage_permission => '缺少存储权限，无法下载';
+
+  @override
+  String get task_pdf_download_started => '开始下载，稍后可在 Download 查看';
+
+  @override
+  String get task_pdf_no_shareable_file => '暂无可分享文件';
+
+  @override
+  String get task_pdf_network_error => '网络异常，请检查连接';
+
+  @override
+  String get task_pdf_invalid_link => '链接格式错误';
+
+  @override
+  String get task_pdf_retry_later => '请稍后重试';
+
+  @override
+  String task_pdf_load_failed(Object error) {
+    return '加载失败: $error';
+  }
+
+  @override
+  String get task_pdf_retry => '重试';
+
+  @override
+  String get task_pdf_download => '下载';
+
+  @override
+  String get task_pdf_share => '分享';
+
+  @override
+  String get task_pdf_loading => '正在加载PDF...';
 }
