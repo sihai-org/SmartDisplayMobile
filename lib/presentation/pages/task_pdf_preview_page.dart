@@ -1,14 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
@@ -28,11 +25,6 @@ class TaskPdfPreviewPage extends StatefulWidget {
 }
 
 class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
-  static const MethodChannel _androidDownloadChannel = MethodChannel(
-    'com.datou.smart_display_mobile/downloads',
-  );
-
-  bool _isDownloading = false;
   bool _isSharing = false;
   _PdfPreviewState _previewState = _PdfPreviewState.idle;
   bool _retryPreparePhase = false;
@@ -244,69 +236,6 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
         });
   }
 
-  Future<void> _downloadPdf(String pdfUrl, String displayFileName) async {
-    if (_isDownloading) return;
-    setState(() {
-      _isDownloading = true;
-    });
-
-    try {
-      final localPdfFile = await _getShareablePdfFile(pdfUrl);
-      if (mounted) {
-        setState(() {
-          _cachedPdfFile = localPdfFile;
-        });
-      }
-
-      if (Platform.isIOS) {
-        await _sharePdfOnIos(localPdfFile, displayFileName);
-        return;
-      }
-
-      if (Platform.isAndroid) {
-        if (pdfUrl.trim().isEmpty) {
-          final fileToShare = await _prepareShareFile(
-            localPdfFile,
-            displayFileName,
-          );
-          await SharePlus.instance.share(
-            ShareParams(
-              files: [
-                XFile(
-                  fileToShare.path,
-                  mimeType: 'application/pdf',
-                  name: displayFileName,
-                ),
-              ],
-              text: displayFileName,
-            ),
-          );
-          Fluttertoast.showToast(
-            msg: context.l10n.task_pdf_link_expired_open_local_export,
-          );
-          return;
-        }
-        await _downloadPdfOnAndroid(pdfUrl, displayFileName);
-        return;
-      }
-
-      Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_file_cached(localPdfFile.path),
-      );
-    } catch (e, stackTrace) {
-      _logError('downloadPdf', e, stackTrace);
-      Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_download_failed(_readableError(e)),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloading = false;
-        });
-      }
-    }
-  }
-
   Future<void> _sharePdf(String pdfUrl, String displayFileName) async {
     if (_isSharing) return;
     setState(() {
@@ -399,51 +328,6 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       await targetFile.delete();
     }
     return sourceFile.copy(targetPath);
-  }
-
-  Future<void> _downloadPdfOnAndroid(
-    String pdfUrl,
-    String displayFileName,
-  ) async {
-    final hasPermission = await _ensureAndroidDownloadPermission();
-    if (!hasPermission) {
-      Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_missing_storage_permission,
-      );
-      return;
-    }
-
-    try {
-      await _androidDownloadChannel.invokeMethod<void>(
-        'enqueuePdfDownload',
-        <String, dynamic>{
-          'url': pdfUrl,
-          'fileName': displayFileName,
-          'title': displayFileName,
-        },
-      );
-      Fluttertoast.showToast(msg: context.l10n.task_pdf_download_started);
-    } on PlatformException catch (e) {
-      Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_download_failed(e.message ?? e.code),
-      );
-    }
-  }
-
-  Future<bool> _ensureAndroidDownloadPermission() async {
-    if (!Platform.isAndroid) return true;
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
-    if (sdkInt >= 29) {
-      return true;
-    }
-
-    final status = await Permission.storage.request();
-    if (status.isGranted) return true;
-    if (status.isPermanentlyDenied) {
-      await openAppSettings();
-    }
-    return false;
   }
 
   Future<File> _resolveLocalPdfFile(String pdfUrl) {
@@ -544,39 +428,8 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       appBar: AppBar(
         title: Text(title),
         leading: const BackButton(),
-        actionsPadding: const EdgeInsets.only(right: 12), // ✅ 右侧留间距
+        actionsPadding: const EdgeInsets.only(right: 12),
         actions: [
-          if (Platform.isAndroid)
-            TextButton(
-              onPressed: _isDownloading
-                  ? null
-                  : (pdfUrl.isNotEmpty || _cachedPdfFile != null
-                        ? () => _downloadPdf(pdfUrl, displayFileName)
-                        : null),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _isDownloading
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.download),
-                  const SizedBox(width: 2),
-                  Text(l10n.task_pdf_download),
-                ],
-              ),
-            ),
-
-          const SizedBox(width: 8), // ✅ 分享和下载之间的间距
-
           TextButton(
             onPressed: pdfUrl.isEmpty || _isSharing
                 ? (_cachedPdfFile == null || _isSharing
