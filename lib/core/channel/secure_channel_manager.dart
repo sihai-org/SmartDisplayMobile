@@ -183,6 +183,7 @@ class SecureChannelManager {
 
   Future<Map<String, dynamic>> send(
     Map<String, dynamic> msg, {
+    Duration? timeout,
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
   }) async {
@@ -195,7 +196,12 @@ class SecureChannelManager {
     _checkGen(ticket); // 中途被 clear/dispose 就直接抛 _CancelledError
 
     // 2. 发消息
-    return ch.send(msg, retries: retries, isFinal: isFinal);
+    return ch.send(
+      msg,
+      timeout: timeout,
+      retries: retries,
+      isFinal: isFinal,
+    );
   }
 
   /// Send a message only if the current channel is already authenticated/ready.
