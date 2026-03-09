@@ -64,7 +64,7 @@ class BleConstants {
   static const Duration kHeartbeatIdleBeforeSend = Duration(seconds: 4);
   static const Duration kHeartbeatTimeout = Duration(milliseconds: 1100);
   static const int kHeartbeatFailThreshold = 2;
-  static const Duration bindLoginTimeout = Duration(seconds: 35);
+  static const Duration bindLoginTimeout = Duration(seconds: 40);
 
   // Sync
   static const Duration minSyncGap = Duration(seconds: 1);
