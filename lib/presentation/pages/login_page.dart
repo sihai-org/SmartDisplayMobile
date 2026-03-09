@@ -10,7 +10,6 @@ import '../../core/log/app_log.dart';
 import '../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/audit_mode_provider.dart';
- 
 
 class LoginPage extends StatefulWidget {
   @override
@@ -31,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   DateTime? _firstTapAt;
 
   bool _isSendingOtp = false; // 发送验证码按钮 loading
-  bool _isLoading = false;    // 登录按钮 loading
+  bool _isLoading = false; // 登录按钮 loading
 
   @override
   void dispose() {
@@ -86,9 +85,10 @@ class _LoginPageState extends State<LoginPage> {
 
     final email = _emailController.text.trim();
 
-    setState(() => _isSendingOtp = true);
-    Fluttertoast.showToast(msg: l10n.sending_otp);
-
+    setState(() {
+      _isSendingOtp = true;
+      _error = null;
+    });
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
 
@@ -107,7 +107,6 @@ class _LoginPageState extends State<LoginPage> {
         error: e,
         stackTrace: st,
       );
-      Fluttertoast.showToast(msg: l10n.send_failed(e.toString()));
       setState(() => _error = e.toString());
     } finally {
       setState(() => _isSendingOtp = false);
@@ -116,7 +115,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleLogoTap(BuildContext context) async {
     final now = DateTime.now();
-    if (_firstTapAt == null || now.difference(_firstTapAt!) > const Duration(seconds: 3)) {
+    if (_firstTapAt == null ||
+        now.difference(_firstTapAt!) > const Duration(seconds: 3)) {
       _firstTapAt = now;
       _logoTapCount = 1;
       return;
@@ -144,9 +144,10 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
 
-    setState(() => _isLoading = true);
-    Fluttertoast.showToast(msg: l10n.signing_in);
-
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
         type: OtpType.email,
@@ -169,7 +170,6 @@ class _LoginPageState extends State<LoginPage> {
       );
       final errorMessage = _mapVerifyOtpError(e, l10n);
       setState(() => _error = errorMessage);
-      Fluttertoast.showToast(msg: errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -191,12 +191,6 @@ class _LoginPageState extends State<LoginPage> {
     return l10n.login_failed_generic;
   }
 
-  /// Google 登录占位
-  Future<void> _signInWithGoogle() async {
-    final l10n = context.l10n;
-    Fluttertoast.showToast(msg: l10n!.google_signin_placeholder);
-  }
-
   @override
   Widget build(BuildContext context) {
     final isCountingDown = _secondsRemaining > 0;
@@ -212,139 +206,122 @@ class _LoginPageState extends State<LoginPage> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // App Logo
-                    Center(
-                      child: SizedBox(
-                        width: 96,
-                        height: 96,
-                        child: GestureDetector(
-                          onTap: () => _handleLogoTap(context),
-                          child: ClipRRect(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // App Logo
+                  Center(
+                    child: SizedBox(
+                      width: 96,
+                      height: 96,
+                      child: GestureDetector(
+                        onTap: () => _handleLogoTap(context),
+                        child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
                             'assets/images/logo.png',
                             fit: BoxFit.contain,
                           ),
-                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(l10n.email_signin,
-                        style: Theme.of(context).textTheme.titleLarge,
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.email_signin,
+                    style: Theme.of(context).textTheme.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
 
-                    // 邮箱输入
+                  // 邮箱输入
+                  TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: l10n.login_email,
+                      border: const OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: (_) => setState(() => _error = null),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 验证码输入框（发送后显示）
+                  if (_otpSent) ...[
                     TextField(
-                      controller: _emailController,
+                      controller: _otpController,
                       decoration: InputDecoration(
-                        labelText: l10n.login_email,
+                        labelText: l10n.otp_code,
                         border: const OutlineInputBorder(),
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                      onChanged: (_) => setState(() {}),
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() => _error = null),
                     ),
-                    if (!_isEmailValid && _emailController.text.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(top: 4.0),
-                        child: Text(l10n.email_invalid,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),),
-                      ),
-
                     const SizedBox(height: 16),
+                  ],
 
-                    // 验证码输入框（发送后显示）
-                    if (_otpSent) ...[
-                      TextField(
-                        controller: _otpController,
-                        decoration: InputDecoration(
-                          labelText: l10n.otp_code,
-                          border: const OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => setState(() {}),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
                       ),
-                      if (!_isOtpValid && _otpController.text.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(top: 4.0),
-                          child: Text(l10n.otp_invalid,
-                            style: const TextStyle(color: Colors.red, fontSize: 12),),
-                        ),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
 
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12.0),
-                        child: Text(_error!,
-                            style: const TextStyle(color: Colors.red)),
-                      ),
+                  // 发送验证码按钮
+                  ElevatedButton(
+                    onPressed:
+                        (!_isEmailValid || isCountingDown || _isSendingOtp)
+                        ? null
+                        : _sendOtp,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                    child: _isSendingOtp
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            isCountingDown
+                                ? l10n.resend_in(_secondsRemaining)
+                                : l10n.send_otp,
+                          ),
+                  ),
 
-                    // 发送验证码按钮
+                  const SizedBox(height: 12),
+
+                  // 登录按钮（发送过验证码才显示）
+                  if (_otpSent)
                     ElevatedButton(
-                      onPressed: (!_isEmailValid || isCountingDown || _isSendingOtp)
+                      onPressed: (!_isEmailValid || !_isOtpValid || _isLoading)
                           ? null
-                          : _sendOtp,
+                          : _verifyOtp,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 48),
                       ),
-                      child: _isSendingOtp
+                      child: _isLoading
                           ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                          )
-                          : Text(
-                              isCountingDown
-                                  ? l10n.resend_in(_secondsRemaining)
-                                  : l10n.send_otp,
-                            ),
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(l10n.login_button),
                     ),
-
-                    const SizedBox(height: 12),
-
-                    // 登录按钮（发送过验证码才显示）
-                    if (_otpSent)
-                      ElevatedButton(
-                        onPressed: (!_isEmailValid || !_isOtpValid || _isLoading)
-                            ? null
-                            : _verifyOtp,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 48),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                            : Text(l10n.login_button),
-                      ),
-
-                    // Google 登录按钮
-                    // ElevatedButton.icon(
-                    //   onPressed: _signInWithGoogle,
-                    //   icon: const Icon(Icons.login),
-                    //   label: Text(l10n?.signin_with_google ?? 'Sign in with Google'),
-                    //   style: ElevatedButton.styleFrom(
-                    //     backgroundColor: Colors.redAccent,
-                    //     foregroundColor: Colors.white,
-                    //     minimumSize: const Size(double.infinity, 48),
-                    //   ),
-                    // ),
-                  ],
-                ),
+                ],
+              ),
             ),
           ),
         ),

@@ -250,20 +250,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
-  String get sending_otp => 'Sending verification code...';
-
-  @override
   String otp_sent_to(Object email) {
     return 'Verification code sent to $email';
   }
-
-  @override
-  String send_failed(Object error) {
-    return 'Send failed: $error';
-  }
-
-  @override
-  String get signing_in => 'Signing in, please wait...';
 
   @override
   String get login_success => 'Signed in successfully';
@@ -290,9 +279,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get email_signin => 'Email Sign In';
 
   @override
-  String get email_invalid => 'Please enter a valid email';
-
-  @override
   String get otp_code => 'Verification Code';
 
   @override
@@ -302,9 +288,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get send_otp => 'Send Code';
-
-  @override
-  String get signin_with_google => 'Sign in with Google';
 
   @override
   String signout_failed(Object error) {

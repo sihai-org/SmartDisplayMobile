@@ -569,29 +569,11 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get cancel;
 
-  /// No description provided for @sending_otp.
-  ///
-  /// In en, this message translates to:
-  /// **'Sending verification code...'**
-  String get sending_otp;
-
   /// No description provided for @otp_sent_to.
   ///
   /// In en, this message translates to:
   /// **'Verification code sent to {email}'**
   String otp_sent_to(Object email);
-
-  /// No description provided for @send_failed.
-  ///
-  /// In en, this message translates to:
-  /// **'Send failed: {error}'**
-  String send_failed(Object error);
-
-  /// No description provided for @signing_in.
-  ///
-  /// In en, this message translates to:
-  /// **'Signing in, please wait...'**
-  String get signing_in;
 
   /// No description provided for @login_success.
   ///
@@ -635,12 +617,6 @@ abstract class AppLocalizations {
   /// **'Email Sign In'**
   String get email_signin;
 
-  /// No description provided for @email_invalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter a valid email'**
-  String get email_invalid;
-
   /// No description provided for @otp_code.
   ///
   /// In en, this message translates to:
@@ -658,12 +634,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send Code'**
   String get send_otp;
-
-  /// No description provided for @signin_with_google.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in with Google'**
-  String get signin_with_google;
 
   /// No description provided for @signout_failed.
   ///

@@ -250,20 +250,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancel => '取消';
 
   @override
-  String get sending_otp => '正在发送验证码...';
-
-  @override
   String otp_sent_to(Object email) {
     return '验证码已发送到 $email';
   }
-
-  @override
-  String send_failed(Object error) {
-    return '发送失败: $error';
-  }
-
-  @override
-  String get signing_in => '正在登录，请稍候...';
 
   @override
   String get login_success => '登录成功';
@@ -287,9 +276,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get email_signin => '邮箱登录';
 
   @override
-  String get email_invalid => '请输入正确的邮箱地址';
-
-  @override
   String get otp_code => '验证码';
 
   @override
@@ -299,9 +285,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get send_otp => '发送验证码';
-
-  @override
-  String get signin_with_google => '使用 Google 登录';
 
   @override
   String signout_failed(Object error) {

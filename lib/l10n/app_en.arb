@@ -84,10 +84,7 @@
   "ok": "OK",
   "cancel": "Cancel"
   ,
-  "sending_otp": "Sending verification code...",
   "otp_sent_to": "Verification code sent to {email}",
-  "send_failed": "Send failed: {error}",
-  "signing_in": "Signing in, please wait...",
   "login_success": "Signed in successfully",
   "otp_invalid": "Invalid code, please retry",
   "login_failed_generic": "Sign in failed. Please try again later.",
@@ -95,11 +92,9 @@
   "login_failed_otp_expired": "Invalid or expired code. Please try again.",
   "login_failed_rate_limited": "Too many attempts. Please try again later.",
   "email_signin": "Email Sign In",
-  "email_invalid": "Please enter a valid email",
   "otp_code": "Verification Code",
   "resend_in": "Resend in {seconds}s",
   "send_otp": "Send Code",
-  "signin_with_google": "Sign in with Google",
   "signout_failed": "Sign out failed: {error}"
   ,
   "google_signin_placeholder": "Coming soon",

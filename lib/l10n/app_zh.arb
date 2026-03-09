@@ -84,10 +84,7 @@
   "ok": "确定",
   "cancel": "取消"
   ,
-  "sending_otp": "正在发送验证码...",
   "otp_sent_to": "验证码已发送到 {email}",
-  "send_failed": "发送失败: {error}",
-  "signing_in": "正在登录，请稍候...",
   "login_success": "登录成功",
   "otp_invalid": "验证码无效，请重试",
   "login_failed_generic": "登录失败，请稍后重试",
@@ -95,11 +92,9 @@
   "login_failed_otp_expired": "验证码错误或已失效，请重试",
   "login_failed_rate_limited": "操作过于频繁，请稍后再试",
   "email_signin": "邮箱登录",
-  "email_invalid": "请输入正确的邮箱地址",
   "otp_code": "验证码",
   "resend_in": "重新发送 ({seconds}s)",
   "send_otp": "发送验证码",
-  "signin_with_google": "使用 Google 登录",
   "signout_failed": "退出失败: {error}"
   ,
   "google_signin_placeholder": "敬请期待",
