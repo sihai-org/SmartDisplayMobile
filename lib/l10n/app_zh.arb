@@ -38,6 +38,7 @@
   "report": "上报",
   "copied": "已复制",
   "reported_success": "上报成功",
+  "report_failed": "上报失败，请重试。",
   "reported_mock": "已上报（mock）",
   "parse_failed": "解析失败",
   "delete_account": "注销账号",
@@ -67,7 +68,7 @@
   "login_button": "登录",
   "login_email": "邮箱",
   "login_password": "密码",
-  "login_failed": "登录失败：{error}",
+  "login_failed": "登录失败，请重试。",
   "home_title": "首页",
   "devices_title": "设备",
   "device_management": "切换设备",
@@ -95,10 +96,10 @@
   "otp_code": "验证码",
   "resend_in": "重新发送 ({seconds}s)",
   "send_otp": "发送验证码",
-  "signout_failed": "退出失败: {error}"
+  "signout_failed": "退出失败，请重试。"
   ,
   "google_signin_placeholder": "敬请期待",
-  "audit_mode_enabled": "Audit/Review 模式已开启"
+  "audit_mode_enabled": "审核模式已开启"
   ,
   "login_expired": "登录已过期",
   
@@ -136,7 +137,7 @@
   "empty_hint_add_by_scan": "扫描设备上的二维码来添加新的智能显示器",
   "scan_qr_add_device": "扫描二维码添加设备",
   "device_switched": "已切换为当前设备",
-  "switch_device_failed": "切换设备失败: {error}",
+  "switch_device_failed": "切换设备失败，请重试。",
   "missing_ble_params": "当前设备缺少蓝牙参数，请重新扫码或靠近设备后重试"
   ,
   "no_device_title": "暂未添加设备",
@@ -203,7 +204,7 @@
   "delete_consequence_hint": "解绑后将无法控制此设备，需要重新扫描二维码绑定",
   "delete_success": "设备解绑成功",
   "delete_failed": "设备解绑失败",
-  "delete_failed_error": "设备解绑失败: {error}",
+  "delete_failed_error": "设备解绑失败，请重试。",
   
   "ble_connected_text": "蓝牙已连接",
   "ble_connecting_text": "蓝牙连接中",
@@ -225,7 +226,7 @@
   "update_throttled_retry": "操作太频繁，请稍候再试",
   "update_low_storage_retry": "存储空间不足，请重启设备后再试",
   "check_update_failed_retry": "检查更新失败，请稍后重试",
-  "check_update_failed_error": "检查更新失败：{error}"
+  "check_update_failed_error": "暂时无法检查更新，请稍后重试。"
   ,
   "nearby_networks_count": "附近网络（{count}）",
   "no_scan_results_hint": "暂无扫描结果，请点击右上角刷新",
@@ -249,9 +250,10 @@
   "layout_frame_hint": "突出展示照片的相框式排版",
   "save_settings": "保存设置",
   "reset_to_default": "恢复默认",
-  "device_edit_load_failed": "加载失败：{error}",
+  "device_edit_load_failed": "设备设置加载失败，请重试。",
   "missing_device_id_save": "缺少设备 ID，无法保存",
   "settings_saved": "保存成功",
+  "settings_save_failed": "保存失败，请重试。",
   "saving_ellipsis": "保存中...",
   "processing_ellipsis": "处理中...",
   "reading_ellipsis": "正在读取...",
@@ -296,8 +298,8 @@
   "image_processing_wait": "图片处理中...需要几秒，请耐心等待",
   "wallpaper_processing_timeout_index": "第{count}张图片处理超时，请去掉后重试",
   "image_processing_timeout_hint": "图片处理超时，请减少图片数量或稍后重试",
-  "image_processing_failed": "图片处理失败：{error}",
-  "image_processing_failed_index": "第{count}张图片处理失败：{error}",
+  "image_processing_failed": "图片处理失败，请更换图片后重试。",
+  "image_processing_failed_index": "第 {count} 张图片无法处理。",
   "image_processing_failed_index_retry": "第{count}张图片处理失败，请更换图片后重试",
   "missing_device_id_delete_wallpaper": "缺少设备 ID，无法删除壁纸",
   "image_format_not_supported": "为保证设备显示稳定，仅支持 {formatStr} 格式的图片",
@@ -309,6 +311,21 @@
   "force_update_button": "去更新",
   "force_update_download_via_web": "通过网页下载",
   "task_menu_item": "任务",
+  "environment_switch_title": "切换环境",
+  "environment_current": "当前：{environment}",
+  "@environment_current": {
+    "placeholders": {
+      "environment": {}
+    }
+  },
+  "environment_switched": "已切换到{environment}环境",
+  "@environment_switched": {
+    "placeholders": {
+      "environment": {}
+    }
+  },
+  "environment_pre_release": "预发",
+  "environment_production": "正式",
   "task_list_title": "任务",
   "task_unnamed": "未命名任务",
   "task_loading_data": "正在获取数据...",
@@ -337,30 +354,13 @@
       "path": {}
     }
   },
-  "task_pdf_download_failed": "下载失败: {error}",
-  "@task_pdf_download_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
-  "task_pdf_share_failed": "分享失败: {error}",
-  "@task_pdf_share_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
+  "task_pdf_share_failed": "分享失败，请重试。",
   "task_pdf_missing_storage_permission": "缺少存储权限，无法下载",
   "task_pdf_download_started": "开始下载，稍后可在 Download 查看",
   "task_pdf_no_shareable_file": "暂无可分享文件",
   "task_pdf_network_error": "网络异常，请检查连接",
   "task_pdf_invalid_link": "链接格式错误",
   "task_pdf_retry_later": "请稍后重试",
-  "task_pdf_load_failed": "加载失败: {error}",
-  "@task_pdf_load_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
   "task_pdf_retry": "重试",
   "task_pdf_download": "下载",
   "task_pdf_share": "分享",

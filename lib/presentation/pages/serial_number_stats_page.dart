@@ -59,8 +59,14 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
     String? parseError;
     try {
       parsed = QrDataParser.fromQrContent(text);
-    } catch (e) {
-      parseError = e.toString();
+    } catch (e, st) {
+      AppLog.instance.warning(
+        '[SerialNumberStats] QR parse failed',
+        tag: 'SerialStats',
+        error: e,
+        stackTrace: st,
+      );
+      parseError = context.l10n.parse_failed;
     }
 
     if (!mounted) return;
@@ -125,7 +131,7 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
           '[SerialNumberStats] report non-200: ${response.statusCode} ${response.body}',
           tag: 'SerialStats',
         );
-        Fluttertoast.showToast(msg: '上报失败：${response.statusCode}');
+        Fluttertoast.showToast(msg: context.l10n.report_failed);
         return;
       }
 
@@ -285,7 +291,7 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
                         index: 6,
                         label: Text(l10n.parse_failed),
                         value: Text(
-                          '${l10n.parse_failed}: ${_parseError!}',
+                          _parseError!,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(context).colorScheme.error,

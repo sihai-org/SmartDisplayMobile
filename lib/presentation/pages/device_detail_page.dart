@@ -392,7 +392,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     } catch (e) {
       if (mounted) {
         Fluttertoast.showToast(
-          msg: context.l10n.check_update_failed_error(e.toString()),
+          msg: context.l10n.check_update_failed_retry,
         );
       }
     } finally {

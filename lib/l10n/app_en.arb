@@ -13,7 +13,7 @@
   "app_name": "App Name",
   "version": "Version",
   "language": "Language",
-  "language_system": "Follow System",
+  "language_system": "Follow system",
   "language_zh": "Chinese",
   "language_en": "English",
   "bluetooth_settings": "Bluetooth Settings",
@@ -38,6 +38,7 @@
   "report": "Report",
   "copied": "Copied",
   "reported_success": "Reported successfully",
+  "report_failed": "Report failed. Please try again.",
   "reported_mock": "Reported (mock)",
   "parse_failed": "Parse failed",
   "delete_account": "Delete Account",
@@ -67,10 +68,10 @@
   "login_button": "Log in",
   "login_email": "Email",
   "login_password": "Password",
-  "login_failed": "Sign in failed: {error}",
+  "login_failed": "Sign in failed. Please try again.",
   "home_title": "Home",
   "devices_title": "Devices",
-  "device_management": "Switch Device",
+  "device_management": "Devices",
   "device_details": "Device Details",
   "current_device": "Current Device",
   "connect": "Connect",
@@ -91,14 +92,14 @@
   "login_failed_otp_invalid": "Invalid code, please retry",
   "login_failed_otp_expired": "Invalid or expired code. Please try again.",
   "login_failed_rate_limited": "Too many attempts. Please try again later.",
-  "email_signin": "Email Sign In",
+  "email_signin": "Sign in with email",
   "otp_code": "Verification Code",
   "resend_in": "Resend in {seconds}s",
   "send_otp": "Send Code",
-  "signout_failed": "Sign out failed: {error}"
+  "signout_failed": "Sign out failed. Please try again."
   ,
   "google_signin_placeholder": "Coming soon",
-  "audit_mode_enabled": "Audit/Review mode enabled"
+  "audit_mode_enabled": "Audit mode enabled"
   ,
   "login_expired": "Login session expired",
   
@@ -122,12 +123,12 @@
   "open_network_may_need_password": "Open network detected; enter password if required",
   "signal_strength": "Signal strength",
   "connecting_to": "Connecting to {ssid}...",
-  "wifi_credentials_sent": "Wi‑Fi credentials sent to TV: {ssid}",
+  "wifi_credentials_sent": "Wi‑Fi credentials sent: {ssid}",
   "wifi_credentials_failed": "Failed to send Wi‑Fi credentials",
   "unknown_device": "Unknown Device",
   "current_selected": "Selected",
   "set_current_device": "Set as current",
-  "check_update": "Check Update",
+  "check_update": "Update",
   "delete_device": "Unbind Device",
   "device_id_label": "ID",
   "ble_label": "BLE",
@@ -135,8 +136,8 @@
   "empty_saved_devices": "No saved devices",
   "empty_hint_add_by_scan": "Scan the QR on your device to add a new smart display",
   "scan_qr_add_device": "Scan QR to add device",
-  "device_switched": "Switched to current device",
-  "switch_device_failed": "Failed to switch device: {error}",
+  "device_switched": "Switched to this device",
+  "switch_device_failed": "Failed to switch device. Please try again.",
   "missing_ble_params": "Missing Bluetooth parameters. Please rescan the device first."
   ,
   "no_device_title": "No device added yet",
@@ -157,7 +158,7 @@
   "ble_disconnected_on_exit": "Bluetooth disconnected because you exited the binding flow",
   "connect_success": "Connected successfully",
   "connect_failed_retry": "Connection failed, please retry",
-  "device_bound_elsewhere": "The user bound to the device does not match with you",
+  "device_bound_elsewhere": "This device is linked to a different account",
   "ble_connect_timeout_relaunch_toast": "Connection timed out. Please fully close the app and reopen it to try again.",
   "ble_scan_timeout_device_not_found": "Connection failed. The device may not be nearby.",
   "ble_not_ready_enable_bluetooth_check_permission": "Please enable Bluetooth and check permissions",
@@ -167,7 +168,7 @@
   "connect_device_title": "Connect Device",
   "ble_connecting": "Connecting via Bluetooth...",
   
-  "provision_success": "Provisioning successful. Device is online",
+  "provision_success": "Wi‑Fi setup complete. Device is online",
   "selected_network": "Selected network: {ssid}",
   "manual_wifi_entry_title": "Or enter Wi‑Fi info manually",
   "wifi_name_label": "Wi‑Fi Name (SSID)",
@@ -181,7 +182,7 @@
   "wifi_signal_weak": "Weak signal",
   "wifi_signal_unknown": "Signal unknown",
   "provision_request_failed": "Network connection failed, please try again",
-  "send_provision_request": "Start Connecting",
+  "send_provision_request": "Connect",
   "provisioning_please_wait": "Provisioning, please wait…",
   "wifi_scanning": "Scanning Wi‑Fi…",
   "last_wifi_scan_time": "Last scan: {time}",
@@ -193,9 +194,9 @@
   "confirm_binding_question": "Bind this device to your account?",
   "bind_button": "Bind",
   "bind_failed": "Binding failed. Please try again later.",
-  "bind_success": "Binding successful",
+  "bind_success": "Device linked successfully",
   
-  "firmware_version_label": "Firmware Ver.",
+  "firmware_version_label": "Version",
   "manage_network": "Manage Network",
   "refresh": "Refresh",
   "confirm_delete_device": "Are you sure you want to unbind this device?",
@@ -203,7 +204,7 @@
   "delete_consequence_hint": "After unbinding, device control will be disabled. Rescan the QR code to add it again.",
   "delete_success": "Device unbound successfully",
   "delete_failed": "Failed to unbind device",
-  "delete_failed_error": "Failed to unbind device: {error}",
+  "delete_failed_error": "Failed to unbind device. Please try again.",
   
   "ble_connected_text": "Bluetooth connected",
   "ble_connecting_text": "Bluetooth connecting",
@@ -225,7 +226,7 @@
   "update_throttled_retry": "Too many requests. Please try again later",
   "update_low_storage_retry": "Insufficient storage. Restart the device and try again",
   "check_update_failed_retry": "Check for update failed, please try again later",
-  "check_update_failed_error": "Check for update failed: {error}"
+  "check_update_failed_error": "Unable to check for updates right now. Please try again later."
   ,
   "nearby_networks_count": "Nearby networks ({count})",
   "no_scan_results_hint": "No results yet. Tap refresh at top right.",
@@ -249,9 +250,10 @@
   "layout_frame_hint": "Photo-forward layout like a frame",
   "save_settings": "Save settings",
   "reset_to_default": "Reset to default",
-  "device_edit_load_failed": "Load failed: {error}",
+  "device_edit_load_failed": "Unable to load device settings. Please try again.",
   "missing_device_id_save": "Missing device ID. Unable to save.",
   "settings_saved": "Saved successfully",
+  "settings_save_failed": "Unable to save settings. Please try again.",
   "saving_ellipsis": "Saving...",
   "processing_ellipsis": "Processing...",
   "reading_ellipsis": "Reading...",
@@ -296,8 +298,8 @@
   "image_processing_wait": "Processing images... This may take a few seconds.",
   "wallpaper_processing_timeout_index": "Image {count} processing timed out. Please remove it then retry.",
   "image_processing_timeout_hint": "Image processing timed out. Reduce the number of images or try again later.",
-  "image_processing_failed": "Image processing failed: {error}",
-  "image_processing_failed_index": "Image {count} processing failed: {error}",
+  "image_processing_failed": "Image processing failed. Please try another image.",
+  "image_processing_failed_index": "Image {count} could not be processed.",
   "image_processing_failed_index_retry": "Image {count} processing failed. Please try another image.",
   "missing_device_id_delete_wallpaper": "Missing device ID. Unable to delete wallpaper.",
   "image_format_not_supported": "To ensure stable display on the device, only {formatStr} images are supported.",
@@ -309,6 +311,21 @@
   "force_update_button": "Update Now",
   "force_update_download_via_web": "Download via browser",
   "task_menu_item": "Tasks",
+  "environment_switch_title": "Switch Environment",
+  "environment_current": "Current: {environment}",
+  "@environment_current": {
+    "placeholders": {
+      "environment": {}
+    }
+  },
+  "environment_switched": "Switched to {environment}",
+  "@environment_switched": {
+    "placeholders": {
+      "environment": {}
+    }
+  },
+  "environment_pre_release": "Pre-release",
+  "environment_production": "Production",
   "task_list_title": "Tasks",
   "task_unnamed": "Untitled task",
   "task_loading_data": "Loading data...",
@@ -337,30 +354,13 @@
       "path": {}
     }
   },
-  "task_pdf_download_failed": "Download failed: {error}",
-  "@task_pdf_download_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
-  "task_pdf_share_failed": "Share failed: {error}",
-  "@task_pdf_share_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
+  "task_pdf_share_failed": "Share failed. Please try again.",
   "task_pdf_missing_storage_permission": "Missing storage permission, unable to download",
   "task_pdf_download_started": "Download started, check Downloads later",
   "task_pdf_no_shareable_file": "No file available to share",
   "task_pdf_network_error": "Network error, please check connection",
   "task_pdf_invalid_link": "Invalid link format",
   "task_pdf_retry_later": "Please try again later",
-  "task_pdf_load_failed": "Load failed: {error}",
-  "@task_pdf_load_failed": {
-    "placeholders": {
-      "error": {}
-    }
-  },
   "task_pdf_retry": "Retry",
   "task_pdf_download": "Download",
   "task_pdf_share": "Share",

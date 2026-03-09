@@ -170,7 +170,7 @@ abstract class AppLocalizations {
   /// No description provided for @language_system.
   ///
   /// In en, this message translates to:
-  /// **'Follow System'**
+  /// **'Follow system'**
   String get language_system;
 
   /// No description provided for @language_zh.
@@ -310,6 +310,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reported successfully'**
   String get reported_success;
+
+  /// No description provided for @report_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Report failed. Please try again.'**
+  String get report_failed;
 
   /// No description provided for @reported_mock.
   ///
@@ -476,8 +482,8 @@ abstract class AppLocalizations {
   /// No description provided for @login_failed.
   ///
   /// In en, this message translates to:
-  /// **'Sign in failed: {error}'**
-  String login_failed(Object error);
+  /// **'Sign in failed. Please try again.'**
+  String get login_failed;
 
   /// No description provided for @home_title.
   ///
@@ -494,7 +500,7 @@ abstract class AppLocalizations {
   /// No description provided for @device_management.
   ///
   /// In en, this message translates to:
-  /// **'Switch Device'**
+  /// **'Devices'**
   String get device_management;
 
   /// No description provided for @device_details.
@@ -614,7 +620,7 @@ abstract class AppLocalizations {
   /// No description provided for @email_signin.
   ///
   /// In en, this message translates to:
-  /// **'Email Sign In'**
+  /// **'Sign in with email'**
   String get email_signin;
 
   /// No description provided for @otp_code.
@@ -638,8 +644,8 @@ abstract class AppLocalizations {
   /// No description provided for @signout_failed.
   ///
   /// In en, this message translates to:
-  /// **'Sign out failed: {error}'**
-  String signout_failed(Object error);
+  /// **'Sign out failed. Please try again.'**
+  String get signout_failed;
 
   /// No description provided for @google_signin_placeholder.
   ///
@@ -650,7 +656,7 @@ abstract class AppLocalizations {
   /// No description provided for @audit_mode_enabled.
   ///
   /// In en, this message translates to:
-  /// **'Audit/Review mode enabled'**
+  /// **'Audit mode enabled'**
   String get audit_mode_enabled;
 
   /// No description provided for @login_expired.
@@ -782,7 +788,7 @@ abstract class AppLocalizations {
   /// No description provided for @wifi_credentials_sent.
   ///
   /// In en, this message translates to:
-  /// **'Wi‑Fi credentials sent to TV: {ssid}'**
+  /// **'Wi‑Fi credentials sent: {ssid}'**
   String wifi_credentials_sent(Object ssid);
 
   /// No description provided for @wifi_credentials_failed.
@@ -812,7 +818,7 @@ abstract class AppLocalizations {
   /// No description provided for @check_update.
   ///
   /// In en, this message translates to:
-  /// **'Check Update'**
+  /// **'Update'**
   String get check_update;
 
   /// No description provided for @delete_device.
@@ -860,14 +866,14 @@ abstract class AppLocalizations {
   /// No description provided for @device_switched.
   ///
   /// In en, this message translates to:
-  /// **'Switched to current device'**
+  /// **'Switched to this device'**
   String get device_switched;
 
   /// No description provided for @switch_device_failed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to switch device: {error}'**
-  String switch_device_failed(Object error);
+  /// **'Failed to switch device. Please try again.'**
+  String get switch_device_failed;
 
   /// No description provided for @missing_ble_params.
   ///
@@ -974,7 +980,7 @@ abstract class AppLocalizations {
   /// No description provided for @device_bound_elsewhere.
   ///
   /// In en, this message translates to:
-  /// **'The user bound to the device does not match with you'**
+  /// **'This device is linked to a different account'**
   String get device_bound_elsewhere;
 
   /// No description provided for @ble_connect_timeout_relaunch_toast.
@@ -1028,7 +1034,7 @@ abstract class AppLocalizations {
   /// No description provided for @provision_success.
   ///
   /// In en, this message translates to:
-  /// **'Provisioning successful. Device is online'**
+  /// **'Wi‑Fi setup complete. Device is online'**
   String get provision_success;
 
   /// No description provided for @selected_network.
@@ -1112,7 +1118,7 @@ abstract class AppLocalizations {
   /// No description provided for @send_provision_request.
   ///
   /// In en, this message translates to:
-  /// **'Start Connecting'**
+  /// **'Connect'**
   String get send_provision_request;
 
   /// No description provided for @provisioning_please_wait.
@@ -1178,13 +1184,13 @@ abstract class AppLocalizations {
   /// No description provided for @bind_success.
   ///
   /// In en, this message translates to:
-  /// **'Binding successful'**
+  /// **'Device linked successfully'**
   String get bind_success;
 
   /// No description provided for @firmware_version_label.
   ///
   /// In en, this message translates to:
-  /// **'Firmware Ver.'**
+  /// **'Version'**
   String get firmware_version_label;
 
   /// No description provided for @manage_network.
@@ -1232,8 +1238,8 @@ abstract class AppLocalizations {
   /// No description provided for @delete_failed_error.
   ///
   /// In en, this message translates to:
-  /// **'Failed to unbind device: {error}'**
-  String delete_failed_error(Object error);
+  /// **'Failed to unbind device. Please try again.'**
+  String get delete_failed_error;
 
   /// No description provided for @ble_connected_text.
   ///
@@ -1340,8 +1346,8 @@ abstract class AppLocalizations {
   /// No description provided for @check_update_failed_error.
   ///
   /// In en, this message translates to:
-  /// **'Check for update failed: {error}'**
-  String check_update_failed_error(Object error);
+  /// **'Unable to check for updates right now. Please try again later.'**
+  String get check_update_failed_error;
 
   /// No description provided for @nearby_networks_count.
   ///
@@ -1466,8 +1472,8 @@ abstract class AppLocalizations {
   /// No description provided for @device_edit_load_failed.
   ///
   /// In en, this message translates to:
-  /// **'Load failed: {error}'**
-  String device_edit_load_failed(Object error);
+  /// **'Unable to load device settings. Please try again.'**
+  String get device_edit_load_failed;
 
   /// No description provided for @missing_device_id_save.
   ///
@@ -1480,6 +1486,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved successfully'**
   String get settings_saved;
+
+  /// No description provided for @settings_save_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to save settings. Please try again.'**
+  String get settings_save_failed;
 
   /// No description provided for @saving_ellipsis.
   ///
@@ -1616,14 +1628,14 @@ abstract class AppLocalizations {
   /// No description provided for @image_processing_failed.
   ///
   /// In en, this message translates to:
-  /// **'Image processing failed: {error}'**
-  String image_processing_failed(Object error);
+  /// **'Image processing failed. Please try another image.'**
+  String get image_processing_failed;
 
   /// No description provided for @image_processing_failed_index.
   ///
   /// In en, this message translates to:
-  /// **'Image {count} processing failed: {error}'**
-  String image_processing_failed_index(Object count, Object error);
+  /// **'Image {count} could not be processed.'**
+  String image_processing_failed_index(Object count);
 
   /// No description provided for @image_processing_failed_index_retry.
   ///
@@ -1690,6 +1702,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tasks'**
   String get task_menu_item;
+
+  /// No description provided for @environment_switch_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch Environment'**
+  String get environment_switch_title;
+
+  /// No description provided for @environment_current.
+  ///
+  /// In en, this message translates to:
+  /// **'Current: {environment}'**
+  String environment_current(Object environment);
+
+  /// No description provided for @environment_switched.
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to {environment}'**
+  String environment_switched(Object environment);
+
+  /// No description provided for @environment_pre_release.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-release'**
+  String get environment_pre_release;
+
+  /// No description provided for @environment_production.
+  ///
+  /// In en, this message translates to:
+  /// **'Production'**
+  String get environment_production;
 
   /// No description provided for @task_list_title.
   ///
@@ -1799,17 +1841,11 @@ abstract class AppLocalizations {
   /// **'File cached: {path}'**
   String task_pdf_file_cached(Object path);
 
-  /// No description provided for @task_pdf_download_failed.
-  ///
-  /// In en, this message translates to:
-  /// **'Download failed: {error}'**
-  String task_pdf_download_failed(Object error);
-
   /// No description provided for @task_pdf_share_failed.
   ///
   /// In en, this message translates to:
-  /// **'Share failed: {error}'**
-  String task_pdf_share_failed(Object error);
+  /// **'Share failed. Please try again.'**
+  String get task_pdf_share_failed;
 
   /// No description provided for @task_pdf_missing_storage_permission.
   ///
@@ -1846,12 +1882,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please try again later'**
   String get task_pdf_retry_later;
-
-  /// No description provided for @task_pdf_load_failed.
-  ///
-  /// In en, this message translates to:
-  /// **'Load failed: {error}'**
-  String task_pdf_load_failed(Object error);
 
   /// No description provided for @task_pdf_retry.
   ///

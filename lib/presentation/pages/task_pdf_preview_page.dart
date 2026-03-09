@@ -274,7 +274,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     } catch (e, stackTrace) {
       _logError('sharePdf', e, stackTrace);
       Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_share_failed(_readableError(e)),
+        msg: context.l10n.task_pdf_share_failed,
       );
     } finally {
       if (mounted) {
@@ -486,7 +486,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n.task_pdf_load_failed(errorText)),
+              Text(errorText),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: retryAction,

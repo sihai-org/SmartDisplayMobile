@@ -45,7 +45,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
-  String get language_system => 'Follow System';
+  String get language_system => 'Follow system';
 
   @override
   String get language_zh => 'Chinese';
@@ -115,6 +115,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reported_success => 'Reported successfully';
+
+  @override
+  String get report_failed => 'Report failed. Please try again.';
 
   @override
   String get reported_mock => 'Reported (mock)';
@@ -200,9 +203,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get login_password => 'Password';
 
   @override
-  String login_failed(Object error) {
-    return 'Sign in failed: $error';
-  }
+  String get login_failed => 'Sign in failed. Please try again.';
 
   @override
   String get home_title => 'Home';
@@ -211,7 +212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devices_title => 'Devices';
 
   @override
-  String get device_management => 'Switch Device';
+  String get device_management => 'Devices';
 
   @override
   String get device_details => 'Device Details';
@@ -261,22 +262,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otp_invalid => 'Invalid code, please retry';
 
   @override
-  String get login_failed_generic =>
-      'Sign in failed. Please try again later.';
+  String get login_failed_generic => 'Sign in failed. Please try again later.';
 
   @override
   String get login_failed_otp_invalid => 'Invalid code, please retry';
 
   @override
-  String get login_failed_otp_expired =>
-      'Invalid or expired code. Please try again.';
+  String get login_failed_otp_expired => 'Invalid or expired code. Please try again.';
 
   @override
-  String get login_failed_rate_limited =>
-      'Too many attempts. Please try again later.';
+  String get login_failed_rate_limited => 'Too many attempts. Please try again later.';
 
   @override
-  String get email_signin => 'Email Sign In';
+  String get email_signin => 'Sign in with email';
 
   @override
   String get otp_code => 'Verification Code';
@@ -290,15 +288,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get send_otp => 'Send Code';
 
   @override
-  String signout_failed(Object error) {
-    return 'Sign out failed: $error';
-  }
+  String get signout_failed => 'Sign out failed. Please try again.';
 
   @override
   String get google_signin_placeholder => 'Coming soon';
 
   @override
-  String get audit_mode_enabled => 'Audit/Review mode enabled';
+  String get audit_mode_enabled => 'Audit mode enabled';
 
   @override
   String get login_expired => 'Login session expired';
@@ -367,7 +363,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String wifi_credentials_sent(Object ssid) {
-    return 'Wi‑Fi credentials sent to TV: $ssid';
+    return 'Wi‑Fi credentials sent: $ssid';
   }
 
   @override
@@ -383,7 +379,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get set_current_device => 'Set as current';
 
   @override
-  String get check_update => 'Check Update';
+  String get check_update => 'Update';
 
   @override
   String get delete_device => 'Unbind Device';
@@ -407,12 +403,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scan_qr_add_device => 'Scan QR to add device';
 
   @override
-  String get device_switched => 'Switched to current device';
+  String get device_switched => 'Switched to this device';
 
   @override
-  String switch_device_failed(Object error) {
-    return 'Failed to switch device: $error';
-  }
+  String get switch_device_failed => 'Failed to switch device. Please try again.';
 
   @override
   String get missing_ble_params => 'Missing Bluetooth parameters. Please rescan the device first.';
@@ -468,7 +462,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect_failed_retry => 'Connection failed, please retry';
 
   @override
-  String get device_bound_elsewhere => 'The user bound to the device does not match with you';
+  String get device_bound_elsewhere => 'This device is linked to a different account';
 
   @override
   String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
@@ -495,7 +489,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ble_connecting => 'Connecting via Bluetooth...';
 
   @override
-  String get provision_success => 'Provisioning successful. Device is online';
+  String get provision_success => 'Wi‑Fi setup complete. Device is online';
 
   @override
   String selected_network(Object ssid) {
@@ -545,7 +539,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get provision_request_failed => 'Network connection failed, please try again';
 
   @override
-  String get send_provision_request => 'Start Connecting';
+  String get send_provision_request => 'Connect';
 
   @override
   String get provisioning_please_wait => 'Provisioning, please wait…';
@@ -580,10 +574,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bind_failed => 'Binding failed. Please try again later.';
 
   @override
-  String get bind_success => 'Binding successful';
+  String get bind_success => 'Device linked successfully';
 
   @override
-  String get firmware_version_label => 'Firmware Ver.';
+  String get firmware_version_label => 'Version';
 
   @override
   String get manage_network => 'Manage Network';
@@ -607,9 +601,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get delete_failed => 'Failed to unbind device';
 
   @override
-  String delete_failed_error(Object error) {
-    return 'Failed to unbind device: $error';
-  }
+  String get delete_failed_error => 'Failed to unbind device. Please try again.';
 
   @override
   String get ble_connected_text => 'Bluetooth connected';
@@ -669,9 +661,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get check_update_failed_retry => 'Check for update failed, please try again later';
 
   @override
-  String check_update_failed_error(Object error) {
-    return 'Check for update failed: $error';
-  }
+  String get check_update_failed_error => 'Unable to check for updates right now. Please try again later.';
 
   @override
   String nearby_networks_count(Object count) {
@@ -736,15 +726,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reset_to_default => 'Reset to default';
 
   @override
-  String device_edit_load_failed(Object error) {
-    return 'Load failed: $error';
-  }
+  String get device_edit_load_failed => 'Unable to load device settings. Please try again.';
 
   @override
   String get missing_device_id_save => 'Missing device ID. Unable to save.';
 
   @override
   String get settings_saved => 'Saved successfully';
+
+  @override
+  String get settings_save_failed => 'Unable to save settings. Please try again.';
 
   @override
   String get saving_ellipsis => 'Saving...';
@@ -827,13 +818,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get image_processing_timeout_hint => 'Image processing timed out. Reduce the number of images or try again later.';
 
   @override
-  String image_processing_failed(Object error) {
-    return 'Image processing failed: $error';
-  }
+  String get image_processing_failed => 'Image processing failed. Please try another image.';
 
   @override
-  String image_processing_failed_index(Object count, Object error) {
-    return 'Image $count processing failed: $error';
+  String image_processing_failed_index(Object count) {
+    return 'Image $count could not be processed.';
   }
 
   @override
@@ -872,6 +861,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get task_menu_item => 'Tasks';
+
+  @override
+  String get environment_switch_title => 'Switch Environment';
+
+  @override
+  String environment_current(Object environment) {
+    return 'Current: $environment';
+  }
+
+  @override
+  String environment_switched(Object environment) {
+    return 'Switched to $environment';
+  }
+
+  @override
+  String get environment_pre_release => 'Pre-release';
+
+  @override
+  String get environment_production => 'Production';
 
   @override
   String get task_list_title => 'Tasks';
@@ -932,14 +940,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String task_pdf_download_failed(Object error) {
-    return 'Download failed: $error';
-  }
-
-  @override
-  String task_pdf_share_failed(Object error) {
-    return 'Share failed: $error';
-  }
+  String get task_pdf_share_failed => 'Share failed. Please try again.';
 
   @override
   String get task_pdf_missing_storage_permission => 'Missing storage permission, unable to download';
@@ -958,11 +959,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get task_pdf_retry_later => 'Please try again later';
-
-  @override
-  String task_pdf_load_failed(Object error) {
-    return 'Load failed: $error';
-  }
 
   @override
   String get task_pdf_retry => 'Retry';

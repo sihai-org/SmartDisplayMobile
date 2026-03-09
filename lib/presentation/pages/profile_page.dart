@@ -64,7 +64,7 @@ class ProfilePage extends ConsumerWidget {
       if (!context.mounted) return;
 
       final l10n = context.l10n;
-      Fluttertoast.showToast(msg: l10n.signout_failed(e.toString()));
+      Fluttertoast.showToast(msg: l10n.signout_failed);
       // 登出失败先啥也不干
       return;
     }
@@ -307,18 +307,30 @@ class ProfilePage extends ConsumerWidget {
                   ValueListenableBuilder<AppEnvironmentStage>(
                     valueListenable: AppEnvironment.stage,
                     builder: (context, stage, _) {
+                      final stageLabel = switch (stage) {
+                        AppEnvironmentStage.preRelease =>
+                          l10n.environment_pre_release,
+                        AppEnvironmentStage.production =>
+                          l10n.environment_production,
+                      };
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                         ),
-                        title: const Text('切换预发环境'),
-                        subtitle: Text('当前：${AppEnvironment.label}'),
+                        title: Text(l10n.environment_switch_title),
+                        subtitle: Text(
+                          l10n.environment_current(stageLabel),
+                        ),
                         trailing: const Icon(Icons.swap_horiz),
                         onTap: () {
                           AppEnvironment.toggle();
                           _showTopToast(
                             context,
-                            '已切换至${AppEnvironment.label}环境',
+                            l10n.environment_switched(
+                              AppEnvironment.isPreRelease
+                                  ? l10n.environment_pre_release
+                                  : l10n.environment_production,
+                            ),
                           );
                         },
                       );

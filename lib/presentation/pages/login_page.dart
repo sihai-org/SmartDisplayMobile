@@ -107,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
         error: e,
         stackTrace: st,
       );
-      setState(() => _error = e.toString());
+      setState(() => _error = l10n.login_failed_generic);
     } finally {
       setState(() => _isSendingOtp = false);
     }

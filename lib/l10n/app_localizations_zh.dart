@@ -117,6 +117,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reported_success => '上报成功';
 
   @override
+  String get report_failed => '上报失败，请重试。';
+
+  @override
   String get reported_mock => '已上报（mock）';
 
   @override
@@ -200,9 +203,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get login_password => '密码';
 
   @override
-  String login_failed(Object error) {
-    return '登录失败：$error';
-  }
+  String get login_failed => '登录失败，请重试。';
 
   @override
   String get home_title => '首页';
@@ -287,15 +288,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get send_otp => '发送验证码';
 
   @override
-  String signout_failed(Object error) {
-    return '退出失败: $error';
-  }
+  String get signout_failed => '退出失败，请重试。';
 
   @override
   String get google_signin_placeholder => '敬请期待';
 
   @override
-  String get audit_mode_enabled => 'Audit/Review 模式已开启';
+  String get audit_mode_enabled => '审核模式已开启';
 
   @override
   String get login_expired => '登录已过期';
@@ -407,9 +406,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get device_switched => '已切换为当前设备';
 
   @override
-  String switch_device_failed(Object error) {
-    return '切换设备失败: $error';
-  }
+  String get switch_device_failed => '切换设备失败，请重试。';
 
   @override
   String get missing_ble_params => '当前设备缺少蓝牙参数，请重新扫码或靠近设备后重试';
@@ -604,9 +601,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get delete_failed => '设备解绑失败';
 
   @override
-  String delete_failed_error(Object error) {
-    return '设备解绑失败: $error';
-  }
+  String get delete_failed_error => '设备解绑失败，请重试。';
 
   @override
   String get ble_connected_text => '蓝牙已连接';
@@ -666,9 +661,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get check_update_failed_retry => '检查更新失败，请稍后重试';
 
   @override
-  String check_update_failed_error(Object error) {
-    return '检查更新失败：$error';
-  }
+  String get check_update_failed_error => '暂时无法检查更新，请稍后重试。';
 
   @override
   String nearby_networks_count(Object count) {
@@ -733,15 +726,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reset_to_default => '恢复默认';
 
   @override
-  String device_edit_load_failed(Object error) {
-    return '加载失败：$error';
-  }
+  String get device_edit_load_failed => '设备设置加载失败，请重试。';
 
   @override
   String get missing_device_id_save => '缺少设备 ID，无法保存';
 
   @override
   String get settings_saved => '保存成功';
+
+  @override
+  String get settings_save_failed => '保存失败，请重试。';
 
   @override
   String get saving_ellipsis => '保存中...';
@@ -824,13 +818,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get image_processing_timeout_hint => '图片处理超时，请减少图片数量或稍后重试';
 
   @override
-  String image_processing_failed(Object error) {
-    return '图片处理失败：$error';
-  }
+  String get image_processing_failed => '图片处理失败，请更换图片后重试。';
 
   @override
-  String image_processing_failed_index(Object count, Object error) {
-    return '第$count张图片处理失败：$error';
+  String image_processing_failed_index(Object count) {
+    return '第 $count 张图片无法处理。';
   }
 
   @override
@@ -869,6 +861,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get task_menu_item => '任务';
+
+  @override
+  String get environment_switch_title => '切换环境';
+
+  @override
+  String environment_current(Object environment) {
+    return '当前：$environment';
+  }
+
+  @override
+  String environment_switched(Object environment) {
+    return '已切换到$environment环境';
+  }
+
+  @override
+  String get environment_pre_release => '预发';
+
+  @override
+  String get environment_production => '正式';
 
   @override
   String get task_list_title => '任务';
@@ -929,14 +940,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String task_pdf_download_failed(Object error) {
-    return '下载失败: $error';
-  }
-
-  @override
-  String task_pdf_share_failed(Object error) {
-    return '分享失败: $error';
-  }
+  String get task_pdf_share_failed => '分享失败，请重试。';
 
   @override
   String get task_pdf_missing_storage_permission => '缺少存储权限，无法下载';
@@ -955,11 +959,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get task_pdf_retry_later => '请稍后重试';
-
-  @override
-  String task_pdf_load_failed(Object error) {
-    return '加载失败: $error';
-  }
 
   @override
   String get task_pdf_retry => '重试';

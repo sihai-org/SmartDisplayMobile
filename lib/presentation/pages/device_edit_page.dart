@@ -74,7 +74,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       progress.success(l10n.settings_saved);
       await Future.delayed(const Duration(milliseconds: 600));
     } catch (e) {
-      progress.error(e.toString());
+      progress.error(l10n.settings_save_failed);
       await Future.delayed(const Duration(seconds: 4));
       rethrow;
     }
@@ -285,7 +285,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         final message = switch (error) {
           ImageProcessingException e => e.message,
           String s when s.isNotEmpty => s,
-          _ => l10n.image_processing_failed(error.toString()),
+          _ => l10n.image_processing_failed,
         };
         AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 处理失败 $message");
         progress.error(message);
@@ -433,7 +433,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           .catchError((error) {
             if (!mounted) return;
             final l10n = context.l10n;
-            _safelyShowToast(l10n.device_edit_load_failed(error.toString()));
+            _safelyShowToast(l10n.device_edit_load_failed);
       });
     });
   }
