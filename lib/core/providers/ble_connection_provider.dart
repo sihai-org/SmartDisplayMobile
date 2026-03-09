@@ -133,6 +133,31 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   int _heartbeatFailures = 0;
   int _heartbeatSeq = 0;
 
+  bool get _isMounted => mounted;
+
+  void _setStateSafely(BleConnectionState next, {String? reason}) {
+    if (!_isMounted) {
+      if (reason != null) {
+        _log('忽略 dispose 后的状态更新: $reason');
+      }
+      return;
+    }
+    super.state = next;
+  }
+
+  void _updateStateSafely(
+    BleConnectionState Function(BleConnectionState current) update, {
+    String? reason,
+  }) {
+    if (!_isMounted) {
+      if (reason != null) {
+        _log('忽略 dispose 后的状态更新: $reason');
+      }
+      return;
+    }
+    super.state = update(super.state);
+  }
+
   void _attachChannelEvents(SecureChannelManager manager) {
     final stream = manager.events;
 
@@ -165,6 +190,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void _handleChannelEvent(Map<String, dynamic> evt) {
+    if (!_isMounted) return;
     _log('=============[_handleChannelEvent] event $evt');
     switch (evt['type']) {
       case 'status':
@@ -245,11 +271,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 每次蓝牙连接后自动同步设备信息
   DateTime? _lastSyncAt;
 
-  Duration _minSyncGap = BleConstants.minSyncGap;
+  final Duration _minSyncGap = BleConstants.minSyncGap;
 
   @override
   set state(BleConnectionState next) {
-    super.state = next;
+    _setStateSafely(next, reason: 'direct state assignment');
   }
 
   /// 针对指定设备开启一个全新的 BLE 会话。
@@ -307,13 +333,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return;
     }
     try {
-      state = state.copyWith(isCheckingNetwork: true);
+      _updateStateSafely(
+        (current) => current.copyWith(isCheckingNetwork: true),
+        reason: 'syncDeviceInfo.start',
+      );
       final info = await sendBleMsg('device.info', null, retries: 0);
+      if (!_isMounted) return;
       if (info is Map<String, dynamic>) {
         // 更新网络状态到连接状态
-        state = state.copyWith(
-          networkStatus: NetworkStatus.fromJson(info['network']),
-          networkStatusUpdatedAt: DateTime.now(),
+        _updateStateSafely(
+          (current) => current.copyWith(
+            networkStatus: NetworkStatus.fromJson(info['network']),
+            networkStatusUpdatedAt: DateTime.now(),
+          ),
+          reason: 'syncDeviceInfo.networkStatus',
         );
 
         // 通过 SavedDevicesNotifier 更新固件版本与上次连接时间（仅本地与内存）
@@ -339,7 +372,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     } catch (e) {
       _log('syncDeviceInfo 失败: $e');
     } finally {
-      state = state.copyWith(isCheckingNetwork: false);
+      _updateStateSafely(
+        (current) => current.copyWith(isCheckingNetwork: false),
+        reason: 'syncDeviceInfo.finally',
+      );
     }
   }
 
@@ -400,9 +436,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
                 } catch (_) {}
 
                 // 可选：把 UI 状态拉回断开（不 reset，不影响 session）
-                if (session == _sessionCount) {
-                  state = state.copyWith(
-                    bleDeviceStatus: BleDeviceStatus.disconnected,
+                if (_isMounted && session == _sessionCount) {
+                  _updateStateSafely(
+                    (current) => current.copyWith(
+                      bleDeviceStatus: BleDeviceStatus.disconnected,
+                    ),
+                    reason: 'enableBleConnection.timeout',
                   );
                 }
                 return false; // 让 ok=false -> BleConnectResult.failed
@@ -429,7 +468,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final hs = mgr.lastHandshakeStatus;
       AppLog.instance.debug('handshakeStatus=$hs', tag: 'BLE');
       bool treatAsEmptyBound = hs == 'empty_bound';
-      state = state.copyWith(emptyBound: treatAsEmptyBound);
+      _updateStateSafely(
+        (current) => current.copyWith(emptyBound: treatAsEmptyBound),
+        reason: 'enableBleConnection.handshake',
+      );
 
       /// 6. 绑定事件流
       _attachChannelEvents(mgr);
@@ -438,7 +480,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
 
       /// 7. 更新 UI state
-      state = state.copyWith(bleDeviceStatus: BleDeviceStatus.authenticated);
+      _updateStateSafely(
+        (current) => current.copyWith(
+          bleDeviceStatus: BleDeviceStatus.authenticated,
+        ),
+        reason: 'enableBleConnection.authenticated',
+      );
       _lastActivityAt = DateTime.now();
 
       /// 8. 连接成功时，sync 一次
@@ -455,12 +502,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _logWithTime('enableBleConnection.fail(${elapsed}ms): $e');
 
       BleConnectResult result = BleConnectResult.failed;
-      if (session == _sessionCount) {
+      if (_isMounted && session == _sessionCount) {
         if (e is UserMismatchException) {
-          state = state.copyWith(bleDeviceStatus: BleDeviceStatus.error);
+          _updateStateSafely(
+            (current) =>
+                current.copyWith(bleDeviceStatus: BleDeviceStatus.error),
+            reason: 'enableBleConnection.userMismatch',
+          );
           result = BleConnectResult.userMismatch;
         } else {
-          state = state.copyWith(bleDeviceStatus: BleDeviceStatus.error);
+          _updateStateSafely(
+            (current) =>
+                current.copyWith(bleDeviceStatus: BleDeviceStatus.error),
+            reason: 'enableBleConnection.error',
+          );
           if (e is TimeoutException &&
               e.message == BleConnectResult.scanTimeout.name) {
             result = BleConnectResult.scanTimeout;
@@ -472,8 +527,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       }
       return result;
     } finally {
-      if (session == _sessionCount) {
-        state = state.copyWith(enableBleConnectionLoading: false);
+      if (_isMounted && session == _sessionCount) {
+        _updateStateSafely(
+          (current) =>
+              current.copyWith(enableBleConnectionLoading: false),
+          reason: 'enableBleConnection.finally',
+        );
       }
     }
   }
@@ -569,10 +628,14 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return false;
     }
 
-    state = state.copyWith(isScanningWifi: true);
+    _updateStateSafely(
+      (current) => current.copyWith(isScanningWifi: true),
+      reason: 'requestWifiScan.start',
+    );
     try {
       _log('⏳ 开始扫描附近Wi-Fi...');
       final data = await sendBleMsg('wifi.scan', null, retries: 0);
+      if (!_isMounted) return false;
       if (data is List) {
         final networks = data
             .map(
@@ -585,9 +648,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
               ),
             )
             .toList();
-        state = state.copyWith(
-          wifiNetworks: networks,
-          wifiScanUpdatedAt: DateTime.now(),
+        _updateStateSafely(
+          (current) => current.copyWith(
+            wifiNetworks: networks,
+            wifiScanUpdatedAt: DateTime.now(),
+          ),
+          reason: 'requestWifiScan.success',
         );
         _log('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
       }
@@ -596,7 +662,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _log('❌ wifi.scan 失败: $e');
       return false;
     } finally {
-      state = state.copyWith(isScanningWifi: false);
+      _updateStateSafely(
+        (current) => current.copyWith(isScanningWifi: false),
+        reason: 'requestWifiScan.finally',
+      );
     }
   }
 
@@ -625,13 +694,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     if (state.isCheckingNetwork) return null;
 
     try {
-      state = state.copyWith(isCheckingNetwork: true);
+      _updateStateSafely(
+        (current) => current.copyWith(isCheckingNetwork: true),
+        reason: 'checkNetworkStatus.start',
+      );
       final data = await sendBleMsg('network.status', null, retries: 0);
+      if (!_isMounted) return null;
       if (data is Map<String, dynamic>) {
         final ns = NetworkStatus.fromJson(data);
-        state = state.copyWith(
-          networkStatus: ns,
-          networkStatusUpdatedAt: DateTime.now(),
+        _updateStateSafely(
+          (current) => current.copyWith(
+            networkStatus: ns,
+            networkStatusUpdatedAt: DateTime.now(),
+          ),
+          reason: 'checkNetworkStatus.success',
         );
         return ns;
       }
@@ -639,7 +715,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     } catch (e) {
       return null;
     } finally {
-      state = state.copyWith(isCheckingNetwork: false);
+      _updateStateSafely(
+        (current) => current.copyWith(isCheckingNetwork: false),
+        reason: 'checkNetworkStatus.finally',
+      );
     }
   }
 
@@ -708,7 +787,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     /// --- 会话计数 ---
     final int session = ++_sessionCount;
     await _ref.read(secureChannelManagerProvider).dispose();
-    if (session != _sessionCount) {
+    if (!_isMounted || session != _sessionCount) {
       return;
     }
     _heartbeatFailures = 0;
@@ -738,7 +817,5 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
 final bleConnectionProvider =
     StateNotifierProvider<BleConnectionNotifier, BleConnectionState>((ref) {
-      final notifier = BleConnectionNotifier(ref);
-      ref.onDispose(() => notifier.dispose());
-      return notifier;
+      return BleConnectionNotifier(ref);
     });
