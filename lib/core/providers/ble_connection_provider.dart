@@ -617,7 +617,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     return await sendSimpleBleMsg('login.auth', {
       'email': email,
       'otpToken': code,
-    }, timeout: const Duration(seconds: 20));
+    }, timeout: BleConstants.bindLoginTimeout);
   }
 
   // 解绑
