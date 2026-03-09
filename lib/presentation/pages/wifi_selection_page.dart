@@ -212,6 +212,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _pwdController,
+                        textInputAction: TextInputAction.done,
                         decoration: InputDecoration(
                           labelText: context.l10n.wifi_password_label,
                           border: OutlineInputBorder(),
@@ -227,6 +228,7 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           ),
                         ),
                         obscureText: _obscurePwd,
+                        onSubmitted: (_) => _handleSend(),
                       ),
 
                       const SizedBox(height: 16),
