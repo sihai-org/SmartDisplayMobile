@@ -192,11 +192,8 @@
   "confirm_binding_title": "确认绑定",
   "confirm_binding_question": "是否将该设备绑定到当前账号？",
   "bind_button": "绑定",
-  "fetch_otp_failed": "获取授权码失败: {error}",
-  "otp_empty": "授权码为空",
-  "bind_failed": "绑定失败",
+  "bind_failed": "绑定失败，请稍后再试",
   "bind_success": "绑定成功",
-  "bind_failed_error": "绑定失败: {error}",
   
   "firmware_version_label": "固件版本",
   "manage_network": "管理网络",

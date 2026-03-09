@@ -1169,22 +1169,10 @@ abstract class AppLocalizations {
   /// **'Bind'**
   String get bind_button;
 
-  /// No description provided for @fetch_otp_failed.
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to fetch authorization code: {error}'**
-  String fetch_otp_failed(Object error);
-
-  /// No description provided for @otp_empty.
-  ///
-  /// In en, this message translates to:
-  /// **'Authorization code is empty'**
-  String get otp_empty;
-
   /// No description provided for @bind_failed.
   ///
   /// In en, this message translates to:
-  /// **'Binding failed'**
+  /// **'Binding failed. Please try again later.'**
   String get bind_failed;
 
   /// No description provided for @bind_success.
@@ -1192,12 +1180,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Binding successful'**
   String get bind_success;
-
-  /// No description provided for @bind_failed_error.
-  ///
-  /// In en, this message translates to:
-  /// **'Binding failed: {error}'**
-  String bind_failed_error(Object error);
 
   /// No description provided for @firmware_version_label.
   ///

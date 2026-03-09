@@ -192,11 +192,8 @@
   "confirm_binding_title": "Confirm Binding",
   "confirm_binding_question": "Bind this device to your account?",
   "bind_button": "Bind",
-  "fetch_otp_failed": "Failed to fetch authorization code: {error}",
-  "otp_empty": "Authorization code is empty",
-  "bind_failed": "Binding failed",
+  "bind_failed": "Binding failed. Please try again later.",
   "bind_success": "Binding successful",
-  "bind_failed_error": "Binding failed: {error}",
   
   "firmware_version_label": "Firmware Ver.",
   "manage_network": "Manage Network",

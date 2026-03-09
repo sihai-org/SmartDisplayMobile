@@ -577,23 +577,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bind_button => 'Bind';
 
   @override
-  String fetch_otp_failed(Object error) {
-    return 'Failed to fetch authorization code: $error';
-  }
-
-  @override
-  String get otp_empty => 'Authorization code is empty';
-
-  @override
-  String get bind_failed => 'Binding failed';
+  String get bind_failed => 'Binding failed. Please try again later.';
 
   @override
   String get bind_success => 'Binding successful';
-
-  @override
-  String bind_failed_error(Object error) {
-    return 'Binding failed: $error';
-  }
 
   @override
   String get firmware_version_label => 'Firmware Ver.';

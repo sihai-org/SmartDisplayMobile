@@ -228,7 +228,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: context.l10n.fetch_otp_failed(response.data));
+        Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return false;
       }
       final data = response.data as Map;
@@ -238,7 +238,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         final recovered = await _attemptSuccessFallback(
             ref, device.displayDeviceId);
         if (recovered) return true;
-        Fluttertoast.showToast(msg: context.l10n.otp_empty);
+        Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return false;
       }
 
@@ -268,7 +268,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       final recovered = await _attemptSuccessFallback(
           ref, device.displayDeviceId);
       if (recovered) return true;
-      Fluttertoast.showToast(msg: context.l10n.bind_failed_error(e.toString()));
+      Fluttertoast.showToast(msg: context.l10n.bind_failed);
       return false;
     }
   }

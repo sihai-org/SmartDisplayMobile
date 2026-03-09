@@ -574,23 +574,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bind_button => '绑定';
 
   @override
-  String fetch_otp_failed(Object error) {
-    return '获取授权码失败: $error';
-  }
-
-  @override
-  String get otp_empty => '授权码为空';
-
-  @override
-  String get bind_failed => '绑定失败';
+  String get bind_failed => '绑定失败，请稍后再试';
 
   @override
   String get bind_success => '绑定成功';
-
-  @override
-  String bind_failed_error(Object error) {
-    return '绑定失败: $error';
-  }
 
   @override
   String get firmware_version_label => '固件版本';
