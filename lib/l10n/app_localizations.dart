@@ -605,6 +605,30 @@ abstract class AppLocalizations {
   /// **'Invalid code, please retry'**
   String get otp_invalid;
 
+  /// No description provided for @login_failed_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in failed. Please try again later.'**
+  String get login_failed_generic;
+
+  /// No description provided for @login_failed_otp_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid code, please retry'**
+  String get login_failed_otp_invalid;
+
+  /// No description provided for @login_failed_otp_expired.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid or expired code. Please try again.'**
+  String get login_failed_otp_expired;
+
+  /// No description provided for @login_failed_rate_limited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Please try again later.'**
+  String get login_failed_rate_limited;
+
   /// No description provided for @email_signin.
   ///
   /// In en, this message translates to:

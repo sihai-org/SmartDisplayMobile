@@ -272,6 +272,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otp_invalid => 'Invalid code, please retry';
 
   @override
+  String get login_failed_generic =>
+      'Sign in failed. Please try again later.';
+
+  @override
+  String get login_failed_otp_invalid => 'Invalid code, please retry';
+
+  @override
+  String get login_failed_otp_expired =>
+      'Invalid or expired code. Please try again.';
+
+  @override
+  String get login_failed_rate_limited =>
+      'Too many attempts. Please try again later.';
+
+  @override
   String get email_signin => 'Email Sign In';
 
   @override

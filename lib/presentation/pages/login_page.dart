@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -166,11 +167,28 @@ class _LoginPageState extends State<LoginPage> {
         error: e,
         stackTrace: st,
       );
-      setState(() => _error = e.toString());
-      Fluttertoast.showToast(msg: l10n.login_failed(e.toString()));
+      final errorMessage = _mapVerifyOtpError(e, l10n);
+      setState(() => _error = errorMessage);
+      Fluttertoast.showToast(msg: errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  String _mapVerifyOtpError(Object error, AppLocalizations l10n) {
+    if (error is AuthApiException) {
+      switch (error.code) {
+        case 'otp_expired':
+          return l10n.login_failed_otp_expired;
+        case 'over_request_rate_limit':
+        case 'over_email_send_rate_limit':
+          return l10n.login_failed_rate_limited;
+        case 'validation_failed':
+          return l10n.login_failed_otp_invalid;
+      }
+    }
+
+    return l10n.login_failed_generic;
   }
 
   /// Google 登录占位

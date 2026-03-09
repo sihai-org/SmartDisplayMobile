@@ -272,6 +272,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otp_invalid => '验证码无效，请重试';
 
   @override
+  String get login_failed_generic => '登录失败，请稍后重试';
+
+  @override
+  String get login_failed_otp_invalid => '验证码无效，请重试';
+
+  @override
+  String get login_failed_otp_expired => '验证码错误或已失效，请重试';
+
+  @override
+  String get login_failed_rate_limited => '操作过于频繁，请稍后再试';
+
+  @override
   String get email_signin => '邮箱登录';
 
   @override
