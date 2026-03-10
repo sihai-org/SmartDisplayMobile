@@ -15,15 +15,18 @@ class AppLog {
 
   void info(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     _local('[INFO]', message, tag: tag, error: error, stackTrace: stackTrace);
+    Sentry.logger.info("[$tag] $message");
   }
 
   void warning(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     _local('[WARNING]', message, tag: tag, error: error, stackTrace: stackTrace);
+    Sentry.logger.warn("[$tag] $message");
     _reportWarning(message, error: error, stackTrace: stackTrace, tag: tag);
   }
 
   void error(String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     _local('[ERROR]', message, tag: tag, error: error, stackTrace: stackTrace);
+    Sentry.logger.error("[$tag] $message");
     _reportError(message, error: error, stackTrace: stackTrace, tag: tag);
   }
 

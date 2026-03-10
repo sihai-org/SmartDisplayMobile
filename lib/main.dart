@@ -33,6 +33,8 @@ void main() async {
   await SentryFlutter.init(
     (options) {
       options.dsn = dotenv.env['SENTRY_DSN'];
+      options.enableLogs = true; // 开启 Sentry Logs
+
       options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
       options.tracesSampleRate = 0.2; // 根据需要调整采样率
       options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率

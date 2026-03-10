@@ -36,7 +36,7 @@ if (flutterVersionName == null) {
 android {
     namespace "com.datou.smart_display_mobile"
     compileSdkVersion flutter.compileSdkVersion
-    ndkVersion "27.3.13750724"
+    ndkVersion "26.1.10909125"
 
 
     // ✅ app 模块统一到 Java 11
