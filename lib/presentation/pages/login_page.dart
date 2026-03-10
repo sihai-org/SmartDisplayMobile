@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/log/app_log.dart';
+import '../../core/log/device_onboarding_log.dart';
+import '../../core/log/device_onboarding_events.dart';
 
 import '../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,8 +91,16 @@ class _LoginPageState extends State<LoginPage> {
       _isSendingOtp = true;
       _error = null;
     });
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.authOtpSend,
+      result: 'start',
+    );
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
+      DeviceOnboardingLog.info(
+        event: DeviceOnboardingEvents.authOtpSend,
+        result: 'success',
+      );
 
       Fluttertoast.showToast(msg: l10n.otp_sent_to(email));
 
@@ -101,6 +111,13 @@ class _LoginPageState extends State<LoginPage> {
 
       _startCountdown();
     } catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.authOtpSend,
+        result: 'fail',
+        error: e,
+        stackTrace: st,
+        extra: {'error_type': e.runtimeType.toString()},
+      );
       AppLog.instance.error(
         '[signInWithOtp] failed',
         tag: 'Supabase',
@@ -148,6 +165,10 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
       _error = null;
     });
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.authOtpVerify,
+      result: 'start',
+    );
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
         type: OtpType.email,
@@ -156,12 +177,33 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.session != null) {
+        DeviceOnboardingLog.info(
+          event: DeviceOnboardingEvents.authOtpVerify,
+          result: 'success',
+        );
         Fluttertoast.showToast(msg: l10n.login_success);
         context.go(AppRoutes.home);
       } else {
+        DeviceOnboardingLog.warning(
+          event: DeviceOnboardingEvents.authOtpVerify,
+          result: 'fail',
+          extra: const {'error_code': 'session_missing'},
+        );
         Fluttertoast.showToast(msg: l10n.otp_invalid);
       }
     } catch (e, st) {
+      final errorCode = e is AuthApiException ? e.code : null;
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.authOtpVerify,
+        result: 'fail',
+        error: e,
+        stackTrace: st,
+        extra: {
+          'error_type': e.runtimeType.toString(),
+          if (errorCode != null && errorCode.isNotEmpty)
+            'error_code': errorCode,
+        },
+      );
       AppLog.instance.error(
         '[verifyOTP] failed',
         tag: 'Supabase',

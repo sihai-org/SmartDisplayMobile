@@ -9,10 +9,7 @@ class AppState {
   // 本应用会话内是否已在设备详情页触发过一次自动连接
   final bool didAutoConnectOnDetailPage;
 
-  const AppState({
-    this.scannedQrData,
-    this.didAutoConnectOnDetailPage = false,
-  });
+  const AppState({this.scannedQrData, this.didAutoConnectOnDetailPage = false});
 
   AppState copyWith({
     DeviceQrData? scannedQrData,
@@ -33,16 +30,12 @@ class AppStateNotifier extends StateNotifier<AppState> {
 
   /// 设置扫描到的设备数据
   void setScannedData(DeviceQrData qrData) {
-    state = state.copyWith(
-      scannedQrData: qrData,
-    );
+    state = state.copyWith(scannedQrData: qrData);
   }
 
   /// 清空扫描数据
   void clearScannedData() {
-    state = state.copyWith(
-      scannedQrData: null,
-    );
+    state = state.copyWith(scannedQrData: null);
   }
 
   /// 记录本会话内已在设备详情页触发过一次自动连接
@@ -54,6 +47,8 @@ class AppStateNotifier extends StateNotifier<AppState> {
 }
 
 /// 全局应用状态Provider
-final appStateProvider = StateNotifierProvider<AppStateNotifier, AppState>((ref) {
+final appStateProvider = StateNotifierProvider<AppStateNotifier, AppState>((
+  ref,
+) {
   return AppStateNotifier();
 });

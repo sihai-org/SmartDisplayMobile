@@ -1,5 +1,7 @@
 import 'dart:async';
 import '../../core/log/app_log.dart';
+import '../../core/log/device_onboarding_log.dart';
+import '../../core/log/device_onboarding_events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,8 +26,10 @@ class BindConfirmPage extends ConsumerStatefulWidget {
   ConsumerState<BindConfirmPage> createState() => _BindConfirmPageState();
 }
 
+enum BindResult { success, fallbackSuccess, fail }
+
 class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
-  bool _sending = false;   // 按钮loading
+  bool _sending = false; // 按钮loading
   Future<void> _disconnectAndClearOnUserExit() async {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
@@ -38,11 +42,30 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   Future<void> handleClickBind(DeviceQrData scanned) async {
     if (_sending) return;
     setState(() => _sending = true);
+    final firmwareVersion = ref
+        .read(savedDevicesProvider.notifier)
+        .findById(scanned.displayDeviceId)
+        ?.firmwareVersion;
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.bind,
+      result: 'start',
+      displayDeviceId: scanned.displayDeviceId,
+      firmwareVersion: firmwareVersion,
+    );
 
     try {
-      final ok = await _bindViaOtp(ref, scanned);
+      final result = await _bindViaOtp(ref, scanned);
       if (!mounted) return;
-      if (ok) {
+      if (result == BindResult.success ||
+          result == BindResult.fallbackSuccess) {
+        DeviceOnboardingLog.info(
+          event: DeviceOnboardingEvents.bind,
+          result: result == BindResult.success
+              ? 'success'
+              : 'fallback_success',
+          displayDeviceId: scanned.displayDeviceId,
+          firmwareVersion: firmwareVersion,
+        );
         await ref.read(savedDevicesProvider.notifier).syncFromServer();
         if (!mounted) return;
 
@@ -50,11 +73,20 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         ref.read(bleConnectionProvider.notifier).syncDeviceInfoAfterBind();
 
         context.go(
-            '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(scanned.displayDeviceId)}');
+          '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(scanned.displayDeviceId)}',
+        );
+      } else {
+        DeviceOnboardingLog.warning(
+          event: DeviceOnboardingEvents.bind,
+          result: 'fail',
+          displayDeviceId: scanned.displayDeviceId,
+          firmwareVersion: firmwareVersion,
+        );
       }
     } finally {
-      if (!mounted) return;
-      setState(() => _sending = false);
+      if (mounted) {
+        setState(() => _sending = false);
+      }
     }
   }
 
@@ -71,8 +103,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
     AppLog.instance.debug(
-        '[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}',
-        tag: 'Binding');
+      '[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}',
+      tag: 'Binding',
+    );
 
     // 如果没有扫描数据，提示返回扫码
     if (!same || scanned == null) {
@@ -104,69 +137,73 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         if (context.mounted) context.go(AppRoutes.qrScanner);
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.confirm_binding_title),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            await _disconnectAndClearOnUserExit();
-            if (!context.mounted) return;
-            context.go(AppRoutes.qrScanner);
-          },
+        appBar: AppBar(
+          title: Text(context.l10n.confirm_binding_title),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              await _disconnectAndClearOnUserExit();
+              if (!context.mounted) return;
+              context.go(AppRoutes.qrScanner);
+            },
+          ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.tv, color: Colors.grey),
                   ),
-                  child: const Icon(Icons.tv, color: Colors.grey),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        scanned.deviceName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          scanned.deviceName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(context.l10n.confirm_binding_question),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      await _maybeDisconnectIfEphemeral();
-                      // 清理扫描与连接状态，返回扫码页后重新初始化
-                      ref.read(appStateProvider.notifier).clearScannedData();
-                      ref.read(bleConnectionProvider.notifier).resetState();
-                      context.go(AppRoutes.qrScanner);
-                    },
-                    child: Text(context.l10n.cancel),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(context.l10n.confirm_binding_question),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await _maybeDisconnectIfEphemeral();
+                        // 清理扫描与连接状态，返回扫码页后重新初始化
+                        ref.read(appStateProvider.notifier).clearScannedData();
+                        ref.read(bleConnectionProvider.notifier).resetState();
+                        context.go(AppRoutes.qrScanner);
+                      },
+                      child: Text(context.l10n.cancel),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                      onPressed:
-                          _sending ? null : () => handleClickBind(scanned),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _sending
+                          ? null
+                          : () => handleClickBind(scanned),
                       child: _sending
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
@@ -177,7 +214,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -185,34 +224,41 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                               ],
                             )
                           : Text(context.l10n.bind_button),
+                    ),
                   ),
-                ),
-              ],
-            )
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
-  Future<bool> _bindViaOtp(WidgetRef ref, DeviceQrData device) async {
+  Future<BindResult> _bindViaOtp(WidgetRef ref, DeviceQrData device) async {
+    final firmwareVersion = ref
+        .read(savedDevicesProvider.notifier)
+        .findById(device.displayDeviceId)
+        ?.firmwareVersion;
     try {
       // In audit mode, fully mock binding flow: skip network OTP, send mock login,
       // then persist device locally so later syncFromServer() sees it.
       if (AuditMode.enabled) {
         final notifier = ref.read(bleConnectionProvider.notifier);
-        final ok = await notifier.sendDeviceLoginCode('audit@example.com', '000000');
+        final ok = await notifier.sendDeviceLoginCode(
+          'audit@example.com',
+          '000000',
+        );
         if (!ok) {
           Fluttertoast.showToast(msg: context.l10n.bind_failed);
-          return false;
+          return BindResult.fail;
         }
         try {
           final repo = SavedDevicesRepository();
           await repo.selectFromQr(device);
         } catch (_) {}
         Fluttertoast.showToast(msg: context.l10n.bind_success);
-        return true;
+        return BindResult.success;
       }
 
       final supabase = Supabase.instance.client;
@@ -221,25 +267,51 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         body: {'device_id': device.displayDeviceId},
       );
       if (response.status != 200) {
+        DeviceOnboardingLog.warning(
+          event: DeviceOnboardingEvents.bindServerOtp,
+          result: 'fail',
+          displayDeviceId: device.displayDeviceId,
+          firmwareVersion: firmwareVersion,
+          extra: {'status_code': response.status},
+        );
         AppLog.instance.warning(
           '[bindViaOtp] edge function pairing-otp non-200: ${response.status} ${response.data}',
           tag: 'Supabase',
         );
         final recovered = await _attemptSuccessFallback(
-            ref, device.displayDeviceId);
-        if (recovered) return true;
+          ref,
+          device.displayDeviceId,
+        );
+        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
-        return false;
+        return BindResult.fail;
       }
       final data = response.data as Map;
       final email = (data['email'] ?? '') as String;
       final otpToken = (data['token'] ?? '') as String;
+      if (email.isNotEmpty && otpToken.isNotEmpty) {
+        DeviceOnboardingLog.info(
+          event: DeviceOnboardingEvents.bindServerOtp,
+          result: 'success',
+          displayDeviceId: device.displayDeviceId,
+          firmwareVersion: firmwareVersion,
+        );
+      }
       if (email.isEmpty || otpToken.isEmpty) {
+        DeviceOnboardingLog.warning(
+          event: DeviceOnboardingEvents.bindServerOtp,
+          result: 'fail',
+          displayDeviceId: device.displayDeviceId,
+          firmwareVersion: firmwareVersion,
+          extra: const {'error_code': 'missing_email_or_token'},
+        );
         final recovered = await _attemptSuccessFallback(
-            ref, device.displayDeviceId);
-        if (recovered) return true;
+          ref,
+          device.displayDeviceId,
+        );
+        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
-        return false;
+        return BindResult.fail;
       }
 
       // 构造负载并通过连接管理器进行加密发送
@@ -249,15 +321,26 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       if (!ok) {
         // 写入失败但设备可能已收到（某些平台 withResponse 不可靠），尝试快速验证绑定结果
         final recovered = await _attemptSuccessFallback(
-            ref, device.displayDeviceId);
-        if (recovered) return true;
+          ref,
+          device.displayDeviceId,
+        );
+        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
-        return false;
+        return BindResult.fail;
       } else {
         Fluttertoast.showToast(msg: context.l10n.bind_success);
       }
-      return true;
+      return BindResult.success;
     } catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bindServerOtp,
+        result: 'fail',
+        displayDeviceId: device.displayDeviceId,
+        firmwareVersion: firmwareVersion,
+        error: e,
+        stackTrace: st,
+        extra: {'error_type': e.runtimeType.toString()},
+      );
       AppLog.instance.error(
         '[bindViaOtp] exception during pairing-otp + sendDeviceLoginCode',
         tag: 'Supabase',
@@ -266,10 +349,12 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       );
       // 发生异常时也尝试兜底验证是否已绑定成功
       final recovered = await _attemptSuccessFallback(
-          ref, device.displayDeviceId);
-      if (recovered) return true;
+        ref,
+        device.displayDeviceId,
+      );
+      if (recovered) return BindResult.fallbackSuccess;
       Fluttertoast.showToast(msg: context.l10n.bind_failed);
-      return false;
+      return BindResult.fail;
     }
   }
 
@@ -287,10 +372,11 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       // 短暂等待后再同步一次
       await Future.delayed(const Duration(seconds: 2));
       await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      return ref
+      final recovered = ref
           .read(savedDevicesProvider)
           .devices
           .any((e) => e.displayDeviceId == deviceId);
+      return recovered;
     } catch (_) {
       return false;
     }

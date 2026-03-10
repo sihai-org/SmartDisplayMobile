@@ -14,6 +14,8 @@ import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/device_entry_coordinator.dart';
 import '../../core/log/app_log.dart';
+import '../../core/log/device_onboarding_log.dart';
+import '../../core/log/device_onboarding_events.dart';
 
 enum QrScannerSuccessAction {
   /// 保持现有链路：扫描成功后进入设备绑定/连接流程
@@ -52,15 +54,14 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   Rect? _candidateRect;
   final _tracker = _CandidateTracker();
   DateTime? _lastAnyDetectAt;
+  bool _scanStartLogged = false;
 
   @override
   void initState() {
     super.initState();
 
     // 初始化播放器
-    _beepPlayer = AudioPlayer(
-      playerId: 'qr_beep',
-    );
+    _beepPlayer = AudioPlayer(playerId: 'qr_beep');
     _beepPlayer.setPlayerMode(PlayerMode.lowLatency);
     _beepReady = _warmUpBeepPlayer();
 
@@ -111,6 +112,13 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
   void _startScanning() {
     AppLog.instance.debug('[QrScannerPage] startScanning', tag: 'QR');
+    if (!_scanStartLogged) {
+      _scanStartLogged = true;
+      DeviceOnboardingLog.info(
+        event: DeviceOnboardingEvents.qrScan,
+        result: 'start',
+      );
+    }
     setState(() {
       _status = QrScannerStatus.scanning;
       _qrContent = null;
@@ -365,9 +373,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                               onPressed: _toggleTorch,
                               child: Text(
                                 context.l10n.turn_on,
-                                style: const TextStyle(
-                                  color: Colors.yellow,
-                                ),
+                                style: const TextStyle(color: Colors.yellow),
                               ),
                             ),
                           ],
@@ -384,10 +390,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   }
 
   /// 构建扫描框覆盖层（含 ROI 镂空与候选框）
-  Widget _buildScannerOverlay({
-    required Rect scanRect,
-    Rect? candidate,
-  }) {
+  Widget _buildScannerOverlay({required Rect scanRect, Rect? candidate}) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
@@ -497,12 +500,7 @@ class _OverlayPainter extends CustomPainter {
     final paint = Paint()..color = const Color(0x88000000);
     final bg = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
     final hole = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          scanRect,
-          const Radius.circular(16),
-        ),
-      );
+      ..addRRect(RRect.fromRectAndRadius(scanRect, const Radius.circular(16)));
     final overlay = Path.combine(PathOperation.difference, bg, hole);
     canvas.drawPath(overlay, paint);
   }
@@ -513,24 +511,14 @@ class _OverlayPainter extends CustomPainter {
 }
 
 /// QR扫描状态
-enum QrScannerStatus {
-  idle,
-  scanning,
-  processing,
-  success,
-  error,
-}
+enum QrScannerStatus { idle, scanning, processing, success, error }
 
 class _CandidateUpdateResult {
   final bool isStable;
   final int hitCount;
   final int elapsedMs;
 
-  const _CandidateUpdateResult(
-    this.isStable,
-    this.hitCount,
-    this.elapsedMs,
-  );
+  const _CandidateUpdateResult(this.isStable, this.hitCount, this.elapsedMs);
 }
 
 /// 候选追踪：多帧一致性与位置稳定

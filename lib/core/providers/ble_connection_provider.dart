@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:smart_display_mobile/core/utils/device_update_result.dart';
 
 import '../log/app_log.dart';
+import '../log/device_onboarding_log.dart';
+import '../log/device_onboarding_events.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/core/channel/secure_channel_manager_provider.dart';
 
@@ -273,6 +275,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   final Duration _minSyncGap = BleConstants.minSyncGap;
 
+  String? _currentFirmwareVersion([String? displayDeviceId]) {
+    final id = displayDeviceId ?? state.bleDeviceData?.displayDeviceId;
+    if (id == null || id.isEmpty) return null;
+    return _ref
+        .read(savedDevicesProvider.notifier)
+        .findById(id)
+        ?.firmwareVersion;
+  }
+
   @override
   set state(BleConnectionState next) {
     _setStateSafely(next, reason: 'direct state assignment');
@@ -399,6 +410,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     final t0 = DateTime.now();
     _sessionStart ??= t0;
     _log('🔌 enableBleConnection 开始');
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.bleConnect,
+      result: 'start',
+      displayDeviceId: qrData.displayDeviceId,
+      firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
+    );
 
     /// 2. 断开连接
     try {
@@ -468,6 +485,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final hs = mgr.lastHandshakeStatus;
       AppLog.instance.debug('handshakeStatus=$hs', tag: 'BLE');
       bool treatAsEmptyBound = hs == 'empty_bound';
+      DeviceOnboardingLog.info(
+        event: DeviceOnboardingEvents.bleHandshake,
+        result: treatAsEmptyBound ? 'empty_bound' : 'success',
+        durationMs: DateTime.now().difference(t0).inMilliseconds,
+        displayDeviceId: qrData.displayDeviceId,
+        firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
+      );
       _updateStateSafely(
         (current) => current.copyWith(emptyBound: treatAsEmptyBound),
         reason: 'enableBleConnection.handshake',
@@ -478,12 +502,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
       _logWithTime('enableBleConnection.success(${elapsed}ms)');
+      DeviceOnboardingLog.info(
+        event: DeviceOnboardingEvents.bleConnect,
+        result: 'success',
+        durationMs: elapsed,
+        displayDeviceId: qrData.displayDeviceId,
+        firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
+      );
 
       /// 7. 更新 UI state
       _updateStateSafely(
-        (current) => current.copyWith(
-          bleDeviceStatus: BleDeviceStatus.authenticated,
-        ),
+        (current) =>
+            current.copyWith(bleDeviceStatus: BleDeviceStatus.authenticated),
         reason: 'enableBleConnection.authenticated',
       );
       _lastActivityAt = DateTime.now();
@@ -525,12 +555,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           }
         }
       }
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bleConnect,
+        result: result.name,
+        durationMs: elapsed,
+        displayDeviceId: qrData.displayDeviceId,
+        firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
+        error: e,
+        extra: {'error_type': e.runtimeType.toString(), 'session': session},
+      );
       return result;
     } finally {
       if (_isMounted && session == _sessionCount) {
         _updateStateSafely(
-          (current) =>
-              current.copyWith(enableBleConnectionLoading: false),
+          (current) => current.copyWith(enableBleConnectionLoading: false),
           reason: 'enableBleConnection.finally',
         );
       }
@@ -547,10 +585,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
-      final resp = await _ref.read(secureChannelManagerProvider).send(
-        {'type': type, 'data': data},
-        timeout: timeout,
-      );
+      final resp = await _ref.read(secureChannelManagerProvider).send({
+        'type': type,
+        'data': data,
+      }, timeout: timeout);
       _log('✅ sendPureBleMsg 成功: type=$type, resp=$resp');
       return resp['ok'] == true;
     } catch (e) {
@@ -614,10 +652,25 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 绑定
   Future<bool> sendDeviceLoginCode(String email, String code) async {
     _log('sendDeviceLoginCode email=$email');
-    return await sendSimpleBleMsg('login.auth', {
+    final displayDeviceId = state.bleDeviceData?.displayDeviceId;
+    final firmwareVersion = _currentFirmwareVersion();
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.bindDeviceAuth,
+      result: 'start',
+      displayDeviceId: displayDeviceId,
+      firmwareVersion: firmwareVersion,
+    );
+    final ok = await sendSimpleBleMsg('login.auth', {
       'email': email,
       'otpToken': code,
     }, timeout: BleConstants.bindLoginTimeout);
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.bindDeviceAuth,
+      result: ok ? 'success' : 'fail',
+      displayDeviceId: displayDeviceId,
+      firmwareVersion: firmwareVersion,
+    );
+    return ok;
   }
 
   // 解绑
@@ -632,6 +685,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       return false;
     }
 
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.wifiScan,
+      result: 'start',
+      displayDeviceId: state.bleDeviceData?.displayDeviceId,
+      firmwareVersion: _currentFirmwareVersion(),
+    );
     _updateStateSafely(
       (current) => current.copyWith(isScanningWifi: true),
       reason: 'requestWifiScan.start',
@@ -659,10 +718,25 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           ),
           reason: 'requestWifiScan.success',
         );
+        DeviceOnboardingLog.info(
+          event: DeviceOnboardingEvents.wifiScan,
+          result: 'success',
+          displayDeviceId: state.bleDeviceData?.displayDeviceId,
+          firmwareVersion: _currentFirmwareVersion(),
+          extra: {'network_count': networks.length},
+        );
         _log('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
       }
       return true;
     } catch (e) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.wifiScan,
+        result: 'fail',
+        displayDeviceId: state.bleDeviceData?.displayDeviceId,
+        firmwareVersion: _currentFirmwareVersion(),
+        error: e,
+        extra: {'error_type': e.runtimeType.toString()},
+      );
       _log('❌ wifi.scan 失败: $e');
       return false;
     } finally {
@@ -676,6 +750,14 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 配网：等待同一通道的最终 wifi.config 响应（设备端直接回最终结果）
   Future<bool> sendWifiConfig(String ssid, String password) async {
     _log('sendWifiConfig: ssid=$ssid');
+    final displayDeviceId = state.bleDeviceData?.displayDeviceId;
+    final firmwareVersion = _currentFirmwareVersion();
+    DeviceOnboardingLog.info(
+      event: DeviceOnboardingEvents.wifiConfig,
+      result: 'start',
+      displayDeviceId: displayDeviceId,
+      firmwareVersion: firmwareVersion,
+    );
     try {
       final data = await sendBleMsg('wifi.config', {
         'ssid': ssid,
@@ -684,10 +766,33 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       // 成功时设备返回 data: {status: 'connected'}
       if (data is Map<String, dynamic>) {
         final s = data['status']?.toString();
-        return s == 'connected';
+        final ok = s == 'connected';
+        DeviceOnboardingLog.info(
+          event: DeviceOnboardingEvents.wifiConfig,
+          result: ok ? 'success' : 'fail',
+          displayDeviceId: displayDeviceId,
+          firmwareVersion: firmwareVersion,
+          extra: {if (s != null && s.isNotEmpty) 'device_status': s},
+        );
+        return ok;
       }
+      DeviceOnboardingLog.warning(
+        event: DeviceOnboardingEvents.wifiConfig,
+        result: 'fail',
+        displayDeviceId: displayDeviceId,
+        firmwareVersion: firmwareVersion,
+        extra: const {'error_code': 'unexpected_response'},
+      );
       return false;
     } catch (e) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.wifiConfig,
+        result: 'fail',
+        displayDeviceId: displayDeviceId,
+        firmwareVersion: firmwareVersion,
+        error: e,
+        extra: {'error_type': e.runtimeType.toString()},
+      );
       _log('❌ sendWifiConfig failed: $e');
       return false;
     }
