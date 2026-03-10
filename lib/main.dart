@@ -96,6 +96,17 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
   bool _isCleaningUp = false; // 防止重复清理
   String? _lastSignedInUserId;
 
+  Future<void> _syncSentryUserScope() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    await Sentry.configureScope((scope) {
+      if (user == null) {
+        scope.setUser(null);
+        return;
+      }
+      scope.setUser(SentryUser(id: user.id, email: user.email));
+    });
+  }
+
   /// 所有登出后的清理都放这里
   Future<void> _performGlobalCleanup({String? userId}) async {
     AppLog.instance.info('_performGlobalCleanup start', tag: 'App');
@@ -144,6 +155,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
   void initState() {
     super.initState();
     _lastSignedInUserId = Supabase.instance.client.auth.currentUser?.id;
+    Future.microtask(_syncSentryUserScope);
     // Listen to Supabase auth state changes
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
@@ -177,13 +189,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
         _lastSignedInUserId =
             data.session?.user?.id ??
             Supabase.instance.client.auth.currentUser?.id;
-        // 设置 Sentry 用户上下文（仅在你愿意上报用户信息时）
-        final user = Supabase.instance.client.auth.currentUser;
-        if (user != null) {
-          await Sentry.configureScope((scope) {
-            scope.setUser(SentryUser(id: user.id, email: user.email));
-          });
-        }
+        await _syncSentryUserScope();
         // Silent sync on auth events (default is silent)
         Future.microtask(
           () => ref.read(savedDevicesProvider.notifier).syncFromServer(),
