@@ -259,8 +259,12 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              Text(context.l10n.provisioning_please_wait,
-                                  style: const TextStyle(color: Colors.white)),
+                              Text(
+                                context.l10n.provisioning_please_wait,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
                             ],
                           ),
                         ),
