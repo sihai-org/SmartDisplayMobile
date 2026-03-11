@@ -14,11 +14,12 @@ import '../../core/utils/binding_flow_utils.dart';
 
 class DeviceConnectionPage extends ConsumerStatefulWidget {
   const DeviceConnectionPage({super.key, required this.displayDeviceId});
-  
+
   final String displayDeviceId;
 
   @override
-  ConsumerState<DeviceConnectionPage> createState() => _DeviceConnectionPageState();
+  ConsumerState<DeviceConnectionPage> createState() =>
+      _DeviceConnectionPageState();
 }
 
 class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
@@ -30,6 +31,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
     ref.read(appStateProvider.notifier).clearScannedData();
     ref.read(bleConnectionProvider.notifier).resetState();
   }
+
   Future<void> _disconnectAndClearOnUserExit() async {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
@@ -52,28 +54,23 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           .enableBleConnection(scannedQrData);
       if (!mounted) return;
 
-      // 1) 失败分支：完全由 result 决定
-      if (result == BleConnectResult.userMismatch) {
-        Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
+      if (result == BleConnectResult.cancelled) {
+        Fluttertoast.showToast(msg: '连接中断，请稍后再试');
         _goBackOrHome();
         return;
       }
 
-      if (result == BleConnectResult.timeout) {
-        Fluttertoast.showToast(msg: context.l10n.ble_connect_timeout_relaunch_toast);
-        AppLog.instance.error("[device_connection_page] ble: 连接超时（提示重启App）");
+      if (!BindingFlowUtils.isBleConnectSuccess(result)) {
+        BindingFlowUtils.toastBleConnectResult(
+          context,
+          result,
+          logTag: 'DeviceConnectionPage',
+        );
         _goBackOrHome();
         return;
       }
 
-      if (result == BleConnectResult.failed ||
-          result == BleConnectResult.cancelled) {
-        Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
-        _goBackOrHome();
-        return;
-      }
-
-      // 2) 成功分支（success / alreadyConnected）：只读一次 state 拿跳转参数
+      // 只允许 success / alreadyConnected 进入成功分支
       Fluttertoast.showToast(msg: context.l10n.connect_success);
 
       final st = ref.read(bleConnectionProvider);
@@ -81,8 +78,9 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           st.bleDeviceData?.displayDeviceId ?? scannedQrData.displayDeviceId;
       final idParam = Uri.encodeComponent(displayId);
 
-      final ns =
-          await ref.read(bleConnectionProvider.notifier).checkNetworkStatus();
+      final ns = await ref
+          .read(bleConnectionProvider.notifier)
+          .checkNetworkStatus();
       if (!mounted) return;
 
       if (ns?.connected == true) {
@@ -92,12 +90,17 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           context.go('${AppRoutes.home}?displayDeviceId=$idParam');
         }
       } else {
-        context
-            .go('${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam');
+        context.go(
+          '${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam',
+        );
       }
     } catch (e, s) {
-      AppLog.instance.error('[DeviceConnectionPage] startConnection error',
-          tag: 'Binding', error: e, stackTrace: s);
+      AppLog.instance.error(
+        '[DeviceConnectionPage] startConnection error',
+        tag: 'Binding',
+        error: e,
+        stackTrace: s,
+      );
       if (!mounted) return;
       Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
       _goBackOrHome();
@@ -117,7 +120,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       // 1. 检查扫到的设备
       final scannedQrData = ref.read(appStateProvider).scannedQrData;
       if (scannedQrData == null) {
-        AppLog.instance.debug('[DeviceConnectionPage] scannedQrData is null', tag: 'Binding');
+        AppLog.instance.debug(
+          '[DeviceConnectionPage] scannedQrData is null',
+          tag: 'Binding',
+        );
         if (!_noDataDialogShown) _showNoDataError();
         return;
       }
@@ -144,38 +150,38 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
         }
       },
       child: Scaffold(
-      // Use themed background to support dark mode
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: Text(context.l10n.connect_device_title),
-        elevation: 0,
-        // 使用主题默认的 AppBar 配色，去掉硬编码的蓝色
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
+        // Use themed background to support dark mode
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: AppBar(
+          title: Text(context.l10n.connect_device_title),
+          elevation: 0,
+          // 使用主题默认的 AppBar 配色，去掉硬编码的蓝色
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
               await _disconnectAndClearOnUserExit();
               if (!mounted) return;
               context.go(AppRoutes.qrScanner);
-          },
+            },
+          ),
         ),
-      ),
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(24.0),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 48, // 减去padding
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 设备信息卡片
-                    _buildDeviceInfoCard(connectionState),
-                    
-                    const SizedBox(height: 32),
+                padding: const EdgeInsets.all(24.0),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 48, // 减去padding
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 设备信息卡片
+                      _buildDeviceInfoCard(connectionState),
+
+                      const SizedBox(height: 32),
 
                       // 连接进度
                       Row(
@@ -199,13 +205,13 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       const SizedBox(height: 32),
                     ],
                   ),
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   /// 构建设备信息卡片
@@ -252,11 +258,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.info_outline,
-                  color: colorScheme.primary,
-                  size: 24,
-                ),
+                Icon(Icons.info_outline, color: colorScheme.primary, size: 24),
               ],
             ),
           ],

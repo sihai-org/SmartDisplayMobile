@@ -17,6 +17,7 @@ import '../../core/log/app_log.dart';
 import '../../core/providers/ble_connection_provider.dart' as conn;
 import '../../core/providers/device_ble_view_state.dart';
 import '../../core/providers/device_unbind_coordinator.dart';
+import '../../core/utils/binding_flow_utils.dart';
 import '../../core/utils/wifi_signal_strength.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
@@ -319,39 +320,11 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
 
   void _safelyToastConnectRes(BleConnectResult res) {
     if (!mounted) return;
-    switch (res) {
-      case BleConnectResult.success:
-      case BleConnectResult.alreadyConnected:
-      case BleConnectResult.cancelled:
-        // 成功或被新会话覆盖的旧请求，都无需在此处提示
-        break;
-      case BleConnectResult.userMismatch:
-        Fluttertoast.showToast(msg: context.l10n.device_bound_elsewhere);
-        AppLog.instance.info("ble: 用户不匹配");
-        break;
-      case BleConnectResult.failed:
-        Fluttertoast.showToast(msg: context.l10n.connect_failed_retry);
-        AppLog.instance.info("ble: 连接失败");
-        break;
-      case BleConnectResult.timeout:
-        Fluttertoast.showToast(
-          msg: context.l10n.ble_connect_timeout_relaunch_toast,
-        );
-        AppLog.instance.error("[device_detail_page] ble: 连接超时（提示重启App）");
-        break;
-      case BleConnectResult.scanTimeout:
-        Fluttertoast.showToast(
-          msg: context.l10n.ble_scan_timeout_device_not_found,
-        );
-        AppLog.instance.info("ble: 扫描超时");
-        break;
-      case BleConnectResult.notReady:
-        Fluttertoast.showToast(
-          msg: context.l10n.ble_not_ready_enable_bluetooth_check_permission,
-        );
-        AppLog.instance.info("ble: 蓝牙未就绪");
-        break;
-    }
+    BindingFlowUtils.toastBleConnectResult(
+      context,
+      res,
+      logTag: 'DeviceDetail',
+    );
   }
 
   void _safelyToastDeviceUpdateCheckRes(DeviceUpdateVersionResult res) {
