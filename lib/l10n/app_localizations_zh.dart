@@ -165,13 +165,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meeting_minutes_mock_title_3 => '客户反馈整理';
 
   @override
-  String get meeting_minutes_mock_content_1 => '# 项目周会纪要\n\n## 参会人员\n- 产品\n- 设计\n- 开发\n\n## 关键结论\n1. 优先完成会议纪要列表页。\n2. 下周补齐详情页的数据接口。\n\n## 待办\n- [ ] 列表页样式评审\n- [ ] 接口联调';
+  String get meeting_minutes_mock_content_1 =>
+      '# 项目周会纪要\n\n## 参会人员\n- 产品\n- 设计\n- 开发\n\n## 关键结论\n1. 优先完成会议纪要列表页。\n2. 下周补齐详情页的数据接口。\n\n## 待办\n- [ ] 列表页样式评审\n- [ ] 接口联调';
 
   @override
-  String get meeting_minutes_mock_content_2 => '# 需求评审纪要\n\n## 目标\n- 明确版本范围\n- 对齐交付节奏\n\n## 决策\n- 本期只做基础列表和详情。\n- 数据使用 mock。\n\n## 风险\n- 详情内容需支持 Markdown 渲染。';
+  String get meeting_minutes_mock_content_2 =>
+      '# 需求评审纪要\n\n## 目标\n- 明确版本范围\n- 对齐交付节奏\n\n## 决策\n- 本期只做基础列表和详情。\n- 数据使用 mock。\n\n## 风险\n- 详情内容需支持 Markdown 渲染。';
 
   @override
-  String get meeting_minutes_mock_content_3 => '# 客户反馈整理\n\n## 主要问题\n- 列表项信息层级不清晰\n- 详情内容可读性一般\n\n## 建议\n- 第二行左右对齐日期/时间\n- 标题加粗提升层级';
+  String get meeting_minutes_mock_content_3 =>
+      '# 客户反馈整理\n\n## 主要问题\n- 列表项信息层级不清晰\n- 详情内容可读性一般\n\n## 建议\n- 第二行左右对齐日期/时间\n- 标题加粗提升层级';
 
   @override
   String get logout => '退出登录';
@@ -385,6 +388,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get delete_device => '解绑设备';
 
   @override
+  String get unbind_action => '解绑';
+
+  @override
   String get device_id_label => 'ID';
 
   @override
@@ -586,13 +592,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refresh => '刷新';
 
   @override
-  String get confirm_delete_device => '确定要解绑以下设备吗？';
+  String get confirm_delete_device => '确认解绑设备？';
 
   @override
   String get device_name_label => '设备名称';
 
   @override
-  String get delete_consequence_hint => '解绑后将无法控制此设备，需要重新扫描二维码绑定';
+  String get delete_consequence_hint => '解绑后，如需再次使用，请扫描设备屏幕上的二维码重新绑定。';
 
   @override
   String get delete_success => '设备解绑成功';
@@ -797,12 +803,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wallpaper_image_size_unrecognized => '无法识别图片尺寸，请换一张或导出后重试';
 
   @override
-  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim) {
+  String wallpaper_dimension_too_large(
+    Object width,
+    Object height,
+    Object maxDim,
+  ) {
     return '图片尺寸过大：$width×$height，最长边上限 ${maxDim}px。请裁剪或导出后重试。';
   }
 
   @override
-  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight) {
+  String wallpaper_pixels_too_large(
+    Object width,
+    Object height,
+    Object mp,
+    Object maxMp,
+    Object maxWidth,
+    Object maxHeight,
+  ) {
     return '图片分辨率过大：$width×$height，建议不超过 $maxWidth×$maxHeight。';
   }
 

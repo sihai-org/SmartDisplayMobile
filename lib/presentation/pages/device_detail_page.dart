@@ -720,88 +720,102 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setSBState) {
-          return AlertDialog(
-            title: Text(ctx.l10n.delete_device),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(ctx.l10n.confirm_delete_device),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(ctx).colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(8),
+          final theme = Theme.of(ctx);
+          final colorScheme = theme.colorScheme;
+
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ctx.l10n.confirm_delete_device,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 6),
+                  Text(
+                    ctx.l10n.delete_consequence_hint,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
                     children: [
-                      Text(
-                        '${ctx.l10n.device_name_label}: ${device.deviceName}',
-                        style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: deleting
+                              ? null
+                              : () => Navigator.of(ctx).pop(),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(ctx.l10n.cancel),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${ctx.l10n.device_id_label}: ${device.displayDeviceId}',
-                        style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                          fontFamily: 'monospace',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: deleting
+                              ? null
+                              : () async {
+                                  setSBState(() => deleting = true);
+                                  try {
+                                    await _deleteDevice(device);
+                                  } finally {
+                                    if (ctx.mounted) Navigator.of(ctx).pop();
+                                  }
+                                },
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            backgroundColor: colorScheme.error,
+                            foregroundColor: colorScheme.onError,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: deleting
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              colorScheme.onError,
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(ctx.l10n.unbind_action),
+                                  ],
+                                )
+                              : Text(ctx.l10n.unbind_action),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  ctx.l10n.delete_consequence_hint,
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(ctx).colorScheme.error,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: deleting ? null : () => Navigator.of(ctx).pop(),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: deleting
-                    ? null
-                    : () async {
-                        setSBState(() => deleting = true);
-                        try {
-                          await _deleteDevice(device);
-                        } finally {
-                          if (ctx.mounted) Navigator.of(ctx).pop();
-                        }
-                      },
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(ctx).colorScheme.error,
-                ),
-                child: deleting
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(ctx).colorScheme.onPrimary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(ctx.l10n.splash_loading),
-                        ],
-                      )
-                    : Text(ctx.l10n.delete_device),
-              ),
-            ],
           );
         },
       ),
