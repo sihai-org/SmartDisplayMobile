@@ -26,7 +26,7 @@ class BindConfirmPage extends ConsumerStatefulWidget {
   ConsumerState<BindConfirmPage> createState() => _BindConfirmPageState();
 }
 
-enum BindResult { success, fallbackSuccess, fail }
+enum BindResult { success, fail }
 
 class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
   bool _sending = false; // 按钮loading
@@ -56,13 +56,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     try {
       final result = await _bindViaOtp(ref, scanned);
       if (!mounted) return;
-      if (result == BindResult.success ||
-          result == BindResult.fallbackSuccess) {
+      if (result == BindResult.success) {
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.bind,
-          result: result == BindResult.success
-              ? 'success'
-              : 'fallback_success',
+          result: 'success',
           displayDeviceId: scanned.displayDeviceId,
           firmwareVersion: firmwareVersion,
         );
@@ -278,11 +275,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           '[bindViaOtp] edge function pairing-otp non-200: ${response.status} ${response.data}',
           tag: 'Supabase',
         );
-        final recovered = await _attemptSuccessFallback(
-          ref,
-          device.displayDeviceId,
-        );
-        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return BindResult.fail;
       }
@@ -305,11 +297,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           firmwareVersion: firmwareVersion,
           extra: const {'error_code': 'missing_email_or_token'},
         );
-        final recovered = await _attemptSuccessFallback(
-          ref,
-          device.displayDeviceId,
-        );
-        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return BindResult.fail;
       }
@@ -319,12 +306,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       final ok = await notifier.sendDeviceLoginCode(email, otpToken);
 
       if (!ok) {
-        // 写入失败但设备可能已收到（某些平台 withResponse 不可靠），尝试快速验证绑定结果
-        final recovered = await _attemptSuccessFallback(
-          ref,
-          device.displayDeviceId,
-        );
-        if (recovered) return BindResult.fallbackSuccess;
         Fluttertoast.showToast(msg: context.l10n.bind_failed);
         return BindResult.fail;
       } else {
@@ -347,38 +328,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         error: e,
         stackTrace: st,
       );
-      // 发生异常时也尝试兜底验证是否已绑定成功
-      final recovered = await _attemptSuccessFallback(
-        ref,
-        device.displayDeviceId,
-      );
-      if (recovered) return BindResult.fallbackSuccess;
       Fluttertoast.showToast(msg: context.l10n.bind_failed);
       return BindResult.fail;
-    }
-  }
-
-  // 快速兜底：同步服务器设备列表，若已包含该设备则视为成功
-  Future<bool> _attemptSuccessFallback(WidgetRef ref, String deviceId) async {
-    try {
-      // 第一次立即同步
-      await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      if (ref
-          .read(savedDevicesProvider)
-          .devices
-          .any((e) => e.displayDeviceId == deviceId)) {
-        return true;
-      }
-      // 短暂等待后再同步一次
-      await Future.delayed(const Duration(seconds: 2));
-      await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      final recovered = ref
-          .read(savedDevicesProvider)
-          .devices
-          .any((e) => e.displayDeviceId == deviceId);
-      return recovered;
-    } catch (_) {
-      return false;
     }
   }
 
