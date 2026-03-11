@@ -767,6 +767,20 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       if (data is Map<String, dynamic>) {
         final s = data['status']?.toString();
         final ok = s == 'connected';
+        if (ok) {
+          _updateStateSafely(
+            (current) => current.copyWith(
+              networkStatus: NetworkStatus(
+                connected: true,
+                ssid: ssid,
+                rawRssi: null,
+              ),
+              networkStatusUpdatedAt: DateTime.now(),
+              isCheckingNetwork: false,
+            ),
+            reason: 'sendWifiConfig.success',
+          );
+        }
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.wifiConfig,
           result: ok ? 'success' : 'fail',
