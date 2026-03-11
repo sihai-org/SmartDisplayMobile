@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/device_qr_data.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
 import '../../l10n/app_localizations_zh.dart';
@@ -16,23 +17,28 @@ class SavedDevicesState {
   final String? lastSelectedId;
 
   final bool loaded;
-  const SavedDevicesState({this.devices = const [], this.lastSelectedId, this.loaded = false});
+  const SavedDevicesState({
+    this.devices = const [],
+    this.lastSelectedId,
+    this.loaded = false,
+  });
 
   SavedDevicesState copyWith({
     List<SavedDeviceRecord>? devices,
     Object? lastSelectedId = _unset,
     bool? loaded,
   }) => SavedDevicesState(
-      devices: devices ?? this.devices,
-      lastSelectedId: identical(lastSelectedId, _unset)
-          ? this.lastSelectedId
-          : lastSelectedId as String?,
-      loaded: loaded ?? this.loaded,
-    );
+    devices: devices ?? this.devices,
+    lastSelectedId: identical(lastSelectedId, _unset)
+        ? this.lastSelectedId
+        : lastSelectedId as String?,
+    loaded: loaded ?? this.loaded,
+  );
 }
 
 class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
-  SavedDevicesNotifier(this._repo, this._ref) : super(const SavedDevicesState());
+  SavedDevicesNotifier(this._repo, this._ref)
+    : super(const SavedDevicesState());
   final SavedDevicesRepository _repo;
   final Ref _ref;
 
@@ -43,35 +49,43 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       final list = await _repo.loadLocal();
       final last = await _repo.loadLastSelectedId();
       state = SavedDevicesState(
-          devices: list,
-          lastSelectedId:
-              last ?? (list.isNotEmpty ? list.last.displayDeviceId : null),
-          loaded: true);
+        devices: list,
+        lastSelectedId:
+            last ?? (list.isNotEmpty ? list.last.displayDeviceId : null),
+        loaded: true,
+      );
     } catch (_) {}
   }
 
   // TODO: 防抖
-  Future<void> syncFromServer({bool allowToast = false}) async {
+  Future<bool> syncFromServer({bool allowToast = false}) async {
     // 保证本地已加载
     await ensureLocalLoaded();
 
     // Require login session; skip if not logged in
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
-      return;
+      return false;
     }
     // Show top toast for syncing
     if (allowToast) {
       final locale = _ref.read(localeProvider);
-      final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
-      Fluttertoast.showToast(msg: l10n.sync_devices_in_progress, gravity: ToastGravity.TOP);
+      final l10n = (locale?.languageCode == 'zh')
+          ? AppLocalizationsZh()
+          : AppLocalizationsEn();
+      Fluttertoast.showToast(
+        msg: l10n.sync_devices_in_progress,
+        gravity: ToastGravity.TOP,
+      );
     }
     try {
       final remote = await _repo.fetchRemote();
       // 仅保留本地的 lastConnectedAt（上次 BLE 连接时间），远端不提供该字段
       final local = state.devices;
       final merged = remote.map((r) {
-        final localRec = local.where((e) => e.displayDeviceId == r.displayDeviceId).firstOrNull;
+        final localRec = local
+            .where((e) => e.displayDeviceId == r.displayDeviceId)
+            .firstOrNull;
         if (localRec?.lastConnectedAt != null) {
           return r.copyWith(lastConnectedAt: localRec!.lastConnectedAt);
         }
@@ -80,16 +94,24 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       await _repo.saveLocal(merged);
       // Preserve lastSelectedId if still valid; otherwise pick last
       final currentSelected = state.lastSelectedId;
-      final stillExists = merged.any((e) => e.displayDeviceId == currentSelected);
+      final stillExists = merged.any(
+        (e) => e.displayDeviceId == currentSelected,
+      );
       final selected = stillExists
           ? currentSelected
           : (merged.isNotEmpty ? merged.last.displayDeviceId : null);
       state = state.copyWith(devices: merged, lastSelectedId: selected);
-      if(allowToast) {
+      if (allowToast) {
         final locale = _ref.read(localeProvider);
-        final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
-        Fluttertoast.showToast(msg: l10n.sync_devices_success, gravity: ToastGravity.TOP);
+        final l10n = (locale?.languageCode == 'zh')
+            ? AppLocalizationsZh()
+            : AppLocalizationsEn();
+        Fluttertoast.showToast(
+          msg: l10n.sync_devices_success,
+          gravity: ToastGravity.TOP,
+        );
       }
+      return true;
     } catch (e, st) {
       AppLog.instance.warning(
         'syncFromServer failed',
@@ -99,10 +121,58 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       );
       if (allowToast) {
         final locale = _ref.read(localeProvider);
-        final l10n = (locale?.languageCode == 'zh') ? AppLocalizationsZh() : AppLocalizationsEn();
-        Fluttertoast.showToast(msg: l10n.sync_devices_failed, gravity: ToastGravity.TOP);
+        final l10n = (locale?.languageCode == 'zh')
+            ? AppLocalizationsZh()
+            : AppLocalizationsEn();
+        Fluttertoast.showToast(
+          msg: l10n.sync_devices_failed,
+          gravity: ToastGravity.TOP,
+        );
       }
+      return false;
     }
+  }
+
+  Future<void> addOrSelectLocalFromQr(DeviceQrData qr) async {
+    await ensureLocalLoaded();
+
+    final updated = [...state.devices];
+    final idx = updated.indexWhere(
+      (e) => e.displayDeviceId == qr.displayDeviceId,
+    );
+    final now = DateTime.now();
+
+    if (idx >= 0) {
+      final current = updated[idx];
+      updated[idx] = current.copyWith(
+        deviceName: qr.deviceName.isNotEmpty
+            ? qr.deviceName
+            : current.deviceName,
+        publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
+        lastBleDeviceId: qr.bleDeviceId.isNotEmpty
+            ? qr.bleDeviceId
+            : current.lastBleDeviceId,
+        lastConnectedAt: now,
+      );
+    } else {
+      updated.add(
+        SavedDeviceRecord(
+          displayDeviceId: qr.displayDeviceId,
+          deviceName: qr.deviceName,
+          publicKey: qr.publicKey,
+          lastBleDeviceId: qr.bleDeviceId,
+          lastConnectedAt: now,
+        ),
+      );
+    }
+
+    state = state.copyWith(
+      devices: updated,
+      lastSelectedId: qr.displayDeviceId,
+      loaded: true,
+    );
+    await _repo.saveLocal(updated);
+    await _repo.saveLastSelectedId(qr.displayDeviceId);
   }
 
   // 局部字段更新：只在本地列表与缓存中更新指定字段，不触发远端同步
@@ -115,7 +185,9 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     String? firmwareVersion,
     String? networkSummary,
   }) async {
-    final hasDevice = state.devices.any((e) => e.displayDeviceId == displayDeviceId);
+    final hasDevice = state.devices.any(
+      (e) => e.displayDeviceId == displayDeviceId,
+    );
     if (!hasDevice) return; // 若不存在则忽略
 
     final updated = state.devices.map((e) {
@@ -142,8 +214,9 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   Future<void> removeDeviceLocally(String displayDeviceId) async {
     await ensureLocalLoaded();
 
-    final updated =
-        state.devices.where((e) => e.displayDeviceId != displayDeviceId).toList();
+    final updated = state.devices
+        .where((e) => e.displayDeviceId != displayDeviceId)
+        .toList();
     final selected = state.lastSelectedId == displayDeviceId
         ? (updated.isNotEmpty ? updated.last.displayDeviceId : null)
         : state.lastSelectedId;
@@ -165,7 +238,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       return res;
     }
     res = state.devices.firstWhere(
-          (e) => e.displayDeviceId == state.lastSelectedId,
+      (e) => e.displayDeviceId == state.lastSelectedId,
       orElse: () => res,
     );
     return res;
@@ -185,10 +258,15 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   // 清空当前用户的本地设备列表与选择（用于登出）
   Future<void> clearForLogout() async {
     await _repo.clearCurrentUserData();
-    state = const SavedDevicesState(devices: [], lastSelectedId: null, loaded: true);
+    state = const SavedDevicesState(
+      devices: [],
+      lastSelectedId: null,
+      loaded: true,
+    );
   }
 }
 
-final savedDevicesProvider = StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {
-  return SavedDevicesNotifier(SavedDevicesRepository(), ref);
-});
+final savedDevicesProvider =
+    StateNotifierProvider<SavedDevicesNotifier, SavedDevicesState>((ref) {
+      return SavedDevicesNotifier(SavedDevicesRepository(), ref);
+    });

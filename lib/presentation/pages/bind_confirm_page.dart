@@ -11,6 +11,7 @@ import '../../core/router/app_router.dart';
 import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
+import '../../core/providers/bind_success_coordinator.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
@@ -63,11 +64,8 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           displayDeviceId: scanned.displayDeviceId,
           firmwareVersion: firmwareVersion,
         );
-        await ref.read(savedDevicesProvider.notifier).syncFromServer();
+        await ref.read(bindSuccessCoordinatorProvider).onBindSuccess(scanned);
         if (!mounted) return;
-
-        // bind 成功后，补一次 device.info 同步（需要设备已在列表中）
-        ref.read(bleConnectionProvider.notifier).syncDeviceInfoAfterBind();
 
         context.go(
           '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(scanned.displayDeviceId)}',
