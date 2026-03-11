@@ -116,7 +116,7 @@ class ProfilePage extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final devicesCount = saved.devices.length;
     final Uri helpUri = Uri.parse(
-      'https://ccns7n13cske.feishu.cn/wiki/ZuTwwMAjxixf9LklncicER1Mnib?from=from_copylink',
+      'https://monitor.vzngpt.com/manual?from=mobile_help',
     );
 
     final user = Supabase.instance.client.auth.currentUser;
@@ -371,10 +371,7 @@ class ProfilePage extends ConsumerWidget {
                   title: Text(l10n.feedback),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    _showTopToast(
-                      context,
-                      '${l10n.feedback} - ${l10n.google_signin_placeholder}',
-                    );
+                    _showTopToast(context, l10n.google_signin_placeholder);
                   },
                 ),
               ],
