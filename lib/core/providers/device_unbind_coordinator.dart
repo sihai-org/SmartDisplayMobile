@@ -73,17 +73,6 @@ class DeviceUnbindCoordinator {
         stackTrace: st,
       );
     }
-
-    try {
-      await deviceNotifier.syncFromServer();
-    } catch (e, st) {
-      AppLog.instance.warning(
-        'unbind sync failed',
-        tag: 'DeviceUnbindCoordinator',
-        error: e,
-        stackTrace: st,
-      );
-    }
   }
 }
 
