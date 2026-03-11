@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_display_mobile/presentation/widgets/device_card.dart';
-import 'package:smart_display_mobile/presentation/widgets/device_edit_trigger.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
@@ -129,23 +128,6 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
 
   void _addNewDevice() {
     context.go(AppRoutes.qrScanner);
-  }
-
-  String _formatDateTime(BuildContext context, DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 1) {
-      return context.l10n.relative_just_now;
-    } else if (difference.inHours < 1) {
-      return context.l10n.relative_minutes_ago(difference.inMinutes);
-    } else if (difference.inDays < 1) {
-      return context.l10n.relative_hours_ago(difference.inHours);
-    } else if (difference.inDays < 7) {
-      return context.l10n.relative_days_ago(difference.inDays);
-    } else {
-      return '${dateTime.month}/${dateTime.day} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-    }
   }
 
   void _logDeviceList(SavedDevicesState state) {
