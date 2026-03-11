@@ -3,13 +3,13 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'ble_connection_provider.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
 import '../../l10n/app_localizations_zh.dart';
 import '../log/app_log.dart';
 
 class SavedDevicesState {
+  static const _unset = Object();
   // 设备列表
   final List<SavedDeviceRecord> devices;
   // TODO: 当前设备（校验）
@@ -18,8 +18,17 @@ class SavedDevicesState {
   final bool loaded;
   const SavedDevicesState({this.devices = const [], this.lastSelectedId, this.loaded = false});
 
-  SavedDevicesState copyWith({List<SavedDeviceRecord>? devices, String? lastSelectedId, bool? loaded}) =>
-      SavedDevicesState(devices: devices ?? this.devices, lastSelectedId: lastSelectedId ?? this.lastSelectedId, loaded: loaded ?? this.loaded);
+  SavedDevicesState copyWith({
+    List<SavedDeviceRecord>? devices,
+    Object? lastSelectedId = _unset,
+    bool? loaded,
+  }) => SavedDevicesState(
+      devices: devices ?? this.devices,
+      lastSelectedId: identical(lastSelectedId, _unset)
+          ? this.lastSelectedId
+          : lastSelectedId as String?,
+      loaded: loaded ?? this.loaded,
+    );
 }
 
 class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
@@ -128,6 +137,26 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   Future<void> select(String displayDeviceId) async {
     await _repo.saveLastSelectedId(displayDeviceId);
     state = state.copyWith(lastSelectedId: displayDeviceId);
+  }
+
+  Future<void> removeDeviceLocally(String displayDeviceId) async {
+    await ensureLocalLoaded();
+
+    final updated =
+        state.devices.where((e) => e.displayDeviceId != displayDeviceId).toList();
+    final selected = state.lastSelectedId == displayDeviceId
+        ? (updated.isNotEmpty ? updated.last.displayDeviceId : null)
+        : state.lastSelectedId;
+
+    state = state.copyWith(devices: updated, lastSelectedId: selected);
+    await _repo.saveLocal(updated);
+
+    if (selected == null) {
+      await _repo.clearLastSelectedId();
+      return;
+    }
+
+    await _repo.saveLastSelectedId(selected);
   }
 
   SavedDeviceRecord getSelectedRec() {

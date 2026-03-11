@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_display_mobile/core/utils/data_transformer.dart';
 import 'package:smart_display_mobile/presentation/widgets/device_card.dart';
-import 'package:smart_display_mobile/presentation/widgets/device_edit_trigger.dart';
 import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/router/app_router.dart';
@@ -17,6 +16,7 @@ import '../../core/models/device_qr_data.dart';
 import '../../core/log/app_log.dart';
 import '../../core/providers/ble_connection_provider.dart' as conn;
 import '../../core/providers/device_ble_view_state.dart';
+import '../../core/providers/device_unbind_coordinator.dart';
 import '../../core/utils/wifi_signal_strength.dart';
 
 class DeviceDetailPage extends ConsumerStatefulWidget {
@@ -391,9 +391,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       _safelyToastDeviceUpdateCheckRes(result);
     } catch (e) {
       if (mounted) {
-        Fluttertoast.showToast(
-          msg: context.l10n.check_update_failed_retry,
-        );
+        Fluttertoast.showToast(msg: context.l10n.check_update_failed_retry);
       }
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -523,8 +521,10 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   // 构建网络状态或WiFi列表部分
-  Widget _buildNetworkSection(BuildContext context,
-      conn.BleConnectionState connState,) {
+  Widget _buildNetworkSection(
+    BuildContext context,
+    conn.BleConnectionState connState,
+  ) {
     final textButtonStyle = TextButton.styleFrom(
       padding: EdgeInsets.zero, // 去掉默认 padding
       minimumSize: Size.zero, // 可选：去掉最小尺寸限制
@@ -657,8 +657,10 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   // 构建当前网络信息
-  Widget _buildCurrentNetworkInfo(BuildContext context,
-      NetworkStatus networkStatus,) {
+  Widget _buildCurrentNetworkInfo(
+    BuildContext context,
+    NetworkStatus networkStatus,
+  ) {
     final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -807,28 +809,20 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
   }
 
   Future<void> _deleteDevice(SavedDeviceRecord device) async {
+    final l10n = context.l10n;
     try {
-      final connState = ref.read(conn.bleConnectionProvider);
-      if (connState.bleDeviceData?.displayDeviceId == device.displayDeviceId) {
-        final bleNotifier = ref.read(conn.bleConnectionProvider.notifier);
-        // 1. 蓝牙通知设备删除
-        final ok = await bleNotifier.sendDeviceLogout();
-        if (!ok && context.mounted) {
-          Fluttertoast.showToast(msg: context.l10n.delete_failed);
-          return;
+      final ok = await ref
+          .read(deviceUnbindCoordinatorProvider)
+          .unbindDevice(device);
+      if (!ok) {
+        if (mounted) {
+          Fluttertoast.showToast(msg: l10n.delete_failed);
         }
-        if (context.mounted) {
-          Fluttertoast.showToast(msg: context.l10n.delete_success);
-        }
-        // 2. 断开蓝牙
-        await ref.read(conn.bleConnectionProvider.notifier).disconnect();
-        final deviceNotifier = ref.read(savedDevicesProvider.notifier);
-        // 3. 同步远端状态，确保列表与服务器一致
-        await deviceNotifier.syncFromServer();
-      } else {
-        if (context.mounted) {
-          Fluttertoast.showToast(msg: context.l10n.delete_failed);
-        }
+        return;
+      }
+
+      if (mounted) {
+        Fluttertoast.showToast(msg: l10n.delete_success);
       }
     } catch (e, st) {
       AppLog.instance.error(
@@ -837,8 +831,8 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         error: e,
         stackTrace: st,
       );
-      if (context.mounted) {
-        Fluttertoast.showToast(msg: context.l10n.delete_failed);
+      if (mounted) {
+        Fluttertoast.showToast(msg: l10n.delete_failed);
       }
     }
   }

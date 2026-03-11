@@ -182,6 +182,12 @@ class SavedDevicesRepository {
     await _storage.write(key: key, value: deviceId);
   }
 
+  Future<void> clearLastSelectedId() async {
+    final key = _lastSelectedKeyForCurrentUser();
+    if (key == null) return;
+    await _storage.delete(key: key);
+  }
+
   Future<void> selectFromQr(DeviceQrData qr) async {
     await saveLastSelectedId(qr.displayDeviceId);
 
