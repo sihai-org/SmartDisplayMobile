@@ -1,11 +1,11 @@
 enum DeviceUpdateVersionResult {
-  updating,        // 正在更新（ACCEPTED）
+  updating, // 正在更新（ACCEPTED）
   alreadyInFlight, // 已有更新流程在跑
-  latest,          // 无需更新
-  optionalUpdate,  // 可选更新
-  throttled,       // 被限流 / 距离上次太近
+  latest, // 无需更新
+  optionalUpdate, // 可选更新
+  throttled, // 被限流 / 距离上次太近
   rejectedLowStorage, // 存储空间不足
-  failed,           // 检查失败/异常
+  failed, // 检查失败/异常
 }
 
 /// BLE 连接结果（区分成功 / 失败 / 竞态取消等场景）
@@ -20,18 +20,9 @@ enum BleConnectResult {
   notReady, // BLE 未就绪（提示：开启蓝牙、设置权限）
 }
 
-enum CheckBoundRes {
-  isOwner,
-  isBound,
-  notBound,
-}
+enum CheckBoundRes { isOwner, isBound, notBound }
 
-enum ProvisionStatus {
-  idle,
-  provisioning,
-  success,
-  failure,
-}
+enum ProvisionStatus { idle, provisioning, success, failure }
 
 enum WallpaperType {
   defaultWallpaper('default'),
@@ -43,7 +34,7 @@ enum WallpaperType {
 
   static WallpaperType fromString(String? value) {
     return WallpaperType.values.firstWhere(
-          (e) => e.value == value,
+      (e) => e.value == value,
       orElse: () => WallpaperType.defaultWallpaper,
     );
   }
@@ -59,8 +50,31 @@ enum LayoutType {
 
   static LayoutType fromString(String? value) {
     return LayoutType.values.firstWhere(
-          (e) => e.value == value,
+      (e) => e.value == value,
       orElse: () => LayoutType.defaultLayout,
+    );
+  }
+}
+
+enum WakeWordType {
+  heyMichael('Hey Michael', 'Hey Michael'),
+  heyJason('Hey Jason', 'Hey Jason'),
+  heyMax('Hey Max', 'Hey Max'),
+  heyTony('Hey Tony', 'Hey Tony'),
+  heyAndy('Hey Andy', 'Hey Andy');
+
+  final String label;
+  final String apiValue;
+
+  const WakeWordType(this.label, this.apiValue);
+
+  static WakeWordType fromString(String? value) {
+    if (value == null || value.isEmpty) {
+      return WakeWordType.heyMichael;
+    }
+    return WakeWordType.values.firstWhere(
+      (e) => e.apiValue == value || e.label == value,
+      orElse: () => WakeWordType.heyMichael,
     );
   }
 }

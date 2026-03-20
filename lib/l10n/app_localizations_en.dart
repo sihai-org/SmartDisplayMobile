@@ -755,6 +755,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get layout_frame_hint => 'Photo-forward layout like a frame';
 
   @override
+  String get wake_word_section_title => 'Wake Word';
+
+  @override
+  String get wake_word_default => 'Use device default';
+
+  @override
+  String get wake_word_default_hint =>
+      'Changing this restarts the device immediately';
+
+  @override
+  String get wake_word_confirm_title => 'Change wake word?';
+
+  @override
+  String get wake_word_confirm_message =>
+      'The device will restart immediately to apply this change.';
+
+  @override
+  String get wake_word_confirm_action => 'Change';
+
+  @override
   String get save_settings => 'Save settings';
 
   @override

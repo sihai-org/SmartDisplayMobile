@@ -726,6 +726,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get layout_frame_hint => '突出展示照片的相框式排版';
 
   @override
+  String get wake_word_section_title => '唤醒词';
+
+  @override
+  String get wake_word_default => '使用设备默认';
+
+  @override
+  String get wake_word_default_hint => '修改后设备将立即重启';
+
+  @override
+  String get wake_word_confirm_title => '确认修改唤醒词？';
+
+  @override
+  String get wake_word_confirm_message => '设备将立即重启以应用此修改。';
+
+  @override
+  String get wake_word_confirm_action => '修改';
+
+  @override
   String get save_settings => '保存设置';
 
   @override

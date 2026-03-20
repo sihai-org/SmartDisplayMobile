@@ -1466,6 +1466,42 @@ abstract class AppLocalizations {
   /// **'Photo-forward layout like a frame'**
   String get layout_frame_hint;
 
+  /// No description provided for @wake_word_section_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Word'**
+  String get wake_word_section_title;
+
+  /// No description provided for @wake_word_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Use device default'**
+  String get wake_word_default;
+
+  /// No description provided for @wake_word_default_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing this restarts the device immediately'**
+  String get wake_word_default_hint;
+
+  /// No description provided for @wake_word_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Change wake word?'**
+  String get wake_word_confirm_title;
+
+  /// No description provided for @wake_word_confirm_message.
+  ///
+  /// In en, this message translates to:
+  /// **'The device will restart immediately to apply this change.'**
+  String get wake_word_confirm_message;
+
+  /// No description provided for @wake_word_confirm_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get wake_word_confirm_action;
+
   /// No description provided for @save_settings.
   ///
   /// In en, this message translates to:

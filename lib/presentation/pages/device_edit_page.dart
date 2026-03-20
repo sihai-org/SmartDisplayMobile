@@ -23,11 +23,7 @@ class DeviceEditPage extends ConsumerStatefulWidget {
   final String? displayDeviceId;
   final String? deviceName;
 
-  const DeviceEditPage({
-    super.key,
-    this.displayDeviceId,
-    this.deviceName,
-  });
+  const DeviceEditPage({super.key, this.displayDeviceId, this.deviceName});
 
   @override
   ConsumerState<DeviceEditPage> createState() => _DeviceEditPageState();
@@ -50,6 +46,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
+  int _wakeWordFieldVersion = 0;
 
   PageController? _wallpaperController;
 
@@ -59,13 +56,15 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   LayoutType get _layout =>
-      ref
-          .read(deviceCustomizationProvider)
-          .customization
-          .layout;
+      ref.read(deviceCustomizationProvider).customization.layout;
 
-  Future<void> _saveRemoteWithProgress(ProgressDialogController progress,
-      AppLocalizations l10n,) async {
+  WakeWordType get _wakeWord =>
+      ref.read(deviceCustomizationProvider).customization.wakeWord;
+
+  Future<void> _saveRemoteWithProgress(
+    ProgressDialogController progress,
+    AppLocalizations l10n,
+  ) async {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     progress.update(l10n.saving_ellipsis);
@@ -99,8 +98,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     try {
       await _saveRemoteWithProgress(progress, l10n);
     } catch (e, st) {
-      AppLog.instance.error('[device_edit_page][_handleSave] error',
-          error: e, stackTrace: st);
+      AppLog.instance.error(
+        '[device_edit_page][_handleSave] error',
+        error: e,
+        stackTrace: st,
+      );
     } finally {
       if (mounted) {
         progress.close();
@@ -163,9 +165,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
       var selected = picked;
       if (picked.length > maxCount) {
-        AppLog.instance.info("[${BizLogTag
-            .wallpaper.tag}][$TAG]_handleUploadTap: 数量超过限制 picked=${picked
-            .length}(>maxCount=$maxCount)");
+        AppLog.instance.info(
+          "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 数量超过限制 picked=${picked.length}(>maxCount=$maxCount)",
+        );
         _safelyShowToast(l10n.wallpaper_upload_limit(maxCount));
         selected = picked.take(maxCount).toList();
       }
@@ -187,7 +189,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
         // 1) 大小校验
         if (bytes.length > _maxWallpaperBytes) {
-          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 文件太大了 ${bytes.length} > $_maxWallpaperBytes");
+          AppLog.instance.warning(
+            "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 文件太大了 ${bytes.length} > $_maxWallpaperBytes",
+          );
 
           throw ImageProcessingException(
             l10n.wallpaper_upload_too_large(_formatBytes(_maxWallpaperBytes)),
@@ -198,10 +202,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         final detected = WallpaperImageUtil.detectFormat(bytes);
         const allowedFormats = {'jpeg', 'png', 'webp'};
         if (!allowedFormats.contains(detected)) {
-          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 格式不对 $detected");
+          AppLog.instance.warning(
+            "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 格式不对 $detected",
+          );
 
           throw ImageProcessingException(
-              l10n.image_format_not_supported("JPG/PNG/WebP"));
+            l10n.image_format_not_supported("JPG/PNG/WebP"),
+          );
         }
 
         // 3) 强制读宽高（读不到直接报错：无法识别图片尺寸...）
@@ -213,23 +220,24 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           w = size.$1;
           h = size.$2;
         } catch (e) {
-          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 读不到尺寸");
+          AppLog.instance.warning(
+            "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 读不到尺寸",
+          );
 
           throw ImageProcessingException(
-              l10n.wallpaper_image_size_unrecognized);
+            l10n.wallpaper_image_size_unrecognized,
+          );
         }
 
         // ✅ 3.5) 最大边长校验（比总像素更关键）
         final maxDim = (w > h) ? w : h;
         if (maxDim > _maxWallpaperMaxDim) {
-          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 边长校验超了 $maxDim > $_maxWallpaperMaxDim");
+          AppLog.instance.warning(
+            "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 边长校验超了 $maxDim > $_maxWallpaperMaxDim",
+          );
 
           throw ImageProcessingException(
-            l10n.wallpaper_dimension_too_large(
-              w,
-              h,
-              _maxWallpaperMaxDim,
-            ),
+            l10n.wallpaper_dimension_too_large(w, h, _maxWallpaperMaxDim),
           );
         }
 
@@ -239,10 +247,17 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           final mpText = (pixels.toDouble() / 1e6).toStringAsFixed(1);
           final maxMpText = (_maxWallpaperPixels / 1e6).toStringAsFixed(1);
 
-          AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 像素校验超了 $w * $h");
+          AppLog.instance.warning(
+            "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 第${i + 1}张 像素校验超了 $w * $h",
+          );
           throw ImageProcessingException(
             l10n.wallpaper_pixels_too_large(
-              w, h, mpText, maxMpText, _maxWallpaperMaxDim, _maxShortSide,
+              w,
+              h,
+              mpText,
+              maxMpText,
+              _maxWallpaperMaxDim,
+              _maxShortSide,
             ),
           );
         }
@@ -252,12 +267,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
         // ✅ 6) 日志：记录真实上传的图片规格（不影响用户）
         AppLog.instance.info(
-            "[${BizLogTag.wallpaper.tag}][$TAG] wallpaper accepted: "
-                "size=${_formatBytes(bytes.length)}, "
-                "dim=${w}x${h}, "
-                "mp=${(pixels.toDouble() / 1e6).toStringAsFixed(1)}MP, "
-                "maxDim=$maxDim, "
-                "format=$detected"
+          "[${BizLogTag.wallpaper.tag}][$TAG] wallpaper accepted: "
+          "size=${_formatBytes(bytes.length)}, "
+          "dim=${w}x${h}, "
+          "mp=${(pixels.toDouble() / 1e6).toStringAsFixed(1)}MP, "
+          "maxDim=$maxDim, "
+          "format=$detected",
         );
 
         uploadList.add(
@@ -287,7 +302,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           String s when s.isNotEmpty => s,
           _ => l10n.image_processing_failed,
         };
-        AppLog.instance.warning("[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 处理失败 $message");
+        AppLog.instance.warning(
+          "[${BizLogTag.wallpaper.tag}][$TAG]_handleUploadTap: 处理失败 $message",
+        );
         progress.error(message);
         await Future.delayed(const Duration(seconds: 4));
       }
@@ -362,6 +379,47 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     await _saveRemote();
   }
 
+  Future<void> _setWakeWord(WakeWordType value) async {
+    final notifier = ref.read(deviceCustomizationProvider.notifier);
+
+    if (_wakeWord == value) return;
+
+    final confirmed = await _confirmWakeWordChange(value);
+    if (!mounted) return;
+    if (!confirmed) {
+      setState(() => _wakeWordFieldVersion++);
+      return;
+    }
+
+    notifier.updateWakeWord(value);
+
+    await _saveRemote();
+  }
+
+  Future<bool> _confirmWakeWordChange(WakeWordType value) async {
+    final l10n = context.l10n;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.wake_word_confirm_title),
+        content: Text(l10n.wake_word_confirm_message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.wake_word_confirm_action),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
   Future<bool> _ensurePhotoPermission() async {
     try {
       // iOS / 其他平台
@@ -393,19 +451,20 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
   }
 
-
   String? _validateImageFormat(XFile file, AppLocalizations l10n) {
     final ext = p.extension(file.path).toLowerCase();
     const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
 
     if (ext.isEmpty) {
-      AppLog.instance.info("[${BizLogTag
-          .wallpaper.tag}][$TAG]_validateImageFormat: ext.isEmpty");
+      AppLog.instance.info(
+        "[${BizLogTag.wallpaper.tag}][$TAG]_validateImageFormat: ext.isEmpty",
+      );
       return null; // content:// 场景
     }
     if (!allowed.contains(ext)) {
-      AppLog.instance.info("[${BizLogTag
-          .wallpaper.tag}][$TAG]_validateImageFormat: 扩展名校验失败 $ext (allowed = ['.jpg', '.jpeg', '.png', '.webp'])");
+      AppLog.instance.info(
+        "[${BizLogTag.wallpaper.tag}][$TAG]_validateImageFormat: 扩展名校验失败 $ext (allowed = ['.jpg', '.jpeg', '.png', '.webp'])",
+      );
       return l10n.image_format_not_supported("JPG/PNG/WebP");
     }
     return null;
@@ -434,7 +493,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             if (!mounted) return;
             final l10n = context.l10n;
             _safelyShowToast(l10n.device_edit_load_failed);
-      });
+          });
     });
   }
 
@@ -450,10 +509,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final l10n = context.l10n;
 
-    var isLoading = ref
-        .watch(deviceCustomizationProvider)
-        .isLoading;
-
+    var isLoading = ref.watch(deviceCustomizationProvider).isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -473,6 +529,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   const SizedBox(height: 12),
                   _buildLayoutSection(),
                   const SizedBox(height: 12),
+                  _buildWakeWordSection(),
+                  const SizedBox(height: 12),
                   FilledButton(
                     onPressed: _resetToDefault,
                     style: FilledButton.styleFrom(
@@ -485,8 +543,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                     ),
                     child: Text(
                       l10n.reset_to_default,
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.normal),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.normal,
+                      ),
                     ),
                   ),
                 ],
@@ -494,11 +554,81 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             ),
           ),
 
-          _LoadingMask(
-            visible: isLoading,
-            text: l10n.loading,
-          ),
+          _LoadingMask(visible: isLoading, text: l10n.loading),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWakeWordSection() {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    const options = WakeWordType.values;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.wake_word_section_title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.wake_word_default_hint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            DropdownButtonFormField<WakeWordType>(
+              key: ValueKey(
+                'wake-word-$_wakeWordFieldVersion-${_wakeWord.name}',
+              ),
+              initialValue: _wakeWord,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+              items: options
+                  .map(
+                    (option) => DropdownMenuItem<WakeWordType>(
+                      value: option,
+                      child: Text(option.label),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value == null) return;
+                _setWakeWord(value);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -518,8 +648,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final isCurrentView = _selectedWallpaperPageIndex == _wallpaperPageIndex;
     _ensureWallpaperController();
 
-    final isViewingEmptyCustom = isViewingCustom &&
-        !state.customization.wallpaperInfos.isNotEmpty;
+    final isViewingEmptyCustom =
+        isViewingCustom && !state.customization.wallpaperInfos.isNotEmpty;
 
     return Card(
       elevation: 0,
@@ -543,8 +673,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   Text(
                     l10n.wallpaper_aspect_ratio_hint,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 14
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -579,10 +709,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                               alignment: Alignment.center,
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(18),
-                                child: _wallpaperImageWidget(
-                                  index,
-                                  state,
-                                ),
+                                child: _wallpaperImageWidget(index, state),
                               ),
                             ),
                           );
@@ -695,23 +822,21 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   }
 
   /// 壁纸区
-  Widget _wallpaperImageWidget(
-    int index,
-      DeviceCustomizationState state) {
+  Widget _wallpaperImageWidget(int index, DeviceCustomizationState state) {
     return switch (index) {
       0 => Image.asset(
-          'assets/images/device_wallpaper_default.png',
-          fit: BoxFit.cover,
-        ),
+        'assets/images/device_wallpaper_default.png',
+        fit: BoxFit.cover,
+      ),
       _ => Stack(
-          fit: StackFit.expand,
-          children: [
-            // —— 底图：有 custom 就用 preview，没有就用占位
-            state.customization.wallpaperInfos.isNotEmpty
-                ? _buildUploadedWallpaperPreview(state)
-                : _buildUploadPlaceholder(),
-          ],
-        ),
+        fit: StackFit.expand,
+        children: [
+          // —— 底图：有 custom 就用 preview，没有就用占位
+          state.customization.wallpaperInfos.isNotEmpty
+              ? _buildUploadedWallpaperPreview(state)
+              : _buildUploadPlaceholder(),
+        ],
+      ),
     };
   }
 
@@ -789,7 +914,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 ),
               ),
             ),
-          )
+          ),
         ],
         Positioned(
           right: 10,
@@ -804,7 +929,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
               child: Text(
                 l10n.delete,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -812,7 +937,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
@@ -837,11 +962,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 color: Color(0xFF2F6BFF),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 24),
             ),
           ),
         ),
@@ -868,10 +989,7 @@ class _CurrentToggle extends StatelessWidget {
   final String currentText;
   final VoidCallback? onSetAsCurrent;
 
-  const _CurrentToggle({
-    required this.currentText,
-    this.onSetAsCurrent,
-  });
+  const _CurrentToggle({required this.currentText, this.onSetAsCurrent});
 
   @override
   Widget build(BuildContext context) {
@@ -883,26 +1001,26 @@ class _CurrentToggle extends StatelessWidget {
           duration: const Duration(milliseconds: 160),
           child: onSetAsCurrent != null
               ? FilledButton(
-            onPressed: onSetAsCurrent,
-            key: const ValueKey('set'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE8F0FE), // 浅蓝背景
-              foregroundColor: const Color(0xFF1A73E8), // 蓝色文字
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
-              ),
-            ),
-            child: Text(
-              currentText,
-              style: const TextStyle(fontSize: 16),
-            ),
-          )
+                  onPressed: onSetAsCurrent,
+                  key: const ValueKey('set'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFE8F0FE), // 浅蓝背景
+                    foregroundColor: const Color(0xFF1A73E8), // 蓝色文字
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: Text(
+                    currentText,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                )
               : Text(
-            currentText,
+                  currentText,
                   key: const ValueKey('current'),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -952,20 +1070,12 @@ class _LayoutChoiceTile extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  iconAsset,
-                  fit: BoxFit.contain,
-                ),
+                child: Image.asset(iconAsset, fit: BoxFit.contain),
               ),
             ),
             const SizedBox(width: 16),
 
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),
 
             // 右侧选中态：圆形勾选
             Container(
@@ -974,12 +1084,14 @@ class _LayoutChoiceTile extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color:
-                      selected ? theme.colorScheme.primary : theme.dividerColor,
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.dividerColor,
                   width: 1,
                 ),
-                color:
-                    selected ? theme.colorScheme.primary : Colors.transparent,
+                color: selected
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
               ),
               child: selected
                   ? Icon(
@@ -1000,10 +1112,7 @@ class _LoadingMask extends StatelessWidget {
   final bool visible;
   final String? text;
 
-  const _LoadingMask({
-    required this.visible,
-    this.text,
-  });
+  const _LoadingMask({required this.visible, this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -1015,7 +1124,7 @@ class _LoadingMask extends StatelessWidget {
       child: AbsorbPointer(
         absorbing: true,
         child: Container(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
           alignment: Alignment.center,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -1041,10 +1150,7 @@ class _LoadingMask extends StatelessWidget {
                 ),
                 if (text != null && text!.isNotEmpty) ...[
                   const SizedBox(width: 12),
-                  Text(
-                    text!,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  Text(text!, style: theme.textTheme.bodyMedium),
                 ],
               ],
             ),

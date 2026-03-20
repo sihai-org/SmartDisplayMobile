@@ -11,32 +11,39 @@ class DeviceCustomization {
 
   final LayoutType layout;
 
+  final WakeWordType wakeWord;
+
   const DeviceCustomization({
     this.wallpaperInfos = const [],
     this.wallpaper = WallpaperType.defaultWallpaper,
     this.layout = LayoutType.defaultLayout,
+    this.wakeWord = WakeWordType.heyMichael,
   });
 
   const DeviceCustomization.empty()
     : wallpaperInfos = const [],
       wallpaper = WallpaperType.defaultWallpaper,
-      layout = LayoutType.defaultLayout;
+      layout = LayoutType.defaultLayout,
+      wakeWord = WakeWordType.heyMichael;
 
   /// 没有壁纸 && 没有布局
   bool get isLikeDefault =>
       wallpaper == WallpaperType.defaultWallpaper &&
       wallpaperInfos.isEmpty &&
-      layout == LayoutType.defaultLayout;
+      layout == LayoutType.defaultLayout &&
+      wakeWord == WakeWordType.heyMichael;
 
   DeviceCustomization copyWith({
     List<CustomWallpaperInfo>? wallpaperInfos,
     WallpaperType? wallpaper,
     LayoutType? layout,
+    WakeWordType? wakeWord,
   }) {
     return DeviceCustomization(
       wallpaperInfos: wallpaperInfos ?? this.wallpaperInfos,
       wallpaper: wallpaper ?? this.wallpaper,
       layout: layout ?? this.layout,
+      wakeWord: wakeWord ?? this.wakeWord,
     );
   }
 
@@ -44,6 +51,7 @@ class DeviceCustomization {
     'wallpaper_infos': wallpaperInfos.map((e) => e.toJson()).toList(),
     'wallpaper': wallpaper.value,
     'layout': layout.value,
+    'wake_word': wakeWord.apiValue,
   };
 
   static DeviceCustomization fromJson(Map<String, dynamic> json) {
@@ -55,6 +63,7 @@ class DeviceCustomization {
 
     final wallpaperVal = json['wallpaper'];
     final layoutVal = json['layout'];
+    final wakeWordVal = json['wake_word'] ?? json['wakeWord'];
 
     List<CustomWallpaperInfo> infos = (infosVal is List)
         ? infosVal
@@ -67,6 +76,7 @@ class DeviceCustomization {
       wallpaperInfos: infos.take(maxCustomWallpapers).toList(growable: false),
       wallpaper: WallpaperType.fromString(wallpaperVal),
       layout: LayoutType.fromString(layoutVal),
+      wakeWord: WakeWordType.fromString(wakeWordVal),
     );
   }
 
@@ -109,8 +119,8 @@ class CustomWallpaperInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'key': key,
-        'md5': md5,
+    'key': key,
+    'md5': md5,
     'mime': mime,
     'downloadUrl': downloadUrl,
   };

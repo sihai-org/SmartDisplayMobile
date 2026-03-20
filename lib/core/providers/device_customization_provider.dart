@@ -67,7 +67,7 @@ class DeviceCustomizationState {
 class DeviceCustomizationNotifier
     extends StateNotifier<DeviceCustomizationState> {
   DeviceCustomizationNotifier(this._repo)
-      : super(const DeviceCustomizationState());
+    : super(const DeviceCustomizationState());
 
   final DeviceCustomizationRepository _repo;
 
@@ -82,16 +82,14 @@ class DeviceCustomizationNotifier
       return;
     }
 
-    state = state.copyWith(
-      displayDeviceId: displayDeviceId,
-      isLoading: true,
-    );
+    state = state.copyWith(displayDeviceId: displayDeviceId, isLoading: true);
 
     try {
       // 先本地
       final local = await _repo.getUserCustomization(displayDeviceId);
       final localPaths = await _repo.getCachedWallpaperPaths(
-        displayDeviceId, infos: local.wallpaperInfos,
+        displayDeviceId,
+        infos: local.wallpaperInfos,
       );
       state = state.copyWith(
         customization: local,
@@ -126,6 +124,13 @@ class DeviceCustomizationNotifier
     state = state.copyWith(customization: next);
   }
 
+  /// 更新唤醒词；仅修改状态，不立即持久化。
+  void updateWakeWord(WakeWordType wakeWord) {
+    final current = state.customization;
+    final next = current.copyWith(wakeWord: wakeWord);
+    state = state.copyWith(customization: next);
+  }
+
   /// 更新壁纸信息；仅修改状态，不立即持久化。
   void updateWallpaper(WallpaperType wallpaper) {
     final current = state.customization;
@@ -147,10 +152,13 @@ class DeviceCustomizationNotifier
     try {
       await _repo.clearLocalWallpaperCache(deviceId);
 
-      final limited =
-          processedList.take(DeviceCustomization.maxCustomWallpapers).toList();
-      final uploadedInfos =
-          await _uploadWallpapers(images: limited, deviceId: deviceId);
+      final limited = processedList
+          .take(DeviceCustomization.maxCustomWallpapers)
+          .toList();
+      final uploadedInfos = await _uploadWallpapers(
+        images: limited,
+        deviceId: deviceId,
+      );
       final infos = <CustomWallpaperInfo>[];
       final localPaths = <String>[];
 
@@ -204,10 +212,7 @@ class DeviceCustomizationNotifier
       wallpaper: WallpaperType.defaultWallpaper,
     );
 
-    state = state.copyWith(
-      customization: next,
-      localWallpaperPaths: const [],
-    );
+    state = state.copyWith(customization: next, localWallpaperPaths: const []);
   }
 
   /// 将当前状态保存到远端
@@ -222,13 +227,13 @@ class DeviceCustomizationNotifier
 
     try {
       final currentValue = state.customization;
-      final wallpaperInfos = currentValue.wallpaperInfos
-          .toList();
+      final wallpaperInfos = currentValue.wallpaperInfos.toList();
 
       final payload = <String, dynamic>{
         'device_id': deviceId,
         'layout': currentValue.layout.value,
         'wallpaper': currentValue.wallpaper.value,
+        'wake_word': currentValue.wakeWord.apiValue,
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
@@ -242,16 +247,19 @@ class DeviceCustomizationNotifier
         final detail = data is Map && data['message'] != null
             ? data['message'].toString()
             : data?.toString();
-        throw Exception(detail == null || detail.isEmpty
-            ? '服务异常（${response.status}）'
-            : detail);
+        throw Exception(
+          detail == null || detail.isEmpty
+              ? '服务异常（${response.status}）'
+              : detail,
+        );
       }
 
       final body = response.data;
       final row = (body is Map) ? body['data'] : null;
       if (row is Map) {
         final next = DeviceCustomization.fromJson(
-            Map<String, dynamic>.from(row));
+          Map<String, dynamic>.from(row),
+        );
 
         // 1) 先更新 UI
         state = state.copyWith(customization: next);
@@ -277,7 +285,8 @@ class DeviceCustomizationNotifier
       );
       final detail = error.details?.toString();
       throw Exception(
-          detail == null || detail.isEmpty ? '保存失败，请稍后重试' : '保存失败：$detail');
+        detail == null || detail.isEmpty ? '保存失败，请稍后重试' : '保存失败：$detail',
+      );
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when saving customization',
@@ -324,12 +333,14 @@ class DeviceCustomizationNotifier
       // 用 md5 作为上传时的文件名
       final filename = '$md5.$normalizedExt';
 
-      files.add(http.MultipartFile.fromBytes(
-        'files',
-        image.bytes,
-        filename: filename,
-        contentType: http.MediaType.parse(image.mimeType),
-      ));
+      files.add(
+        http.MultipartFile.fromBytes(
+          'files',
+          image.bytes,
+          filename: filename,
+          contentType: http.MediaType.parse(image.mimeType),
+        ),
+      );
     }
 
     try {
@@ -337,9 +348,7 @@ class DeviceCustomizationNotifier
         'device_wallpaper_upload',
         method: HttpMethod.post,
         files: files,
-        headers: {
-          'x-device-id': deviceId,
-        },
+        headers: {'x-device-id': deviceId},
       );
 
       final data = response.data;
@@ -383,9 +392,9 @@ class DeviceCustomizationNotifier
         stackTrace: stackTrace,
       );
       final detail = error.details?.toString();
-      throw Exception(detail != null && detail.isNotEmpty
-          ? detail
-          : '服务异常（${error.status}）');
+      throw Exception(
+        detail != null && detail.isNotEmpty ? detail : '服务异常（${error.status}）',
+      );
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when uploading wallpaper',
@@ -429,7 +438,10 @@ class DeviceCustomizationNotifier
 }
 
 /// 设备自定义配置的 provider，供设备编辑页消费。
-final deviceCustomizationProvider = StateNotifierProvider.autoDispose<
-    DeviceCustomizationNotifier, DeviceCustomizationState>((ref) {
-  return DeviceCustomizationNotifier(DeviceCustomizationRepository());
-});
+final deviceCustomizationProvider =
+    StateNotifierProvider.autoDispose<
+      DeviceCustomizationNotifier,
+      DeviceCustomizationState
+    >((ref) {
+      return DeviceCustomizationNotifier(DeviceCustomizationRepository());
+    });
