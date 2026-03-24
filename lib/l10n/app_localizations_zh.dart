@@ -283,6 +283,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otp_code => '验证码';
 
   @override
+  String get otp_spam_hint => '没收到验证码？请检查垃圾邮件或广告邮件。';
+
+  @override
   String resend_in(Object seconds) {
     return '重新发送 (${seconds}s)';
   }

@@ -94,6 +94,7 @@
   "login_failed_rate_limited": "操作过于频繁，请稍后再试",
   "email_signin": "邮箱登录",
   "otp_code": "验证码",
+  "otp_spam_hint": "没收到验证码？请检查垃圾邮件或广告邮件。",
   "resend_in": "重新发送 ({seconds}s)",
   "send_otp": "发送验证码",
   "signout_failed": "退出失败，请重试。"

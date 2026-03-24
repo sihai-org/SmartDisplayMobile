@@ -300,6 +300,13 @@ class _LoginPageState extends State<LoginPage> {
                       onChanged: (_) => setState(() => _error = null),
                     ),
                     const SizedBox(height: 16),
+                    Text(
+                      l10n.otp_spam_hint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                   ],
 
                   if (_error != null)

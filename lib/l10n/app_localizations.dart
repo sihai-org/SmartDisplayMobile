@@ -632,6 +632,12 @@ abstract class AppLocalizations {
   /// **'Verification Code'**
   String get otp_code;
 
+  /// No description provided for @otp_spam_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn't receive the code? Please check Spam or Promotions.'**
+  String get otp_spam_hint;
+
   /// No description provided for @resend_in.
   ///
   /// In en, this message translates to:

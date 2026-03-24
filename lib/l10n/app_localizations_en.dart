@@ -286,6 +286,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otp_code => 'Verification Code';
 
   @override
+  String get otp_spam_hint =>
+      'Didn\'t receive the code? Please check Spam or Promotions.';
+
+  @override
   String resend_in(Object seconds) {
     return 'Resend in ${seconds}s';
   }

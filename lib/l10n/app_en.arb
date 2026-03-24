@@ -94,6 +94,7 @@
   "login_failed_rate_limited": "Too many attempts. Please try again later.",
   "email_signin": "Sign in with email",
   "otp_code": "Verification Code",
+  "otp_spam_hint": "Didn't receive the code? Please check Spam or Promotions.",
   "resend_in": "Resend in {seconds}s",
   "send_otp": "Send Code",
   "signout_failed": "Sign out failed. Please try again."
