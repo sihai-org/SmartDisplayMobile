@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
+import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/device_customization_repository.dart';
@@ -17,6 +21,7 @@ class DeviceCustomizationState {
   final bool isSaving;
   final bool isUploading;
   final List<String> localWallpaperPaths;
+  final List<String> wakeWordCandidates;
 
   const DeviceCustomizationState({
     this.displayDeviceId,
@@ -25,6 +30,7 @@ class DeviceCustomizationState {
     this.isSaving = false,
     this.isUploading = false,
     this.localWallpaperPaths = const [],
+    this.wakeWordCandidates = fallbackWakeWordCandidates,
   });
 
   // 👇 新增一个内部哨兵，用来区分「没传」和「传 null」
@@ -37,6 +43,7 @@ class DeviceCustomizationState {
     bool? isSaving,
     bool? isUploading,
     Object? localWallpaperPaths = _unset,
+    Object? wakeWordCandidates = _unset,
   }) {
     return DeviceCustomizationState(
       displayDeviceId: identical(displayDeviceId, _unset)
@@ -53,6 +60,9 @@ class DeviceCustomizationState {
       localWallpaperPaths: identical(localWallpaperPaths, _unset)
           ? this.localWallpaperPaths
           : _toStringList(localWallpaperPaths),
+      wakeWordCandidates: identical(wakeWordCandidates, _unset)
+          ? this.wakeWordCandidates
+          : _toStringList(wakeWordCandidates),
     );
   }
 
@@ -78,6 +88,7 @@ class DeviceCustomizationNotifier
         displayDeviceId: displayDeviceId,
         customization: const DeviceCustomization.empty(),
         localWallpaperPaths: const [],
+        wakeWordCandidates: fallbackWakeWordCandidates,
       );
       return;
     }
@@ -104,6 +115,24 @@ class DeviceCustomizationNotifier
           localWallpaperPaths: remote.localWallpaperPaths,
         );
       }
+
+      final wakeWordCandidates = await _fetchWakeWordCandidates(
+        displayDeviceId,
+      );
+      final mergedWakeWordCandidates = _mergeWakeWordCandidates(
+        wakeWordCandidates,
+        selectedWakeWord: state.customization.wakeWord,
+      );
+      final defaultWakeWordOnLoad = _defaultWakeWordSelection(
+        currentWakeWord: state.customization.wakeWord,
+        candidates: mergedWakeWordCandidates,
+      );
+      state = state.copyWith(
+        customization: state.customization.copyWith(
+          wakeWord: defaultWakeWordOnLoad,
+        ),
+        wakeWordCandidates: mergedWakeWordCandidates,
+      );
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to load customization for $displayDeviceId',
@@ -125,10 +154,16 @@ class DeviceCustomizationNotifier
   }
 
   /// 更新唤醒词；仅修改状态，不立即持久化。
-  void updateWakeWord(WakeWordType wakeWord) {
+  void updateWakeWord(String wakeWord) {
     final current = state.customization;
     final next = current.copyWith(wakeWord: wakeWord);
-    state = state.copyWith(customization: next);
+    state = state.copyWith(
+      customization: next,
+      wakeWordCandidates: _mergeWakeWordCandidates(
+        state.wakeWordCandidates,
+        selectedWakeWord: wakeWord,
+      ),
+    );
   }
 
   /// 更新壁纸信息；仅修改状态，不立即持久化。
@@ -233,7 +268,7 @@ class DeviceCustomizationNotifier
         'device_id': deviceId,
         'layout': currentValue.layout.value,
         'wallpaper': currentValue.wallpaper.value,
-        'wake_word': currentValue.wakeWord.apiValue,
+        'wake_word': currentValue.wakeWord,
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
@@ -302,8 +337,13 @@ class DeviceCustomizationNotifier
 
   /// 重置为默认配置（不触发持久化）。
   void resetToDefault() {
+    final defaultWakeWordOnReset = state.wakeWordCandidates.isNotEmpty
+        ? state.wakeWordCandidates.first
+        : defaultWakeWord;
     state = state.copyWith(
-      customization: const DeviceCustomization.empty(),
+      customization: DeviceCustomization.empty().copyWith(
+        wakeWord: defaultWakeWordOnReset,
+      ),
       localWallpaperPaths: const [],
     );
   }
@@ -434,6 +474,104 @@ class DeviceCustomizationNotifier
     }
 
     return const [];
+  }
+
+  Future<List<String>> _fetchWakeWordCandidates(String deviceId) async {
+    final accessToken =
+        Supabase.instance.client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty || deviceId.isEmpty) {
+      AppLog.instance.error(
+        '_fetchWakeWordCandidates invalid params',
+        tag: BizLogTag.wakeword.value,
+      );
+
+      return fallbackWakeWordCandidates;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Token': accessToken,
+          'X-Device-Id': deviceId,
+        },
+      );
+
+      AppLog.instance.info(
+        'response=${response.body}',
+        tag: BizLogTag.wakeword.value,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body);
+      final candidates = _extractWakeWordCandidates(decoded);
+
+      if (candidates.isEmpty) {
+        return fallbackWakeWordCandidates;
+      }
+      return candidates;
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to fetch wake word candidates for $deviceId',
+        tag: BizLogTag.wakeword.value,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return fallbackWakeWordCandidates;
+    }
+  }
+
+  List<String> _extractWakeWordCandidates(dynamic data) {
+    if (data is! Map) return const [];
+    final map = data.map((key, value) => MapEntry(key.toString(), value));
+    final nestedData = map['data'];
+    final raw = nestedData is Map
+        ? nestedData['wake_word_candidates'] ?? map['wake_word_candidates']
+        : map['wake_word_candidates'];
+
+    if (raw is! List) return const [];
+    return raw
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  List<String> _mergeWakeWordCandidates(
+    List<String> candidates, {
+    required String selectedWakeWord,
+  }) {
+    final merged = <String>[
+      ...candidates.where((item) => item.trim().isNotEmpty),
+    ];
+    final selected = selectedWakeWord.trim();
+    if (selected.isNotEmpty && !merged.contains(selected)) {
+      merged.insert(0, selected);
+    }
+    if (merged.isEmpty) {
+      merged.addAll(fallbackWakeWordCandidates);
+    }
+    return merged;
+  }
+
+  String _defaultWakeWordSelection({
+    required String currentWakeWord,
+    required List<String> candidates,
+  }) {
+    final selected = currentWakeWord.trim();
+    if (selected.isNotEmpty) {
+      return selected;
+    }
+    if (candidates.isNotEmpty) {
+      return candidates.first;
+    }
+    return defaultWakeWord;
   }
 }
 

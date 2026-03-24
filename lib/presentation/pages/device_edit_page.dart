@@ -8,10 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 
+import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
@@ -58,7 +58,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   LayoutType get _layout =>
       ref.read(deviceCustomizationProvider).customization.layout;
 
-  WakeWordType get _wakeWord =>
+  String get _wakeWord =>
       ref.read(deviceCustomizationProvider).customization.wakeWord;
 
   Future<void> _saveRemoteWithProgress(
@@ -379,7 +379,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     await _saveRemote();
   }
 
-  Future<void> _setWakeWord(WakeWordType value) async {
+  Future<void> _setWakeWord(String value) async {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     if (_wakeWord == value) return;
@@ -396,7 +396,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     await _saveRemote();
   }
 
-  Future<bool> _confirmWakeWordChange(WakeWordType value) async {
+  Future<bool> _confirmWakeWordChange(String value) async {
     final l10n = context.l10n;
 
     final confirmed = await showDialog<bool>(
@@ -563,7 +563,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Widget _buildWakeWordSection() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    const options = WakeWordType.values;
+    final options = ref.watch(deviceCustomizationProvider).wakeWordCandidates;
+    final selectedWakeWord = _wakeWord.trim();
+    final dropdownValue = options.contains(selectedWakeWord)
+        ? selectedWakeWord
+        : null;
 
     return Card(
       elevation: 0,
@@ -594,11 +598,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 ],
               ),
             ),
-            DropdownButtonFormField<WakeWordType>(
-              key: ValueKey(
-                'wake-word-$_wakeWordFieldVersion-${_wakeWord.name}',
-              ),
-              initialValue: _wakeWord,
+            DropdownButtonFormField<String>(
+              key: ValueKey('wake-word-$_wakeWordFieldVersion-$_wakeWord'),
+              initialValue: dropdownValue,
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
@@ -616,9 +618,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
               items: options
                   .map(
-                    (option) => DropdownMenuItem<WakeWordType>(
+                    (option) => DropdownMenuItem<String>(
                       value: option,
-                      child: Text(option.label),
+                      child: Text(option),
                     ),
                   )
                   .toList(growable: false),

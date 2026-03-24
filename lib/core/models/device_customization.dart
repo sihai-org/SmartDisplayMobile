@@ -1,6 +1,9 @@
 import 'package:meta/meta.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 
+const String defaultWakeWord = '';
+const List<String> fallbackWakeWordCandidates = <String>[];
+
 /// 用户在手机端为设备配置的个性化数据。
 @immutable
 class DeviceCustomization {
@@ -11,33 +14,33 @@ class DeviceCustomization {
 
   final LayoutType layout;
 
-  final WakeWordType wakeWord;
+  final String wakeWord;
 
   const DeviceCustomization({
     this.wallpaperInfos = const [],
     this.wallpaper = WallpaperType.defaultWallpaper,
     this.layout = LayoutType.defaultLayout,
-    this.wakeWord = WakeWordType.heyMichael,
+    this.wakeWord = defaultWakeWord,
   });
 
   const DeviceCustomization.empty()
     : wallpaperInfos = const [],
       wallpaper = WallpaperType.defaultWallpaper,
       layout = LayoutType.defaultLayout,
-      wakeWord = WakeWordType.heyMichael;
+      wakeWord = defaultWakeWord;
 
   /// 没有壁纸 && 没有布局
   bool get isLikeDefault =>
       wallpaper == WallpaperType.defaultWallpaper &&
       wallpaperInfos.isEmpty &&
       layout == LayoutType.defaultLayout &&
-      wakeWord == WakeWordType.heyMichael;
+      wakeWord == defaultWakeWord;
 
   DeviceCustomization copyWith({
     List<CustomWallpaperInfo>? wallpaperInfos,
     WallpaperType? wallpaper,
     LayoutType? layout,
-    WakeWordType? wakeWord,
+    String? wakeWord,
   }) {
     return DeviceCustomization(
       wallpaperInfos: wallpaperInfos ?? this.wallpaperInfos,
@@ -51,7 +54,7 @@ class DeviceCustomization {
     'wallpaper_infos': wallpaperInfos.map((e) => e.toJson()).toList(),
     'wallpaper': wallpaper.value,
     'layout': layout.value,
-    'wake_word': wakeWord.apiValue,
+    'wake_word': wakeWord,
   };
 
   static DeviceCustomization fromJson(Map<String, dynamic> json) {
@@ -76,12 +79,17 @@ class DeviceCustomization {
       wallpaperInfos: infos.take(maxCustomWallpapers).toList(growable: false),
       wallpaper: WallpaperType.fromString(wallpaperVal),
       layout: LayoutType.fromString(layoutVal),
-      wakeWord: WakeWordType.fromString(wakeWordVal),
+      wakeWord: _normalizeWakeWord(wakeWordVal),
     );
   }
 
   /// 最多允许的自定义壁纸数量。
   static const int maxCustomWallpapers = 5;
+
+  static String _normalizeWakeWord(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? defaultWakeWord : text;
+  }
 }
 
 /// 用户上传的壁纸信息（所有字段必填，允许值为空字符串代表无效）。

@@ -55,26 +55,3 @@ enum LayoutType {
     );
   }
 }
-
-enum WakeWordType {
-  heyMichael('Hey Michael', 'Hey Michael'),
-  heyJason('Hey Jason', 'Hey Jason'),
-  heyMax('Hey Max', 'Hey Max'),
-  heyTony('Hey Tony', 'Hey Tony'),
-  heyAndy('Hey Andy', 'Hey Andy');
-
-  final String label;
-  final String apiValue;
-
-  const WakeWordType(this.label, this.apiValue);
-
-  static WakeWordType fromString(String? value) {
-    if (value == null || value.isEmpty) {
-      return WakeWordType.heyMichael;
-    }
-    return WakeWordType.values.firstWhere(
-      (e) => e.apiValue == value || e.label == value,
-      orElse: () => WakeWordType.heyMichael,
-    );
-  }
-}

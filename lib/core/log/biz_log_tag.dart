@@ -1,5 +1,6 @@
 enum BizLogTag {
-  wallpaper('wallpaper');
+  wallpaper('wallpaper'),
+  wakeword('wakeword');
 
   final String value;
   const BizLogTag(this.value);
