@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
+import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -119,6 +120,8 @@ class DeviceCustomizationNotifier
       final wakeWordCandidates = await _fetchWakeWordCandidates(
         displayDeviceId,
       );
+      // 当前版本约定：默认唤醒词等价于服务端候选列表首项；
+      // 客户端加载后会补齐为该显式值，后续保存 customization 时一并持久化。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         wakeWordCandidates,
         selectedWakeWord: state.customization.wakeWord,
@@ -337,11 +340,12 @@ class DeviceCustomizationNotifier
 
   /// 重置为默认配置（不触发持久化）。
   void resetToDefault() {
+    // 当前版本中，“恢复默认”即回到服务端候选列表首项，而不是保留独立的 default 语义。
     final defaultWakeWordOnReset = state.wakeWordCandidates.isNotEmpty
         ? state.wakeWordCandidates.first
         : defaultWakeWord;
     state = state.copyWith(
-      customization: DeviceCustomization.empty().copyWith(
+      customization: const DeviceCustomization.empty().copyWith(
         wakeWord: defaultWakeWordOnReset,
       ),
       localWallpaperPaths: const [],
@@ -477,6 +481,10 @@ class DeviceCustomizationNotifier
   }
 
   Future<List<String>> _fetchWakeWordCandidates(String deviceId) async {
+    if (AuditMode.enabled) {
+      return fallbackWakeWordCandidates;
+    }
+
     final accessToken =
         Supabase.instance.client.auth.currentSession?.accessToken;
     if (accessToken == null || accessToken.isEmpty || deviceId.isEmpty) {
