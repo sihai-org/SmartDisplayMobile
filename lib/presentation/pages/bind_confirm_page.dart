@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
@@ -235,6 +236,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         .read(savedDevicesProvider.notifier)
         .findById(device.displayDeviceId)
         ?.firmwareVersion;
+    const functionName = 'pairing-otp';
     try {
       // In audit mode, fully mock binding flow: skip network OTP, send mock login,
       // then persist device locally so later syncFromServer() sees it.
@@ -258,7 +260,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
 
       final supabase = Supabase.instance.client;
       final response = await supabase.functions.invoke(
-        'pairing-otp',
+        functionName,
         body: {'device_id': device.displayDeviceId},
       );
       if (response.status != 200) {
@@ -310,6 +312,31 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         Fluttertoast.showToast(msg: context.l10n.bind_success);
       }
       return BindResult.success;
+    } on SocketException catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bindServerOtp,
+        result: 'fail',
+        displayDeviceId: device.displayDeviceId,
+        firmwareVersion: firmwareVersion,
+        error: e,
+        stackTrace: st,
+        extra: {
+          'error_type': e.runtimeType.toString(),
+          'error_message': e.message,
+          'function_name': functionName,
+          'socket_address': e.address?.host,
+          'socket_port': e.port,
+          'has_session': Supabase.instance.client.auth.currentSession != null,
+        },
+      );
+      AppLog.instance.error(
+        '[bindViaOtp] socket exception during $functionName',
+        tag: 'Supabase',
+        error: e,
+        stackTrace: st,
+      );
+      Fluttertoast.showToast(msg: context.l10n.bind_network_error);
+      return BindResult.fail;
     } catch (e, st) {
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,
@@ -318,7 +345,12 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         firmwareVersion: firmwareVersion,
         error: e,
         stackTrace: st,
-        extra: {'error_type': e.runtimeType.toString()},
+        extra: {
+          'error_type': e.runtimeType.toString(),
+          'error_message': e.toString(),
+          'function_name': functionName,
+          'has_session': Supabase.instance.client.auth.currentSession != null,
+        },
       );
       AppLog.instance.error(
         '[bindViaOtp] exception during pairing-otp + sendDeviceLoginCode',

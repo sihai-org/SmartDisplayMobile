@@ -62,8 +62,7 @@ import 'app_localizations_zh.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -71,8 +70,7 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -84,18 +82,17 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('zh'),
+    Locale('zh')
   ];
 
   /// No description provided for @appTitle.
@@ -635,7 +632,7 @@ abstract class AppLocalizations {
   /// No description provided for @otp_spam_hint.
   ///
   /// In en, this message translates to:
-  /// **'Didn't receive the code? Please check Spam or Promotions.'**
+  /// **'Didn\'t receive the code? Please check Spam or Promotions.'**
   String get otp_spam_hint;
 
   /// No description provided for @resend_in.
@@ -1196,6 +1193,12 @@ abstract class AppLocalizations {
   /// **'Binding failed. Please try again later.'**
   String get bind_failed;
 
+  /// No description provided for @bind_network_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get bind_network_error;
+
   /// No description provided for @bind_success.
   ///
   /// In en, this message translates to:
@@ -1235,7 +1238,7 @@ abstract class AppLocalizations {
   /// No description provided for @delete_consequence_hint.
   ///
   /// In en, this message translates to:
-  /// **'After unbinding, you'll need to scan the QR code on the device screen to bind it again.'**
+  /// **'After unbinding, you\'ll need to scan the QR code on the device screen to bind it again.'**
   String get delete_consequence_hint;
 
   /// No description provided for @delete_success.
@@ -1650,24 +1653,13 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Image dimensions are too large: {width}×{height}. Max long side is {maxDim}px. Please crop or export and retry.'**
-  String wallpaper_dimension_too_large(
-    Object width,
-    Object height,
-    Object maxDim,
-  );
+  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim);
 
   /// No description provided for @wallpaper_pixels_too_large.
   ///
   /// In en, this message translates to:
   /// **'Image resolution is too large: {width}×{height}. Recommended not to exceed {maxWidth}×{maxHeight}.'**
-  String wallpaper_pixels_too_large(
-    Object width,
-    Object height,
-    Object mp,
-    Object maxMp,
-    Object maxWidth,
-    Object maxHeight,
-  );
+  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight);
 
   /// No description provided for @image_processing_wait.
   ///
@@ -1970,8 +1962,7 @@ abstract class AppLocalizations {
   String get task_pdf_loading;
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1980,26 +1971,25 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'zh'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['en', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en':
-      return AppLocalizationsEn();
-    case 'zh':
-      return AppLocalizationsZh();
+    case 'en': return AppLocalizationsEn();
+    case 'zh': return AppLocalizationsZh();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
+    'that was used.'
   );
 }

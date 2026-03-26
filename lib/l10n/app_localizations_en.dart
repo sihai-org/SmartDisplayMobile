@@ -63,8 +63,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get camera_permission => 'Camera Permission';
 
   @override
-  String get camera_permission_denied =>
-      'Camera permission denied. Please enable it in Settings.';
+  String get camera_permission_denied => 'Camera permission denied. Please enable it in Settings.';
 
   @override
   String get manage_qr_permission => 'Manage QR scanning permission';
@@ -166,16 +165,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meeting_minutes_mock_title_3 => 'Customer Feedback Summary';
 
   @override
-  String get meeting_minutes_mock_content_1 =>
-      '# Project Weekly Sync Minutes\n\n## Attendees\n- Product\n- Design\n- Engineering\n\n## Key Takeaways\n1. Prioritize completing the meeting minutes list page.\n2. Finish the detail page API next week.\n\n## To-Do\n- [ ] Review list page styling\n- [ ] API integration';
+  String get meeting_minutes_mock_content_1 => '# Project Weekly Sync Minutes\n\n## Attendees\n- Product\n- Design\n- Engineering\n\n## Key Takeaways\n1. Prioritize completing the meeting minutes list page.\n2. Finish the detail page API next week.\n\n## To-Do\n- [ ] Review list page styling\n- [ ] API integration';
 
   @override
-  String get meeting_minutes_mock_content_2 =>
-      '# Requirements Review Minutes\n\n## Goals\n- Clarify the release scope\n- Align delivery cadence\n\n## Decisions\n- This release only includes the basic list and detail.\n- Data uses mock.\n\n## Risks\n- Detail content must support Markdown rendering.';
+  String get meeting_minutes_mock_content_2 => '# Requirements Review Minutes\n\n## Goals\n- Clarify the release scope\n- Align delivery cadence\n\n## Decisions\n- This release only includes the basic list and detail.\n- Data uses mock.\n\n## Risks\n- Detail content must support Markdown rendering.';
 
   @override
-  String get meeting_minutes_mock_content_3 =>
-      '# Customer Feedback Summary\n\n## Main Issues\n- List item information hierarchy is unclear\n- Detail content readability is average\n\n## Suggestions\n- Align date/time left-right on the second line\n- Bold the title to improve hierarchy';
+  String get meeting_minutes_mock_content_3 => '# Customer Feedback Summary\n\n## Main Issues\n- List item information hierarchy is unclear\n- Detail content readability is average\n\n## Suggestions\n- Align date/time left-right on the second line\n- Bold the title to improve hierarchy';
 
   @override
   String get logout => 'Sign out';
@@ -272,12 +268,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get login_failed_otp_invalid => 'Invalid code, please retry';
 
   @override
-  String get login_failed_otp_expired =>
-      'Invalid or expired code. Please try again.';
+  String get login_failed_otp_expired => 'Invalid or expired code. Please try again.';
 
   @override
-  String get login_failed_rate_limited =>
-      'Too many attempts. Please try again later.';
+  String get login_failed_rate_limited => 'Too many attempts. Please try again later.';
 
   @override
   String get email_signin => 'Sign in with email';
@@ -286,8 +280,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otp_code => 'Verification Code';
 
   @override
-  String get otp_spam_hint =>
-      'Didn\'t receive the code? Please check Spam or Promotions.';
+  String get otp_spam_hint => 'Didn\'t receive the code? Please check Spam or Promotions.';
 
   @override
   String resend_in(Object seconds) {
@@ -313,8 +306,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcome_title => 'Welcome to VznGPT';
 
   @override
-  String get welcome_hint =>
-      'Scan the QR code on the display to provision Wi‑Fi';
+  String get welcome_hint => 'Scan the QR code on the display to provision Wi‑Fi';
 
   @override
   String get reconnect => 'Reconnect';
@@ -323,12 +315,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get add_device => 'Add Device';
 
   @override
-  String get wifi_not_connected =>
-      'Device not connected to network. Select a Wi‑Fi to provision:';
+  String get wifi_not_connected => 'Device not connected to network. Select a Wi‑Fi to provision:';
 
   @override
-  String get wifi_status_unknown =>
-      'Unable to get network status. Showing available Wi‑Fi networks:';
+  String get wifi_status_unknown => 'Unable to get network status. Showing available Wi‑Fi networks:';
 
   @override
   String get network_status_loading => 'Fetching network status…';
@@ -352,8 +342,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enter_wifi_password => 'Enter Wi‑Fi password:';
 
   @override
-  String get wifi_password_optional =>
-      'Wi‑Fi password (leave empty for open network):';
+  String get wifi_password_optional => 'Wi‑Fi password (leave empty for open network):';
 
   @override
   String get enter_password => 'Enter password';
@@ -362,12 +351,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leave_empty_if_open => 'Leave empty if open';
 
   @override
-  String get secure_network_need_password =>
-      'Secure network detected; password required';
+  String get secure_network_need_password => 'Secure network detected; password required';
 
   @override
-  String get open_network_may_need_password =>
-      'Open network detected; enter password if required';
+  String get open_network_may_need_password => 'Open network detected; enter password if required';
 
   @override
   String get signal_strength => 'Signal strength';
@@ -416,8 +403,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get empty_saved_devices => 'No saved devices';
 
   @override
-  String get empty_hint_add_by_scan =>
-      'Scan the QR on your device to add a new smart display';
+  String get empty_hint_add_by_scan => 'Scan the QR on your device to add a new smart display';
 
   @override
   String get scan_qr_add_device => 'Scan QR to add device';
@@ -426,19 +412,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get device_switched => 'Switched to this device';
 
   @override
-  String get switch_device_failed =>
-      'Failed to switch device. Please try again.';
+  String get switch_device_failed => 'Failed to switch device. Please try again.';
 
   @override
-  String get missing_ble_params =>
-      'Missing Bluetooth parameters. Please rescan the device first.';
+  String get missing_ble_params => 'Missing Bluetooth parameters. Please rescan the device first.';
 
   @override
   String get no_device_title => 'No device added yet';
 
   @override
-  String get no_device_subtitle =>
-      'Power on the display, then scan the QR code shown to add a device';
+  String get no_device_subtitle => 'Power on the display, then scan the QR code shown to add a device';
 
   @override
   String get dark_env_hint => 'Try to scan under better lighting';
@@ -476,8 +459,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qr_scan_success => 'Scan successful, navigating...';
 
   @override
-  String get ble_disconnected_on_exit =>
-      'Bluetooth disconnected because you exited the binding flow';
+  String get ble_disconnected_on_exit => 'Bluetooth disconnected because you exited the binding flow';
 
   @override
   String get connect_success => 'Connected successfully';
@@ -486,27 +468,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect_failed_retry => 'Connection failed, please retry';
 
   @override
-  String get device_bound_elsewhere =>
-      'This device is linked to a different account';
+  String get device_bound_elsewhere => 'This device is linked to a different account';
 
   @override
-  String get ble_connect_timeout_relaunch_toast =>
-      'Connection timed out. Please fully close the app and reopen it to try again.';
+  String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
 
   @override
-  String get ble_scan_timeout_device_not_found =>
-      'Connection failed. The device may not be nearby.';
+  String get ble_scan_timeout_device_not_found => 'Connection failed. The device may not be nearby.';
 
   @override
-  String get ble_not_ready_enable_bluetooth_check_permission =>
-      'Please enable Bluetooth and check permissions';
+  String get ble_not_ready_enable_bluetooth_check_permission => 'Please enable Bluetooth and check permissions';
 
   @override
   String get error_title => 'Error';
 
   @override
-  String get no_device_data_message =>
-      'No device data found. Please rescan the QR code.';
+  String get no_device_data_message => 'No device data found. Please rescan the QR code.';
 
   @override
   String get rescan => 'Rescan';
@@ -565,8 +542,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wifi_signal_unknown => 'Signal unknown';
 
   @override
-  String get provision_request_failed =>
-      'Network connection failed, please try again';
+  String get provision_request_failed => 'Network connection failed, please try again';
 
   @override
   String get send_provision_request => 'Connect';
@@ -586,8 +562,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bind_device_title => 'Bind Device';
 
   @override
-  String get no_device_info_message =>
-      'No device info found. Please go back and rescan';
+  String get no_device_info_message => 'No device info found. Please go back and rescan';
 
   @override
   String get back_to_scan => 'Back to Scan';
@@ -603,6 +578,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bind_failed => 'Binding failed. Please try again later.';
+
+  @override
+  String get bind_network_error => 'Network error. Check your connection and try again.';
 
   @override
   String get bind_success => 'Device linked successfully';
@@ -623,8 +601,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get device_name_label => 'Device Name';
 
   @override
-  String get delete_consequence_hint =>
-      "After unbinding, you'll need to scan the QR code on the device screen to bind it again.";
+  String get delete_consequence_hint => 'After unbinding, you\'ll need to scan the QR code on the device screen to bind it again.';
 
   @override
   String get delete_success => 'Device unbound successfully';
@@ -633,8 +610,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get delete_failed => 'Failed to unbind device';
 
   @override
-  String get delete_failed_error =>
-      'Failed to unbind device. Please try again.';
+  String get delete_failed_error => 'Failed to unbind device. Please try again.';
 
   @override
   String get ble_connected_text => 'Bluetooth connected';
@@ -673,8 +649,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sync_devices_failed => 'Failed to sync devices';
 
   @override
-  String get update_started =>
-      'Device update started. Keep power and network on';
+  String get update_started => 'Device update started. Keep power and network on';
 
   @override
   String get update_in_progress => 'Update already in progress';
@@ -686,20 +661,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get optional_update_available => 'Optional update available';
 
   @override
-  String get update_throttled_retry =>
-      'Too many requests. Please try again later';
+  String get update_throttled_retry => 'Too many requests. Please try again later';
 
   @override
-  String get update_low_storage_retry =>
-      'Insufficient storage. Restart the device and try again';
+  String get update_low_storage_retry => 'Insufficient storage. Restart the device and try again';
 
   @override
-  String get check_update_failed_retry =>
-      'Check for update failed, please try again later';
+  String get check_update_failed_retry => 'Check for update failed, please try again later';
 
   @override
-  String get check_update_failed_error =>
-      'Unable to check for updates right now. Please try again later.';
+  String get check_update_failed_error => 'Unable to check for updates right now. Please try again later.';
 
   @override
   String nearby_networks_count(Object count) {
@@ -707,8 +678,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get no_scan_results_hint =>
-      'No results yet. Tap refresh at top right.';
+  String get no_scan_results_hint => 'No results yet. Tap refresh at top right.';
 
   @override
   String get last_updated => 'Last updated';
@@ -765,15 +735,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wake_word_default => 'Use device default';
 
   @override
-  String get wake_word_default_hint =>
-      'Changing this restarts the device immediately';
+  String get wake_word_default_hint => 'Changing this restarts the device immediately';
 
   @override
   String get wake_word_confirm_title => 'Change wake word?';
 
   @override
-  String get wake_word_confirm_message =>
-      'The device will restart immediately to apply this change.';
+  String get wake_word_confirm_message => 'The device will restart immediately to apply this change.';
 
   @override
   String get wake_word_confirm_action => 'Change';
@@ -785,8 +753,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reset_to_default => 'Reset to default';
 
   @override
-  String get device_edit_load_failed =>
-      'Unable to load device settings. Please try again.';
+  String get device_edit_load_failed => 'Unable to load device settings. Please try again.';
 
   @override
   String get missing_device_id_save => 'Missing device ID. Unable to save.';
@@ -795,8 +762,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_saved => 'Saved successfully';
 
   @override
-  String get settings_save_failed =>
-      'Unable to save settings. Please try again.';
+  String get settings_save_failed => 'Unable to save settings. Please try again.';
 
   @override
   String get saving_ellipsis => 'Saving...';
@@ -839,12 +805,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wallpaper_reupload => 'Reupload';
 
   @override
-  String get missing_device_id_upload_wallpaper =>
-      'Missing device ID. Unable to upload wallpaper.';
+  String get missing_device_id_upload_wallpaper => 'Missing device ID. Unable to upload wallpaper.';
 
   @override
-  String get photo_permission_required_upload_wallpaper =>
-      'Photo permission is required to upload wallpaper.';
+  String get photo_permission_required_upload_wallpaper => 'Photo permission is required to upload wallpaper.';
 
   @override
   String wallpaper_upload_limit(Object count) {
@@ -857,33 +821,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get wallpaper_image_size_unrecognized =>
-      'Unable to read image size. Please try another image or export and retry.';
+  String get wallpaper_image_size_unrecognized => 'Unable to read image size. Please try another image or export and retry.';
 
   @override
-  String wallpaper_dimension_too_large(
-    Object width,
-    Object height,
-    Object maxDim,
-  ) {
+  String wallpaper_dimension_too_large(Object width, Object height, Object maxDim) {
     return 'Image dimensions are too large: $width×$height. Max long side is ${maxDim}px. Please crop or export and retry.';
   }
 
   @override
-  String wallpaper_pixels_too_large(
-    Object width,
-    Object height,
-    Object mp,
-    Object maxMp,
-    Object maxWidth,
-    Object maxHeight,
-  ) {
+  String wallpaper_pixels_too_large(Object width, Object height, Object mp, Object maxMp, Object maxWidth, Object maxHeight) {
     return 'Image resolution is too large: $width×$height. Recommended not to exceed $maxWidth×$maxHeight.';
   }
 
   @override
-  String get image_processing_wait =>
-      'Processing images... This may take a few seconds.';
+  String get image_processing_wait => 'Processing images... This may take a few seconds.';
 
   @override
   String wallpaper_processing_timeout_index(Object count) {
@@ -891,12 +842,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get image_processing_timeout_hint =>
-      'Image processing timed out. Reduce the number of images or try again later.';
+  String get image_processing_timeout_hint => 'Image processing timed out. Reduce the number of images or try again later.';
 
   @override
-  String get image_processing_failed =>
-      'Image processing failed. Please try another image.';
+  String get image_processing_failed => 'Image processing failed. Please try another image.';
 
   @override
   String image_processing_failed_index(Object count) {
@@ -909,8 +858,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get missing_device_id_delete_wallpaper =>
-      'Missing device ID. Unable to delete wallpaper.';
+  String get missing_device_id_delete_wallpaper => 'Missing device ID. Unable to delete wallpaper.';
 
   @override
   String image_format_not_supported(Object formatStr) {
@@ -930,8 +878,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get force_update_title => 'Update Required';
 
   @override
-  String get force_update_message =>
-      'Please update to the latest version to continue.';
+  String get force_update_message => 'Please update to the latest version to continue.';
 
   @override
   String get force_update_button => 'Update Now';
@@ -974,8 +921,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get task_empty => 'No tasks yet';
 
   @override
-  String get task_preview_only_success =>
-      'Only successful tasks can be previewed';
+  String get task_preview_only_success => 'Only successful tasks can be previewed';
 
   @override
   String get task_status_pending => 'Pending';
@@ -1013,8 +959,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get task_pdf_no_preview_file => 'No preview file available';
 
   @override
-  String get task_pdf_link_expired_open_local_export =>
-      'Link expired, local export is opened';
+  String get task_pdf_link_expired_open_local_export => 'Link expired, local export is opened';
 
   @override
   String task_pdf_file_cached(Object path) {
@@ -1025,12 +970,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get task_pdf_share_failed => 'Share failed. Please try again.';
 
   @override
-  String get task_pdf_missing_storage_permission =>
-      'Missing storage permission, unable to download';
+  String get task_pdf_missing_storage_permission => 'Missing storage permission, unable to download';
 
   @override
-  String get task_pdf_download_started =>
-      'Download started, check Downloads later';
+  String get task_pdf_download_started => 'Download started, check Downloads later';
 
   @override
   String get task_pdf_no_shareable_file => 'No file available to share';
