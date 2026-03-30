@@ -60,7 +60,7 @@ class BalancePage extends StatelessWidget {
     final positive = item.amount >= 0;
     final amountColor = positive ? Colors.green.shade700 : Colors.red.shade400;
     final iconColor = positive ? Colors.green.shade100 : Colors.red.shade100;
-    final iconData = positive ? Icons.arrow_downward : Icons.arrow_upward;
+    final iconData = positive ? Icons.arrow_upward : Icons.arrow_downward;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
