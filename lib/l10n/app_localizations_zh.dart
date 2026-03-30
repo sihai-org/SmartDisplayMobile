@@ -87,6 +87,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get account_security => '账号与安全';
 
   @override
+  String get balance => '余额';
+
+  @override
+  String get balance_available => '当前余额';
+
+  @override
+  String get balance_mock_hint => '当前页面展示为 mock 数据';
+
+  @override
+  String get balance_recharge_button => '充值';
+
+  @override
+  String get balance_recent_changes => '最近3条变动';
+
+  @override
+  String get balance_view_all => '查看全部';
+
+  @override
+  String get balance_bills_title => '账单';
+
+  @override
+  String get balance_change_top_up => '充值';
+
+  @override
+  String get balance_change_plan_purchase => '套餐扣费';
+
+  @override
+  String get balance_change_bonus => '活动赠送';
+
+  @override
+  String get balance_change_adjustment => '人工调整';
+
+  @override
+  String get balance_change_refund => '退款返还';
+
+  @override
   String get serial_number_stats => '编号统计';
 
   @override

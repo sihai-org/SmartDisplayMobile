@@ -87,6 +87,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get account_security => 'Account & Security';
 
   @override
+  String get balance => 'Balance';
+
+  @override
+  String get balance_available => 'Available Balance';
+
+  @override
+  String get balance_mock_hint => 'This page currently shows mock data';
+
+  @override
+  String get balance_recharge_button => 'Top Up';
+
+  @override
+  String get balance_recent_changes => 'Latest 3 Changes';
+
+  @override
+  String get balance_view_all => 'View All';
+
+  @override
+  String get balance_bills_title => 'Bills';
+
+  @override
+  String get balance_change_top_up => 'Top-up';
+
+  @override
+  String get balance_change_plan_purchase => 'Plan Purchase';
+
+  @override
+  String get balance_change_bonus => 'Bonus';
+
+  @override
+  String get balance_change_adjustment => 'Manual Adjustment';
+
+  @override
+  String get balance_change_refund => 'Refund';
+
+  @override
   String get serial_number_stats => 'Serial Number Stats';
 
   @override

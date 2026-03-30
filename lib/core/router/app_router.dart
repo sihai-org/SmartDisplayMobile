@@ -19,6 +19,8 @@ import '../../presentation/pages/task_list_page.dart';
 import '../../presentation/pages/task_pdf_preview_page.dart';
 import '../../presentation/pages/force_update_page.dart';
 import '../../presentation/pages/serial_number_stats_page.dart';
+import '../../presentation/pages/balance_page.dart';
+import '../../presentation/pages/balance_bill_page.dart';
 import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
 import '../models/task_vo.dart';
@@ -44,6 +46,8 @@ class AppRoutes {
   static const String taskPdfPreview = '/task-pdf-preview';
   static const String forceUpdate = '/force-update';
   static const String serialNumberStats = '/serial-number-stats';
+  static const String balance = '/balance';
+  static const String balanceBills = '/balance/bills';
 }
 
 /// Router configuration
@@ -231,6 +235,18 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.serialNumberStats,
       name: 'serial-number-stats',
       builder: (context, state) => const SerialNumberStatsPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.balance,
+      name: 'balance',
+      builder: (context, state) => const BalancePage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.balanceBills,
+      name: 'balance-bills',
+      builder: (context, state) => const BalanceBillPage(),
     ),
   ],
 

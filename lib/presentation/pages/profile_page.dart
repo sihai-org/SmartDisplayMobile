@@ -132,6 +132,10 @@ class ProfilePage extends ConsumerWidget {
       data: (m) => m['factory_test'] == true,
       orElse: () => false,
     );
+    final showBalanceEntry = grayKeyMapAsync.maybeWhen(
+      data: (m) => m['finance_gray'] == true,
+      orElse: () => false,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -184,6 +188,20 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
           ),
+          if (showBalanceEntry) ...[
+            const SizedBox(height: 12),
+            _whiteListSection(
+              context,
+              tiles: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.balance),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.balance),
+                ),
+              ],
+            ),
+          ],
 
           // 应用信息
           _sectionHeader(context, l10n.app_info),
@@ -318,9 +336,7 @@ class ProfilePage extends ConsumerWidget {
                           horizontal: 16,
                         ),
                         title: Text(l10n.environment_switch_title),
-                        subtitle: Text(
-                          l10n.environment_current(stageLabel),
-                        ),
+                        subtitle: Text(l10n.environment_current(stageLabel)),
                         trailing: const Icon(Icons.swap_horiz),
                         onTap: () {
                           AppEnvironment.toggle();
