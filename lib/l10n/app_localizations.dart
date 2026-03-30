@@ -1391,17 +1391,11 @@ abstract class AppLocalizations {
   /// **'Network not connected'**
   String get network_not_connected;
 
-  /// No description provided for @device_edit_title.
+  /// No description provided for @device_settings.
   ///
   /// In en, this message translates to:
-  /// **'Edit Device'**
-  String get device_edit_title;
-
-  /// No description provided for @edit_device.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit device'**
-  String get edit_device;
+  /// **'Settings'**
+  String get device_settings;
 
   /// No description provided for @done.
   ///

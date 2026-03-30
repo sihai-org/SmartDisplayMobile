@@ -41,7 +41,7 @@ class DeviceEditTrigger extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(AppConstants.smallPadding),
         child: Text(
-          context.l10n.edit_device,
+          context.l10n.device_settings,
           style: TextStyle(fontSize: 16),
         ),
       ),

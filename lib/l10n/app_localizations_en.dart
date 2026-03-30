@@ -687,10 +687,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get network_not_connected => 'Network not connected';
 
   @override
-  String get device_edit_title => 'Edit Device';
-
-  @override
-  String get edit_device => 'Edit device';
+  String get device_settings => 'Settings';
 
   @override
   String get done => 'Done';

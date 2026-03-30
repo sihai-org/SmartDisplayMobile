@@ -514,7 +514,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(),
-        title: Text(l10n.edit_device),
+        title: Text(l10n.device_settings),
       ),
       body: Stack(
         fit: StackFit.expand, // ✅ 强制撑满 body

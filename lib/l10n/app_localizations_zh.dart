@@ -687,10 +687,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get network_not_connected => '网络未连接';
 
   @override
-  String get device_edit_title => '设备编辑';
-
-  @override
-  String get edit_device => '编辑设备';
+  String get device_settings => '设置';
 
   @override
   String get done => '完成';
