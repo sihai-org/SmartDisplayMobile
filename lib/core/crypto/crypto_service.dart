@@ -28,40 +28,47 @@ class CryptoService {
 
   /// 生成临时密钥对
   Future<void> generateEphemeralKeyPair() async {
-    unawaited(_keyExchangeWorker.ensureStarted().catchError((e, st) {
-      AppLog.instance.warning(
-        'key exchange worker warm-up failed: $e',
-        tag: 'Crypto',
-        error: e,
-        stackTrace: st,
-      );
-    }));
-    final mode =
-        kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug');
+    unawaited(
+      _keyExchangeWorker.ensureStarted().catchError((e, st) {
+        AppLog.instance.warning(
+          'key exchange worker warm-up failed: $e',
+          tag: 'Crypto',
+          error: e,
+          stackTrace: st,
+        );
+      }),
+    );
+    final mode = kReleaseMode
+        ? 'release'
+        : (kProfileMode ? 'profile' : 'debug');
     final sw = Stopwatch()..start();
     var done = false;
     AppLog.instance.debug(
       'generateEphemeralKeyPair.start (mode=$mode, isolate=${Isolate.current.hashCode})',
       tag: 'Crypto',
     );
-    unawaited(Future<void>.delayed(const Duration(seconds: 3), () {
-      if (!done) {
-        AppLog.instance.warning(
-          'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
-          tag: 'Crypto',
-        );
-      }
-    }));
-    unawaited(Future<void>.delayed(const Duration(seconds: 15), () {
-      if (!done) {
-        AppLog.instance.error(
-          'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
-          tag: 'Crypto',
-          error: StateError('Isolate.run did not return'),
-          stackTrace: StackTrace.current,
-        );
-      }
-    }));
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (!done) {
+          AppLog.instance.warning(
+            'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+            tag: 'Crypto',
+          );
+        }
+      }),
+    );
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 15), () {
+        if (!done) {
+          AppLog.instance.error(
+            'generateEphemeralKeyPair still waiting after ${sw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
+            tag: 'Crypto',
+            error: StateError('Isolate.run did not return'),
+            stackTrace: StackTrace.current,
+          );
+        }
+      }),
+    );
     final epoch = ++_ephemeralKeyGenEpoch;
     try {
       final snapshot = await Isolate.run<_EphemeralKeyPairSnapshot>(
@@ -70,8 +77,10 @@ class CryptoService {
       if (epoch != _ephemeralKeyGenEpoch) return; // 被更新/清理，丢弃旧结果
       _ephemeralKeyPair = SimpleKeyPairData(
         snapshot.privateKey,
-        publicKey:
-            SimplePublicKey(snapshot.publicKey, type: KeyPairType.x25519),
+        publicKey: SimplePublicKey(
+          snapshot.publicKey,
+          type: KeyPairType.x25519,
+        ),
         type: KeyPairType.x25519,
       );
       _ephemeralPublicKey = snapshot.publicKey;
@@ -137,11 +146,11 @@ class CryptoService {
       _sharedSecret = result.sharedSecret;
       _sessionKey = result.sessionKey;
       AppLog.instance.info('✅ 设备公钥签名验证通过', tag: 'Crypto');
-      AppLog.instance.debug(
+      AppLog.instance.info(
         '🤝 ECDH密钥交换完成，共享密钥长度: ${_sharedSecret!.length}',
         tag: 'Crypto',
       );
-      AppLog.instance.debug(
+      AppLog.instance.info(
         '🔑 会话密钥派生完成，长度: ${_sessionKey!.length}',
         tag: 'Crypto',
       );
@@ -218,7 +227,7 @@ class CryptoService {
     _ephemeralPublicKey = null;
     _sharedSecret = null;
     _sessionKey = null;
-    AppLog.instance.debug('🧹 密钥材料已清理', tag: 'Crypto');
+    AppLog.instance.info('🧹 密钥材料已清理', tag: 'Crypto');
   }
 
   /// 获取握手初始化数据 (Map格式)
@@ -442,8 +451,8 @@ class _KeyExchangeWorkerClient {
           final reqId = (message['id'] as num).toInt();
           final c = _pending.remove(reqId);
           if (c != null && !c.isCompleted) {
-            final errorMsg =
-                (message['error'] ?? 'key exchange worker error').toString();
+            final errorMsg = (message['error'] ?? 'key exchange worker error')
+                .toString();
             final stack = (message['stack'] ?? '').toString();
             c.completeError(Exception(errorMsg), StackTrace.fromString(stack));
           }
@@ -467,11 +476,7 @@ class _KeyExchangeWorkerClient {
     final reqId = ++_nextReqId;
     final c = Completer<_KeyExchangeWorkerResult>();
     _pending[reqId] = c;
-    sendPort.send({
-      'type': 'run',
-      'id': reqId,
-      'payload': input.toMessage(),
-    });
+    sendPort.send({'type': 'run', 'id': reqId, 'payload': input.toMessage()});
     return c.future.timeout(
       const Duration(seconds: 5),
       onTimeout: () {

@@ -53,11 +53,11 @@ class ReliableRequestQueue {
                 final total = u16(4);
                 final index = u16(6);
                 final payloadLen = u16(8);
-                _log(
+                _logDebug(
                   'RX frag ver=$ver flags=$flags req=$reqId ${index + 1}/$total len=${evt.length} payload=$payloadLen',
                 );
               } else {
-                _log('RX frag len=${evt.length}');
+                _logDebug('RX frag len=${evt.length}');
               }
               final decoded = _decoder.addPacket(Uint8List.fromList(evt));
               if (decoded != null) {
@@ -111,7 +111,7 @@ class ReliableRequestQueue {
                   if (p != null) reqId = p;
                 }
                 reqId ??= msg['hReqId'] as int?;
-                _log('RX msg type=${msg['type']} reqId=$reqId');
+                _logDebug('RX msg type=${msg['type']} reqId=$reqId');
 
                 _Pending? pending;
                 if (reqId != null) {
@@ -151,12 +151,12 @@ class ReliableRequestQueue {
                 }
               }
             } catch (e) {
-              _log('Decoder/dispatch error: $e');
+              _logError('Decoder/dispatch error: $e');
             }
           },
           onError: (Object e, StackTrace st) {
             // Do not crash app on characteristic update errors; just log and continue
-            _log('Subscribe error: $e');
+            _logError('Subscribe error: $e');
           },
         );
   }
@@ -203,7 +203,7 @@ class ReliableRequestQueue {
       int attempt = 0;
       while (attempt <= retries && !completer.isCompleted) {
         attempt += 1;
-        _log(
+        _logDebug(
           'TX send reqId=$reqId attempt=$attempt frames=${frames.length} mtu=$mtu',
         );
         // 逐片写入 RX（withResponse）
@@ -236,7 +236,7 @@ class ReliableRequestQueue {
           resp['reqId'] = reqId;
           return resp;
         } on TimeoutException {
-          _log(
+          _logError(
             'Timeout waiting for resp reqId=$reqId after ${timeout.inMilliseconds}ms',
           );
           if (attempt > retries) {
@@ -284,8 +284,12 @@ class _Pending {
   _Pending(this.completer, this.isFinal);
 }
 
-void _log(Object msg) {
+void _logDebug(Object msg) {
   AppLog.instance.debug('$msg', tag: 'RQ');
+}
+
+void _logError(Object msg) {
+  AppLog.instance.error('$msg', tag: 'RQ');
 }
 
 /// Specific error to indicate device is already bound to another user

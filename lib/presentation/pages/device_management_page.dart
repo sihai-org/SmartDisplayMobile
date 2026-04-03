@@ -133,14 +133,14 @@ class _DeviceManagementPageState extends ConsumerState<DeviceManagementPage> {
   void _logDeviceList(SavedDevicesState state) {
     final devices = state.devices;
     if (devices.isEmpty) {
-      AppLog.instance.debug('[DeviceManagementPage] 设备列表为空', tag: 'DeviceList');
+      AppLog.instance.info('[DeviceManagementPage] 设备列表为空', tag: 'DeviceList');
       return;
     }
-    AppLog.instance.debug('[DeviceManagementPage] 当前设备数量: ${devices.length}', tag: 'DeviceList');
+    AppLog.instance.info('[DeviceManagementPage] 当前设备数量: ${devices.length}', tag: 'DeviceList');
     for (final device in devices) {
       final name = device.deviceName.isNotEmpty ? device.deviceName : '未命名设备';
       final ble = device.lastBleDeviceId ?? '-';
-      AppLog.instance.debug('[DeviceManagementPage] 设备: id=${device.displayDeviceId}, name=$name, ble=$ble', tag: 'DeviceList');
+      AppLog.instance.info('[DeviceManagementPage] 设备: id=${device.displayDeviceId}, name=$name, ble=$ble', tag: 'DeviceList');
     }
   }
 }

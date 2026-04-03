@@ -34,7 +34,7 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
 
   Future<void> _seedMockDeviceIfNeeded() async {
     try {
-      AppLog.instance.debug('_seedMockDeviceIfNeeded', tag: 'Audit');
+      AppLog.instance.info('_seedMockDeviceIfNeeded', tag: 'Audit');
       final repo = SavedDevicesRepository();
       final list = await repo.loadLocal();
       final exists = list.any((e) => e.displayDeviceId == AuditMode.mockDisplayDeviceId);

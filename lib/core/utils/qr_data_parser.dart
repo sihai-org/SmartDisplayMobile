@@ -15,7 +15,7 @@ class QrDataParser {
   /// 紧凑URL格式：https://m.vzngpt.com/launch.html?ts=...&id=...&n=...&fv=...&ba=...&pk=...
   static DeviceQrData fromQrContent(String qrContent) {
     final trimmed = qrContent.trim();
-    AppLog.instance.debug(
+    AppLog.instance.info(
       "📷 QrDataParser 收到内容(${trimmed.length}): $trimmed",
       tag: 'QR',
     );
@@ -46,7 +46,7 @@ class QrDataParser {
               timestamp: ts,
             );
             if (kDebugMode) {
-              AppLog.instance.debug(
+              AppLog.instance.info(
                 '✅ 紧凑URL解析成功: id=$id, vc=$versionCode, name=$name',
                 tag: 'QR',
               );
@@ -80,7 +80,7 @@ class QrDataParser {
               timestamp: ts,
             );
             if (kDebugMode) {
-              AppLog.instance.debug(
+              AppLog.instance.info(
                 '✅ 自定义scheme解析成功: id=$id, vc=$versionCode, name=$name',
                 tag: 'QR',
               );

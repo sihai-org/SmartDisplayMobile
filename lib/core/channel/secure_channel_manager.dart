@@ -143,7 +143,7 @@ class SecureChannelManager {
       _creatingChannel = null;
       // 监听断开/蓝牙关闭，立刻清理引用
       _channelEvtSub = ch.events.listen((e) async {
-        AppLog.instance.debug(
+        AppLog.instance.info(
           "=============收到设备推送事件 ${e.toString()}",
           tag: 'Channel',
         );

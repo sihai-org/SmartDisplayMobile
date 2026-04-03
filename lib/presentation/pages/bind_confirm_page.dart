@@ -101,7 +101,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final scanned = app.scannedQrData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
-    AppLog.instance.debug(
+    AppLog.instance.info(
       '[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}',
       tag: 'Binding',
     );

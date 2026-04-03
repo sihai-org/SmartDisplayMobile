@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:smart_display_mobile/core/utils/device_update_result.dart';
 
 import '../log/app_log.dart';
+import '../log/ble_log_masker.dart';
 import '../log/device_onboarding_log.dart';
 import '../log/device_onboarding_events.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -140,7 +141,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   void _setStateSafely(BleConnectionState next, {String? reason}) {
     if (!_isMounted) {
       if (reason != null) {
-        _log('忽略 dispose 后的状态更新: $reason');
+        _logInfo('忽略 dispose 后的状态更新: $reason');
       }
       return;
     }
@@ -153,7 +154,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }) {
     if (!_isMounted) {
       if (reason != null) {
-        _log('忽略 dispose 后的状态更新: $reason');
+        _logInfo('忽略 dispose 后的状态更新: $reason');
       }
       return;
     }
@@ -168,13 +169,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _evtSub?.cancel();
       _evtSub = null;
       _boundStream = null;
-      _log('事件流不存在（等待 manager 完成 use/握手后由 provider 通知再绑定）');
+      _logInfo('事件流不存在（等待 manager 完成 use/握手后由 provider 通知再绑定）');
       return;
     }
 
     // 同一条流就不重复 listen
     if (identical(stream, _boundStream)) {
-      _log('重复的事件流，跳过重绑');
+      _logInfo('重复的事件流，跳过重绑');
       return;
     }
 
@@ -183,17 +184,17 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _boundStream = stream;
     _evtSub = stream.listen(
       _handleChannelEvent,
-      onError: (e, st) => _log('事件流错误: $e'),
-      onDone: () => _log('事件流结束'),
+      onError: (e, st) => _logInfo('事件流错误: $e'),
+      onDone: () => _logInfo('事件流结束'),
       cancelOnError: false,
     );
 
-    _log('已绑定新的事件流');
+    _logInfo('已绑定新的事件流');
   }
 
   void _handleChannelEvent(Map<String, dynamic> evt) {
     if (!_isMounted) return;
-    _log('=============[_handleChannelEvent] event $evt');
+    _logInfo('=============[_handleChannelEvent] event $evt');
     switch (evt['type']) {
       case 'status':
         final v = (evt['value'] ?? '').toString();
@@ -204,7 +205,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         }
         break;
       default:
-        _log('其他事件: $evt');
+        _logInfo('其他事件: $evt');
     }
   }
 
@@ -236,7 +237,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _activeOps++;
     _lastHeartbeatAt = now;
     _heartbeatSeq += 1;
-    _log('心跳开始(#$_heartbeatSeq) device.info');
+    _logDebug('心跳开始(#$_heartbeatSeq) device.info');
     try {
       // 使用现有 device.info 作为联通检测，但不更新业务状态，也不触发 ensure/reconnect
       await _ref
@@ -248,18 +249,18 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           );
       if (session != _sessionCount) return;
       if (_heartbeatFailures > 0 || (_heartbeatSeq % 10 == 0)) {
-        _log('心跳成功(#$_heartbeatSeq)');
+        _logDebug('心跳成功(#$_heartbeatSeq)');
       }
       _heartbeatFailures = 0;
     } catch (e) {
       if (session != _sessionCount) return;
       _heartbeatFailures += 1;
-      _log(
+      _logDebug(
         '心跳失败($_heartbeatFailures/${BleConstants.kHeartbeatFailThreshold}): $e',
       );
       if (_heartbeatFailures >= BleConstants.kHeartbeatFailThreshold) {
         _heartbeatFailures = 0;
-        _log('心跳判定失联：执行断开清理（等价用户手动断开）');
+        _logInfo('心跳判定失联：执行断开清理（等价用户手动断开）');
         await disconnect(shouldReset: true);
       }
     } finally {
@@ -327,35 +328,35 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   void _syncWhenAuthed({required String reason}) {
-    _log('call _syncWhenAuthed');
+    _logInfo('call _syncWhenAuthed');
     final now = DateTime.now();
     if (_lastSyncAt != null && now.difference(_lastSyncAt!) < _minSyncGap) {
-      _log('syncDeviceInfo 被合并（$reason）');
+      _logInfo('syncDeviceInfo 被合并（$reason）');
       return;
     }
     _lastSyncAt = now;
-    _log('触发 syncDeviceInfo（$reason）');
-    _syncDeviceInfo().catchError((e, st) => _log('sync 异常: $e'));
+    _logInfo('触发 syncDeviceInfo（$reason）');
+    _syncDeviceInfo().catchError((e, st) => _logInfo('sync 异常: $e'));
   }
 
   Future<void> _syncDeviceInfo() async {
-    _log('开始 syncDeviceInfo');
+    _logInfo('开始 syncDeviceInfo');
     // 仅当当前设备存在于“设备列表”中时才进行同步（避免与绑定前扫码流程冲突）
     try {
       final deviceId = state.bleDeviceData?.displayDeviceId;
       if (deviceId == null || deviceId.isEmpty) {
-        _log('跳过 sync：无有效的设备ID');
+        _logInfo('跳过 sync：无有效的设备ID');
         return;
       }
       final saved = _ref.read(savedDevicesProvider);
       final inList = saved.devices.any((e) => e.displayDeviceId == deviceId);
       if (!inList) {
-        _log('跳过 sync：设备不在设备列表中（$deviceId）');
+        _logInfo('跳过 sync：设备不在设备列表中（$deviceId）');
         return;
       }
     } catch (e) {
       // 若本地校验异常，为安全起见不继续同步
-      _log('本地设备校验异常，跳过 sync：$e');
+      _logInfo('本地设备校验异常，跳过 sync：$e');
       return;
     }
     try {
@@ -388,15 +389,15 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
                   lastConnectedAt: DateTime.now(),
                 );
           } catch (e) {
-            _log(
+            _logInfo(
               '更新 firmwareVersion/lastConnectedAt 到 SavedDevicesNotifier 失败: $e',
             );
           }
         }
       }
-      _log('syncDeviceInfo 完成');
+      _logInfo('syncDeviceInfo 完成');
     } catch (e) {
-      _log('syncDeviceInfo 失败: $e');
+      _logInfo('syncDeviceInfo 失败: $e');
     } finally {
       _updateStateSafely(
         (current) => current.copyWith(isCheckingNetwork: false),
@@ -424,7 +425,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     // 若尚未开始会话，设置一个基准时间用于统一打点
     final t0 = DateTime.now();
     _sessionStart ??= t0;
-    _log('🔌 enableBleConnection 开始');
+    _logInfo('🔌 enableBleConnection 开始');
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.bleConnect,
       result: 'start',
@@ -458,7 +459,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
               BleConstants.kLoadingMaxS,
               onTimeout: () async {
                 isTimeout = true;
-                _log(
+                _logInfo(
                   '---------⏰ mgr.use 超时(${BleConstants.kLoadingMaxS}s)，dispose 中止连接',
                 );
                 AppLog.instance.error(
@@ -499,7 +500,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
       /// 5. 握手状态
       final hs = mgr.lastHandshakeStatus;
-      AppLog.instance.debug('handshakeStatus=$hs', tag: 'BLE');
+      AppLog.instance.info('handshakeStatus=$hs', tag: 'BLE');
       bool treatAsEmptyBound = hs == 'empty_bound';
       DeviceOnboardingLog.info(
         event: DeviceOnboardingEvents.bleHandshake,
@@ -599,8 +600,11 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     String type,
     dynamic data, {
     Duration? timeout,
+    bool maskSensitiveLog = false,
   }) async {
-    _log('sendPureBleMsg: $type, $data');
+    _logInfo(
+      'sendPureBleMsg: $type, ${_maskBleLogValue(data, maskSensitiveLog)}',
+    );
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
@@ -608,10 +612,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         'type': type,
         'data': data,
       }, timeout: timeout);
-      _log('✅ sendPureBleMsg 成功: type=$type, resp=$resp');
+      _logInfo(
+        '✅ sendPureBleMsg 成功: type=$type, resp=${_maskBleLogValue(resp, maskSensitiveLog)}',
+      );
       return resp['ok'] == true;
     } catch (e) {
-      _log('❌ sendPureBleMsg 失败: $e');
+      _logInfo('❌ sendPureBleMsg 失败: $e');
       return false;
     } finally {
       _activeOps--;
@@ -624,8 +630,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     dynamic data, {
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
+    bool maskSensitiveLog = false,
   }) async {
-    _log('sendBleMsg: $type, $data');
+    _logInfo('sendBleMsg: $type, ${_maskBleLogValue(data, maskSensitiveLog)}');
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
@@ -636,7 +643,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
             retries: retries,
             isFinal: isFinal,
           );
-      _log('✅ sendBleMsg 成功: type=$type, resp=$resp');
+      _logInfo(
+        '✅ sendBleMsg 成功: type=$type, resp=${_maskBleLogValue(resp, maskSensitiveLog)}',
+      );
       return resp['data'];
     } finally {
       _activeOps--;
@@ -649,8 +658,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     dynamic data, {
     int retries = 0,
     bool Function(Map<String, dynamic>)? isFinal,
+    bool maskSensitiveLog = false,
   }) async {
-    _log('sendBleResp: $type, $data');
+    _logInfo('sendBleResp: $type, ${_maskBleLogValue(data, maskSensitiveLog)}');
     _activeOps++;
     _lastActivityAt = DateTime.now();
     try {
@@ -661,7 +671,9 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
             retries: retries,
             isFinal: isFinal,
           );
-      _log('✅ sendBleResp 成功: type=$type, resp=$resp');
+      _logInfo(
+        '✅ sendBleResp 成功: type=$type, resp=${_maskBleLogValue(resp, maskSensitiveLog)}',
+      );
       return resp;
     } finally {
       _activeOps--;
@@ -670,7 +682,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 绑定
   Future<bool> sendDeviceLoginCode(String email, String code) async {
-    _log('sendDeviceLoginCode email=$email');
+    _logInfo('sendDeviceLoginCode email=$email');
     final displayDeviceId = state.bleDeviceData?.displayDeviceId;
     final firmwareVersion = _currentFirmwareVersion();
     DeviceOnboardingLog.info(
@@ -680,10 +692,12 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       versionCode: _currentVersionCode(),
       firmwareVersion: firmwareVersion,
     );
-    final ok = await sendSimpleBleMsg('login.auth', {
-      'email': email,
-      'otpToken': code,
-    }, timeout: BleConstants.bindLoginTimeout);
+    final ok = await sendSimpleBleMsg(
+      'login.auth',
+      {'email': email, 'otpToken': code},
+      timeout: BleConstants.bindLoginTimeout,
+      maskSensitiveLog: true,
+    );
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.bindDeviceAuth,
       result: ok ? 'success' : 'fail',
@@ -702,7 +716,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   // 可用 wifi
   Future<bool> requestWifiScan() async {
     if (state.isScanningWifi) {
-      _log('跳过 wifi.scan：已有扫描进行中');
+      _logInfo('跳过 wifi.scan：已有扫描进行中');
       return false;
     }
 
@@ -718,7 +732,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       reason: 'requestWifiScan.start',
     );
     try {
-      _log('⏳ 开始扫描附近Wi-Fi...');
+      _logInfo('⏳ 开始扫描附近Wi-Fi...');
       final data = await sendBleMsg('wifi.scan', null, retries: 0);
       if (!_isMounted) return false;
       if (data is List) {
@@ -748,7 +762,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           firmwareVersion: _currentFirmwareVersion(),
           extra: {'network_count': networks.length},
         );
-        _log('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
+        _logInfo('📶 Wi-Fi 扫描完成，发现 ${networks.length} 个网络');
       }
       return true;
     } catch (e) {
@@ -761,7 +775,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         error: e,
         extra: {'error_type': e.runtimeType.toString()},
       );
-      _log('❌ wifi.scan 失败: $e');
+      _logInfo('❌ wifi.scan 失败: $e');
       return false;
     } finally {
       _updateStateSafely(
@@ -773,7 +787,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
 
   // 配网：等待同一通道的最终 wifi.config 响应（设备端直接回最终结果）
   Future<bool> sendWifiConfig(String ssid, String password) async {
-    _log('sendWifiConfig: ssid=$ssid');
+    _logInfo('sendWifiConfig: ssid=$ssid');
     final displayDeviceId = state.bleDeviceData?.displayDeviceId;
     final firmwareVersion = _currentFirmwareVersion();
     DeviceOnboardingLog.info(
@@ -787,7 +801,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       final data = await sendBleMsg('wifi.config', {
         'ssid': ssid,
         'password': password,
-      });
+      }, maskSensitiveLog: true);
       // 成功时设备返回 data: {status: 'connected'}
       if (data is Map<String, dynamic>) {
         final s = data['status']?.toString();
@@ -835,7 +849,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         error: e,
         extra: {'error_type': e.runtimeType.toString()},
       );
-      _log('❌ sendWifiConfig failed: $e');
+      _logInfo('❌ sendWifiConfig failed: $e');
       return false;
     }
   }
@@ -905,7 +919,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       if (resp['ok'] == true) {
         return parseDeviceUpdateResult(resp['data']);
       }
-      _log('update.version ok=false: ${resp['error'] ?? resp}');
+      _logInfo('update.version ok=false: ${resp['error'] ?? resp}');
       return DeviceUpdateVersionResult.failed;
     } catch (_) {
       return DeviceUpdateVersionResult.failed;
@@ -915,21 +929,28 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   /// bind 成功且已 syncFromServer 后调用：补一次 device.info 同步
   void syncDeviceInfoAfterBind() {
     if (state.bleDeviceStatus != BleDeviceStatus.authenticated) {
-      _log('跳过 syncDeviceInfoAfterBind：未 authenticated');
+      _logInfo('跳过 syncDeviceInfoAfterBind：未 authenticated');
       return;
     }
     _syncWhenAuthed(reason: 'bind-success');
   }
 
-  void _log(String msg) => AppLog.instance.debug(msg, tag: 'BLE');
+  void _logInfo(String msg) => AppLog.instance.info(msg, tag: 'BLE');
+
+  void _logDebug(String msg) => AppLog.instance.debug(msg, tag: 'BLE');
+
+  Object? _maskBleLogValue(Object? value, bool maskSensitiveLog) {
+    if (!maskSensitiveLog) return value;
+    return BleLogMasker.mask(value);
+  }
 
   void _logWithTime(String label) {
     final now = DateTime.now();
     if (_sessionStart != null) {
       final ms = now.difference(_sessionStart!).inMilliseconds;
-      _log('⏱ [$ms ms] $label');
+      _logInfo('⏱ [$ms ms] $label');
     } else {
-      _log('⏱ $label');
+      _logInfo('⏱ $label');
     }
   }
 

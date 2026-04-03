@@ -23,7 +23,7 @@ class DeviceEntryCoordinator {
   ) async {
     try {
       // 1. 解析或在审核模式下强制使用本地 Mock 设备
-      AppLog.instance.debug(
+      AppLog.instance.info(
         '[DeviceEntryCoordinator.handle] invoke',
         tag: 'Binding',
       );
