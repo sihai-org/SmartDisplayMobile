@@ -12,7 +12,8 @@ part of 'ble_device_data.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 BleDeviceData _$BleDeviceDataFromJson(Map<String, dynamic> json) {
   return _BleDeviceData.fromJson(json);
@@ -22,6 +23,9 @@ BleDeviceData _$BleDeviceDataFromJson(Map<String, dynamic> json) {
 mixin _$BleDeviceData {
   /// 业务ID
   String get displayDeviceId => throw _privateConstructorUsedError;
+
+  /// 设备端 versionCode（来自二维码 vc）
+  int? get versionCode => throw _privateConstructorUsedError;
 
   /// 蓝牙ID
   String get bleDeviceId => throw _privateConstructorUsedError;
@@ -60,19 +64,22 @@ mixin _$BleDeviceData {
 /// @nodoc
 abstract class $BleDeviceDataCopyWith<$Res> {
   factory $BleDeviceDataCopyWith(
-          BleDeviceData value, $Res Function(BleDeviceData) then) =
-      _$BleDeviceDataCopyWithImpl<$Res, BleDeviceData>;
+    BleDeviceData value,
+    $Res Function(BleDeviceData) then,
+  ) = _$BleDeviceDataCopyWithImpl<$Res, BleDeviceData>;
   @useResult
-  $Res call(
-      {String displayDeviceId,
-      String bleDeviceId,
-      String deviceName,
-      String publicKey,
-      BleDeviceStatus status,
-      int? rssi,
-      int mtu,
-      DateTime? connectedAt,
-      String? errorMessage});
+  $Res call({
+    String displayDeviceId,
+    int? versionCode,
+    String bleDeviceId,
+    String deviceName,
+    String publicKey,
+    BleDeviceStatus status,
+    int? rssi,
+    int mtu,
+    DateTime? connectedAt,
+    String? errorMessage,
+  });
 }
 
 /// @nodoc
@@ -91,6 +98,7 @@ class _$BleDeviceDataCopyWithImpl<$Res, $Val extends BleDeviceData>
   @override
   $Res call({
     Object? displayDeviceId = null,
+    Object? versionCode = freezed,
     Object? bleDeviceId = null,
     Object? deviceName = null,
     Object? publicKey = null,
@@ -100,44 +108,51 @@ class _$BleDeviceDataCopyWithImpl<$Res, $Val extends BleDeviceData>
     Object? connectedAt = freezed,
     Object? errorMessage = freezed,
   }) {
-    return _then(_value.copyWith(
-      displayDeviceId: null == displayDeviceId
-          ? _value.displayDeviceId
-          : displayDeviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      bleDeviceId: null == bleDeviceId
-          ? _value.bleDeviceId
-          : bleDeviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      deviceName: null == deviceName
-          ? _value.deviceName
-          : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      publicKey: null == publicKey
-          ? _value.publicKey
-          : publicKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as BleDeviceStatus,
-      rssi: freezed == rssi
-          ? _value.rssi
-          : rssi // ignore: cast_nullable_to_non_nullable
-              as int?,
-      mtu: null == mtu
-          ? _value.mtu
-          : mtu // ignore: cast_nullable_to_non_nullable
-              as int,
-      connectedAt: freezed == connectedAt
-          ? _value.connectedAt
-          : connectedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            displayDeviceId: null == displayDeviceId
+                ? _value.displayDeviceId
+                : displayDeviceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            versionCode: freezed == versionCode
+                ? _value.versionCode
+                : versionCode // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            bleDeviceId: null == bleDeviceId
+                ? _value.bleDeviceId
+                : bleDeviceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            deviceName: null == deviceName
+                ? _value.deviceName
+                : deviceName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            publicKey: null == publicKey
+                ? _value.publicKey
+                : publicKey // ignore: cast_nullable_to_non_nullable
+                      as String,
+            status: null == status
+                ? _value.status
+                : status // ignore: cast_nullable_to_non_nullable
+                      as BleDeviceStatus,
+            rssi: freezed == rssi
+                ? _value.rssi
+                : rssi // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            mtu: null == mtu
+                ? _value.mtu
+                : mtu // ignore: cast_nullable_to_non_nullable
+                      as int,
+            connectedAt: freezed == connectedAt
+                ? _value.connectedAt
+                : connectedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            errorMessage: freezed == errorMessage
+                ? _value.errorMessage
+                : errorMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -145,20 +160,23 @@ class _$BleDeviceDataCopyWithImpl<$Res, $Val extends BleDeviceData>
 abstract class _$$BleDeviceDataImplCopyWith<$Res>
     implements $BleDeviceDataCopyWith<$Res> {
   factory _$$BleDeviceDataImplCopyWith(
-          _$BleDeviceDataImpl value, $Res Function(_$BleDeviceDataImpl) then) =
-      __$$BleDeviceDataImplCopyWithImpl<$Res>;
+    _$BleDeviceDataImpl value,
+    $Res Function(_$BleDeviceDataImpl) then,
+  ) = __$$BleDeviceDataImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String displayDeviceId,
-      String bleDeviceId,
-      String deviceName,
-      String publicKey,
-      BleDeviceStatus status,
-      int? rssi,
-      int mtu,
-      DateTime? connectedAt,
-      String? errorMessage});
+  $Res call({
+    String displayDeviceId,
+    int? versionCode,
+    String bleDeviceId,
+    String deviceName,
+    String publicKey,
+    BleDeviceStatus status,
+    int? rssi,
+    int mtu,
+    DateTime? connectedAt,
+    String? errorMessage,
+  });
 }
 
 /// @nodoc
@@ -166,8 +184,9 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
     extends _$BleDeviceDataCopyWithImpl<$Res, _$BleDeviceDataImpl>
     implements _$$BleDeviceDataImplCopyWith<$Res> {
   __$$BleDeviceDataImplCopyWithImpl(
-      _$BleDeviceDataImpl _value, $Res Function(_$BleDeviceDataImpl) _then)
-      : super(_value, _then);
+    _$BleDeviceDataImpl _value,
+    $Res Function(_$BleDeviceDataImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleDeviceData
   /// with the given fields replaced by the non-null parameter values.
@@ -175,6 +194,7 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? displayDeviceId = null,
+    Object? versionCode = freezed,
     Object? bleDeviceId = null,
     Object? deviceName = null,
     Object? publicKey = null,
@@ -184,60 +204,68 @@ class __$$BleDeviceDataImplCopyWithImpl<$Res>
     Object? connectedAt = freezed,
     Object? errorMessage = freezed,
   }) {
-    return _then(_$BleDeviceDataImpl(
-      displayDeviceId: null == displayDeviceId
-          ? _value.displayDeviceId
-          : displayDeviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      bleDeviceId: null == bleDeviceId
-          ? _value.bleDeviceId
-          : bleDeviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      deviceName: null == deviceName
-          ? _value.deviceName
-          : deviceName // ignore: cast_nullable_to_non_nullable
-              as String,
-      publicKey: null == publicKey
-          ? _value.publicKey
-          : publicKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as BleDeviceStatus,
-      rssi: freezed == rssi
-          ? _value.rssi
-          : rssi // ignore: cast_nullable_to_non_nullable
-              as int?,
-      mtu: null == mtu
-          ? _value.mtu
-          : mtu // ignore: cast_nullable_to_non_nullable
-              as int,
-      connectedAt: freezed == connectedAt
-          ? _value.connectedAt
-          : connectedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      errorMessage: freezed == errorMessage
-          ? _value.errorMessage
-          : errorMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$BleDeviceDataImpl(
+        displayDeviceId: null == displayDeviceId
+            ? _value.displayDeviceId
+            : displayDeviceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        versionCode: freezed == versionCode
+            ? _value.versionCode
+            : versionCode // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        bleDeviceId: null == bleDeviceId
+            ? _value.bleDeviceId
+            : bleDeviceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        deviceName: null == deviceName
+            ? _value.deviceName
+            : deviceName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        publicKey: null == publicKey
+            ? _value.publicKey
+            : publicKey // ignore: cast_nullable_to_non_nullable
+                  as String,
+        status: null == status
+            ? _value.status
+            : status // ignore: cast_nullable_to_non_nullable
+                  as BleDeviceStatus,
+        rssi: freezed == rssi
+            ? _value.rssi
+            : rssi // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        mtu: null == mtu
+            ? _value.mtu
+            : mtu // ignore: cast_nullable_to_non_nullable
+                  as int,
+        connectedAt: freezed == connectedAt
+            ? _value.connectedAt
+            : connectedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        errorMessage: freezed == errorMessage
+            ? _value.errorMessage
+            : errorMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$BleDeviceDataImpl implements _BleDeviceData {
-  const _$BleDeviceDataImpl(
-      {required this.displayDeviceId,
-      required this.bleDeviceId,
-      required this.deviceName,
-      required this.publicKey,
-      this.status = BleDeviceStatus.disconnected,
-      this.rssi,
-      this.mtu = 23,
-      this.connectedAt,
-      this.errorMessage});
+  const _$BleDeviceDataImpl({
+    required this.displayDeviceId,
+    this.versionCode,
+    required this.bleDeviceId,
+    required this.deviceName,
+    required this.publicKey,
+    this.status = BleDeviceStatus.disconnected,
+    this.rssi,
+    this.mtu = 23,
+    this.connectedAt,
+    this.errorMessage,
+  });
 
   factory _$BleDeviceDataImpl.fromJson(Map<String, dynamic> json) =>
       _$$BleDeviceDataImplFromJson(json);
@@ -245,6 +273,10 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
   /// 业务ID
   @override
   final String displayDeviceId;
+
+  /// 设备端 versionCode（来自二维码 vc）
+  @override
+  final int? versionCode;
 
   /// 蓝牙ID
   @override
@@ -282,7 +314,7 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
 
   @override
   String toString() {
-    return 'BleDeviceData(displayDeviceId: $displayDeviceId, bleDeviceId: $bleDeviceId, deviceName: $deviceName, publicKey: $publicKey, status: $status, rssi: $rssi, mtu: $mtu, connectedAt: $connectedAt, errorMessage: $errorMessage)';
+    return 'BleDeviceData(displayDeviceId: $displayDeviceId, versionCode: $versionCode, bleDeviceId: $bleDeviceId, deviceName: $deviceName, publicKey: $publicKey, status: $status, rssi: $rssi, mtu: $mtu, connectedAt: $connectedAt, errorMessage: $errorMessage)';
   }
 
   @override
@@ -292,6 +324,8 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
             other is _$BleDeviceDataImpl &&
             (identical(other.displayDeviceId, displayDeviceId) ||
                 other.displayDeviceId == displayDeviceId) &&
+            (identical(other.versionCode, versionCode) ||
+                other.versionCode == versionCode) &&
             (identical(other.bleDeviceId, bleDeviceId) ||
                 other.bleDeviceId == bleDeviceId) &&
             (identical(other.deviceName, deviceName) ||
@@ -309,8 +343,19 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, displayDeviceId, bleDeviceId,
-      deviceName, publicKey, status, rssi, mtu, connectedAt, errorMessage);
+  int get hashCode => Object.hash(
+    runtimeType,
+    displayDeviceId,
+    versionCode,
+    bleDeviceId,
+    deviceName,
+    publicKey,
+    status,
+    rssi,
+    mtu,
+    connectedAt,
+    errorMessage,
+  );
 
   /// Create a copy of BleDeviceData
   /// with the given fields replaced by the non-null parameter values.
@@ -322,23 +367,23 @@ class _$BleDeviceDataImpl implements _BleDeviceData {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$BleDeviceDataImplToJson(
-      this,
-    );
+    return _$$BleDeviceDataImplToJson(this);
   }
 }
 
 abstract class _BleDeviceData implements BleDeviceData {
-  const factory _BleDeviceData(
-      {required final String displayDeviceId,
-      required final String bleDeviceId,
-      required final String deviceName,
-      required final String publicKey,
-      final BleDeviceStatus status,
-      final int? rssi,
-      final int mtu,
-      final DateTime? connectedAt,
-      final String? errorMessage}) = _$BleDeviceDataImpl;
+  const factory _BleDeviceData({
+    required final String displayDeviceId,
+    final int? versionCode,
+    required final String bleDeviceId,
+    required final String deviceName,
+    required final String publicKey,
+    final BleDeviceStatus status,
+    final int? rssi,
+    final int mtu,
+    final DateTime? connectedAt,
+    final String? errorMessage,
+  }) = _$BleDeviceDataImpl;
 
   factory _BleDeviceData.fromJson(Map<String, dynamic> json) =
       _$BleDeviceDataImpl.fromJson;
@@ -346,6 +391,10 @@ abstract class _BleDeviceData implements BleDeviceData {
   /// 业务ID
   @override
   String get displayDeviceId;
+
+  /// 设备端 versionCode（来自二维码 vc）
+  @override
+  int? get versionCode;
 
   /// 蓝牙ID
   @override
@@ -395,16 +444,14 @@ mixin _$BleConnectionResult {
     required TResult Function(String message) error,
     required TResult Function() timeout,
     required TResult Function() cancelled,
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
     TResult? Function(BleDeviceData device)? success,
     TResult? Function(String message)? error,
     TResult? Function()? timeout,
     TResult? Function()? cancelled,
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
     TResult Function(BleDeviceData device)? success,
@@ -412,24 +459,21 @@ mixin _$BleConnectionResult {
     TResult Function()? timeout,
     TResult Function()? cancelled,
     required TResult orElse(),
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult map<TResult extends Object?>({
     required TResult Function(_Success value) success,
     required TResult Function(_Error value) error,
     required TResult Function(_Timeout value) timeout,
     required TResult Function(_Cancelled value) cancelled,
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
     TResult? Function(_Success value)? success,
     TResult? Function(_Error value)? error,
     TResult? Function(_Timeout value)? timeout,
     TResult? Function(_Cancelled value)? cancelled,
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
     TResult Function(_Success value)? success,
@@ -437,15 +481,15 @@ mixin _$BleConnectionResult {
     TResult Function(_Timeout value)? timeout,
     TResult Function(_Cancelled value)? cancelled,
     required TResult orElse(),
-  }) =>
-      throw _privateConstructorUsedError;
+  }) => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $BleConnectionResultCopyWith<$Res> {
   factory $BleConnectionResultCopyWith(
-          BleConnectionResult value, $Res Function(BleConnectionResult) then) =
-      _$BleConnectionResultCopyWithImpl<$Res, BleConnectionResult>;
+    BleConnectionResult value,
+    $Res Function(BleConnectionResult) then,
+  ) = _$BleConnectionResultCopyWithImpl<$Res, BleConnectionResult>;
 }
 
 /// @nodoc
@@ -465,8 +509,9 @@ class _$BleConnectionResultCopyWithImpl<$Res, $Val extends BleConnectionResult>
 /// @nodoc
 abstract class _$$SuccessImplCopyWith<$Res> {
   factory _$$SuccessImplCopyWith(
-          _$SuccessImpl value, $Res Function(_$SuccessImpl) then) =
-      __$$SuccessImplCopyWithImpl<$Res>;
+    _$SuccessImpl value,
+    $Res Function(_$SuccessImpl) then,
+  ) = __$$SuccessImplCopyWithImpl<$Res>;
   @useResult
   $Res call({BleDeviceData device});
 
@@ -478,22 +523,23 @@ class __$$SuccessImplCopyWithImpl<$Res>
     extends _$BleConnectionResultCopyWithImpl<$Res, _$SuccessImpl>
     implements _$$SuccessImplCopyWith<$Res> {
   __$$SuccessImplCopyWithImpl(
-      _$SuccessImpl _value, $Res Function(_$SuccessImpl) _then)
-      : super(_value, _then);
+    _$SuccessImpl _value,
+    $Res Function(_$SuccessImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleConnectionResult
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? device = null,
-  }) {
-    return _then(_$SuccessImpl(
-      null == device
-          ? _value.device
-          : device // ignore: cast_nullable_to_non_nullable
-              as BleDeviceData,
-    ));
+  $Res call({Object? device = null}) {
+    return _then(
+      _$SuccessImpl(
+        null == device
+            ? _value.device
+            : device // ignore: cast_nullable_to_non_nullable
+                  as BleDeviceData,
+      ),
+    );
   }
 
   /// Create a copy of BleConnectionResult
@@ -629,8 +675,9 @@ abstract class _Success implements BleConnectionResult {
 /// @nodoc
 abstract class _$$ErrorImplCopyWith<$Res> {
   factory _$$ErrorImplCopyWith(
-          _$ErrorImpl value, $Res Function(_$ErrorImpl) then) =
-      __$$ErrorImplCopyWithImpl<$Res>;
+    _$ErrorImpl value,
+    $Res Function(_$ErrorImpl) then,
+  ) = __$$ErrorImplCopyWithImpl<$Res>;
   @useResult
   $Res call({String message});
 }
@@ -640,22 +687,23 @@ class __$$ErrorImplCopyWithImpl<$Res>
     extends _$BleConnectionResultCopyWithImpl<$Res, _$ErrorImpl>
     implements _$$ErrorImplCopyWith<$Res> {
   __$$ErrorImplCopyWithImpl(
-      _$ErrorImpl _value, $Res Function(_$ErrorImpl) _then)
-      : super(_value, _then);
+    _$ErrorImpl _value,
+    $Res Function(_$ErrorImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleConnectionResult
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? message = null,
-  }) {
-    return _then(_$ErrorImpl(
-      null == message
-          ? _value.message
-          : message // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+  $Res call({Object? message = null}) {
+    return _then(
+      _$ErrorImpl(
+        null == message
+            ? _value.message
+            : message // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
@@ -781,8 +829,9 @@ abstract class _Error implements BleConnectionResult {
 /// @nodoc
 abstract class _$$TimeoutImplCopyWith<$Res> {
   factory _$$TimeoutImplCopyWith(
-          _$TimeoutImpl value, $Res Function(_$TimeoutImpl) then) =
-      __$$TimeoutImplCopyWithImpl<$Res>;
+    _$TimeoutImpl value,
+    $Res Function(_$TimeoutImpl) then,
+  ) = __$$TimeoutImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
@@ -790,8 +839,9 @@ class __$$TimeoutImplCopyWithImpl<$Res>
     extends _$BleConnectionResultCopyWithImpl<$Res, _$TimeoutImpl>
     implements _$$TimeoutImplCopyWith<$Res> {
   __$$TimeoutImplCopyWithImpl(
-      _$TimeoutImpl _value, $Res Function(_$TimeoutImpl) _then)
-      : super(_value, _then);
+    _$TimeoutImpl _value,
+    $Res Function(_$TimeoutImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleConnectionResult
   /// with the given fields replaced by the non-null parameter values.
@@ -898,8 +948,9 @@ abstract class _Timeout implements BleConnectionResult {
 /// @nodoc
 abstract class _$$CancelledImplCopyWith<$Res> {
   factory _$$CancelledImplCopyWith(
-          _$CancelledImpl value, $Res Function(_$CancelledImpl) then) =
-      __$$CancelledImplCopyWithImpl<$Res>;
+    _$CancelledImpl value,
+    $Res Function(_$CancelledImpl) then,
+  ) = __$$CancelledImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
@@ -907,8 +958,9 @@ class __$$CancelledImplCopyWithImpl<$Res>
     extends _$BleConnectionResultCopyWithImpl<$Res, _$CancelledImpl>
     implements _$$CancelledImplCopyWith<$Res> {
   __$$CancelledImplCopyWithImpl(
-      _$CancelledImpl _value, $Res Function(_$CancelledImpl) _then)
-      : super(_value, _then);
+    _$CancelledImpl _value,
+    $Res Function(_$CancelledImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleConnectionResult
   /// with the given fields replaced by the non-null parameter values.
@@ -1032,16 +1084,18 @@ mixin _$BleScanResult {
 /// @nodoc
 abstract class $BleScanResultCopyWith<$Res> {
   factory $BleScanResultCopyWith(
-          BleScanResult value, $Res Function(BleScanResult) then) =
-      _$BleScanResultCopyWithImpl<$Res, BleScanResult>;
+    BleScanResult value,
+    $Res Function(BleScanResult) then,
+  ) = _$BleScanResultCopyWithImpl<$Res, BleScanResult>;
   @useResult
-  $Res call(
-      {String deviceId,
-      String name,
-      String address,
-      int rssi,
-      DateTime timestamp,
-      Map<String, dynamic>? advertisementData});
+  $Res call({
+    String deviceId,
+    String name,
+    String address,
+    int rssi,
+    DateTime timestamp,
+    Map<String, dynamic>? advertisementData,
+  });
 }
 
 /// @nodoc
@@ -1066,32 +1120,35 @@ class _$BleScanResultCopyWithImpl<$Res, $Val extends BleScanResult>
     Object? timestamp = null,
     Object? advertisementData = freezed,
   }) {
-    return _then(_value.copyWith(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      address: null == address
-          ? _value.address
-          : address // ignore: cast_nullable_to_non_nullable
-              as String,
-      rssi: null == rssi
-          ? _value.rssi
-          : rssi // ignore: cast_nullable_to_non_nullable
-              as int,
-      timestamp: null == timestamp
-          ? _value.timestamp
-          : timestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      advertisementData: freezed == advertisementData
-          ? _value.advertisementData
-          : advertisementData // ignore: cast_nullable_to_non_nullable
-              as Map<String, dynamic>?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            deviceId: null == deviceId
+                ? _value.deviceId
+                : deviceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            name: null == name
+                ? _value.name
+                : name // ignore: cast_nullable_to_non_nullable
+                      as String,
+            address: null == address
+                ? _value.address
+                : address // ignore: cast_nullable_to_non_nullable
+                      as String,
+            rssi: null == rssi
+                ? _value.rssi
+                : rssi // ignore: cast_nullable_to_non_nullable
+                      as int,
+            timestamp: null == timestamp
+                ? _value.timestamp
+                : timestamp // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            advertisementData: freezed == advertisementData
+                ? _value.advertisementData
+                : advertisementData // ignore: cast_nullable_to_non_nullable
+                      as Map<String, dynamic>?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -1099,17 +1156,19 @@ class _$BleScanResultCopyWithImpl<$Res, $Val extends BleScanResult>
 abstract class _$$BleScanResultImplCopyWith<$Res>
     implements $BleScanResultCopyWith<$Res> {
   factory _$$BleScanResultImplCopyWith(
-          _$BleScanResultImpl value, $Res Function(_$BleScanResultImpl) then) =
-      __$$BleScanResultImplCopyWithImpl<$Res>;
+    _$BleScanResultImpl value,
+    $Res Function(_$BleScanResultImpl) then,
+  ) = __$$BleScanResultImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String deviceId,
-      String name,
-      String address,
-      int rssi,
-      DateTime timestamp,
-      Map<String, dynamic>? advertisementData});
+  $Res call({
+    String deviceId,
+    String name,
+    String address,
+    int rssi,
+    DateTime timestamp,
+    Map<String, dynamic>? advertisementData,
+  });
 }
 
 /// @nodoc
@@ -1117,8 +1176,9 @@ class __$$BleScanResultImplCopyWithImpl<$Res>
     extends _$BleScanResultCopyWithImpl<$Res, _$BleScanResultImpl>
     implements _$$BleScanResultImplCopyWith<$Res> {
   __$$BleScanResultImplCopyWithImpl(
-      _$BleScanResultImpl _value, $Res Function(_$BleScanResultImpl) _then)
-      : super(_value, _then);
+    _$BleScanResultImpl _value,
+    $Res Function(_$BleScanResultImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleScanResult
   /// with the given fields replaced by the non-null parameter values.
@@ -1132,46 +1192,48 @@ class __$$BleScanResultImplCopyWithImpl<$Res>
     Object? timestamp = null,
     Object? advertisementData = freezed,
   }) {
-    return _then(_$BleScanResultImpl(
-      deviceId: null == deviceId
-          ? _value.deviceId
-          : deviceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      address: null == address
-          ? _value.address
-          : address // ignore: cast_nullable_to_non_nullable
-              as String,
-      rssi: null == rssi
-          ? _value.rssi
-          : rssi // ignore: cast_nullable_to_non_nullable
-              as int,
-      timestamp: null == timestamp
-          ? _value.timestamp
-          : timestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      advertisementData: freezed == advertisementData
-          ? _value._advertisementData
-          : advertisementData // ignore: cast_nullable_to_non_nullable
-              as Map<String, dynamic>?,
-    ));
+    return _then(
+      _$BleScanResultImpl(
+        deviceId: null == deviceId
+            ? _value.deviceId
+            : deviceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _value.name
+            : name // ignore: cast_nullable_to_non_nullable
+                  as String,
+        address: null == address
+            ? _value.address
+            : address // ignore: cast_nullable_to_non_nullable
+                  as String,
+        rssi: null == rssi
+            ? _value.rssi
+            : rssi // ignore: cast_nullable_to_non_nullable
+                  as int,
+        timestamp: null == timestamp
+            ? _value.timestamp
+            : timestamp // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        advertisementData: freezed == advertisementData
+            ? _value._advertisementData
+            : advertisementData // ignore: cast_nullable_to_non_nullable
+                  as Map<String, dynamic>?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BleScanResultImpl implements _BleScanResult {
-  const _$BleScanResultImpl(
-      {required this.deviceId,
-      required this.name,
-      required this.address,
-      required this.rssi,
-      required this.timestamp,
-      final Map<String, dynamic>? advertisementData})
-      : _advertisementData = advertisementData;
+  const _$BleScanResultImpl({
+    required this.deviceId,
+    required this.name,
+    required this.address,
+    required this.rssi,
+    required this.timestamp,
+    final Map<String, dynamic>? advertisementData,
+  }) : _advertisementData = advertisementData;
 
   @override
   final String deviceId;
@@ -1211,13 +1273,22 @@ class _$BleScanResultImpl implements _BleScanResult {
             (identical(other.rssi, rssi) || other.rssi == rssi) &&
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
-            const DeepCollectionEquality()
-                .equals(other._advertisementData, _advertisementData));
+            const DeepCollectionEquality().equals(
+              other._advertisementData,
+              _advertisementData,
+            ));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, deviceId, name, address, rssi,
-      timestamp, const DeepCollectionEquality().hash(_advertisementData));
+  int get hashCode => Object.hash(
+    runtimeType,
+    deviceId,
+    name,
+    address,
+    rssi,
+    timestamp,
+    const DeepCollectionEquality().hash(_advertisementData),
+  );
 
   /// Create a copy of BleScanResult
   /// with the given fields replaced by the non-null parameter values.
@@ -1229,13 +1300,14 @@ class _$BleScanResultImpl implements _BleScanResult {
 }
 
 abstract class _BleScanResult implements BleScanResult {
-  const factory _BleScanResult(
-      {required final String deviceId,
-      required final String name,
-      required final String address,
-      required final int rssi,
-      required final DateTime timestamp,
-      final Map<String, dynamic>? advertisementData}) = _$BleScanResultImpl;
+  const factory _BleScanResult({
+    required final String deviceId,
+    required final String name,
+    required final String address,
+    required final int rssi,
+    required final DateTime timestamp,
+    final Map<String, dynamic>? advertisementData,
+  }) = _$BleScanResultImpl;
 
   @override
   String get deviceId;
@@ -1274,8 +1346,9 @@ mixin _$BleServiceInfo {
 /// @nodoc
 abstract class $BleServiceInfoCopyWith<$Res> {
   factory $BleServiceInfoCopyWith(
-          BleServiceInfo value, $Res Function(BleServiceInfo) then) =
-      _$BleServiceInfoCopyWithImpl<$Res, BleServiceInfo>;
+    BleServiceInfo value,
+    $Res Function(BleServiceInfo) then,
+  ) = _$BleServiceInfoCopyWithImpl<$Res, BleServiceInfo>;
   @useResult
   $Res call({String serviceUuid, List<BleCharacteristicInfo> characteristics});
 }
@@ -1294,29 +1367,30 @@ class _$BleServiceInfoCopyWithImpl<$Res, $Val extends BleServiceInfo>
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? serviceUuid = null,
-    Object? characteristics = null,
-  }) {
-    return _then(_value.copyWith(
-      serviceUuid: null == serviceUuid
-          ? _value.serviceUuid
-          : serviceUuid // ignore: cast_nullable_to_non_nullable
-              as String,
-      characteristics: null == characteristics
-          ? _value.characteristics
-          : characteristics // ignore: cast_nullable_to_non_nullable
-              as List<BleCharacteristicInfo>,
-    ) as $Val);
+  $Res call({Object? serviceUuid = null, Object? characteristics = null}) {
+    return _then(
+      _value.copyWith(
+            serviceUuid: null == serviceUuid
+                ? _value.serviceUuid
+                : serviceUuid // ignore: cast_nullable_to_non_nullable
+                      as String,
+            characteristics: null == characteristics
+                ? _value.characteristics
+                : characteristics // ignore: cast_nullable_to_non_nullable
+                      as List<BleCharacteristicInfo>,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$BleServiceInfoImplCopyWith<$Res>
     implements $BleServiceInfoCopyWith<$Res> {
-  factory _$$BleServiceInfoImplCopyWith(_$BleServiceInfoImpl value,
-          $Res Function(_$BleServiceInfoImpl) then) =
-      __$$BleServiceInfoImplCopyWithImpl<$Res>;
+  factory _$$BleServiceInfoImplCopyWith(
+    _$BleServiceInfoImpl value,
+    $Res Function(_$BleServiceInfoImpl) then,
+  ) = __$$BleServiceInfoImplCopyWithImpl<$Res>;
   @override
   @useResult
   $Res call({String serviceUuid, List<BleCharacteristicInfo> characteristics});
@@ -1327,37 +1401,37 @@ class __$$BleServiceInfoImplCopyWithImpl<$Res>
     extends _$BleServiceInfoCopyWithImpl<$Res, _$BleServiceInfoImpl>
     implements _$$BleServiceInfoImplCopyWith<$Res> {
   __$$BleServiceInfoImplCopyWithImpl(
-      _$BleServiceInfoImpl _value, $Res Function(_$BleServiceInfoImpl) _then)
-      : super(_value, _then);
+    _$BleServiceInfoImpl _value,
+    $Res Function(_$BleServiceInfoImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleServiceInfo
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
-  $Res call({
-    Object? serviceUuid = null,
-    Object? characteristics = null,
-  }) {
-    return _then(_$BleServiceInfoImpl(
-      serviceUuid: null == serviceUuid
-          ? _value.serviceUuid
-          : serviceUuid // ignore: cast_nullable_to_non_nullable
-              as String,
-      characteristics: null == characteristics
-          ? _value._characteristics
-          : characteristics // ignore: cast_nullable_to_non_nullable
-              as List<BleCharacteristicInfo>,
-    ));
+  $Res call({Object? serviceUuid = null, Object? characteristics = null}) {
+    return _then(
+      _$BleServiceInfoImpl(
+        serviceUuid: null == serviceUuid
+            ? _value.serviceUuid
+            : serviceUuid // ignore: cast_nullable_to_non_nullable
+                  as String,
+        characteristics: null == characteristics
+            ? _value._characteristics
+            : characteristics // ignore: cast_nullable_to_non_nullable
+                  as List<BleCharacteristicInfo>,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BleServiceInfoImpl implements _BleServiceInfo {
-  const _$BleServiceInfoImpl(
-      {required this.serviceUuid,
-      required final List<BleCharacteristicInfo> characteristics})
-      : _characteristics = characteristics;
+  const _$BleServiceInfoImpl({
+    required this.serviceUuid,
+    required final List<BleCharacteristicInfo> characteristics,
+  }) : _characteristics = characteristics;
 
   @override
   final String serviceUuid;
@@ -1381,13 +1455,18 @@ class _$BleServiceInfoImpl implements _BleServiceInfo {
             other is _$BleServiceInfoImpl &&
             (identical(other.serviceUuid, serviceUuid) ||
                 other.serviceUuid == serviceUuid) &&
-            const DeepCollectionEquality()
-                .equals(other._characteristics, _characteristics));
+            const DeepCollectionEquality().equals(
+              other._characteristics,
+              _characteristics,
+            ));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, serviceUuid,
-      const DeepCollectionEquality().hash(_characteristics));
+  int get hashCode => Object.hash(
+    runtimeType,
+    serviceUuid,
+    const DeepCollectionEquality().hash(_characteristics),
+  );
 
   /// Create a copy of BleServiceInfo
   /// with the given fields replaced by the non-null parameter values.
@@ -1396,14 +1475,16 @@ class _$BleServiceInfoImpl implements _BleServiceInfo {
   @pragma('vm:prefer-inline')
   _$$BleServiceInfoImplCopyWith<_$BleServiceInfoImpl> get copyWith =>
       __$$BleServiceInfoImplCopyWithImpl<_$BleServiceInfoImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _BleServiceInfo implements BleServiceInfo {
-  const factory _BleServiceInfo(
-          {required final String serviceUuid,
-          required final List<BleCharacteristicInfo> characteristics}) =
-      _$BleServiceInfoImpl;
+  const factory _BleServiceInfo({
+    required final String serviceUuid,
+    required final List<BleCharacteristicInfo> characteristics,
+  }) = _$BleServiceInfoImpl;
 
   @override
   String get serviceUuid;
@@ -1435,21 +1516,25 @@ mixin _$BleCharacteristicInfo {
 
 /// @nodoc
 abstract class $BleCharacteristicInfoCopyWith<$Res> {
-  factory $BleCharacteristicInfoCopyWith(BleCharacteristicInfo value,
-          $Res Function(BleCharacteristicInfo) then) =
-      _$BleCharacteristicInfoCopyWithImpl<$Res, BleCharacteristicInfo>;
+  factory $BleCharacteristicInfoCopyWith(
+    BleCharacteristicInfo value,
+    $Res Function(BleCharacteristicInfo) then,
+  ) = _$BleCharacteristicInfoCopyWithImpl<$Res, BleCharacteristicInfo>;
   @useResult
-  $Res call(
-      {String characteristicUuid,
-      bool canRead,
-      bool canWrite,
-      bool canNotify,
-      bool canIndicate});
+  $Res call({
+    String characteristicUuid,
+    bool canRead,
+    bool canWrite,
+    bool canNotify,
+    bool canIndicate,
+  });
 }
 
 /// @nodoc
-class _$BleCharacteristicInfoCopyWithImpl<$Res,
-        $Val extends BleCharacteristicInfo>
+class _$BleCharacteristicInfoCopyWithImpl<
+  $Res,
+  $Val extends BleCharacteristicInfo
+>
     implements $BleCharacteristicInfoCopyWith<$Res> {
   _$BleCharacteristicInfoCopyWithImpl(this._value, this._then);
 
@@ -1469,28 +1554,31 @@ class _$BleCharacteristicInfoCopyWithImpl<$Res,
     Object? canNotify = null,
     Object? canIndicate = null,
   }) {
-    return _then(_value.copyWith(
-      characteristicUuid: null == characteristicUuid
-          ? _value.characteristicUuid
-          : characteristicUuid // ignore: cast_nullable_to_non_nullable
-              as String,
-      canRead: null == canRead
-          ? _value.canRead
-          : canRead // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canWrite: null == canWrite
-          ? _value.canWrite
-          : canWrite // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canNotify: null == canNotify
-          ? _value.canNotify
-          : canNotify // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canIndicate: null == canIndicate
-          ? _value.canIndicate
-          : canIndicate // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            characteristicUuid: null == characteristicUuid
+                ? _value.characteristicUuid
+                : characteristicUuid // ignore: cast_nullable_to_non_nullable
+                      as String,
+            canRead: null == canRead
+                ? _value.canRead
+                : canRead // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            canWrite: null == canWrite
+                ? _value.canWrite
+                : canWrite // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            canNotify: null == canNotify
+                ? _value.canNotify
+                : canNotify // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            canIndicate: null == canIndicate
+                ? _value.canIndicate
+                : canIndicate // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -1498,27 +1586,29 @@ class _$BleCharacteristicInfoCopyWithImpl<$Res,
 abstract class _$$BleCharacteristicInfoImplCopyWith<$Res>
     implements $BleCharacteristicInfoCopyWith<$Res> {
   factory _$$BleCharacteristicInfoImplCopyWith(
-          _$BleCharacteristicInfoImpl value,
-          $Res Function(_$BleCharacteristicInfoImpl) then) =
-      __$$BleCharacteristicInfoImplCopyWithImpl<$Res>;
+    _$BleCharacteristicInfoImpl value,
+    $Res Function(_$BleCharacteristicInfoImpl) then,
+  ) = __$$BleCharacteristicInfoImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String characteristicUuid,
-      bool canRead,
-      bool canWrite,
-      bool canNotify,
-      bool canIndicate});
+  $Res call({
+    String characteristicUuid,
+    bool canRead,
+    bool canWrite,
+    bool canNotify,
+    bool canIndicate,
+  });
 }
 
 /// @nodoc
 class __$$BleCharacteristicInfoImplCopyWithImpl<$Res>
-    extends _$BleCharacteristicInfoCopyWithImpl<$Res,
-        _$BleCharacteristicInfoImpl>
+    extends
+        _$BleCharacteristicInfoCopyWithImpl<$Res, _$BleCharacteristicInfoImpl>
     implements _$$BleCharacteristicInfoImplCopyWith<$Res> {
-  __$$BleCharacteristicInfoImplCopyWithImpl(_$BleCharacteristicInfoImpl _value,
-      $Res Function(_$BleCharacteristicInfoImpl) _then)
-      : super(_value, _then);
+  __$$BleCharacteristicInfoImplCopyWithImpl(
+    _$BleCharacteristicInfoImpl _value,
+    $Res Function(_$BleCharacteristicInfoImpl) _then,
+  ) : super(_value, _then);
 
   /// Create a copy of BleCharacteristicInfo
   /// with the given fields replaced by the non-null parameter values.
@@ -1531,40 +1621,43 @@ class __$$BleCharacteristicInfoImplCopyWithImpl<$Res>
     Object? canNotify = null,
     Object? canIndicate = null,
   }) {
-    return _then(_$BleCharacteristicInfoImpl(
-      characteristicUuid: null == characteristicUuid
-          ? _value.characteristicUuid
-          : characteristicUuid // ignore: cast_nullable_to_non_nullable
-              as String,
-      canRead: null == canRead
-          ? _value.canRead
-          : canRead // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canWrite: null == canWrite
-          ? _value.canWrite
-          : canWrite // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canNotify: null == canNotify
-          ? _value.canNotify
-          : canNotify // ignore: cast_nullable_to_non_nullable
-              as bool,
-      canIndicate: null == canIndicate
-          ? _value.canIndicate
-          : canIndicate // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      _$BleCharacteristicInfoImpl(
+        characteristicUuid: null == characteristicUuid
+            ? _value.characteristicUuid
+            : characteristicUuid // ignore: cast_nullable_to_non_nullable
+                  as String,
+        canRead: null == canRead
+            ? _value.canRead
+            : canRead // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        canWrite: null == canWrite
+            ? _value.canWrite
+            : canWrite // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        canNotify: null == canNotify
+            ? _value.canNotify
+            : canNotify // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        canIndicate: null == canIndicate
+            ? _value.canIndicate
+            : canIndicate // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$BleCharacteristicInfoImpl implements _BleCharacteristicInfo {
-  const _$BleCharacteristicInfoImpl(
-      {required this.characteristicUuid,
-      required this.canRead,
-      required this.canWrite,
-      required this.canNotify,
-      required this.canIndicate});
+  const _$BleCharacteristicInfoImpl({
+    required this.characteristicUuid,
+    required this.canRead,
+    required this.canWrite,
+    required this.canNotify,
+    required this.canIndicate,
+  });
 
   @override
   final String characteristicUuid;
@@ -1599,8 +1692,14 @@ class _$BleCharacteristicInfoImpl implements _BleCharacteristicInfo {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, characteristicUuid, canRead,
-      canWrite, canNotify, canIndicate);
+  int get hashCode => Object.hash(
+    runtimeType,
+    characteristicUuid,
+    canRead,
+    canWrite,
+    canNotify,
+    canIndicate,
+  );
 
   /// Create a copy of BleCharacteristicInfo
   /// with the given fields replaced by the non-null parameter values.
@@ -1608,17 +1707,21 @@ class _$BleCharacteristicInfoImpl implements _BleCharacteristicInfo {
   @override
   @pragma('vm:prefer-inline')
   _$$BleCharacteristicInfoImplCopyWith<_$BleCharacteristicInfoImpl>
-      get copyWith => __$$BleCharacteristicInfoImplCopyWithImpl<
-          _$BleCharacteristicInfoImpl>(this, _$identity);
+  get copyWith =>
+      __$$BleCharacteristicInfoImplCopyWithImpl<_$BleCharacteristicInfoImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _BleCharacteristicInfo implements BleCharacteristicInfo {
-  const factory _BleCharacteristicInfo(
-      {required final String characteristicUuid,
-      required final bool canRead,
-      required final bool canWrite,
-      required final bool canNotify,
-      required final bool canIndicate}) = _$BleCharacteristicInfoImpl;
+  const factory _BleCharacteristicInfo({
+    required final String characteristicUuid,
+    required final bool canRead,
+    required final bool canWrite,
+    required final bool canNotify,
+    required final bool canIndicate,
+  }) = _$BleCharacteristicInfoImpl;
 
   @override
   String get characteristicUuid;
@@ -1636,5 +1739,5 @@ abstract class _BleCharacteristicInfo implements BleCharacteristicInfo {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$BleCharacteristicInfoImplCopyWith<_$BleCharacteristicInfoImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

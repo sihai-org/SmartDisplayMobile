@@ -8,6 +8,7 @@ import '../../core/log/app_log.dart';
 
 class SavedDeviceRecord {
   final String displayDeviceId;
+  final int? versionCode;
   final String deviceName;
   final String publicKey;
 
@@ -15,10 +16,11 @@ class SavedDeviceRecord {
   final DateTime? lastConnectedAt;
 
   final String? firmwareVersion; // overlay from BLE when available
-  final String? networkSummary;  // e.g., SSID or "offline"
+  final String? networkSummary; // e.g., SSID or "offline"
 
   const SavedDeviceRecord({
     required this.displayDeviceId,
+    this.versionCode,
     required this.deviceName,
     required this.publicKey,
     this.lastBleDeviceId,
@@ -29,25 +31,29 @@ class SavedDeviceRecord {
 
   // Convenient empty constructor used by UI fallbacks
   const SavedDeviceRecord.empty()
-      : displayDeviceId = '',
-        deviceName = '',
-        publicKey = '',
-        lastBleDeviceId = null,
-        lastConnectedAt = null,
-        firmwareVersion = null,
-        networkSummary = null;
+    : displayDeviceId = '',
+      versionCode = null,
+      deviceName = '',
+      publicKey = '',
+      lastBleDeviceId = null,
+      lastConnectedAt = null,
+      firmwareVersion = null,
+      networkSummary = null;
 
   Map<String, dynamic> toJson() => {
-        'deviceId': displayDeviceId,
-        'deviceName': deviceName,
-        'publicKey': publicKey,
-        'lastConnectedAt': lastConnectedAt?.toIso8601String(),
-        'firmwareVersion': firmwareVersion,
-        'networkSummary': networkSummary,
-      };
+    'deviceId': displayDeviceId,
+    'versionCode': versionCode,
+    'deviceName': deviceName,
+    'publicKey': publicKey,
+    'lastConnectedAt': lastConnectedAt?.toIso8601String(),
+    'firmwareVersion': firmwareVersion,
+    'networkSummary': networkSummary,
+  };
 
-  static SavedDeviceRecord fromJson(Map<String, dynamic> json) => SavedDeviceRecord(
+  static SavedDeviceRecord fromJson(Map<String, dynamic> json) =>
+      SavedDeviceRecord(
         displayDeviceId: json['deviceId'] as String,
+        versionCode: (json['versionCode'] as num?)?.toInt(),
         deviceName: json['deviceName'] as String,
         publicKey: json['publicKey'] as String,
         lastBleDeviceId: json['lastBleDeviceId'] as String?,
@@ -60,22 +66,23 @@ class SavedDeviceRecord {
 
   SavedDeviceRecord copyWith({
     String? deviceId,
+    int? versionCode,
     String? deviceName,
     String? publicKey,
     String? lastBleDeviceId,
     DateTime? lastConnectedAt,
     String? firmwareVersion,
     String? networkSummary,
-  }) =>
-      SavedDeviceRecord(
-        displayDeviceId: deviceId ?? this.displayDeviceId,
-        deviceName: deviceName ?? this.deviceName,
-        publicKey: publicKey ?? this.publicKey,
-        lastBleDeviceId: lastBleDeviceId ?? this.lastBleDeviceId,
-        lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
-        firmwareVersion: firmwareVersion ?? this.firmwareVersion,
-        networkSummary: networkSummary ?? this.networkSummary,
-      );
+  }) => SavedDeviceRecord(
+    displayDeviceId: deviceId ?? displayDeviceId,
+    versionCode: versionCode ?? this.versionCode,
+    deviceName: deviceName ?? this.deviceName,
+    publicKey: publicKey ?? this.publicKey,
+    lastBleDeviceId: lastBleDeviceId ?? this.lastBleDeviceId,
+    lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
+    firmwareVersion: firmwareVersion ?? this.firmwareVersion,
+    networkSummary: networkSummary ?? this.networkSummary,
+  );
 }
 
 class SavedDevicesRepository {
@@ -138,7 +145,9 @@ class SavedDevicesRepository {
     try {
       rows = await client
           .from('account_device_binding_log')
-          .select('device_id, device_name, device_public_key, device_firmware_version')
+          .select(
+            'device_id, device_name, device_public_key, device_firmware_version',
+          )
           .eq('user_id', user.id)
           .eq('bind_status', 1)
           .order('bind_time');
@@ -161,6 +170,7 @@ class SavedDevicesRepository {
       final firmwareVersion = (map['device_firmware_version'] ?? '').toString();
       return SavedDeviceRecord(
         displayDeviceId: deviceId,
+        versionCode: null,
         deviceName: deviceName,
         publicKey: publicKey,
         firmwareVersion: firmwareVersion,
@@ -197,21 +207,28 @@ class SavedDevicesRepository {
     }
 
     final devices = await loadLocal();
-    final idx =
-        devices.indexWhere((e) => e.displayDeviceId == qr.displayDeviceId);
+    final idx = devices.indexWhere(
+      (e) => e.displayDeviceId == qr.displayDeviceId,
+    );
     if (idx >= 0) {
       final current = devices[idx];
       devices[idx] = current.copyWith(
-        deviceName: qr.deviceName.isNotEmpty ? qr.deviceName : current.deviceName,
+        versionCode: qr.versionCode,
+        deviceName: qr.deviceName.isNotEmpty
+            ? qr.deviceName
+            : current.deviceName,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
       );
     } else {
-      devices.add(SavedDeviceRecord(
-        displayDeviceId: qr.displayDeviceId,
-        deviceName: qr.deviceName,
-        publicKey: qr.publicKey,
-        lastConnectedAt: DateTime.now(),
-      ));
+      devices.add(
+        SavedDeviceRecord(
+          displayDeviceId: qr.displayDeviceId,
+          versionCode: qr.versionCode,
+          deviceName: qr.deviceName,
+          publicKey: qr.publicKey,
+          lastConnectedAt: DateTime.now(),
+        ),
+      );
     }
 
     await saveLocal(devices);

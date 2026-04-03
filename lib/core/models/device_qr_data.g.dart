@@ -10,6 +10,7 @@ _$DeviceQrDataImpl _$$DeviceQrDataImplFromJson(Map<String, dynamic> json) =>
     _$DeviceQrDataImpl(
       timestamp: (json['timestamp'] as num?)?.toInt(),
       displayDeviceId: json['displayDeviceId'] as String,
+      versionCode: (json['versionCode'] as num?)?.toInt(),
       bleDeviceId: json['bleDeviceId'] as String,
       deviceName: json['deviceName'] as String,
       publicKey: json['publicKey'] as String,
@@ -19,6 +20,7 @@ Map<String, dynamic> _$$DeviceQrDataImplToJson(_$DeviceQrDataImpl instance) =>
     <String, dynamic>{
       'timestamp': instance.timestamp,
       'displayDeviceId': instance.displayDeviceId,
+      'versionCode': instance.versionCode,
       'bleDeviceId': instance.bleDeviceId,
       'deviceName': instance.deviceName,
       'publicKey': instance.publicKey,

@@ -56,6 +56,7 @@ class DeviceEntryCoordinator {
         event: DeviceOnboardingEvents.qrScan,
         result: 'success',
         displayDeviceId: qrData.displayDeviceId,
+        versionCode: qrData.versionCode,
       );
 
       // 2. 前往连接

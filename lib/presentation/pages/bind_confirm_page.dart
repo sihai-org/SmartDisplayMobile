@@ -52,6 +52,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       event: DeviceOnboardingEvents.bind,
       result: 'start',
       displayDeviceId: scanned.displayDeviceId,
+      versionCode: scanned.versionCode,
       firmwareVersion: firmwareVersion,
     );
 
@@ -63,6 +64,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bind,
           result: 'success',
           displayDeviceId: scanned.displayDeviceId,
+          versionCode: scanned.versionCode,
           firmwareVersion: firmwareVersion,
         );
         await ref.read(bindSuccessCoordinatorProvider).onBindSuccess(scanned);
@@ -76,6 +78,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bind,
           result: 'fail',
           displayDeviceId: scanned.displayDeviceId,
+          versionCode: scanned.versionCode,
           firmwareVersion: firmwareVersion,
         );
       }
@@ -268,6 +271,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'fail',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
           extra: {'status_code': response.status},
         );
@@ -286,6 +290,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'success',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
         );
       }
@@ -294,6 +299,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'fail',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
           extra: const {'error_code': 'missing_email_or_token'},
         );
@@ -317,6 +323,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         event: DeviceOnboardingEvents.bindServerOtp,
         result: 'fail',
         displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
         firmwareVersion: firmwareVersion,
         error: e,
         stackTrace: st,
@@ -342,6 +349,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         event: DeviceOnboardingEvents.bindServerOtp,
         result: 'fail',
         displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
         firmwareVersion: firmwareVersion,
         error: e,
         stackTrace: st,

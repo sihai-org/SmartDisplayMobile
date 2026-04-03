@@ -23,20 +23,31 @@ class BleDeviceData with _$BleDeviceData {
   const factory BleDeviceData({
     /// 业务ID
     required String displayDeviceId,
+
+    /// 设备端 versionCode（来自二维码 vc）
+    int? versionCode,
+
     /// 蓝牙ID
     required String bleDeviceId,
+
     /// 设备名称
     required String deviceName,
+
     /// 设备公钥
     required String publicKey,
+
     /// 连接状态
     @Default(BleDeviceStatus.disconnected) BleDeviceStatus status,
+
     /// RSSI信号强度
     int? rssi,
+
     /// MTU大小
     @Default(23) int mtu,
+
     /// 连接时间戳
     DateTime? connectedAt,
+
     /// 错误信息
     String? errorMessage,
   }) = _BleDeviceData;
@@ -75,7 +86,7 @@ class BleScanResult with _$BleScanResult {
         convertedServiceData![uuid.toString()] = data.toList();
       });
     }
-    
+
     return BleScanResult(
       deviceId: device.id,
       name: device.name.isNotEmpty ? device.name : 'Unknown Device',
@@ -114,6 +125,7 @@ extension BleDeviceDataExtension on BleDeviceData {
   static BleDeviceData fromQrData(DeviceQrData qrData) {
     return BleDeviceData(
       displayDeviceId: qrData.displayDeviceId,
+      versionCode: qrData.versionCode,
       bleDeviceId: qrData.bleDeviceId,
       deviceName: qrData.deviceName,
       publicKey: qrData.publicKey,

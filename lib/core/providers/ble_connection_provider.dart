@@ -284,6 +284,21 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         ?.firmwareVersion;
   }
 
+  int? _currentVersionCode([String? displayDeviceId]) {
+    final targetId = displayDeviceId ?? state.bleDeviceData?.displayDeviceId;
+    if (targetId == null || targetId.isEmpty) return null;
+
+    final sessionData = state.bleDeviceData;
+    if (sessionData != null && sessionData.displayDeviceId == targetId) {
+      return sessionData.versionCode;
+    }
+
+    return _ref
+        .read(savedDevicesProvider.notifier)
+        .findById(targetId)
+        ?.versionCode;
+  }
+
   @override
   set state(BleConnectionState next) {
     _setStateSafely(next, reason: 'direct state assignment');
@@ -414,6 +429,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       event: DeviceOnboardingEvents.bleConnect,
       result: 'start',
       displayDeviceId: qrData.displayDeviceId,
+      versionCode: qrData.versionCode,
       firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
     );
 
@@ -490,6 +506,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         result: treatAsEmptyBound ? 'empty_bound' : 'success',
         durationMs: DateTime.now().difference(t0).inMilliseconds,
         displayDeviceId: qrData.displayDeviceId,
+        versionCode: qrData.versionCode,
         firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
       );
       _updateStateSafely(
@@ -507,6 +524,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         result: 'success',
         durationMs: elapsed,
         displayDeviceId: qrData.displayDeviceId,
+        versionCode: qrData.versionCode,
         firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
       );
 
@@ -560,6 +578,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         result: result.name,
         durationMs: elapsed,
         displayDeviceId: qrData.displayDeviceId,
+        versionCode: qrData.versionCode,
         firmwareVersion: _currentFirmwareVersion(qrData.displayDeviceId),
         error: e,
         extra: {'error_type': e.runtimeType.toString(), 'session': session},
@@ -658,6 +677,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       event: DeviceOnboardingEvents.bindDeviceAuth,
       result: 'start',
       displayDeviceId: displayDeviceId,
+      versionCode: _currentVersionCode(),
       firmwareVersion: firmwareVersion,
     );
     final ok = await sendSimpleBleMsg('login.auth', {
@@ -668,6 +688,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       event: DeviceOnboardingEvents.bindDeviceAuth,
       result: ok ? 'success' : 'fail',
       displayDeviceId: displayDeviceId,
+      versionCode: _currentVersionCode(),
       firmwareVersion: firmwareVersion,
     );
     return ok;
@@ -689,6 +710,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       event: DeviceOnboardingEvents.wifiScan,
       result: 'start',
       displayDeviceId: state.bleDeviceData?.displayDeviceId,
+      versionCode: _currentVersionCode(),
       firmwareVersion: _currentFirmwareVersion(),
     );
     _updateStateSafely(
@@ -722,6 +744,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           event: DeviceOnboardingEvents.wifiScan,
           result: 'success',
           displayDeviceId: state.bleDeviceData?.displayDeviceId,
+          versionCode: _currentVersionCode(),
           firmwareVersion: _currentFirmwareVersion(),
           extra: {'network_count': networks.length},
         );
@@ -733,6 +756,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         event: DeviceOnboardingEvents.wifiScan,
         result: 'fail',
         displayDeviceId: state.bleDeviceData?.displayDeviceId,
+        versionCode: _currentVersionCode(),
         firmwareVersion: _currentFirmwareVersion(),
         error: e,
         extra: {'error_type': e.runtimeType.toString()},
@@ -756,6 +780,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       event: DeviceOnboardingEvents.wifiConfig,
       result: 'start',
       displayDeviceId: displayDeviceId,
+      versionCode: _currentVersionCode(),
       firmwareVersion: firmwareVersion,
     );
     try {
@@ -785,6 +810,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
           event: DeviceOnboardingEvents.wifiConfig,
           result: ok ? 'success' : 'fail',
           displayDeviceId: displayDeviceId,
+          versionCode: _currentVersionCode(),
           firmwareVersion: firmwareVersion,
           extra: {if (s != null && s.isNotEmpty) 'device_status': s},
         );
@@ -794,6 +820,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         event: DeviceOnboardingEvents.wifiConfig,
         result: 'fail',
         displayDeviceId: displayDeviceId,
+        versionCode: _currentVersionCode(),
         firmwareVersion: firmwareVersion,
         extra: const {'error_code': 'unexpected_response'},
       );
@@ -803,6 +830,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
         event: DeviceOnboardingEvents.wifiConfig,
         result: 'fail',
         displayDeviceId: displayDeviceId,
+        versionCode: _currentVersionCode(),
         firmwareVersion: firmwareVersion,
         error: e,
         extra: {'error_type': e.runtimeType.toString()},

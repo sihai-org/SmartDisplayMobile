@@ -9,12 +9,19 @@ class DeviceQrData with _$DeviceQrData {
   const factory DeviceQrData({
     /// 生成时间戳
     int? timestamp,
+
     /// 业务ID
     required String displayDeviceId,
+
+    /// 设备端 versionCode（来自二维码 vc）
+    int? versionCode,
+
     /// 蓝牙ID
     required String bleDeviceId,
+
     /// 设备名称
     required String deviceName,
+
     /// 设备公钥（用于加密握手）
     required String publicKey,
   }) = _DeviceQrData;

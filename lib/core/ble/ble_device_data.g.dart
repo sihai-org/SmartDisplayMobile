@@ -9,10 +9,12 @@ part of 'ble_device_data.dart';
 _$BleDeviceDataImpl _$$BleDeviceDataImplFromJson(Map<String, dynamic> json) =>
     _$BleDeviceDataImpl(
       displayDeviceId: json['displayDeviceId'] as String,
+      versionCode: (json['versionCode'] as num?)?.toInt(),
       bleDeviceId: json['bleDeviceId'] as String,
       deviceName: json['deviceName'] as String,
       publicKey: json['publicKey'] as String,
-      status: $enumDecodeNullable(_$BleDeviceStatusEnumMap, json['status']) ??
+      status:
+          $enumDecodeNullable(_$BleDeviceStatusEnumMap, json['status']) ??
           BleDeviceStatus.disconnected,
       rssi: (json['rssi'] as num?)?.toInt(),
       mtu: (json['mtu'] as num?)?.toInt() ?? 23,
@@ -25,6 +27,7 @@ _$BleDeviceDataImpl _$$BleDeviceDataImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$BleDeviceDataImplToJson(_$BleDeviceDataImpl instance) =>
     <String, dynamic>{
       'displayDeviceId': instance.displayDeviceId,
+      'versionCode': instance.versionCode,
       'bleDeviceId': instance.bleDeviceId,
       'deviceName': instance.deviceName,
       'publicKey': instance.publicKey,

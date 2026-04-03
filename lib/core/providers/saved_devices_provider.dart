@@ -86,8 +86,11 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
         final localRec = local
             .where((e) => e.displayDeviceId == r.displayDeviceId)
             .firstOrNull;
-        if (localRec?.lastConnectedAt != null) {
-          return r.copyWith(lastConnectedAt: localRec!.lastConnectedAt);
+        if (localRec != null) {
+          return r.copyWith(
+            versionCode: localRec.versionCode,
+            lastConnectedAt: localRec.lastConnectedAt,
+          );
         }
         return r;
       }).toList();
@@ -149,6 +152,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
             ? qr.deviceName
             : current.deviceName,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
+        versionCode: qr.versionCode,
         lastBleDeviceId: qr.bleDeviceId.isNotEmpty
             ? qr.bleDeviceId
             : current.lastBleDeviceId,
@@ -158,6 +162,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       updated.add(
         SavedDeviceRecord(
           displayDeviceId: qr.displayDeviceId,
+          versionCode: qr.versionCode,
           deviceName: qr.deviceName,
           publicKey: qr.publicKey,
           lastBleDeviceId: qr.bleDeviceId,
@@ -178,6 +183,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
   // 局部字段更新：只在本地列表与缓存中更新指定字段，不触发远端同步
   Future<void> updateFields({
     required String displayDeviceId,
+    int? versionCode,
     String? deviceName,
     String? publicKey,
     String? lastBleDeviceId,
@@ -193,6 +199,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     final updated = state.devices.map((e) {
       if (e.displayDeviceId != displayDeviceId) return e;
       return e.copyWith(
+        versionCode: versionCode ?? e.versionCode,
         deviceName: deviceName ?? e.deviceName,
         publicKey: publicKey ?? e.publicKey,
         lastBleDeviceId: lastBleDeviceId ?? e.lastBleDeviceId,
