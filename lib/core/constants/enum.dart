@@ -20,6 +20,18 @@ enum BleConnectResult {
   notReady, // BLE 未就绪（提示：开启蓝牙、设置权限）
 }
 
+/// BLE 底层错误码：仅用于 core/ble、core/channel 往上表达运行态失败原因。
+enum BleErrorCode {
+  notReady,
+  scanTimeout,
+  channelNotInitialized,
+  channelDisposed,
+  channelNotAuthenticated,
+  connectFailed,
+  gattNotReady,
+  dualCharacteristicUnsupported,
+}
+
 enum CheckBoundRes { isOwner, isBound, notBound }
 
 enum ProvisionStatus { idle, provisioning, success, failure }

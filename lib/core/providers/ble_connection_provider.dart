@@ -13,6 +13,7 @@ import '../ble/reliable_queue.dart';
 import '../ble/ble_device_data.dart';
 import '../constants/enum.dart';
 import '../constants/ble_constants.dart';
+import '../errors/exceptions.dart';
 import '../network/network_status.dart';
 import 'lifecycle_provider.dart';
 import '../models/device_qr_data.dart';
@@ -565,11 +566,10 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
                 current.copyWith(bleDeviceStatus: BleDeviceStatus.error),
             reason: 'enableBleConnection.error',
           );
-          if (e is TimeoutException &&
-              e.message == BleConnectResult.scanTimeout.name) {
+          if (e is BleException && e.code == BleErrorCode.scanTimeout.name) {
             result = BleConnectResult.scanTimeout;
-          } else if (e is StateError &&
-              e.message == BleConnectResult.notReady.name) {
+          } else if (e is BleException &&
+              e.code == BleErrorCode.notReady.name) {
             result = BleConnectResult.notReady;
           }
         }
@@ -595,8 +595,8 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     }
   }
 
-  // 用户发送蓝牙消息 1/2：【简单版】返回成功与否
-  Future<bool> sendSimpleBleMsg(
+  // 用户发送蓝牙消息 1/2：【简单版】成功返回，失败抛异常
+  Future<void> sendSimpleBleMsg(
     String type,
     dynamic data, {
     Duration? timeout,
@@ -615,10 +615,37 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       _logInfo(
         '✅ sendPureBleMsg 成功: type=$type, resp=${_maskBleLogValue(resp, maskSensitiveLog)}',
       );
-      return resp['ok'] == true;
+      if (resp['ok'] != true) {
+        final err = resp['error'];
+        throw BleException(
+          code: err is Map ? err['code']?.toString() : null,
+          message: err is Map
+              ? (err['message']?.toString() ?? 'BLE 请求失败')
+              : 'BLE 请求失败',
+          details: {'type': type, 'resp': resp},
+        );
+      }
+    } on UserMismatchException catch (e) {
+      _logInfo('❌ sendPureBleMsg 用户不匹配: $e');
+      rethrow;
+    } on TimeoutException catch (e) {
+      _logInfo('❌ sendPureBleMsg 超时: $e');
+      rethrow;
+    } on BleException catch (e) {
+      _logInfo('❌ sendPureBleMsg 状态异常: $e');
+      rethrow;
+    } on StateError catch (e) {
+      _logInfo('❌ sendPureBleMsg 状态异常: $e');
+      if (state.bleDeviceStatus == BleDeviceStatus.disconnected) {
+        throw BleException(
+          code: BleErrorCode.channelNotAuthenticated.name,
+          message: e.message.toString(),
+        );
+      }
+      rethrow;
     } catch (e) {
       _logInfo('❌ sendPureBleMsg 失败: $e');
-      return false;
+      rethrow;
     } finally {
       _activeOps--;
     }
@@ -681,7 +708,7 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
   }
 
   // 绑定
-  Future<bool> sendDeviceLoginCode(String email, String code) async {
+  Future<void> sendDeviceLoginCode(String email, String code) async {
     _logInfo('sendDeviceLoginCode email=$email');
     final displayDeviceId = state.bleDeviceData?.displayDeviceId;
     final firmwareVersion = _currentFirmwareVersion();
@@ -692,25 +719,61 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
       versionCode: _currentVersionCode(),
       firmwareVersion: firmwareVersion,
     );
-    final ok = await sendSimpleBleMsg(
-      'login.auth',
-      {'email': email, 'otpToken': code},
-      timeout: BleConstants.bindLoginTimeout,
-      maskSensitiveLog: true,
-    );
-    DeviceOnboardingLog.info(
-      event: DeviceOnboardingEvents.bindDeviceAuth,
-      result: ok ? 'success' : 'fail',
-      displayDeviceId: displayDeviceId,
-      versionCode: _currentVersionCode(),
-      firmwareVersion: firmwareVersion,
-    );
-    return ok;
+    try {
+      await sendSimpleBleMsg(
+        'login.auth',
+        {'email': email, 'otpToken': code},
+        timeout: BleConstants.bindLoginTimeout,
+        maskSensitiveLog: true,
+      );
+      DeviceOnboardingLog.info(
+        event: DeviceOnboardingEvents.bindDeviceAuth,
+        result: 'success',
+        displayDeviceId: displayDeviceId,
+        versionCode: _currentVersionCode(),
+        firmwareVersion: firmwareVersion,
+      );
+    } catch (e, st) {
+      final errorExtra = <String, dynamic>{};
+      if (e is BleException) {
+        if (e.code != null) {
+          errorExtra['error_code'] = e.code;
+        }
+        final details = e.details;
+        final type = details?['type'];
+        final resp = details?['resp'];
+        if (type != null) {
+          errorExtra['error_type_name'] = type.toString();
+        }
+        if (resp is Map) {
+          final data = resp['data'];
+          if (data is Map && data['status'] != null) {
+            errorExtra['error_status'] = data['status'].toString();
+          }
+        }
+      }
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bindDeviceAuth,
+        result: 'fail',
+        displayDeviceId: displayDeviceId,
+        versionCode: _currentVersionCode(),
+        firmwareVersion: firmwareVersion,
+        error: e,
+        stackTrace: st,
+        extra: errorExtra,
+      );
+      rethrow;
+    }
   }
 
   // 解绑
   Future<bool> sendDeviceLogout() async {
-    return await sendSimpleBleMsg('logout', null);
+    try {
+      await sendSimpleBleMsg('logout', null);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // 可用 wifi

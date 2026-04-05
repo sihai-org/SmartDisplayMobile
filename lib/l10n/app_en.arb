@@ -160,6 +160,7 @@
   "ble_disconnected_on_exit": "Bluetooth disconnected because you exited the binding flow",
   "connect_success": "Connected successfully",
   "connect_failed_retry": "Connection failed, please retry",
+  "ble_disconnected_rescan_bind": "Bluetooth disconnected. Please rescan the QR code.",
   "device_bound_elsewhere": "This device is linked to a different account",
   "ble_connect_timeout_relaunch_toast": "Connection timed out. Please fully close the app and reopen it to try again.",
   "ble_scan_timeout_device_not_found": "Connection failed. The device may not be nearby.",
@@ -196,7 +197,9 @@
   "confirm_binding_question": "Bind this device to your account?",
   "bind_button": "Bind",
   "bind_failed": "Binding failed. Please try again later.",
-  "bind_network_error": "Network error. Check your connection and try again.",
+  "bind_timeout_check_network_and_retry": "Binding timed out. Please confirm network access and stay near the device before retrying.",
+  "bind_mobile_network_error": "Mobile network connection failed. Please check and retry.",
+  "bind_device_network_timeout": "Device network timeout. Please check and retry.",
   "bind_success": "Device linked successfully",
   
   "firmware_version_label": "Version",

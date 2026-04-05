@@ -6,6 +6,7 @@ import 'package:smart_display_mobile/core/constants/enum.dart';
 
 import '../utils/device_fingerprint.dart';
 import '../constants/ble_constants.dart';
+import '../errors/exceptions.dart';
 import '../models/device_qr_data.dart';
 import 'ble_service_simple.dart';
 import 'ble_scanner.dart';
@@ -18,14 +19,18 @@ class BleScannerImpl implements BleScanner {
   Future<String> findBleDeviceId(DeviceQrData qr) async {
     final ok = await BleServiceSimple.ensureBleReady();
     if (!ok) {
-      throw StateError(BleConnectResult.notReady.name);
+      throw BleException(code: BleErrorCode.notReady.name, message: 'BLE 未就绪');
     }
 
     const timeout = BleConstants.scanTimeout;
     final c = Completer<String>();
     final timer = Timer(timeout, () async {
       await stop();
-      if (!c.isCompleted) c.completeError(TimeoutException(BleConnectResult.scanTimeout.name));
+      if (!c.isCompleted) {
+        c.completeError(
+          BleException(code: BleErrorCode.scanTimeout.name, message: '扫描超时'),
+        );
+      }
     });
 
     _targetFirstSeenAt = null;
