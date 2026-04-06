@@ -251,77 +251,53 @@ abstract class AppLocalizations {
   /// **'Account & Security'**
   String get account_security;
 
-  /// No description provided for @balance.
+  /// No description provided for @billing_title.
   ///
   /// In en, this message translates to:
-  /// **'Balance'**
-  String get balance;
+  /// **'Billing'**
+  String get billing_title;
 
-  /// No description provided for @balance_available.
+  /// No description provided for @billing_available_credits.
   ///
   /// In en, this message translates to:
-  /// **'Available Balance'**
-  String get balance_available;
+  /// **'Available Credits'**
+  String get billing_available_credits;
 
-  /// No description provided for @balance_mock_hint.
+  /// No description provided for @billing_credits_label.
   ///
   /// In en, this message translates to:
-  /// **'This page currently shows mock data'**
-  String get balance_mock_hint;
+  /// **'Credits'**
+  String get billing_credits_label;
 
-  /// No description provided for @balance_recharge_button.
+  /// No description provided for @billing_recent_activity.
   ///
   /// In en, this message translates to:
-  /// **'Top Up'**
-  String get balance_recharge_button;
+  /// **'Recent Activity'**
+  String get billing_recent_activity;
 
-  /// No description provided for @balance_recent_changes.
+  /// No description provided for @billing_recent_activity_empty.
   ///
   /// In en, this message translates to:
-  /// **'Latest 3 Changes'**
-  String get balance_recent_changes;
+  /// **'No activity yet'**
+  String get billing_recent_activity_empty;
 
-  /// No description provided for @balance_view_all.
+  /// No description provided for @billing_view_all.
   ///
   /// In en, this message translates to:
-  /// **'View All'**
-  String get balance_view_all;
+  /// **'See All'**
+  String get billing_view_all;
 
-  /// No description provided for @balance_bills_title.
+  /// No description provided for @billing_transactions_title.
   ///
   /// In en, this message translates to:
-  /// **'Bills'**
-  String get balance_bills_title;
+  /// **'Transactions'**
+  String get billing_transactions_title;
 
-  /// No description provided for @balance_change_top_up.
+  /// No description provided for @billing_load_failed.
   ///
   /// In en, this message translates to:
-  /// **'Top-up'**
-  String get balance_change_top_up;
-
-  /// No description provided for @balance_change_plan_purchase.
-  ///
-  /// In en, this message translates to:
-  /// **'Plan Purchase'**
-  String get balance_change_plan_purchase;
-
-  /// No description provided for @balance_change_bonus.
-  ///
-  /// In en, this message translates to:
-  /// **'Bonus'**
-  String get balance_change_bonus;
-
-  /// No description provided for @balance_change_adjustment.
-  ///
-  /// In en, this message translates to:
-  /// **'Manual Adjustment'**
-  String get balance_change_adjustment;
-
-  /// No description provided for @balance_change_refund.
-  ///
-  /// In en, this message translates to:
-  /// **'Refund'**
-  String get balance_change_refund;
+  /// **'Couldn\'t load billing data. Please try again later.'**
+  String get billing_load_failed;
 
   /// No description provided for @serial_number_stats.
   ///

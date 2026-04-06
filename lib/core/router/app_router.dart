@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -55,7 +56,7 @@ final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   debugLogDiagnostics: true,
   // 采集导航面包屑/性能
-  observers: <NavigatorObserver>[SentryNavigatorObserver()],
+  observers: <NavigatorObserver>[if (!kDebugMode) SentryNavigatorObserver()],
   redirect: (context, state) {
     final session = Supabase.instance.client.auth.currentSession;
     final loggedIn = session != null || AuditMode.enabled;
@@ -246,7 +247,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.balanceBills,
       name: 'balance-bills',
-      builder: (context, state) => const BalanceBillPage(),
+      builder: (context, state) {
+        final args = state.extra as BalanceBillsArgs?;
+        return BalanceBillPage(args: args);
+      },
     ),
   ],
 

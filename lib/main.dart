@@ -25,64 +25,66 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'data/repositories/device_customization_repository.dart';
 import 'core/utils/app_cache_cleanup.dart';
 
+Future<void> _bootstrapApp() async {
+  await Supabase.initialize(
+    url: 'https://udrksmcgdqztosaouxwm.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmtzbWNnZHF6dG9zYW91eHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MDIxMjMsImV4cCI6MjA3NDE3ODEyM30.zTi71CQrNfRf7pvSx_XmO1Em0YBpHiKEFgN2aNdtxyE',
+  );
+
+  // Initialize iOS deep link channel and fetch any initial link
+  await DeepLinkHandler.init();
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
+  runApp(const ProviderScope(child: SmartDisplayApp()));
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  const sentryEnabledInCurrentBuild = !kDebugMode;
 
-  // 使用 Sentry 进行全局错误上报与性能监控
   await dotenv.load();
-  await SentryFlutter.init(
-    (options) {
-      options.dsn = dotenv.env['SENTRY_DSN'];
-      options.enableLogs = true; // 开启 Sentry Logs
+  final sentryDsn = dotenv.env['SENTRY_DSN'];
+  final hasSentryDsn = sentryDsn != null && sentryDsn.isNotEmpty;
 
-      options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
-      options.tracesSampleRate = 0.2; // 根据需要调整采样率
-      options.profilesSampleRate = 0.2; // CPU/内存性能分析采样率
-      options.enableAutoSessionTracking = true;
-      options.attachStacktrace = true;
-      options.reportPackages = true;
-      options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
-      // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
-      options.beforeSend = (event, hint) {
-        if (!kReleaseMode) return event;
-        final isFatal = event.level == SentryLevel.fatal;
-        final hasUnhandledException =
-            event.exceptions?.any((e) => e.mechanism?.handled == false) ??
-            false;
-        return (isFatal || hasUnhandledException) ? event : null;
-      };
-      options.debug = false;
-    },
-    appRunner: () async {
-      // 在 app 启动前做初始化，以便 Sentry 能记录到潜在错误
-      await Supabase.initialize(
-        url: 'https://udrksmcgdqztosaouxwm.supabase.co',
-        anonKey:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcmtzbWNnZHF6dG9zYW91eHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MDIxMjMsImV4cCI6MjA3NDE3ODEyM30.zTi71CQrNfRf7pvSx_XmO1Em0YBpHiKEFgN2aNdtxyE',
-      );
+  if (!sentryEnabledInCurrentBuild || !hasSentryDsn) {
+    await _bootstrapApp();
+    return;
+  }
 
-      // Initialize iOS deep link channel and fetch any initial link
-      await DeepLinkHandler.init();
-
-      // Set preferred orientations
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
-
-      // Set system UI overlay style
-      SystemChrome.setSystemUIOverlayStyle(
-        const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          systemNavigationBarColor: Colors.white,
-          systemNavigationBarIconBrightness: Brightness.dark,
-        ),
-      );
-
-      runApp(const ProviderScope(child: SmartDisplayApp()));
-    },
-  );
+  await SentryFlutter.init((options) {
+    options.dsn = sentryDsn;
+    options.enableLogs = true;
+    options.environment = dotenv.env['SENTRY_ENV'] ?? 'development';
+    options.tracesSampleRate = 0.2;
+    options.profilesSampleRate = 0.2;
+    options.enableAutoSessionTracking = true;
+    options.attachStacktrace = true;
+    options.reportPackages = true;
+    options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
+    // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
+    options.beforeSend = (event, hint) {
+      if (!kReleaseMode) return event;
+      final isFatal = event.level == SentryLevel.fatal;
+      final hasUnhandledException =
+          event.exceptions?.any((e) => e.mechanism?.handled == false) ?? false;
+      return (isFatal || hasUnhandledException) ? event : null;
+    };
+    options.debug = false;
+  }, appRunner: _bootstrapApp);
 }
 
 class SmartDisplayApp extends ConsumerStatefulWidget {

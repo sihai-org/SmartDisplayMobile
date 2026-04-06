@@ -195,7 +195,7 @@ class ProfilePage extends ConsumerWidget {
               tiles: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.balance),
+                  title: Text(l10n.billing_title),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(AppRoutes.balance),
                 ),

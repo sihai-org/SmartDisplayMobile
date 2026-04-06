@@ -87,40 +87,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get account_security => 'Account & Security';
 
   @override
-  String get balance => 'Balance';
+  String get billing_title => 'Billing';
 
   @override
-  String get balance_available => 'Available Balance';
+  String get billing_available_credits => 'Available Credits';
 
   @override
-  String get balance_mock_hint => 'This page currently shows mock data';
+  String get billing_credits_label => 'Credits';
 
   @override
-  String get balance_recharge_button => 'Top Up';
+  String get billing_recent_activity => 'Recent Activity';
 
   @override
-  String get balance_recent_changes => 'Latest 3 Changes';
+  String get billing_recent_activity_empty => 'No activity yet';
 
   @override
-  String get balance_view_all => 'View All';
+  String get billing_view_all => 'See All';
 
   @override
-  String get balance_bills_title => 'Bills';
+  String get billing_transactions_title => 'Transactions';
 
   @override
-  String get balance_change_top_up => 'Top-up';
-
-  @override
-  String get balance_change_plan_purchase => 'Plan Purchase';
-
-  @override
-  String get balance_change_bonus => 'Bonus';
-
-  @override
-  String get balance_change_adjustment => 'Manual Adjustment';
-
-  @override
-  String get balance_change_refund => 'Refund';
+  String get billing_load_failed => 'Couldn\'t load billing data. Please try again later.';
 
   @override
   String get serial_number_stats => 'Serial Number Stats';

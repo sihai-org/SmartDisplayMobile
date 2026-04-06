@@ -156,9 +156,11 @@ graph TD
 
 - Android 调试：
   `flutter run -d android --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=development`
+  - Debug 构建不会向 Sentry 上报事件、日志、路由性能或 session 数据。
 
 - iOS 调试：
   `flutter run -d ios --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=development`
+  - Debug 构建不会向 Sentry 上报事件、日志、路由性能或 session 数据。
 
 - Android Release 构建：
   `flutter build apk --release --dart-define=SENTRY_DSN=你的DSN --dart-define=SENTRY_ENV=production`

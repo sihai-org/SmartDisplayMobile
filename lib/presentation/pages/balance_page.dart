@@ -1,13 +1,130 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/log/app_log.dart';
 import '../../core/router/app_router.dart';
-import 'balance_mock_data.dart';
+import '../../data/repositories/billing_repository.dart';
+import 'balance_bill_page.dart';
 
-class BalancePage extends StatelessWidget {
+class BalancePage extends StatefulWidget {
   const BalancePage({super.key});
+
+  @override
+  State<BalancePage> createState() => _BalancePageState();
+}
+
+class _BalancePageState extends State<BalancePage> {
+  final BillingRepository _billingRepository = BillingRepository();
+
+  BillingBalanceData? _balance;
+  List<BillingLedgerItem> _ledgerItems = const [];
+
+  bool _isBalanceLoading = true;
+  bool _hasBalanceError = false;
+  bool _isLedgerLoading = true;
+  bool _hasLedgerError = false;
+  bool _ledgerInitialized = false;
+  int _ledgerNextPage = 1;
+  bool _ledgerHasNextPage = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final accessToken =
+        Supabase.instance.client.auth.currentSession?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _balance = null;
+        _ledgerItems = const [];
+        _isBalanceLoading = false;
+        _isLedgerLoading = false;
+        _hasBalanceError = true;
+        _hasLedgerError = true;
+        _ledgerInitialized = false;
+        _ledgerNextPage = 1;
+        _ledgerHasNextPage = true;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _balance = null;
+        _ledgerItems = const [];
+        _isBalanceLoading = true;
+        _isLedgerLoading = true;
+        _hasBalanceError = false;
+        _hasLedgerError = false;
+        _ledgerInitialized = false;
+        _ledgerNextPage = 1;
+        _ledgerHasNextPage = true;
+      });
+    }
+
+    BillingBalanceData? balance;
+    List<BillingLedgerItem> ledgerItems = const [];
+    var hasBalanceError = false;
+    var hasLedgerError = false;
+    var ledgerNextPage = 1;
+    var ledgerHasNextPage = true;
+    var ledgerInitialized = false;
+
+    try {
+      balance = await _billingRepository.fetchBalance(accessToken: accessToken);
+    } catch (error, stackTrace) {
+      AppLog.instance.error(
+        'Unexpected error when fetching billing balance',
+        tag: 'BillingApi',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      hasBalanceError = true;
+    }
+
+    try {
+      final ledger = await _billingRepository.fetchLedger(
+        accessToken: accessToken,
+        page: 1,
+        pageSize: billingLedgerPageSize,
+      );
+      ledgerItems = ledger.items;
+      ledgerNextPage = ledger.page + 1;
+      ledgerHasNextPage = ledgerItems.length < ledger.total;
+      ledgerInitialized = true;
+    } catch (error, stackTrace) {
+      AppLog.instance.error(
+        'Unexpected error when fetching billing ledger first page',
+        tag: 'BillingApi',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      hasLedgerError = true;
+      ledgerInitialized = true;
+      ledgerHasNextPage = true;
+      ledgerNextPage = 1;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _balance = balance;
+      _ledgerItems = ledgerItems;
+      _isBalanceLoading = false;
+      _isLedgerLoading = false;
+      _hasBalanceError = hasBalanceError;
+      _hasLedgerError = hasLedgerError;
+      _ledgerInitialized = ledgerInitialized;
+      _ledgerNextPage = ledgerNextPage;
+      _ledgerHasNextPage = ledgerHasNextPage;
+    });
+  }
 
   Widget _sectionCard(BuildContext context, {required List<Widget> children}) {
     return Container(
@@ -32,35 +149,62 @@ class BalancePage extends StatelessWidget {
     );
   }
 
-  String _formatAmount(BuildContext context, double amount) {
+  String _formatCredits(BuildContext context, double amount) {
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final formatter = NumberFormat.currency(
+    return NumberFormat.decimalPatternDigits(
       locale: locale,
-      symbol: '¥',
-      decimalDigits: 2,
-    );
-    final prefix = amount >= 0 ? '+' : '-';
-    return '$prefix${formatter.format(amount.abs())}';
-  }
-
-  String _formatBalance(BuildContext context, double amount) {
-    final locale = Localizations.localeOf(context).toLanguageTag();
-    return NumberFormat.currency(
-      locale: locale,
-      symbol: '¥',
       decimalDigits: 2,
     ).format(amount);
   }
 
-  String _formatDate(DateTime dateTime) {
-    return DateFormat('yyyy-MM-dd HH:mm').format(dateTime);
+  String _formatCreditDelta(BuildContext context, double amount) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final prefix = amount >= 0 ? '+' : '-';
+    final formatted = NumberFormat.decimalPatternDigits(
+      locale: locale,
+      decimalDigits: 2,
+    ).format(amount.abs());
+    return '$prefix$formatted';
   }
 
-  Widget _buildChangeTile(BuildContext context, BalanceChangeItem item) {
-    final positive = item.amount >= 0;
+  String? _formatOccurredAt(BuildContext context, DateTime? dateTime) {
+    if (dateTime == null) return null;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat('yyyy-MM-dd HH:mm', locale).format(dateTime.toLocal());
+  }
+
+  String _balanceText(BuildContext context) {
+    final balance = _balance;
+    if (balance == null) return '--';
+    return _formatCredits(context, balance.availableBalance);
+  }
+
+  String _balanceStatusText(BuildContext context) {
+    final l10n = context.l10n;
+    if (_isBalanceLoading) return l10n.loading;
+    if (_hasBalanceError) return l10n.billing_load_failed;
+    return '';
+  }
+
+  Widget _buildStatusTile(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Text(
+        text,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+      ),
+    );
+  }
+
+  Widget _buildChangeTile(BuildContext context, BillingLedgerItem item) {
+    final amount = item.displayValue;
+    final positive = amount >= 0;
     final amountColor = positive ? Colors.green.shade700 : Colors.red.shade400;
     final iconColor = positive ? Colors.green.shade100 : Colors.red.shade100;
     final iconData = positive ? Icons.arrow_upward : Icons.arrow_downward;
+    final occurredAtText = _formatOccurredAt(context, item.occurredAt);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -73,19 +217,41 @@ class BalancePage extends StatelessWidget {
           color: positive ? Colors.green.shade700 : Colors.red.shade400,
         ),
       ),
-      title: Text(item.title),
-      subtitle: Text(
-        _formatDate(item.createdAt),
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+      title: Text(
+        item.displayText,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
-      trailing: Text(
-        _formatAmount(context, item.amount),
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: amountColor,
-          fontWeight: FontWeight.w600,
-        ),
+      subtitle: occurredAtText == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                occurredAtText,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              ),
+            ),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            _formatCreditDelta(context, amount),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: amountColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            context.l10n.billing_credits_label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+          ),
+        ],
       ),
     );
   }
@@ -93,10 +259,23 @@ class BalancePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final recentChanges = buildMockBalanceChanges(l10n).take(3).toList();
+    final balanceStatusText = _balanceStatusText(context);
+    final recentChanges = _ledgerItems.take(3).toList();
+    final showBalanceValue = !_isBalanceLoading && _balance != null;
+    final showLedgerLoading = _isLedgerLoading;
+    final showViewAllButton = !showLedgerLoading && recentChanges.isNotEmpty;
+    final showLedgerError =
+        !showLedgerLoading && recentChanges.isEmpty && _hasLedgerError;
+    final recentChangeWidgets = showLedgerLoading
+        ? [_buildStatusTile(context, l10n.loading)]
+        : showLedgerError
+        ? [_buildStatusTile(context, l10n.billing_load_failed)]
+        : recentChanges.isNotEmpty
+        ? recentChanges.map((item) => _buildChangeTile(context, item)).toList()
+        : [_buildStatusTile(context, l10n.billing_recent_activity_empty)];
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.balance)),
+      appBar: AppBar(title: Text(l10n.billing_title)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -107,61 +286,66 @@ class BalancePage extends StatelessWidget {
             ),
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  l10n.balance_available,
+                  l10n.billing_available_credits,
+                  textAlign: TextAlign.center,
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  _formatBalance(context, mockBalanceAmount),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                if (showBalanceValue) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _balanceText(context),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.balance_mock_hint,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: null,
-                    child: Text(l10n.balance_recharge_button),
+                ],
+                if (balanceStatusText.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    balanceStatusText,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                   ),
-                ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  l10n.balance_recent_changes,
+                  l10n.billing_recent_activity,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              TextButton(
-                onPressed: () => context.push(AppRoutes.balanceBills),
-                child: Text(l10n.balance_view_all),
-              ),
+              if (showViewAllButton)
+                TextButton(
+                  onPressed: () {
+                    final args = BalanceBillsArgs(
+                      initialItems: List<BillingLedgerItem>.unmodifiable(
+                        _ledgerItems,
+                      ),
+                      nextPage: _ledgerNextPage,
+                      hasNextPage: _ledgerHasNextPage,
+                      hasInitialized: _ledgerInitialized,
+                    );
+                    context.push(AppRoutes.balanceBills, extra: args);
+                  },
+                  child: Text(l10n.billing_view_all),
+                ),
             ],
           ),
           const SizedBox(height: 8),
-          _sectionCard(
-            context,
-            children: recentChanges
-                .map((item) => _buildChangeTile(context, item))
-                .toList(),
-          ),
+          _sectionCard(context, children: recentChangeWidgets),
         ],
       ),
     );
