@@ -13,11 +13,15 @@ import '../../core/providers/app_state_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/providers/bind_success_coordinator.dart';
+import '../../core/errors/exceptions.dart';
+import '../../core/constants/enum.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/ble/reliable_queue.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../core/utils/binding_flow_utils.dart';
+import '../../l10n/app_localizations.dart';
 
 class BindConfirmPage extends ConsumerStatefulWidget {
   const BindConfirmPage({super.key, required this.displayDeviceId});
@@ -36,6 +40,13 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
   }
 
+  void _showToastIfMounted(
+    String Function(AppLocalizations l10n) messageBuilder,
+  ) {
+    if (!mounted) return;
+    Fluttertoast.showToast(msg: messageBuilder(context.l10n));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +63,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       event: DeviceOnboardingEvents.bind,
       result: 'start',
       displayDeviceId: scanned.displayDeviceId,
+      versionCode: scanned.versionCode,
       firmwareVersion: firmwareVersion,
     );
 
@@ -63,6 +75,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bind,
           result: 'success',
           displayDeviceId: scanned.displayDeviceId,
+          versionCode: scanned.versionCode,
           firmwareVersion: firmwareVersion,
         );
         await ref.read(bindSuccessCoordinatorProvider).onBindSuccess(scanned);
@@ -76,6 +89,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bind,
           result: 'fail',
           displayDeviceId: scanned.displayDeviceId,
+          versionCode: scanned.versionCode,
           firmwareVersion: firmwareVersion,
         );
       }
@@ -98,7 +112,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
     final scanned = app.scannedQrData;
     final same = scanned?.displayDeviceId == widget.displayDeviceId;
 
-    AppLog.instance.debug(
+    AppLog.instance.info(
       '[bind_confirm_page] scanned=$scanned, displayDeviceId=${widget.displayDeviceId}',
       tag: 'Binding',
     );
@@ -189,6 +203,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                         // 清理扫描与连接状态，返回扫码页后重新初始化
                         ref.read(appStateProvider.notifier).clearScannedData();
                         ref.read(bleConnectionProvider.notifier).resetState();
+                        if (!context.mounted) return;
                         context.go(AppRoutes.qrScanner);
                       },
                       child: Text(context.l10n.cancel),
@@ -237,24 +252,19 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         .findById(device.displayDeviceId)
         ?.firmwareVersion;
     const functionName = 'pairing-otp';
+    late final String email;
+    late final String otpToken;
     try {
       // In audit mode, fully mock binding flow: skip network OTP, send mock login,
       // then persist device locally so later syncFromServer() sees it.
       if (AuditMode.enabled) {
         final notifier = ref.read(bleConnectionProvider.notifier);
-        final ok = await notifier.sendDeviceLoginCode(
-          'audit@example.com',
-          '000000',
-        );
-        if (!ok) {
-          Fluttertoast.showToast(msg: context.l10n.bind_failed);
-          return BindResult.fail;
-        }
+        await notifier.sendDeviceLoginCode('audit@example.com', '000000');
         try {
           final repo = SavedDevicesRepository();
           await repo.selectFromQr(device);
         } catch (_) {}
-        Fluttertoast.showToast(msg: context.l10n.bind_success);
+        _showToastIfMounted((l10n) => l10n.bind_success);
         return BindResult.success;
       }
 
@@ -268,6 +278,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'fail',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
           extra: {'status_code': response.status},
         );
@@ -275,17 +286,18 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           '[bindViaOtp] edge function pairing-otp non-200: ${response.status} ${response.data}',
           tag: 'Supabase',
         );
-        Fluttertoast.showToast(msg: context.l10n.bind_failed);
+        _showToastIfMounted((l10n) => l10n.bind_failed);
         return BindResult.fail;
       }
       final data = response.data as Map;
-      final email = (data['email'] ?? '') as String;
-      final otpToken = (data['token'] ?? '') as String;
+      email = (data['email'] ?? '') as String;
+      otpToken = (data['token'] ?? '') as String;
       if (email.isNotEmpty && otpToken.isNotEmpty) {
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'success',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
         );
       }
@@ -294,29 +306,19 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           event: DeviceOnboardingEvents.bindServerOtp,
           result: 'fail',
           displayDeviceId: device.displayDeviceId,
+          versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
           extra: const {'error_code': 'missing_email_or_token'},
         );
-        Fluttertoast.showToast(msg: context.l10n.bind_failed);
+        _showToastIfMounted((l10n) => l10n.bind_failed);
         return BindResult.fail;
       }
-
-      // 构造负载并通过连接管理器进行加密发送
-      final notifier = ref.read(bleConnectionProvider.notifier);
-      final ok = await notifier.sendDeviceLoginCode(email, otpToken);
-
-      if (!ok) {
-        Fluttertoast.showToast(msg: context.l10n.bind_failed);
-        return BindResult.fail;
-      } else {
-        Fluttertoast.showToast(msg: context.l10n.bind_success);
-      }
-      return BindResult.success;
     } on SocketException catch (e, st) {
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,
         result: 'fail',
         displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
         firmwareVersion: firmwareVersion,
         error: e,
         stackTrace: st,
@@ -335,13 +337,14 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         error: e,
         stackTrace: st,
       );
-      Fluttertoast.showToast(msg: context.l10n.bind_network_error);
+      _showToastIfMounted((l10n) => l10n.bind_mobile_network_error);
       return BindResult.fail;
     } catch (e, st) {
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,
         result: 'fail',
         displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
         firmwareVersion: firmwareVersion,
         error: e,
         stackTrace: st,
@@ -358,7 +361,53 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         error: e,
         stackTrace: st,
       );
-      Fluttertoast.showToast(msg: context.l10n.bind_failed);
+      _showToastIfMounted((l10n) => l10n.bind_failed);
+      return BindResult.fail;
+    }
+
+    try {
+      // 构造负载并通过连接管理器进行加密发送
+      final notifier = ref.read(bleConnectionProvider.notifier);
+      await notifier.sendDeviceLoginCode(email, otpToken);
+      AppLog.instance.info(
+        '[bindViaOtp] sendDeviceLoginCode success, displayDeviceId=${device.displayDeviceId}',
+        tag: 'Binding',
+      );
+      _showToastIfMounted((l10n) => l10n.bind_success);
+      return BindResult.success;
+    } on UserMismatchException {
+      _showToastIfMounted((l10n) => l10n.device_bound_elsewhere);
+      return BindResult.fail;
+    } on TimeoutException {
+      _showToastIfMounted((l10n) => l10n.bind_timeout_check_network_and_retry);
+      return BindResult.fail;
+    } on BleException catch (e) {
+      final details = e.details;
+      final type = details?['type']?.toString();
+      final resp = details?['resp'];
+      final data = resp is Map ? resp['data'] : null;
+      final isDeviceLoginFailed =
+          type == 'login.auth' &&
+          data is Map &&
+          data['status']?.toString() == 'login_failed';
+      if (isDeviceLoginFailed) {
+        _showToastIfMounted((l10n) => l10n.bind_device_network_timeout);
+      } else if (e.code == BleErrorCode.notReady.name) {
+        _showToastIfMounted(
+          (l10n) => l10n.ble_not_ready_enable_bluetooth_check_permission,
+        );
+      } else {
+        _showToastIfMounted((l10n) => l10n.ble_disconnected_rescan_bind);
+      }
+      return BindResult.fail;
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[bindViaOtp] unexpected exception during sendDeviceLoginCode',
+        tag: 'Binding',
+        error: e,
+        stackTrace: st,
+      );
+      _showToastIfMounted((l10n) => l10n.bind_failed);
       return BindResult.fail;
     }
   }

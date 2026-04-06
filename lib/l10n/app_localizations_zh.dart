@@ -504,6 +504,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connect_failed_retry => '连接失败，请重试';
 
   @override
+  String get ble_disconnected_rescan_bind => '蓝牙已断开，请重新扫码';
+
+  @override
   String get device_bound_elsewhere => '您与设备绑定用户不匹配';
 
   @override
@@ -616,7 +619,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bind_failed => '绑定失败，请稍后再试';
 
   @override
-  String get bind_network_error => '网络连接异常，请检查网络后重试';
+  String get bind_timeout_check_network_and_retry => '绑定超时，请确认联网并靠近重试';
+
+  @override
+  String get bind_mobile_network_error => '手机网络连接失败，请检查网络后重试';
+
+  @override
+  String get bind_device_network_timeout => '设备网络超时，请检查设备网络后重试';
 
   @override
   String get bind_success => '绑定成功';

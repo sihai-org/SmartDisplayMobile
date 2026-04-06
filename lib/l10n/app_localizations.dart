@@ -1061,6 +1061,12 @@ abstract class AppLocalizations {
   /// **'Connection failed, please retry'**
   String get connect_failed_retry;
 
+  /// No description provided for @ble_disconnected_rescan_bind.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth disconnected. Please rescan the QR code.'**
+  String get ble_disconnected_rescan_bind;
+
   /// No description provided for @device_bound_elsewhere.
   ///
   /// In en, this message translates to:
@@ -1265,11 +1271,23 @@ abstract class AppLocalizations {
   /// **'Binding failed. Please try again later.'**
   String get bind_failed;
 
-  /// No description provided for @bind_network_error.
+  /// No description provided for @bind_timeout_check_network_and_retry.
   ///
   /// In en, this message translates to:
-  /// **'Network error. Check your connection and try again.'**
-  String get bind_network_error;
+  /// **'Binding timed out. Please confirm network access and stay near the device before retrying.'**
+  String get bind_timeout_check_network_and_retry;
+
+  /// No description provided for @bind_mobile_network_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Mobile network connection failed. Please check and retry.'**
+  String get bind_mobile_network_error;
+
+  /// No description provided for @bind_device_network_timeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Device network timeout. Please check and retry.'**
+  String get bind_device_network_timeout;
 
   /// No description provided for @bind_success.
   ///

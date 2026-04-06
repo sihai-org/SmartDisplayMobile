@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../log/app_log.dart';
 import 'package:smart_display_mobile/core/ble/ble_scanner.dart';
 import 'package:smart_display_mobile/core/constants/ble_constants.dart';
+import 'package:smart_display_mobile/core/constants/enum.dart';
+import 'package:smart_display_mobile/core/errors/exceptions.dart';
 import 'package:smart_display_mobile/core/models/device_qr_data.dart';
 
 import 'secure_channel.dart';
@@ -143,7 +145,7 @@ class SecureChannelManager {
       _creatingChannel = null;
       // 监听断开/蓝牙关闭，立刻清理引用
       _channelEvtSub = ch.events.listen((e) async {
-        AppLog.instance.debug(
+        AppLog.instance.info(
           "=============收到设备推送事件 ${e.toString()}",
           tag: 'Channel',
         );
@@ -196,12 +198,7 @@ class SecureChannelManager {
     _checkGen(ticket); // 中途被 clear/dispose 就直接抛 _CancelledError
 
     // 2. 发消息
-    return ch.send(
-      msg,
-      timeout: timeout,
-      retries: retries,
-      isFinal: isFinal,
-    );
+    return ch.send(msg, timeout: timeout, retries: retries, isFinal: isFinal);
   }
 
   /// Send a message only if the current channel is already authenticated/ready.
@@ -234,7 +231,10 @@ class SecureChannelManager {
   SecureChannel _requireChannel() {
     final ch = _channel;
     if (ch == null) {
-      throw StateError('SecureChannel 未初始化。请先调用 use(deviceId)');
+      throw BleException(
+        code: BleErrorCode.channelNotInitialized.name,
+        message: 'SecureChannel 未初始化。请先调用 use(deviceId)',
+      );
     }
     return ch;
   }

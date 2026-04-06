@@ -65,7 +65,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     _beepPlayer.setPlayerMode(PlayerMode.lowLatency);
     _beepReady = _warmUpBeepPlayer();
 
-    AppLog.instance.debug(
+    AppLog.instance.info(
       '[QrScannerPage] initState -> wait for QRView create',
       tag: 'QR',
     );
@@ -111,7 +111,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   }
 
   void _startScanning() {
-    AppLog.instance.debug('[QrScannerPage] startScanning', tag: 'QR');
+    AppLog.instance.info('[QrScannerPage] startScanning', tag: 'QR');
     if (!_scanStartLogged) {
       _scanStartLogged = true;
       DeviceOnboardingLog.info(
@@ -134,7 +134,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
   }
 
   void _stopScanning() {
-    AppLog.instance.debug('[QrScannerPage] stopScanning', tag: 'QR');
+    AppLog.instance.info('[QrScannerPage] stopScanning', tag: 'QR');
 
     if (_status == QrScannerStatus.scanning) {
       _controller?.pauseCamera();
@@ -151,7 +151,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     await _controller?.toggleFlash();
     final flashStatus = await _controller?.getFlashStatus();
     final currentTorchState = flashStatus == true;
-    AppLog.instance.debug(
+    AppLog.instance.info(
       '[QrScannerPage] toggleTorch -> isOn=$currentTorchState',
       tag: 'QR',
     );
@@ -167,7 +167,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     final last = _lastAnyDetectAt;
     final now = DateTime.now();
     if (last == null || now.difference(last).inSeconds > 2) {
-      AppLog.instance.debug('[QrScannerPage] suggestTorch: true', tag: 'QR');
+      AppLog.instance.info('[QrScannerPage] suggestTorch: true', tag: 'QR');
       if (!mounted) return;
       setState(() {
         _suggestTorch = true;
@@ -177,7 +177,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
   /// ZXing 扫描结果回调（只给你一个字符串）
   void _onDetectText(String value) async {
-    AppLog.instance.debug(
+    AppLog.instance.info(
       '[QrScannerPage] onDetectText: status=$_status',
       tag: 'QR',
     );
@@ -194,7 +194,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
     // 使用你原来的稳定追踪逻辑
     final stable = _tracker.update(value);
     if (!stable.isStable) {
-      AppLog.instance.debug(
+      AppLog.instance.info(
         '[QrScannerPage] onDetectText: candidate unstable hits=${stable.hitCount} elapsedMs=${stable.elapsedMs}',
         tag: 'QR',
       );
@@ -244,7 +244,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
 
   /// QRView 创建时回调，绑定控制器并监听流
   void _onQRViewCreated(QRViewController controller) {
-    AppLog.instance.debug('[QrScannerPage] QRView created', tag: 'QR');
+    AppLog.instance.info('[QrScannerPage] QRView created', tag: 'QR');
     _controller = controller;
 
     // 开始预览和扫描
@@ -314,7 +314,7 @@ class _QrScannerPageState extends ConsumerState<QrScannerPage> {
                   onQRViewCreated: _onQRViewCreated,
                   // overlay 我们自己画，所以这里用默认/不额外绘制也行
                   onPermissionSet: (ctrl, p) {
-                    AppLog.instance.debug(
+                    AppLog.instance.info(
                       '[QrScannerPage] permissionSet: $p',
                       tag: 'QR',
                     );

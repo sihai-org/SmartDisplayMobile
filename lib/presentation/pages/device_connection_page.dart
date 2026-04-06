@@ -110,7 +110,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
   @override
   void initState() {
     super.initState();
-    AppLog.instance.debug('[DeviceConnectionPage] initState', tag: 'Binding');
+    AppLog.instance.info('[DeviceConnectionPage] initState', tag: 'Binding');
 
     // 进入页面自动连接
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -120,7 +120,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
       // 1. 检查扫到的设备
       final scannedQrData = ref.read(appStateProvider).scannedQrData;
       if (scannedQrData == null) {
-        AppLog.instance.debug(
+        AppLog.instance.info(
           '[DeviceConnectionPage] scannedQrData is null',
           tag: 'Binding',
         );

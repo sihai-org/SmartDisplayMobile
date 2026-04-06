@@ -6,6 +6,7 @@ import '../models/device_qr_data.dart';
 DeviceQrData deviceDataToQrData(BleDeviceData d) {
   return DeviceQrData(
     displayDeviceId: d.displayDeviceId,
+    versionCode: d.versionCode,
     bleDeviceId: d.bleDeviceId,
     deviceName: d.deviceName,
     publicKey: d.publicKey,
@@ -15,6 +16,7 @@ DeviceQrData deviceDataToQrData(BleDeviceData d) {
 BleDeviceData qrDataToDeviceData(DeviceQrData qr) {
   return BleDeviceData(
     displayDeviceId: qr.displayDeviceId,
+    versionCode: qr.versionCode,
     bleDeviceId: qr.bleDeviceId,
     deviceName: qr.deviceName,
     publicKey: qr.publicKey,
@@ -24,6 +26,7 @@ BleDeviceData qrDataToDeviceData(DeviceQrData qr) {
 BleDeviceData savedDeviceRecordToDeviceData(SavedDeviceRecord rec) {
   return BleDeviceData(
     displayDeviceId: rec.displayDeviceId,
+    versionCode: rec.versionCode,
     bleDeviceId: rec.lastBleDeviceId ?? "",
     deviceName: rec.deviceName,
     publicKey: rec.publicKey,
@@ -33,6 +36,7 @@ BleDeviceData savedDeviceRecordToDeviceData(SavedDeviceRecord rec) {
 DeviceQrData savedDeviceRecordToQrData(SavedDeviceRecord rec) {
   return DeviceQrData(
     displayDeviceId: rec.displayDeviceId,
+    versionCode: rec.versionCode,
     bleDeviceId: rec.lastBleDeviceId ?? "",
     deviceName: rec.deviceName,
     publicKey: rec.publicKey,

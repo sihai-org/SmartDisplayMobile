@@ -504,6 +504,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect_failed_retry => 'Connection failed, please retry';
 
   @override
+  String get ble_disconnected_rescan_bind => 'Bluetooth disconnected. Please rescan the QR code.';
+
+  @override
   String get device_bound_elsewhere => 'This device is linked to a different account';
 
   @override
@@ -616,7 +619,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bind_failed => 'Binding failed. Please try again later.';
 
   @override
-  String get bind_network_error => 'Network error. Check your connection and try again.';
+  String get bind_timeout_check_network_and_retry => 'Binding timed out. Please confirm network access and stay near the device before retrying.';
+
+  @override
+  String get bind_mobile_network_error => 'Mobile network connection failed. Please check and retry.';
+
+  @override
+  String get bind_device_network_timeout => 'Device network timeout. Please check and retry.';
 
   @override
   String get bind_success => 'Device linked successfully';

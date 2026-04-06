@@ -44,6 +44,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final bleAddress = rec.lastBleDeviceId ?? '';
     return DeviceQrData(
       displayDeviceId: rec.displayDeviceId,
+      versionCode: rec.versionCode,
       deviceName: rec.deviceName,
       bleDeviceId: bleAddress,
       publicKey: rec.publicKey,

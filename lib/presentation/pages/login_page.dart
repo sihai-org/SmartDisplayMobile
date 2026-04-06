@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -297,7 +298,17 @@ class _LoginPageState extends State<LoginPage> {
                         border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6),
+                      ],
                       onChanged: (_) => setState(() => _error = null),
+                      onSubmitted: (_) {
+                        if (_isEmailValid && _isOtpValid && !_isLoading) {
+                          _verifyOtp();
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                     Text(

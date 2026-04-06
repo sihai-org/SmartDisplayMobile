@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import '../log/app_log.dart';
@@ -11,6 +10,7 @@ import '../ble/reliable_queue.dart';
 import '../constants/ble_constants.dart';
 import '../crypto/crypto_service.dart';
 import '../ble/ble_device_data.dart';
+import '../errors/exceptions.dart';
 
 import 'secure_channel.dart';
 
@@ -54,7 +54,10 @@ class SecureChannelImpl implements SecureChannel {
 
   void _ensureNotDisposed(String phase) {
     if (_disposed) {
-      throw StateError('SecureChannel 已释放（$phase）');
+      throw BleException(
+        code: BleErrorCode.channelDisposed.name,
+        message: 'SecureChannel 已释放（$phase）',
+      );
     }
   }
 
@@ -81,7 +84,7 @@ class SecureChannelImpl implements SecureChannel {
       // 1) 仅在检测到活跃 GATT 时断开，避免无条件重置蓝牙栈状态
       if (BleServiceSimple.hasActiveConnection) {
         final previousDeviceId = BleServiceSimple.activeDeviceId;
-        AppLog.instance.debug(
+        AppLog.instance.info(
           'active gatt exists, disconnect first: active=$previousDeviceId target=$bleDeviceId',
           tag: 'Channel',
         );
@@ -102,7 +105,10 @@ class SecureChannelImpl implements SecureChannel {
       _ensureNotDisposed('disconnect 之后');
       final ok = await BleServiceSimple.ensureBleReady();
       if (!ok) {
-        throw StateError(BleConnectResult.notReady.name);
+        throw BleException(
+          code: BleErrorCode.notReady.name,
+          message: 'BLE 未就绪',
+        );
       }
 
       // 3) 连接 + GATT
@@ -110,17 +116,17 @@ class SecureChannelImpl implements SecureChannel {
       keyGenFuture = crypto.generateEphemeralKeyPair();
       final keyGenSw = Stopwatch()..start();
       var keyGenCompleted = false;
-      final mode = kReleaseMode
+      const mode = kReleaseMode
           ? 'release'
           : (kProfileMode ? 'profile' : 'debug');
-      AppLog.instance.info(
+      AppLog.instance.debug(
         'keyGenFuture created (mode=$mode, isolate=${Isolate.current.hashCode})',
         tag: 'Channel',
       );
       keyGenFuture.whenComplete(() {
         keyGenCompleted = true;
         keyGenSw.stop();
-        AppLog.instance.info(
+        AppLog.instance.debug(
           'keyGenFuture completed in ${keyGenSw.elapsedMilliseconds}ms (mode=$mode, isolate=${Isolate.current.hashCode})',
           tag: 'Channel',
         );
@@ -165,10 +171,20 @@ class SecureChannelImpl implements SecureChannel {
           status: BleDeviceStatus.connecting,
         ),
       );
-      if (data == null) throw StateError('连接失败');
+      if (data == null) {
+        throw BleException(
+          code: BleErrorCode.connectFailed.name,
+          message: '连接失败',
+        );
+      }
 
       final ready = await BleServiceSimple.ensureGattReady(data.bleDeviceId);
-      if (!ready) throw StateError('GATT 未就绪');
+      if (!ready) {
+        throw BleException(
+          code: BleErrorCode.gattNotReady.name,
+          message: 'GATT 未就绪',
+        );
+      }
 
       // 4) 双特征检查
       final hasDual = await BleServiceSimple.hasRxTx(
@@ -177,21 +193,26 @@ class SecureChannelImpl implements SecureChannel {
         rxUuid: BleConstants.rxCharUuid,
         txUuid: BleConstants.txCharUuid,
       );
-      if (!hasDual) throw StateError('设备不支持双特征通道');
+      if (!hasDual) {
+        throw BleException(
+          code: BleErrorCode.dualCharacteristicUnsupported.name,
+          message: '设备不支持双特征通道',
+        );
+      }
 
       // 5) 准备可靠队列
       _ensureNotDisposed('connectToDevice + ensureGattReady + hasRxTx 之后');
-      AppLog.instance.info("[ble_connection_provider] call _rq?.dispose()");
+      AppLog.instance.debug("[ble_connection_provider] call _rq?.dispose()");
       await _rq?.dispose();
-      AppLog.instance.info("[ble_connection_provider] call createQueue()");
+      AppLog.instance.debug("[ble_connection_provider] call createQueue()");
       _rq = createQueue(data.bleDeviceId);
-      AppLog.instance.info("[ble_connection_provider] call _rq!.prepare()");
+      AppLog.instance.debug("[ble_connection_provider] call _rq!.prepare()");
       await _rq!.prepare();
 
       // 6) 应用层握手（示例：与你现有逻辑一致）
       _ensureNotDisposed('队列准备完成');
-      AppLog.instance.info("[ble_connection_provider] call keyGenFuture");
-      AppLog.instance.info(
+      AppLog.instance.debug("[ble_connection_provider] call keyGenFuture");
+      AppLog.instance.debug(
         'await keyGenFuture... (mode=$mode, isolate=${Isolate.current.hashCode})',
         tag: 'Channel',
       );
@@ -204,7 +225,7 @@ class SecureChannelImpl implements SecureChannel {
         initObj['userId'] = userId;
       }
       AppLog.instance.info(
-        "[ble_connection_provider] handshake_init userId=${userId}",
+        "[ble_connection_provider] handshake_init userId=$userId",
       );
       final resp = await _rq!.send(
         initObj,
@@ -225,7 +246,7 @@ class SecureChannelImpl implements SecureChannel {
       }
 
       AppLog.instance.info(
-        "[ble_connection_provider] 握手完成（resp 收到） _lastHandshakeStatus=${_lastHandshakeStatus}",
+        "[ble_connection_provider] 握手完成（resp 收到） _lastHandshakeStatus=$_lastHandshakeStatus",
       );
       _ensureNotDisposed('握手完成（resp 收到）');
       final parsed = crypto.parseHandshakeResponseMap(resp);
@@ -271,7 +292,7 @@ class SecureChannelImpl implements SecureChannel {
       // Forward low-level connection and adapter status to upper layer
       await _linkSub?.cancel();
       _linkSub = BleServiceSimple.connectionEvents.listen((e) async {
-        AppLog.instance.debug(
+        AppLog.instance.info(
           "[SecureChannelImpl] e=${e.toString()}",
           tag: 'Channel',
         );
@@ -318,7 +339,10 @@ class SecureChannelImpl implements SecureChannel {
   }) async {
     _ensureNotDisposed('send');
     if (!_authenticated || _rq == null) {
-      throw StateError('SecureChannel 未就绪（未认证或队列未初始化）');
+      throw BleException(
+        code: BleErrorCode.channelNotAuthenticated.name,
+        message: 'SecureChannel 未就绪（未认证或队列未初始化）',
+      );
     }
     return _rq!.send(
       msg,

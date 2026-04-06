@@ -172,6 +172,7 @@
   "ble_disconnected_on_exit": "已断开绑定流程中的蓝牙连接",
   "connect_success": "连接成功",
   "connect_failed_retry": "连接失败，请重试",
+  "ble_disconnected_rescan_bind": "蓝牙已断开，请重新扫码",
   "device_bound_elsewhere": "您与设备绑定用户不匹配",
   "ble_connect_timeout_relaunch_toast": "蓝牙连接超时，请重启 App 后再试",
   "ble_scan_timeout_device_not_found": "连接失败，设备可能不在附近",
@@ -208,7 +209,9 @@
   "confirm_binding_question": "是否将该设备绑定到当前账号？",
   "bind_button": "绑定",
   "bind_failed": "绑定失败，请稍后再试",
-  "bind_network_error": "网络连接异常，请检查网络后重试",
+  "bind_timeout_check_network_and_retry": "绑定超时，请确认联网并靠近重试",
+  "bind_mobile_network_error": "手机网络连接失败，请检查网络后重试",
+  "bind_device_network_timeout": "设备网络超时，请检查设备网络后重试",
   "bind_success": "绑定成功",
   
   "firmware_version_label": "固件版本",

@@ -37,15 +37,28 @@ class BleServiceSimple {
   // 打点：统一会话起点
   static DateTime? _sessionStart;
 
-  static void _log(String msg) => AppLog.instance.debug(msg, tag: 'BLE_SIMPLE');
+  static void _logInfo(String msg) =>
+      AppLog.instance.info(msg, tag: 'BLE_SIMPLE');
+  static void _logDebug(String msg) =>
+      AppLog.instance.debug(msg, tag: 'BLE_SIMPLE');
 
-  static void _logWithTime(String label) {
+  static void _logWithTimeInfo(String label) {
     final now = DateTime.now();
     if (_sessionStart != null) {
       final ms = now.difference(_sessionStart!).inMilliseconds;
-      _log('⏱ [$ms ms] $label');
+      _logInfo('⏱ [$ms ms] $label');
     } else {
-      _log('⏱ $label');
+      _logInfo('⏱ $label');
+    }
+  }
+
+  static void _logWithTimeDebug(String label) {
+    final now = DateTime.now();
+    if (_sessionStart != null) {
+      final ms = now.difference(_sessionStart!).inMilliseconds;
+      _logDebug('⏱ [$ms ms] $label');
+    } else {
+      _logDebug('⏱ $label');
     }
   }
 
@@ -112,18 +125,18 @@ class BleServiceSimple {
   /// 申请更大的 MTU
   static Future<int> requestMtu(String deviceId, int mtu) async {
     final t0 = DateTime.now();
-    _log('📏 requestMtu 开始: target=$mtu, device=$deviceId');
+    _logDebug('📏 requestMtu 开始: target=$mtu, device=$deviceId');
     try {
       final negotiatedMtu = await _ble.requestMtu(deviceId: deviceId, mtu: mtu);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('requestMtu.done(${elapsed}ms) -> $negotiatedMtu');
+      _logWithTimeDebug('requestMtu.done(${elapsed}ms) -> $negotiatedMtu');
       if (negotiatedMtu > 0) {
         _mtuByDevice[deviceId] = negotiatedMtu;
       }
       return negotiatedMtu;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('requestMtu.fail(${elapsed}ms): $e');
+      _logWithTimeDebug('requestMtu.fail(${elapsed}ms): $e');
       return BleConstants.minMtu; // 默认最小MTU
     }
   }
@@ -135,7 +148,7 @@ class BleServiceSimple {
   /// 查询 BLE 当前状态（忽略 unknown）
   static Future<BleStatus> checkBleStatus() async {
     final t0 = DateTime.now();
-    _log('🔎 checkBleStatus 开始');
+    _logDebug('🔎 checkBleStatus 开始');
     try {
       final status = await _ble.statusStream
           .firstWhere(
@@ -144,11 +157,11 @@ class BleServiceSimple {
           )
           .timeout(BleConstants.bleStatusCheckTimeout);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('checkBleStatus.done(${elapsed}ms) -> $status');
+      _logWithTimeDebug('checkBleStatus.done(${elapsed}ms) -> $status');
       return status;
     } catch (_) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('checkBleStatus.error(${elapsed}ms)');
+      _logWithTimeDebug('checkBleStatus.error(${elapsed}ms)');
       return BleStatus.unknown;
     }
   }
@@ -156,19 +169,22 @@ class BleServiceSimple {
   static Future<bool> ensureBleReady() async {
     final t0 = DateTime.now();
     _sessionStart ??= t0;
-    _log('🚦 ensureBleReady 开始');
+    _logInfo('🚦 ensureBleReady 开始');
     try {
       _ensureBleStatusForwarder();
       final status = await checkBleStatus();
-      if (status == BleStatus.unsupported || status == BleStatus.poweredOff)
+      if (status == BleStatus.unsupported || status == BleStatus.poweredOff) {
         return false;
+      }
 
       if (Platform.isAndroid) {
         final reqs = <Permission>[];
-        if (!await Permission.bluetoothScan.isGranted)
+        if (!await Permission.bluetoothScan.isGranted) {
           reqs.add(Permission.bluetoothScan);
-        if (!await Permission.bluetoothConnect.isGranted)
+        }
+        if (!await Permission.bluetoothConnect.isGranted) {
           reqs.add(Permission.bluetoothConnect);
+        }
         // 仅在老安卓需要定位权限：
         _legacyNeedsLocation = await _legacyNeedsLocationGate();
         if (_legacyNeedsLocation &&
@@ -179,7 +195,7 @@ class BleServiceSimple {
           final p0 = DateTime.now();
           final rs = await reqs.request();
           final pElapsed = DateTime.now().difference(p0).inMilliseconds;
-          _logWithTime('permissions.request.done(${pElapsed}ms)');
+          _logWithTimeDebug('permissions.request.done(${pElapsed}ms)');
           if (rs.values.any((s) => !s.isGranted)) {
             _permissionStreamController.add(false);
             return false;
@@ -188,7 +204,7 @@ class BleServiceSimple {
             final s0 = DateTime.now();
             final service = await Permission.locationWhenInUse.serviceStatus;
             final sElapsed = DateTime.now().difference(s0).inMilliseconds;
-            _logWithTime(
+            _logWithTimeDebug(
               'permissions.locationService.checked(${sElapsed}ms) -> $service',
             );
             if (service != ServiceStatus.enabled) {
@@ -213,17 +229,17 @@ class BleServiceSimple {
         s = await waitReady(BleConstants.bleReadyWaitTimeout);
       }
       final wElapsed = DateTime.now().difference(w0).inMilliseconds;
-      _logWithTime('status.waitReady.done(${wElapsed}ms) -> $s');
+      _logWithTimeDebug('status.waitReady.done(${wElapsed}ms) -> $s');
 
       final ok = (s == BleStatus.ready);
       _permissionStreamController.add(ok);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('ensureBleReady.result(${elapsed}ms) -> $ok');
+      _logWithTimeInfo('ensureBleReady.result(${elapsed}ms) -> $ok');
       return ok;
     } catch (_) {
       _permissionStreamController.add(false);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('ensureBleReady.error(${elapsed}ms)');
+      _logWithTimeInfo('ensureBleReady.error(${elapsed}ms)');
       return false;
     }
   }
@@ -252,7 +268,7 @@ class BleServiceSimple {
 
   static void _startScanningProcess(Duration timeout) async {
     final t0 = DateTime.now();
-    _log('🔎 开始扫描, timeout=${timeout.inSeconds}s');
+    _logInfo('🔎 开始扫描, timeout=${timeout.inSeconds}s');
     try {
       await stopScan(); // 确保冷启动
       _discoveredDevices.clear();
@@ -275,7 +291,7 @@ class BleServiceSimple {
               if (!firstFound) {
                 firstFound = true;
                 final elapsed = DateTime.now().difference(t0).inMilliseconds;
-                _logWithTime(
+                _logWithTimeInfo(
                   'scan.firstResult(${elapsed}ms): id=${result.deviceId}, rssi=${result.rssi}',
                 );
               }
@@ -286,13 +302,13 @@ class BleServiceSimple {
               _isScanning = false;
               _scanController?.close();
               final elapsed = DateTime.now().difference(t0).inMilliseconds;
-              _logWithTime('scan.error(${elapsed}ms): $e');
+              _logWithTimeInfo('scan.error(${elapsed}ms): $e');
             },
             onDone: () {
               _isScanning = false;
               _scanController?.close();
               final elapsed = DateTime.now().difference(t0).inMilliseconds;
-              _logWithTime('scan.done(${elapsed}ms)');
+              _logWithTimeInfo('scan.done(${elapsed}ms)');
             },
           );
 
@@ -305,19 +321,19 @@ class BleServiceSimple {
       _scanController?.addError(e);
       _scanController?.close();
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('scan.exception(${elapsed}ms): $e');
+      _logWithTimeInfo('scan.exception(${elapsed}ms): $e');
     }
   }
 
   static Future<void> stopScan() async {
     if (_stopScanInFlight != null) {
-      _log('⏹️ stopScan 复用进行中的请求');
+      _logDebug('⏹️ stopScan 复用进行中的请求');
       return _stopScanInFlight!;
     }
 
     final op = () async {
       final t0 = DateTime.now();
-      _log('⏹️ stopScan 开始');
+      _logDebug('⏹️ stopScan 开始');
       if (!_isScanning && _scanSubscription == null) {
         return;
       }
@@ -329,7 +345,7 @@ class BleServiceSimple {
       }
       _scanController = null;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('stopScan.done(${elapsed}ms)');
+      _logWithTimeDebug('stopScan.done(${elapsed}ms)');
     }();
 
     _stopScanInFlight = op;
@@ -437,7 +453,7 @@ class BleServiceSimple {
   }) async {
     final t0 = DateTime.now();
     _sessionStart ??= t0;
-    _log(
+    _logInfo(
       '🔗 connectToDevice 开始: id=${bleDeviceData.bleDeviceId}, timeout=${BleConstants.connectToServiceTimeout}s',
     );
 
@@ -470,7 +486,7 @@ class BleServiceSimple {
         (update) async {
           // Minimal connection state logging to aid field debugging
           // ignore: avoid_print
-          _log(
+          _logDebug(
             'connection.update state=${update.connectionState} device=${update.deviceId} failure=${update.failure}',
           );
 
@@ -488,7 +504,7 @@ class BleServiceSimple {
               final connectedAtMs = DateTime.now()
                   .difference(t0)
                   .inMilliseconds;
-              _logWithTime(
+              _logWithTimeInfo(
                 'connect.connected(${connectedAtMs}ms), stabilize=${BleConstants.kStabilizeAfterConnect.inMilliseconds}ms',
               );
               await Future.delayed(BleConstants.kStabilizeAfterConnect);
@@ -513,7 +529,7 @@ class BleServiceSimple {
                 _activeDeviceId = null;
               }
               final elapsed = DateTime.now().difference(t0).inMilliseconds;
-              _logWithTime(
+              _logWithTimeInfo(
                 'connect.disconnected(${elapsed}ms) failure=${update.failure?.toString()}',
               );
               completeOnce(null);
@@ -538,7 +554,7 @@ class BleServiceSimple {
           }
           // ignore: avoid_print
           final elapsed = DateTime.now().difference(t0).inMilliseconds;
-          _logWithTime('connect.stream.error(${elapsed}ms)');
+          _logWithTimeInfo('connect.stream.error(${elapsed}ms)');
           completeOnce(null);
           try {
             _connectionEventController.add({
@@ -559,12 +575,12 @@ class BleServiceSimple {
 
       final res = await completer.future;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('connect.complete(${elapsed}ms) -> ${res != null}');
+      _logWithTimeInfo('connect.complete(${elapsed}ms) -> ${res != null}');
       // TODO: 如果连接超时，可以重试一次？看下状态清理问题
 
       // ⚠️ 关键逻辑：这一轮没连上 + 确认是 135 → 认为是“残留连接”，做一次彻底冷却 + 重试
       if (res == null && sawGatt135 && attempt == 1) {
-        _log('⚠️ 本轮连接失败且检测到 GATT 135，执行一次冷却重试');
+        _logInfo('⚠️ 本轮连接失败且检测到 GATT 135，执行一次冷却重试');
         try {
           await disconnect(); // 把所有 subscription / state 清理掉
         } catch (_) {}
@@ -576,7 +592,7 @@ class BleServiceSimple {
       return res;
     } catch (_) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('connect.exception(${elapsed}ms)');
+      _logWithTimeInfo('connect.exception(${elapsed}ms)');
       return null;
     }
   }
@@ -584,7 +600,7 @@ class BleServiceSimple {
   /// 断开连接
   static Future<void> disconnect() async {
     final t0 = DateTime.now();
-    _log('🔌 disconnect 开始');
+    _logInfo('🔌 disconnect 开始');
     final prevActiveDeviceId = _activeDeviceId;
     await stopScan();
     await _deviceConnectionSubscription?.cancel();
@@ -604,7 +620,7 @@ class BleServiceSimple {
     _lastLogAt.clear();
     _lastLogRssi.clear();
     final elapsed = DateTime.now().difference(t0).inMilliseconds;
-    _logWithTime('disconnect.done(${elapsed}ms)');
+    _logWithTimeInfo('disconnect.done(${elapsed}ms)');
     // Also broadcast a disconnected state for upper layers
     try {
       _connectionEventController.add({
@@ -622,7 +638,7 @@ class BleServiceSimple {
     required String characteristicUuid,
   }) async {
     final t0 = DateTime.now();
-    _log(
+    _logDebug(
       '📖 readCharacteristic 开始: service=$serviceUuid, char=$characteristicUuid',
     );
     try {
@@ -633,11 +649,13 @@ class BleServiceSimple {
       );
       final data = await _ble.readCharacteristic(q);
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('readCharacteristic.done(${elapsed}ms), len=${data.length}');
+      _logWithTimeDebug(
+        'readCharacteristic.done(${elapsed}ms), len=${data.length}',
+      );
       return data;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('readCharacteristic.fail(${elapsed}ms): $e');
+      _logWithTimeDebug('readCharacteristic.fail(${elapsed}ms): $e');
       return null;
     }
   }
@@ -645,20 +663,20 @@ class BleServiceSimple {
   /// 主动触发服务发现，确保 GATT 就绪（尤其 Android）
   static Future<bool> discoverServices(String deviceId) async {
     final t0 = DateTime.now();
-    _log('🧭 discoverServices 开始: device=$deviceId');
+    _logDebug('🧭 discoverServices 开始: device=$deviceId');
     try {
       final services = await _ble.discoverServices(deviceId);
       if (services.isNotEmpty) {
         _servicesByDevice[deviceId] = services;
       }
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime(
+      _logWithTimeDebug(
         'discoverServices.done(${elapsed}ms), count=${services.length}',
       );
       return services.isNotEmpty;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('discoverServices.fail(${elapsed}ms): $e');
+      _logWithTimeDebug('discoverServices.fail(${elapsed}ms): $e');
       return false;
     }
   }
@@ -670,10 +688,12 @@ class BleServiceSimple {
     required String characteristicUuid,
   }) async {
     final t0 = DateTime.now();
-    _log('🔎 hasCharacteristic 开始: svc=$serviceUuid, char=$characteristicUuid');
+    _logDebug(
+      '🔎 hasCharacteristic 开始: svc=$serviceUuid, char=$characteristicUuid',
+    );
     try {
       final services = await _ble.discoverServices(deviceId);
-      _log('hasCharacteristic.services=${services.length}');
+      _logDebug('hasCharacteristic.services=${services.length}');
       final targetService = services.firstWhere(
         (s) =>
             s.serviceId.toString().toLowerCase() == serviceUuid.toLowerCase(),
@@ -687,18 +707,18 @@ class BleServiceSimple {
       );
       if (targetService.characteristicIds.isEmpty) {
         final elapsed = DateTime.now().difference(t0).inMilliseconds;
-        _logWithTime('hasCharacteristic.noService(${elapsed}ms)');
+        _logWithTimeDebug('hasCharacteristic.noService(${elapsed}ms)');
         return false;
       }
       final found = targetService.characteristicIds.any(
         (c) => c.toString().toLowerCase() == characteristicUuid.toLowerCase(),
       );
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('hasCharacteristic.result(${elapsed}ms) -> $found');
+      _logWithTimeDebug('hasCharacteristic.result(${elapsed}ms) -> $found');
       return found;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('hasCharacteristic.fail(${elapsed}ms): $e');
+      _logWithTimeDebug('hasCharacteristic.fail(${elapsed}ms): $e');
       return false;
     }
   }
@@ -706,24 +726,24 @@ class BleServiceSimple {
   /// 确保 GATT 就绪：稳定延时 -> 服务发现 -> MTU 协商 -> 再次稳定
   static Future<bool> ensureGattReady(String deviceId) async {
     final t0 = DateTime.now();
-    _log('🛠 ensureGattReady 开始: device=$deviceId');
+    _logDebug('🛠 ensureGattReady 开始: device=$deviceId');
     // Allow connection to fully settle before first discovery
     await Future.delayed(BleConstants.kStabilizeBeforeDiscover);
-    _logWithTime(
+    _logWithTimeDebug(
       'ensureGattReady.stabilize1(${BleConstants.kStabilizeBeforeDiscover.inMilliseconds}ms)',
     );
 
     // Retry service discovery once to mitigate transient 133/135
     final d0 = DateTime.now();
     bool ok = await discoverServices(deviceId);
-    _logWithTime(
+    _logWithTimeDebug(
       'ensureGattReady.discover.attempt1(${DateTime.now().difference(d0).inMilliseconds}ms) -> $ok',
     );
     if (!ok) {
       await Future.delayed(BleConstants.discoverRetryDelay);
       final d1 = DateTime.now();
       ok = await discoverServices(deviceId);
-      _logWithTime(
+      _logWithTimeDebug(
         'ensureGattReady.discover.attempt2(${DateTime.now().difference(d1).inMilliseconds}ms) -> $ok',
       );
     }
@@ -735,23 +755,25 @@ class BleServiceSimple {
     if (Platform.isAndroid) {
       try {
         final mtu = await requestMtu(deviceId, BleConstants.preferredMtu);
-        if (mtu > 0) _mtuByDevice[deviceId] = mtu;
-        _logWithTime(
+        if (mtu > 0) {
+          _mtuByDevice[deviceId] = mtu;
+        }
+        _logWithTimeDebug(
           'ensureGattReady.mtu(${DateTime.now().difference(m0).inMilliseconds}ms) -> ${_mtuByDevice[deviceId]} android',
         );
       } catch (_) {}
     } else {
       _mtuByDevice[deviceId] = BleConstants.iosWithResponseCapMtu;
-      _logWithTime(
+      _logWithTimeDebug(
         'ensureGattReady.mtu(${DateTime.now().difference(m0).inMilliseconds}ms) -> ${_mtuByDevice[deviceId]} ios',
       );
     }
 
     await Future.delayed(BleConstants.kStabilizeAfterMtu);
-    _logWithTime(
+    _logWithTimeDebug(
       'ensureGattReady.stabilize2(${BleConstants.kStabilizeAfterMtu.inMilliseconds}ms)',
     );
-    _logWithTime(
+    _logWithTimeDebug(
       'ensureGattReady.done(${DateTime.now().difference(t0).inMilliseconds}ms)',
     );
     return ok;
@@ -766,7 +788,7 @@ class BleServiceSimple {
     bool withResponse = true,
   }) async {
     final t0 = DateTime.now();
-    _log(
+    _logDebug(
       '✍️ writeCharacteristic 开始: svc=$serviceUuid, char=$characteristicUuid, len=${data.length}, withResp=$withResponse',
     );
     final q = QualifiedCharacteristic(
@@ -781,11 +803,11 @@ class BleServiceSimple {
         await _ble.writeCharacteristicWithoutResponse(q, value: data);
       }
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('writeCharacteristic.done(${elapsed}ms)');
+      _logWithTimeDebug('writeCharacteristic.done(${elapsed}ms)');
       return true;
     } catch (e) {
       final firstElapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('writeCharacteristic.fail1(${firstElapsed}ms): $e');
+      _logWithTimeDebug('writeCharacteristic.fail1(${firstElapsed}ms): $e');
       try {
         await Future.delayed(BleConstants.writeRetryDelay);
         if (withResponse) {
@@ -794,11 +816,11 @@ class BleServiceSimple {
           await _ble.writeCharacteristicWithoutResponse(q, value: data);
         }
         final retryElapsed = DateTime.now().difference(t0).inMilliseconds;
-        _logWithTime('writeCharacteristic.retry.done(${retryElapsed}ms)');
+        _logWithTimeDebug('writeCharacteristic.retry.done(${retryElapsed}ms)');
         return true;
       } catch (e2) {
         final elapsed = DateTime.now().difference(t0).inMilliseconds;
-        _logWithTime('writeCharacteristic.retry.fail(${elapsed}ms): $e2');
+        _logWithTimeDebug('writeCharacteristic.retry.fail(${elapsed}ms): $e2');
         return false;
       }
     }
@@ -810,7 +832,7 @@ class BleServiceSimple {
     required String serviceUuid,
     required String characteristicUuid,
   }) {
-    _log(
+    _logDebug(
       '📡 subscribeToCharacteristic: svc=$serviceUuid, char=$characteristicUuid',
     );
     final q = QualifiedCharacteristic(
@@ -827,7 +849,7 @@ class BleServiceSimple {
     required String serviceUuid,
     required String txCharacteristicUuid,
   }) {
-    _log(
+    _logDebug(
       '📡 subscribeToIndications: svc=$serviceUuid, tx=$txCharacteristicUuid',
     );
     return subscribeToCharacteristic(
@@ -845,14 +867,16 @@ class BleServiceSimple {
     required String txUuid,
   }) async {
     final t0 = DateTime.now();
-    _log('🔎 hasRxTx 开始: svc=$serviceUuid, rx=$rxUuid, tx=$txUuid');
+    _logDebug('🔎 hasRxTx 开始: svc=$serviceUuid, rx=$rxUuid, tx=$txUuid');
     try {
       var services = _servicesByDevice[deviceId];
       if (services == null || services.isEmpty) {
         final ok = await discoverServices(deviceId);
         if (!ok) {
           final elapsed = DateTime.now().difference(t0).inMilliseconds;
-          _logWithTime('hasRxTx.result(${elapsed}ms) -> false (discover fail)');
+          _logWithTimeDebug(
+            'hasRxTx.result(${elapsed}ms) -> false (discover fail)',
+          );
           return false;
         }
         services = _servicesByDevice[deviceId];
@@ -860,7 +884,7 @@ class BleServiceSimple {
       services ??= const <DiscoveredService>[];
 
       // 调试用：打印出来看设备实际暴露的服务
-      _log('[ble_connection_provider] services=$services');
+      _logDebug('[ble_connection_provider] services=$services');
 
       // 1. 先找到匹配的 service
       DiscoveredService? s;
@@ -873,9 +897,9 @@ class BleServiceSimple {
       }
 
       if (s == null) {
-        _log('hasRxTx: service not found on device');
+        _logDebug('hasRxTx: service not found on device');
         final elapsed = DateTime.now().difference(t0).inMilliseconds;
-        _logWithTime('hasRxTx.result(${elapsed}ms) -> false (no service)');
+        _logWithTimeDebug('hasRxTx.result(${elapsed}ms) -> false (no service)');
         return false;
       }
 
@@ -895,20 +919,20 @@ class BleServiceSimple {
 
       final ok = hasRx && hasTx;
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime(
+      _logWithTimeDebug(
         'hasRxTx.result(${elapsed}ms) -> $ok (hasRx=$hasRx, hasTx=$hasTx)',
       );
       return ok;
     } catch (e) {
       final elapsed = DateTime.now().difference(t0).inMilliseconds;
-      _logWithTime('hasRxTx.fail(${elapsed}ms): $e');
+      _logWithTimeDebug('hasRxTx.fail(${elapsed}ms): $e');
       return false;
     }
   }
 
   /// 清理
   static void dispose() {
-    _log('🧹 dispose');
+    _logInfo('🧹 dispose');
     _scanSubscription?.cancel();
     _scanSubscription = null;
     _deviceConnectionSubscription?.cancel();
