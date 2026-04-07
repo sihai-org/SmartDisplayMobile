@@ -318,10 +318,15 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.billing_transactions_title)),
-      body: ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        children: [_sectionCard(context, children: changeWidgets)],
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeBottom: true,
+        child: ListView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(16),
+          children: [_sectionCard(context, children: changeWidgets)],
+        ),
       ),
     );
   }

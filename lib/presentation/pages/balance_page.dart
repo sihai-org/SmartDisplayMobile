@@ -276,77 +276,81 @@ class _BalancePageState extends State<BalancePage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.billing_title)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  l10n.billing_available_credits,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                ),
-                if (showBalanceValue) ...[
-                  const SizedBox(height: 12),
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeBottom: true,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
                   Text(
-                    _balanceText(context),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-                if (balanceStatusText.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    balanceStatusText,
+                    l10n.billing_available_credits,
                     textAlign: TextAlign.center,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   ),
+                  if (showBalanceValue) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _balanceText(context),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                  if (balanceStatusText.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      balanceStatusText,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
                 ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.billing_recent_activity,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (showViewAllButton)
+                  TextButton(
+                    onPressed: () {
+                      final args = BalanceBillsArgs(
+                        initialItems: List<BillingLedgerItem>.unmodifiable(
+                          _ledgerItems,
+                        ),
+                        nextPage: _ledgerNextPage,
+                        hasNextPage: _ledgerHasNextPage,
+                        hasInitialized: _ledgerInitialized,
+                      );
+                      context.push(AppRoutes.balanceBills, extra: args);
+                    },
+                    child: Text(l10n.billing_view_all),
+                  ),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.billing_recent_activity,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              if (showViewAllButton)
-                TextButton(
-                  onPressed: () {
-                    final args = BalanceBillsArgs(
-                      initialItems: List<BillingLedgerItem>.unmodifiable(
-                        _ledgerItems,
-                      ),
-                      nextPage: _ledgerNextPage,
-                      hasNextPage: _ledgerHasNextPage,
-                      hasInitialized: _ledgerInitialized,
-                    );
-                    context.push(AppRoutes.balanceBills, extra: args);
-                  },
-                  child: Text(l10n.billing_view_all),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _sectionCard(context, children: recentChangeWidgets),
-        ],
+            const SizedBox(height: 8),
+            _sectionCard(context, children: recentChangeWidgets),
+          ],
+        ),
       ),
     );
   }
