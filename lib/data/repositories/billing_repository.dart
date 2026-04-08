@@ -133,13 +133,11 @@ class BillingRepository {
             displayText: displayText,
             amount: _asNullableDouble(item['amount']),
             totalCredit: _asNullableDouble(item['total_credit']),
-            occurredAt: _parseLedgerDateTime(
-              item['earliest_time'] ?? item['latest_time'],
-            ),
+            occurredAt: _parseLedgerDateTime(item['display_time']),
           ),
         );
         AppLog.instance.info(
-          '[billing_ledger_item] display_text=$displayText, amount=${item['amount']}, total_credit=${item['total_credit']}, earliest_time=${item['earliest_time']}, latest_time=${item['latest_time']}',
+          '[billing_ledger_item] display_text=$displayText, amount=${item['amount']}, total_credit=${item['total_credit']}, display_time=${item['display_time']}',
           tag: 'BillingApi',
         );
       }
