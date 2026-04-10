@@ -27,6 +27,9 @@
     <!-- Internet permission for future use -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Google Play Billing -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+
     <!-- BLE feature requirements -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
