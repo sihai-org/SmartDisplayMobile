@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
 
 class BalanceBillsArgs {
@@ -203,12 +204,7 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
 
   String _formatCreditDelta(BuildContext context, double amount) {
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final prefix = amount >= 0 ? '+' : '-';
-    final formatted = NumberFormat.decimalPatternDigits(
-      locale: locale,
-      decimalDigits: 2,
-    ).format(amount.abs());
-    return '$prefix$formatted';
+    return formatBillingDeltaAmount(locale: locale, amount: amount);
   }
 
   String? _formatOccurredAt(BuildContext context, DateTime? dateTime) {
