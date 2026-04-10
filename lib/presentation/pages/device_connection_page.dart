@@ -54,18 +54,20 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
           .enableBleConnection(scannedQrData);
       if (!mounted) return;
 
+      BindingFlowUtils.handleBleConnectResult(
+        context,
+        result,
+        displayDeviceId: scannedQrData.displayDeviceId,
+        logTag: 'DeviceConnectionPage',
+      );
+
       if (result == BleConnectResult.cancelled) {
-        Fluttertoast.showToast(msg: '连接中断，请稍后再试');
+        Fluttertoast.showToast(msg: context.l10n.connect_cancelled_retry);
         _goBackOrHome();
         return;
       }
 
       if (!BindingFlowUtils.isBleConnectSuccess(result)) {
-        BindingFlowUtils.toastBleConnectResult(
-          context,
-          result,
-          logTag: 'DeviceConnectionPage',
-        );
         _goBackOrHome();
         return;
       }

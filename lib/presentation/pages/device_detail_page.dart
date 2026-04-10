@@ -116,7 +116,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       final result = await ref
           .read(conn.bleConnectionProvider.notifier)
           .enableBleConnection(savedDeviceRecordToQrData(rec));
-      _safelyToastConnectRes(result);
+      _safelyHandleConnectRes(result, displayDeviceId: targetId);
     }
   }
 
@@ -319,11 +319,15 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     );
   }
 
-  void _safelyToastConnectRes(BleConnectResult res) {
+  void _safelyHandleConnectRes(
+    BleConnectResult res, {
+    required String displayDeviceId,
+  }) {
     if (!mounted) return;
-    BindingFlowUtils.toastBleConnectResult(
+    BindingFlowUtils.handleBleConnectResult(
       context,
       res,
+      displayDeviceId: displayDeviceId,
       logTag: 'DeviceDetail',
     );
   }
@@ -453,7 +457,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
         final result = await ref
             .read(conn.bleConnectionProvider.notifier)
             .enableBleConnection(qr);
-        _safelyToastConnectRes(result);
+        _safelyHandleConnectRes(result, displayDeviceId: rec.displayDeviceId);
       } else {
         // 关闭：主动断开
         await ref

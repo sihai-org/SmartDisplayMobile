@@ -12,16 +12,47 @@ import '../l10n/l10n_extensions.dart';
 class BindingFlowUtils {
   BindingFlowUtils._();
 
+  static String? _currentDisplayDeviceId;
+  static int _currentFailCount = 0;
+
   static bool isBleConnectSuccess(BleConnectResult result) {
     return result == BleConnectResult.success ||
         result == BleConnectResult.alreadyConnected;
   }
 
-  static void toastBleConnectResult(
+  static void _syncScanTimeoutFailState(
+    BleConnectResult result,
+    String displayDeviceId,
+  ) {
+    if (_currentDisplayDeviceId != displayDeviceId) {
+      _currentDisplayDeviceId = displayDeviceId;
+      _currentFailCount = 0;
+    }
+
+    if (result == BleConnectResult.scanTimeout) {
+      _currentFailCount++;
+      return;
+    }
+
+    if (isBleConnectSuccess(result)) {
+      _currentFailCount = 0;
+    }
+  }
+
+  /// 统一处理 BLE 连接结果：
+  /// - 同步 scan timeout 的失败计数
+  /// - 对失败结果弹 toast 并记录日志
+  ///
+  /// `success` / `alreadyConnected` / `cancelled` 不会弹 toast。
+  /// 建议调用方先调一次本方法，再自行处理 success 或 cancelled 分支。
+  static void handleBleConnectResult(
     BuildContext context,
     BleConnectResult result, {
+    required String displayDeviceId,
     String logTag = 'Binding',
   }) {
+    _syncScanTimeoutFailState(result, displayDeviceId);
+
     switch (result) {
       case BleConnectResult.success:
       case BleConnectResult.alreadyConnected:
@@ -43,9 +74,14 @@ class BindingFlowUtils {
         break;
       case BleConnectResult.scanTimeout:
         Fluttertoast.showToast(
-          msg: context.l10n.ble_scan_timeout_device_not_found,
+          msg: _currentFailCount <= 1
+              ? context.l10n.ble_scan_timeout_first_retry_toast
+              : context.l10n.ble_scan_timeout_repeated_retry_toast,
         );
-        AppLog.instance.info('ble: 扫描超时', tag: logTag);
+        AppLog.instance.info(
+          'ble: 扫描超时(deviceId=$displayDeviceId, failCount=$_currentFailCount)',
+          tag: logTag,
+        );
         break;
       case BleConnectResult.notReady:
         Fluttertoast.showToast(

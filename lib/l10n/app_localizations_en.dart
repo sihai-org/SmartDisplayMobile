@@ -489,6 +489,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connect_success => 'Connected successfully';
 
   @override
+  String get connect_cancelled_retry => 'Connection interrupted, please try again later';
+
+  @override
   String get connect_failed_retry => 'Connection failed, please retry';
 
   @override
@@ -501,7 +504,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ble_connect_timeout_relaunch_toast => 'Connection timed out. Please fully close the app and reopen it to try again.';
 
   @override
-  String get ble_scan_timeout_device_not_found => 'Connection failed. The device may not be nearby.';
+  String get ble_scan_timeout_first_retry_toast => 'No device found. Move closer.';
+
+  @override
+  String get ble_scan_timeout_repeated_retry_toast => 'No device found. Move closer or restart the device.';
 
   @override
   String get ble_not_ready_enable_bluetooth_check_permission => 'Please enable Bluetooth and check permissions';

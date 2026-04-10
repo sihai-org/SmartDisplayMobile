@@ -1031,6 +1031,12 @@ abstract class AppLocalizations {
   /// **'Connected successfully'**
   String get connect_success;
 
+  /// No description provided for @connect_cancelled_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection interrupted, please try again later'**
+  String get connect_cancelled_retry;
+
   /// No description provided for @connect_failed_retry.
   ///
   /// In en, this message translates to:
@@ -1055,11 +1061,17 @@ abstract class AppLocalizations {
   /// **'Connection timed out. Please fully close the app and reopen it to try again.'**
   String get ble_connect_timeout_relaunch_toast;
 
-  /// No description provided for @ble_scan_timeout_device_not_found.
+  /// No description provided for @ble_scan_timeout_first_retry_toast.
   ///
   /// In en, this message translates to:
-  /// **'Connection failed. The device may not be nearby.'**
-  String get ble_scan_timeout_device_not_found;
+  /// **'No device found. Move closer.'**
+  String get ble_scan_timeout_first_retry_toast;
+
+  /// No description provided for @ble_scan_timeout_repeated_retry_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'No device found. Move closer or restart the device.'**
+  String get ble_scan_timeout_repeated_retry_toast;
 
   /// No description provided for @ble_not_ready_enable_bluetooth_check_permission.
   ///
