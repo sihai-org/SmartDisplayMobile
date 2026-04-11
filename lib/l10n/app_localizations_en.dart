@@ -980,7 +980,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get task_view_result => 'View result';
+  String get task_view_result => 'Preview';
 
   @override
   String get task_pdf_default_title => 'PDF Preview';
