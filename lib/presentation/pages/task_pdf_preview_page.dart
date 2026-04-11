@@ -9,6 +9,7 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/services/task_file_service.dart';
+import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
@@ -437,7 +438,10 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final title = (task?.title.trim().isNotEmpty ?? false)
         ? task!.title
         : l10n.task_pdf_default_title;
-    final displayFileName = '${_safeFileName(title)}.pdf';
+    final displayFileName = appendFileExtensionIfMissing(
+      _safeFileName(title),
+      extension: 'pdf',
+    );
 
     return Scaffold(
       appBar: AppBar(

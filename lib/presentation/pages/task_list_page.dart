@@ -10,6 +10,7 @@ import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
+import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskListPage extends StatefulWidget {
@@ -356,8 +357,10 @@ class _TaskListPageState extends State<TaskListPage> {
     final baseTitle = task.title.trim().isEmpty
         ? context.l10n.task_unnamed
         : task.title;
-    final suffix = task.isPpt ? '.pptx' : '.pdf';
-    return baseTitle.endsWith(suffix) ? baseTitle : '$baseTitle$suffix';
+    return appendFileExtensionIfMissing(
+      baseTitle,
+      extension: task.isPpt ? 'pptx' : 'pdf',
+    );
   }
 
   String _successActionLabel(BuildContext context, TaskVO task) {

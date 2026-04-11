@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskFileService {
@@ -203,11 +204,10 @@ class TaskFileService {
         ? 'task_${_safeTaskId(task)}'
         : task.title.trim();
     final safeName = rawName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final extension = task.isPpt ? 'pptx' : 'pdf';
-    if (safeName.toLowerCase().endsWith('.$extension')) {
-      return safeName;
-    }
-    return '$safeName.$extension';
+    return appendFileExtensionIfMissing(
+      safeName,
+      extension: task.isPpt ? 'pptx' : 'pdf',
+    );
   }
 
   static String _safeTaskId(TaskVO task) {
