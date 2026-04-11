@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/services/task_file_service.dart';
+import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
@@ -46,8 +46,14 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   @override
   void didUpdateWidget(covariant TaskPdfPreviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldCacheIdentity = _cacheIdentityForTask(oldWidget.task);
-    final newCacheIdentity = _cacheIdentityForTask(widget.task);
+    final oldCacheIdentity = TaskFileService.cacheIdentityForTask(
+      oldWidget.task,
+      fileExtension: 'pdf',
+    );
+    final newCacheIdentity = TaskFileService.cacheIdentityForTask(
+      widget.task,
+      fileExtension: 'pdf',
+    );
     if (oldCacheIdentity != newCacheIdentity) {
       _cachedPdfFile = null;
       _pdfUrl = null;
@@ -133,6 +139,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<String> _fetchPdfDownloadUrl(String taskId) async {
+    final noAvailableLinkMessage = context.l10n.task_pdf_no_available_link;
     final accessToken =
         Supabase.instance.client.auth.currentSession?.accessToken;
     if (accessToken == null || accessToken.isEmpty) {
@@ -160,7 +167,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final decoded = jsonDecode(response.body);
     final pdfUrl = _extractPdfUrl(decoded);
     if (pdfUrl == null || pdfUrl.isEmpty) {
-      throw FormatException(context.l10n.task_pdf_no_available_link);
+      throw FormatException(noAvailableLinkMessage);
     }
     return pdfUrl;
   }
@@ -238,6 +245,12 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
   Future<void> _sharePdf(String pdfUrl, String displayFileName) async {
     if (_isSharing) return;
+    final task = widget.task;
+    final shareFailedMessage = context.l10n.task_pdf_share_failed;
+    if (task == null) {
+      Fluttertoast.showToast(msg: shareFailedMessage);
+      return;
+    }
     setState(() {
       _isSharing = true;
     });
@@ -256,6 +269,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       }
 
       final fileToShare = await _prepareShareFile(
+        task,
         localPdfFile,
         displayFileName,
       );
@@ -273,9 +287,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       );
     } catch (e, stackTrace) {
       _logError('sharePdf', e, stackTrace);
-      Fluttertoast.showToast(
-        msg: context.l10n.task_pdf_share_failed,
-      );
+      Fluttertoast.showToast(msg: shareFailedMessage);
     } finally {
       if (mounted) {
         setState(() {
@@ -293,8 +305,16 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<void> _sharePdfOnIos(File localFile, String displayFileName) async {
+    final task = widget.task;
+    if (task == null) {
+      throw HttpException(context.l10n.task_pdf_no_shareable_file);
+    }
     try {
-      final fileToShare = await _prepareShareFile(localFile, displayFileName);
+      final fileToShare = await _prepareShareFile(
+        task,
+        localFile,
+        displayFileName,
+      );
       final shareOrigin = _shareOriginRect();
       await SharePlus.instance.share(
         ShareParams(
@@ -316,18 +336,15 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<File> _prepareShareFile(
+    TaskVO task,
     File sourceFile,
     String displayFileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final shareRoot = Directory('${tempDir.path}/pdf_share');
-    await shareRoot.create(recursive: true);
-    final targetPath = '${shareRoot.path}/$displayFileName';
-    final targetFile = File(targetPath);
-    if (await targetFile.exists()) {
-      await targetFile.delete();
-    }
-    return sourceFile.copy(targetPath);
+    return TaskFileService.prepareShareFile(
+      task,
+      sourceFile,
+      displayFileName: displayFileName,
+    );
   }
 
   Future<File> _resolveLocalPdfFile(String pdfUrl) {
@@ -345,6 +362,11 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   Future<File> _getShareablePdfFile(String pdfUrl) async {
+    final task = widget.task;
+    final noShareableFileMessage = context.l10n.task_pdf_no_shareable_file;
+    if (task == null) {
+      throw HttpException(noShareableFileMessage);
+    }
     final existingCached = await _readValidCachedPdfForTask();
     if (existingCached != null) {
       return existingCached;
@@ -352,36 +374,30 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     if (pdfUrl.trim().isNotEmpty) {
       return _resolveLocalPdfFile(pdfUrl);
     }
-    throw HttpException(context.l10n.task_pdf_no_shareable_file);
+    throw HttpException(noShareableFileMessage);
   }
 
   Future<File?> _readValidCachedPdfForTask() async {
-    final dir = await getTemporaryDirectory();
-    final cacheFileName = _cacheFileNameForTask(widget.task);
-    final file = File('${dir.path}/$cacheFileName');
-    if (!await file.exists()) return null;
-    if (await file.length() <= 0) return null;
-    return file;
+    return TaskFileService.readValidCachedFileForTask(
+      widget.task,
+      fileExtension: 'pdf',
+    );
   }
 
   Future<File> _downloadToCacheIfNeeded(String pdfUrl) async {
+    final task = widget.task;
+    if (task == null) {
+      throw HttpException(context.l10n.task_pdf_no_shareable_file);
+    }
     final cached = await _readValidCachedPdfForTask();
     if (cached != null) {
       return cached;
     }
-    final dir = await getTemporaryDirectory();
-    final cacheFileName = _cacheFileNameForTask(widget.task);
-    final file = File('${dir.path}/$cacheFileName');
-
-    final response = await http.get(Uri.parse(pdfUrl));
-    if (response.statusCode != 200) {
-      throw HttpException('HTTP ${response.statusCode}');
-    }
-    if (response.bodyBytes.isEmpty) {
-      throw const HttpException('Empty response body');
-    }
-    await file.writeAsBytes(response.bodyBytes, flush: true);
-    return file;
+    return TaskFileService.downloadToCacheIfNeeded(
+      task,
+      pdfUrl,
+      fileExtension: 'pdf',
+    );
   }
 
   void _logError(String context, Object error, StackTrace stackTrace) {
@@ -422,7 +438,10 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final title = (task?.title.trim().isNotEmpty ?? false)
         ? task!.title
         : l10n.task_pdf_default_title;
-    final displayFileName = '${_safeFileName(title)}.pdf';
+    final displayFileName = appendFileExtensionIfMissing(
+      _safeFileName(title),
+      extension: 'pdf',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -502,20 +521,6 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final trimmed = name.trim();
     final fallback = trimmed.isEmpty ? 'task_${_safeTaskId()}' : trimmed;
     return fallback.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-  }
-
-  String _cacheIdentityForTask(TaskVO? task) {
-    final taskId = task?.id.trim() ?? '';
-    final createTime = task?.createTime.trim() ?? '';
-    final finishTime = task?.finishTime.trim() ?? '';
-    return '$taskId|$createTime|$finishTime';
-  }
-
-  String _cacheFileNameForTask(TaskVO? task) {
-    final identity = _cacheIdentityForTask(task);
-    // Keep filename stable and short; hash the identity triple.
-    final digest = crypto.md5.convert(utf8.encode(identity)).toString();
-    return 'pdf_cache_$digest.pdf';
   }
 }
 

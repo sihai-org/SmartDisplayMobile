@@ -980,7 +980,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get task_view_result => '查看结果';
+  String get task_view_result => '预览';
 
   @override
   String get task_pdf_default_title => 'PDF预览';

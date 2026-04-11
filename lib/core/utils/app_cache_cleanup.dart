@@ -11,6 +11,11 @@ class AppCacheCleanup {
   static Future<void> _clearPdfPreviewCache() async {
     try {
       final tempDir = await getTemporaryDirectory();
+      await _deleteDirIfExists(Directory('${tempDir.path}/task_file_cache'));
+      await _deleteDirIfExists(Directory('${tempDir.path}/task_file_share'));
+      await _deleteDirIfExists(
+        Directory('${tempDir.path}/task_file_downloads'),
+      );
       await _deleteDirIfExists(Directory('${tempDir.path}/pdf_share'));
       await _deleteFilesByPrefix(tempDir, 'pdf_cache_');
     } catch (_) {

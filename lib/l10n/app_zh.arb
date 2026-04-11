@@ -363,7 +363,7 @@
       "time": {}
     }
   },
-  "task_view_result": "查看结果",
+  "task_view_result": "预览",
   "task_pdf_default_title": "PDF预览",
   "task_pdf_missing_task_id": "任务ID缺失",
   "task_pdf_no_available_link": "无可用PDF链接",

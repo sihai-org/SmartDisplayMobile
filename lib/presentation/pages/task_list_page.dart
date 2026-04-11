@@ -6,9 +6,11 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_display_mobile/core/log/app_log.dart';
+import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
+import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskListPage extends StatefulWidget {
@@ -23,6 +25,7 @@ class _TaskListPageState extends State<TaskListPage> {
 
   final ScrollController _scrollController = ScrollController();
   final List<TaskVO> _items = [];
+  final Set<String> _sharingTaskIds = <String>{};
 
   bool _isLoading = false;
   bool _isRefreshing = false;
@@ -314,6 +317,114 @@ class _TaskListPageState extends State<TaskListPage> {
     }
   }
 
+  Future<void> _handleTaskTap(TaskVO task) async {
+    final l10n = context.l10n;
+    final isSuccess = task.status == TaskStatus.success;
+    if (!isSuccess) {
+      Fluttertoast.showToast(msg: l10n.task_preview_only_success);
+      return;
+    }
+
+    if (task.isPpt) {
+      final taskId = task.id.trim();
+      if (_sharingTaskIds.contains(taskId)) return;
+      setState(() {
+        _sharingTaskIds.add(taskId);
+      });
+      try {
+        await TaskFileService.shareTaskFile(context, task);
+      } finally {
+        if (mounted) {
+          setState(() {
+            _sharingTaskIds.remove(taskId);
+          });
+        }
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    context.push(AppRoutes.taskPdfPreview, extra: task);
+  }
+
+  ImageProvider _taskIcon(TaskVO task) {
+    return AssetImage(
+      task.isPpt ? 'assets/images/icon_ppt.png' : 'assets/images/icon_pdf.png',
+    );
+  }
+
+  String _displayTitle(BuildContext context, TaskVO task) {
+    final baseTitle = task.title.trim().isEmpty
+        ? context.l10n.task_unnamed
+        : task.title;
+    return appendFileExtensionIfMissing(
+      baseTitle,
+      extension: task.isPpt ? 'pptx' : 'pdf',
+    );
+  }
+
+  String _successActionLabel(BuildContext context, TaskVO task) {
+    return task.isPpt
+        ? context.l10n.task_pdf_share
+        : context.l10n.task_view_result;
+  }
+
+  double _itemOpacity(TaskVO task) {
+    return task.status == TaskStatus.success ? 1 : 0.56;
+  }
+
+  Widget? _buildTaskTrailingWidget(
+    BuildContext context,
+    TaskVO task,
+    bool isSharing,
+  ) {
+    switch (task.status) {
+      case TaskStatus.pending:
+      case TaskStatus.running:
+      case TaskStatus.failed:
+      case TaskStatus.cancelled:
+        final statusColor = _statusColor(context, task.status);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            _statusLabel(context, task.status),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: statusColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      case TaskStatus.success:
+        if (!task.isPpt) return null;
+        if (isSharing) {
+          return const SizedBox(
+            width: 32,
+            height: 32,
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        return Text(
+          _successActionLabel(context, task),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.blue[600],
+            fontWeight: FontWeight.w600,
+          ),
+        );
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -341,7 +452,7 @@ class _TaskListPageState extends State<TaskListPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const CircularProgressIndicator(),
-                                SizedBox(height: 12),
+                                const SizedBox(height: 12),
                                 Text(l10n.task_loading_data),
                               ],
                             )
@@ -351,19 +462,19 @@ class _TaskListPageState extends State<TaskListPage> {
                                 Container(
                                   width: 88,
                                   height: 88,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     color: Color(0xFFEEEEEE),
                                     borderRadius: BorderRadius.all(
                                       Radius.circular(20),
                                     ),
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.task_outlined,
                                     size: 40,
                                     color: Color(0xFF9E9E9E),
                                   ),
                                 ),
-                                SizedBox(height: 16),
+                                const SizedBox(height: 16),
                                 Text(
                                   l10n.task_empty,
                                   textAlign: TextAlign.center,
@@ -388,13 +499,13 @@ class _TaskListPageState extends State<TaskListPage> {
                 ListView.separated(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   itemCount: _items.length + (showLoadMoreFooter ? 1 : 0),
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     if (index >= _items.length) {
                       return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: 12),
                         child: Center(
                           child: SizedBox(
                             width: 20,
@@ -406,94 +517,84 @@ class _TaskListPageState extends State<TaskListPage> {
                     }
 
                     final task = _items[index];
-                    final statusColor = _statusColor(context, task.status);
-                    final isSuccess = task.status == TaskStatus.success;
-                    final canPreviewPdf = isSuccess;
+                    final isSharing =
+                        task.isPpt && _sharingTaskIds.contains(task.id.trim());
+                    final trailingWidget = _buildTaskTrailingWidget(
+                      context,
+                      task,
+                      isSharing,
+                    );
                     return Material(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          if (!isSuccess) {
-                            Fluttertoast.showToast(
-                              msg: l10n.task_preview_only_success,
-                            );
-                            return;
-                          }
-                          context.push(AppRoutes.taskPdfPreview, extra: task);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      task.title.trim().isEmpty
-                                          ? l10n.task_unnamed
-                                          : task.title,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withValues(
-                                        alpha: 0.12,
+                        onTap: () => _handleTaskTap(task),
+                        child: Opacity(
+                          opacity: _itemOpacity(task),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Image(
+                                  image: _taskIcon(task),
+                                  width: 32,
+                                  height: 32,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _displayTitle(context, task),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      _statusLabel(context, task.status),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: statusColor,
-                                            fontWeight: FontWeight.w600,
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: SizedBox(
+                                              width: 108,
+                                              child: Text(
+                                                _formatCreateTime(
+                                                  task.createTime,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: Colors.grey[600],
+                                                    ),
+                                              ),
+                                            ),
                                           ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      l10n.task_created_time(
-                                        _formatCreateTime(task.createTime),
+                                        ],
                                       ),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: Colors.grey[600]),
-                                    ),
+                                    ],
                                   ),
-                                  if (canPreviewPdf)
-                                    Text(
-                                      l10n.task_view_result,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: Colors.blue[600]),
-                                    ),
+                                ),
+                                if (trailingWidget != null) ...[
+                                  const SizedBox(width: 8),
+                                  trailingWidget,
                                 ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

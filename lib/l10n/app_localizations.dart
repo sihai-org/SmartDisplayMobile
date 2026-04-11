@@ -1928,7 +1928,7 @@ abstract class AppLocalizations {
   /// No description provided for @task_view_result.
   ///
   /// In en, this message translates to:
-  /// **'View result'**
+  /// **'Preview'**
   String get task_view_result;
 
   /// No description provided for @task_pdf_default_title.

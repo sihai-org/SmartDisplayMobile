@@ -14,6 +14,12 @@ class TaskVO {
     required this.finishTime,
     required this.type,
   });
+
+  bool get isPpt => type.trim().toLowerCase() == TaskFileType.ppt;
+
+  bool get isPdf => !isPpt;
+
+  String get normalizedType => isPpt ? TaskFileType.ppt : TaskFileType.pdf;
 }
 
 class TaskStatus {
@@ -22,4 +28,9 @@ class TaskStatus {
   static const String success = 'success';
   static const String failed = 'failed';
   static const String cancelled = 'cancelled';
+}
+
+class TaskFileType {
+  static const String pdf = 'pdf';
+  static const String ppt = 'ppt';
 }
