@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
@@ -11,19 +12,23 @@ import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FileShareService {
+class TaskFileService {
   static Future<void> shareTaskFile(BuildContext context, TaskVO task) async {
     final l10n = context.l10n;
     final shareOrigin = _shareOriginRect(context);
     try {
-      final downloadUrl = await _fetchTaskDownloadUrl(
-        task,
-        loginExpiredMessage: l10n.login_expired,
-        missingTaskIdMessage: l10n.task_pdf_missing_task_id,
-        noAvailableLinkMessage: l10n.task_pdf_no_available_link,
-      );
-      final localFile = await _downloadToTemp(task, downloadUrl);
-      final shareFile = await _prepareShareFile(task, localFile);
+      final localFile =
+          await readValidCachedFileForTask(task) ??
+          await (() async {
+            final downloadUrl = await _fetchTaskDownloadUrl(
+              task,
+              loginExpiredMessage: l10n.login_expired,
+              missingTaskIdMessage: l10n.task_pdf_missing_task_id,
+              noAvailableLinkMessage: l10n.task_pdf_no_available_link,
+            );
+            return downloadToCacheIfNeeded(task, downloadUrl);
+          })();
+      final shareFile = await prepareShareFile(task, localFile);
       final fileName = _buildFileName(task);
 
       await SharePlus.instance.share(
@@ -121,7 +126,47 @@ class FileShareService {
     return null;
   }
 
-  static Future<File> _downloadToTemp(TaskVO task, String downloadUrl) async {
+  static String cacheIdentityForTask(TaskVO? task, {String? fileExtension}) {
+    final taskId = task?.id.trim() ?? '';
+    final createTime = task?.createTime.trim() ?? '';
+    final finishTime = task?.finishTime.trim() ?? '';
+    final extension = _normalizedExtension(task, fileExtension);
+    return '$taskId|$createTime|$finishTime|$extension';
+  }
+
+  static String cacheFileNameForTask(TaskVO? task, {String? fileExtension}) {
+    final identity = cacheIdentityForTask(task, fileExtension: fileExtension);
+    final digest = crypto.md5.convert(utf8.encode(identity)).toString();
+    final extension = _normalizedExtension(task, fileExtension);
+    return 'task_file_cache_$digest.$extension';
+  }
+
+  static Future<File?> readValidCachedFileForTask(
+    TaskVO? task, {
+    String? fileExtension,
+  }) async {
+    final cacheRoot = await _cacheRootDirectory();
+    final file = File(
+      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: fileExtension)}',
+    );
+    if (!await file.exists()) return null;
+    if (await file.length() <= 0) return null;
+    return file;
+  }
+
+  static Future<File> downloadToCacheIfNeeded(
+    TaskVO task,
+    String downloadUrl, {
+    String? fileExtension,
+  }) async {
+    final cached = await readValidCachedFileForTask(
+      task,
+      fileExtension: fileExtension,
+    );
+    if (cached != null) {
+      return cached;
+    }
+
     final response = await http.get(Uri.parse(downloadUrl));
     if (response.statusCode != 200) {
       throw HttpException('HTTP ${response.statusCode}');
@@ -130,21 +175,23 @@ class FileShareService {
       throw const HttpException('Empty response body');
     }
 
-    final tempDir = await getTemporaryDirectory();
-    final downloadRoot = Directory('${tempDir.path}/task_file_downloads');
-    await downloadRoot.create(recursive: true);
-
-    final file = File('${downloadRoot.path}/${_buildFileName(task)}');
+    final cacheRoot = await _cacheRootDirectory();
+    final file = File(
+      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: fileExtension)}',
+    );
     await file.writeAsBytes(response.bodyBytes, flush: true);
     return file;
   }
 
-  static Future<File> _prepareShareFile(TaskVO task, File sourceFile) async {
-    final tempDir = await getTemporaryDirectory();
-    final shareRoot = Directory('${tempDir.path}/task_file_share');
-    await shareRoot.create(recursive: true);
-
-    final targetFile = File('${shareRoot.path}/${_buildFileName(task)}');
+  static Future<File> prepareShareFile(
+    TaskVO task,
+    File sourceFile, {
+    String? displayFileName,
+  }) async {
+    final shareRoot = await _shareRootDirectory();
+    final targetFile = File(
+      '${shareRoot.path}/${displayFileName ?? _buildFileName(task)}',
+    );
     if (await targetFile.exists()) {
       await targetFile.delete();
     }
@@ -175,6 +222,28 @@ class FileShareService {
     return task.isPpt
         ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
         : 'application/pdf';
+  }
+
+  static String _normalizedExtension(TaskVO? task, String? fileExtension) {
+    final explicit = fileExtension?.trim().toLowerCase();
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit.startsWith('.') ? explicit.substring(1) : explicit;
+    }
+    return task?.isPpt == true ? 'pptx' : 'pdf';
+  }
+
+  static Future<Directory> _cacheRootDirectory() async {
+    final tempDir = await getTemporaryDirectory();
+    final cacheRoot = Directory('${tempDir.path}/task_file_cache');
+    await cacheRoot.create(recursive: true);
+    return cacheRoot;
+  }
+
+  static Future<Directory> _shareRootDirectory() async {
+    final tempDir = await getTemporaryDirectory();
+    final shareRoot = Directory('${tempDir.path}/task_file_share');
+    await shareRoot.create(recursive: true);
+    return shareRoot;
   }
 
   static Rect _shareOriginRect(BuildContext context) {

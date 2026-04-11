@@ -6,7 +6,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_display_mobile/core/log/app_log.dart';
-import 'package:smart_display_mobile/core/services/file_share_service.dart';
+import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
@@ -331,7 +331,7 @@ class _TaskListPageState extends State<TaskListPage> {
         _sharingTaskIds.add(taskId);
       });
       try {
-        await FileShareService.shareTaskFile(context, task);
+        await TaskFileService.shareTaskFile(context, task);
       } finally {
         if (mounted) {
           setState(() {
