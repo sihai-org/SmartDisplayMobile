@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/app_localizations.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,9 +21,13 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const String _privacyPolicyUrl = 'https://m.vzngpt.com/privacy.html';
+  static const String _termsUrl = 'https://m.vzngpt.com/terms.html';
+
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
+  bool _hasAgreed = false;
   String? _error;
 
   int _secondsRemaining = 0;
@@ -82,6 +87,10 @@ class _LoginPageState extends State<LoginPage> {
   /// 发送验证码
   Future<void> _sendOtp() async {
     final l10n = context.l10n;
+    if (!_hasAgreed) {
+      Fluttertoast.showToast(msg: l10n.login_agreement_required);
+      return;
+    }
     FocusScope.of(context).unfocus(); // 收起键盘
 
     if (_secondsRemaining > 0 || !_isEmailValid) return;
@@ -157,6 +166,10 @@ class _LoginPageState extends State<LoginPage> {
   /// 验证验证码（登录）
   Future<void> _verifyOtp() async {
     final l10n = context.l10n;
+    if (!_hasAgreed) {
+      Fluttertoast.showToast(msg: l10n.login_agreement_required);
+      return;
+    }
     FocusScope.of(context).unfocus(); // 收起键盘
 
     final email = _emailController.text.trim();
@@ -232,6 +245,11 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     return l10n.login_failed_generic;
+  }
+
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.parse(url);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -380,6 +398,64 @@ class _LoginPageState extends State<LoginPage> {
                             )
                           : Text(l10n.login_button),
                     ),
+
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: _hasAgreed,
+                        onChanged: (value) {
+                          setState(() => _hasAgreed = value ?? false);
+                        },
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                l10n.login_agreement_prefix,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              GestureDetector(
+                                onTap: () =>
+                                    _openExternalUrl(_privacyPolicyUrl),
+                                child: Text(
+                                  l10n.privacy_policy,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                ),
+                              ),
+                              Text(
+                                l10n.login_agreement_and,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              GestureDetector(
+                                onTap: () => _openExternalUrl(_termsUrl),
+                                child: Text(
+                                  l10n.user_agreement,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

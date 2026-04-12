@@ -695,6 +695,36 @@ abstract class AppLocalizations {
   /// **'Send Code'**
   String get send_otp;
 
+  /// No description provided for @login_agreement_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'I have read and agree to '**
+  String get login_agreement_prefix;
+
+  /// No description provided for @login_agreement_and.
+  ///
+  /// In en, this message translates to:
+  /// **' and '**
+  String get login_agreement_and;
+
+  /// No description provided for @privacy_policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacy_policy;
+
+  /// No description provided for @user_agreement.
+  ///
+  /// In en, this message translates to:
+  /// **'User Agreement'**
+  String get user_agreement;
+
+  /// No description provided for @login_agreement_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please read and agree to the Privacy Policy and User Agreement first.'**
+  String get login_agreement_required;
+
   /// No description provided for @signout_failed.
   ///
   /// In en, this message translates to:

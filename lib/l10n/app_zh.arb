@@ -105,6 +105,11 @@
   "otp_spam_hint": "没收到验证码？请检查垃圾邮件或广告邮件。",
   "resend_in": "重新发送 ({seconds}s)",
   "send_otp": "发送验证码",
+  "login_agreement_prefix": "我已阅读并同意",
+  "login_agreement_and": "和",
+  "privacy_policy": "《隐私政策》",
+  "user_agreement": "《用户协议》",
+  "login_agreement_required": "请先阅读并同意《隐私政策》和《用户协议》",
   "signout_failed": "退出失败，请重试。"
   ,
   "google_signin_placeholder": "敬请期待",

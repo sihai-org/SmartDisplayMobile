@@ -315,6 +315,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get send_otp => 'Send Code';
 
   @override
+  String get login_agreement_prefix => 'I have read and agree to ';
+
+  @override
+  String get login_agreement_and => ' and ';
+
+  @override
+  String get privacy_policy => 'Privacy Policy';
+
+  @override
+  String get user_agreement => 'User Agreement';
+
+  @override
+  String get login_agreement_required => 'Please read and agree to the Privacy Policy and User Agreement first.';
+
+  @override
   String get signout_failed => 'Sign out failed. Please try again.';
 
   @override

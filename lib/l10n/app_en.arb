@@ -105,6 +105,11 @@
   "otp_spam_hint": "Didn't receive the code? Please check Spam or Promotions.",
   "resend_in": "Resend in {seconds}s",
   "send_otp": "Send Code",
+  "login_agreement_prefix": "I have read and agree to ",
+  "login_agreement_and": " and ",
+  "privacy_policy": "Privacy Policy",
+  "user_agreement": "User Agreement",
+  "login_agreement_required": "Please read and agree to the Privacy Policy and User Agreement first.",
   "signout_failed": "Sign out failed. Please try again."
   ,
   "google_signin_placeholder": "Coming soon",

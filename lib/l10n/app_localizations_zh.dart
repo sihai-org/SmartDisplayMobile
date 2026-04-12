@@ -315,6 +315,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get send_otp => '发送验证码';
 
   @override
+  String get login_agreement_prefix => '我已阅读并同意';
+
+  @override
+  String get login_agreement_and => '和';
+
+  @override
+  String get privacy_policy => '《隐私政策》';
+
+  @override
+  String get user_agreement => '《用户协议》';
+
+  @override
+  String get login_agreement_required => '请先阅读并同意《隐私政策》和《用户协议》';
+
+  @override
   String get signout_failed => '退出失败，请重试。';
 
   @override
