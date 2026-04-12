@@ -1,112 +1,302 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VznGPT — Privacy Policy</title>
-  <meta name="description" content="Privacy Policy for VznGPT">
-  <link rel="icon" type="image/png" href="favicon.png">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Privacy Policy - VznGPT</title>
   <style>
-    :root { --fg:#1f2937; --muted:#6b7280; --bg:#ffffff; --card:#ffffff; --border:#e5e7eb; --accent:#2563eb; }
-    @media (prefers-color-scheme: dark) {
-      :root { --fg:#e5e7eb; --muted:#9ca3af; --bg:#0b0f14; --card:#0f141a; --border:#1f2937; --accent:#60a5fa; }
+    :root {
+      --text: #1f2328;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --bg: #ffffff;
+      --accent: #2563eb;
+      --max-width: 820px;
     }
-    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 64px; }
-    h1 { font-size: 28px; margin: 0 0 12px; }
-    h2 { font-size: 18px; margin: 28px 0 10px; }
-    p { line-height: 1.7; margin: 10px 0; color: var(--fg); }
-    ul { margin: 8px 0 8px 18px; }
-    li { margin: 6px 0; color: var(--fg); }
-    .muted { color: var(--muted); }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    header { margin-bottom: 18px; }
-    .app { font-weight: 600; }
-    .footer { margin-top: 36px; font-size: 13px; color: var(--muted); }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner {
+      width: min(100% - 32px, var(--max-width));
+      margin: 0 auto;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+    .brand {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .container {
+      width: min(100% - 32px, var(--max-width));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .subtitle, .updated {
+      color: var(--muted);
+    }
+    .subtitle { margin: 0 0 8px; font-size: 15px; }
+    .updated { margin: 0 0 28px; font-size: 14px; }
+    .section {
+      padding: 22px 0;
+      border-top: 1px solid var(--line);
+    }
+    .section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+    }
+    p { margin: 0; }
+    p + p { margin-top: 12px; }
+    ul { margin: 0; padding-left: 20px; }
+    li + li { margin-top: 8px; }
+    .company-block { white-space: pre-line; }
+    .footer {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    @media (max-width: 640px) {
+      .topbar-inner, .container { width: min(100% - 24px, var(--max-width)); }
+      h1 { font-size: 28px; }
+      h2 { font-size: 18px; }
+    }
   </style>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="VznGPT">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="manifest" href="manifest.json">
-  <!-- This page is a static document; it does not load or run Flutter. -->
-  <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#0f141a">
-  
 </head>
 <body>
-  <main class="wrap">
-    <header>
-      <h1>Privacy Policy</h1>
-      <p class="muted">Last updated: 2025-11-03</p>
-      <p>This Privacy Policy describes how <span class="app">VznGPT</span> ("the App") handles information when you use the App to scan a device QR code, connect via Bluetooth Low Energy (BLE), and configure network settings.</p>
-    </header>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">VznGPT</div>
+  </div>
+</header>
+<main class="container">
+  <h1>Privacy Policy</h1>
+  <p class="subtitle">This Privacy Policy explains how we collect, use, disclose, store, and protect
+    your information when you use VznGPT and related device services.</p>
+  <p class="updated">Last updated: 2026-04-12</p>
 
-    <section class="card">
-      <h2>Overview</h2>
-      <p>We designed the App to collect the minimum data necessary to provide its core features: pairing with your SmartDisplay device, performing a secure handshake, and sending Wi‑Fi credentials to the device. Sensitive credentials are encrypted in transit and never written to persistent storage by the App.</p>
-    </section>
+  <section class="section">
+    <h2>Company Information</h2>
+    <div class="company-block">Wuhan Datou AI Technology Co., Ltd.<br>General Aviation and Satellite
+      Industrial Park<br>No. 1 25407<br>Wuhan, HUBEI 430058<br>China Mainland<br>Email:
+      support@vzngpt.com
+    </div>
+  </section>
 
-    <h2>Information We Collect</h2>
-    <p>Depending on how you use the App, we may process the following data:</p>
-    <ul>
-      <li><strong>Account information</strong> (optional): if you sign in, we process your email address and basic account identifiers via our authentication provider (Supabase).</li>
-      <li><strong>Device binding metadata</strong>: device identifier, device name, device public key, firmware version, and timestamps associated with binding the device to your account. This may be synchronized to our backend to enable multi‑device access.</li>
-      <li><strong>Diagnostic data</strong> (limited): non‑personal logs or error codes needed to troubleshoot connectivity issues, when applicable.</li>
+  <section class="section"><h2>1. Overview</h2>
+    <p>We value your privacy and are committed to handling personal information responsibly. This
+      Privacy Policy applies to your access to and use of VznGPT, including related account
+      functions, device pairing, network configuration, diagnostics, and support services. Please
+      read this Policy carefully so that you understand what information we collect, why we collect
+      it, and the choices available to you.</p></section>
+
+  <section class="section"><h2>2. Information We Collect</h2>
+    <p>Depending on how you use the App and related devices, we may collect the following categories
+      of information:</p>
+    <ul style="margin-top:12px;">
+      <li>Account Information, such as your email address, login credentials, and authentication
+        identifiers.
+      </li>
+      <li>Device Information, such as device name, device identifier, firmware version, model
+        information, pairing records, and connection status.
+      </li>
+      <li>Usage Information, such as feature interactions, operation logs, crash logs, error codes,
+        and app activity records.
+      </li>
+      <li>Technical Information, such as IP address, app version, operating system, language
+        settings, device type, and network environment information.
+      </li>
+      <li>Support Information, such as information you voluntarily provide when contacting customer
+        support, reporting issues, or submitting feedback.
+      </li>
     </ul>
+  </section>
 
-    <h2>Sensitive Data Handling</h2>
-    <ul>
-      <li><strong>Wi‑Fi credentials</strong>: transmitted to your SmartDisplay device via an end‑to‑end encrypted channel (X25519 ECDH + AES‑GCM) and not stored by the App.</li>
-      <li><strong>Cryptographic material</strong>: session keys are generated in memory and cleared after use.</li>
+  <section class="section"><h2>3. How We Use Information</h2>
+    <p>We may use the information we collect for the following purposes:</p>
+    <ul style="margin-top:12px;">
+      <li>To register and manage user accounts and maintain login sessions.</li>
+      <li>To provide device discovery, pairing, connection, configuration, and management
+        functions.
+      </li>
+      <li>To enable QR code scanning, Bluetooth Low Energy (BLE) communication, Wi-Fi configuration,
+        and related setup processes.
+      </li>
+      <li>To maintain service quality, troubleshoot technical issues, and improve product
+        performance and stability.
+      </li>
+      <li>To protect the security of the App, related devices, users, and systems, including
+        detection and prevention of abuse, fraud, unauthorized access, or other harmful activities.
+      </li>
+      <li>To respond to inquiries, feedback, complaints, or support requests.</li>
+      <li>To comply with applicable legal obligations, regulatory requirements, or lawful
+        requests.
+      </li>
     </ul>
+  </section>
 
-    <h2>Permissions and Device Access</h2>
-    <ul>
-      <li><strong>Camera</strong>: used to scan device QR codes. No images or video are stored.</li>
-      <li><strong>Bluetooth</strong>: used to discover and connect to your SmartDisplay over BLE.</li>
-      <li><strong>Location (Android requirement for BLE)</strong>: on some Android versions, location permission is required to perform BLE scans. The App does not collect or store your location.</li>
-      <li><strong>Photos/Media (optional)</strong>: used only if you choose to pick an image for QR decoding or device avatar in the future; images are not uploaded without your action.</li>
+  <section class="section"><h2>4. Permissions and Device Access</h2>
+    <p>To deliver core functionality, the App may request access to certain device permissions and
+      hardware capabilities. For example, camera access may be used for scanning QR codes, Bluetooth
+      access may be used for discovering and connecting to nearby devices, and certain Android
+      location permissions may be required by the operating system for BLE scanning. We request only
+      the permissions reasonably necessary to provide relevant functions.</p></section>
+
+  <section class="section"><h2>5. Sensitive Information and Network Configuration</h2>
+    <p>Some device setup scenarios may involve sensitive operational data. We take reasonable steps
+      to reduce privacy and security risk, including:</p>
+    <ul style="margin-top:12px;">
+      <li>Using secure transmission methods during device communication and configuration where
+        applicable.
+      </li>
+      <li>Limiting the use of Wi-Fi credentials or similar setup data to the connection and
+        provisioning process.
+      </li>
+      <li>Avoiding unnecessary retention of highly sensitive setup information within the App where
+        not required for service delivery.
+      </li>
+      <li>Applying session-based or temporary security measures where supported by the underlying
+        technology.
+      </li>
     </ul>
+  </section>
 
-    <h2>How We Use Information</h2>
-    <ul>
-      <li>To provide core App functionality (QR scanning, BLE pairing, secure configuration).</li>
-      <li>To synchronize your device bindings across sessions and devices when signed in.</li>
-      <li>To maintain security, prevent misuse, and improve reliability.</li>
+  <section class="section"><h2>6. How We Share Information</h2>
+    <p>We do not sell your personal information. We may share information only in limited
+      circumstances, including:</p>
+    <ul style="margin-top:12px;">
+      <li>With service providers, contractors, or technical vendors that support account services,
+        hosting, storage, analytics, security, or customer support, subject to appropriate
+        obligations.
+      </li>
+      <li>With affiliated entities where necessary for internal administration, product maintenance,
+        or support operations.
+      </li>
+      <li>Where required by applicable law, regulation, legal process, or government request.</li>
+      <li>Where necessary to protect the rights, property, safety, or security of our company,
+        users, devices, services, or others.
+      </li>
+      <li>In connection with a merger, acquisition, financing, restructuring, sale of assets, or
+        similar corporate transaction, subject to applicable legal requirements.
+      </li>
     </ul>
+  </section>
 
-    <h2>Data Storage and Security</h2>
-    <ul>
-      <li><strong>Local</strong>: certain data (e.g., your saved device list and last selected device) may be stored locally and scoped to your signed‑in account using secure storage on your device.</li>
-      <li><strong>Cloud</strong>: account and device‑binding records may be stored with our service provider (Supabase). We apply access controls so that your account can only access your own records.</li>
-      <li><strong>Encryption</strong>: sensitive network credentials are never persisted and are protected in transit with modern cryptography.</li>
+  <section class="section"><h2>7. International Data Transfers</h2>
+    <p>Depending on the architecture of our services and vendors, your information may be processed,
+      accessed, or stored in jurisdictions outside your country or region. In such cases:</p>
+    <ul style="margin-top:12px;">
+      <li>We will take reasonable steps to ensure that transferred information is handled with
+        appropriate safeguards.
+      </li>
+      <li>You understand that data protection rules in other jurisdictions may differ from those in
+        your place of residence.
+      </li>
+      <li>By using the App where permitted by law, you acknowledge that your information may be
+        transferred and processed across borders for the purposes described in this Policy.
+      </li>
     </ul>
+  </section>
 
-    <h2>Sharing and Disclosure</h2>
-    <p>We do not sell your personal information. We may share limited data with service providers strictly to operate the App (e.g., authentication and data storage via Supabase). These providers process data on our behalf under appropriate agreements.</p>
+  <section class="section"><h2>8. Data Retention</h2>
+    <p>We retain information only for as long as reasonably necessary to fulfill the purposes
+      described in this Policy, including providing services, maintaining account functionality,
+      resolving disputes, enforcing agreements, complying with legal obligations, and protecting
+      security. Retention periods may vary depending on the type of information and the context in
+      which it is collected.</p></section>
 
-    <h2>Children’s Privacy</h2>
-    <p>The App is not directed to children under 13, and we do not knowingly collect personal information from children.</p>
+  <section class="section"><h2>9. Data Security</h2>
+    <p>We implement reasonable technical, administrative, and organizational measures designed to
+      protect personal information against unauthorized access, loss, misuse, alteration, or
+      disclosure. However, no software, device environment, network transmission, or storage system
+      can be guaranteed to be completely secure, and you should also take appropriate steps to
+      protect your own account credentials and devices.</p></section>
 
-    <h2>Your Choices and Rights</h2>
+  <section class="section"><h2>10. Your Choices and Controls</h2>
+    <p>You may choose whether to provide certain information, although some features may not
+      function properly without it. You may also manage permissions through your device settings,
+      stop using the App at any time, or contact us regarding account-related requests. If supported
+      by the App or required by applicable law, you may also request deletion of your account or
+      associated personal information.</p></section>
+
+  <section class="section"><h2>11. Your Privacy Rights</h2>
     <ul>
-      <li><strong>Sign out</strong>: you can sign out at any time from the App’s profile page.</li>
-      <li><strong>Access/Deletion</strong>: to request access to or deletion of your account data, please contact us.</li>
-      <li><strong>Permissions</strong>: you can revoke camera, Bluetooth, and location permissions in your device settings; some features may stop working.</li>
+      <li>Request access to personal information we hold about you, subject to applicable law.</li>
+      <li>Request correction of inaccurate or incomplete information.</li>
+      <li>Request deletion of personal information where permitted by law.</li>
+      <li>Object to or request restriction of certain processing activities where applicable.</li>
+      <li>Request data portability where such rights are recognized by applicable law.</li>
     </ul>
+  </section>
 
-    <h2>Changes to This Policy</h2>
-    <p>We may update this Privacy Policy to reflect changes to the App or applicable laws. We will revise the “Last updated” date accordingly. Material changes will be communicated within the App or via release notes when appropriate.</p>
+  <section class="section"><h2>12. Children’s Privacy</h2>
+    <ul>
+      <li>The App is not intended for children under the age required by applicable law for
+        independent consent.
+      </li>
+      <li>We do not knowingly collect personal information from children in violation of applicable
+        law.
+      </li>
+      <li>If you believe a child has provided us with personal information improperly, please
+        contact us so that we can review and take appropriate action.
+      </li>
+    </ul>
+  </section>
 
-    <h2>Contact Us</h2>
-    <p>If you have questions about this Privacy Policy or your data, please reach out via our issue tracker:
-      <a href="#" rel="noopener">contact@datouai.cn</a>。
-    </p>
+  <section class="section"><h2>13. Third-Party Services</h2>
+    <p>The App may rely on third-party technologies or infrastructure providers to support
+      authentication, cloud storage, analytics, crash reporting, or other technical functions. These
+      third parties may process data on our behalf in accordance with contractual or legal
+      obligations. Their own privacy terms may also apply to the extent they independently provide
+      services or platforms.</p></section>
 
-    <p class="footer">App: VznGPT · Organization: Wuhan Datou Artificial Intelligence Technology Co., Ltd</p>
-  </main>
+  <section class="section"><h2>14. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time to reflect service changes, legal
+      requirements, or operational adjustments. When we do, we may update the effective date shown
+      above. Your continued use of the App after the updated Policy takes effect indicates your
+      acceptance of the revised version to the extent permitted by law.</p></section>
+
+  <section class="section"><h2>15. Contact Us</h2>
+    <p>If you have any questions, requests, or complaints regarding this Privacy Policy or our
+      information handling practices, please contact us using the details below.</p></section>
+
+  <section class="section"><h2>16. Contact Information</h2>
+    <p>Email: support@vzngpt.com</p></section>
+
+  <section class="section"><h2>17. Language</h2>
+    <p>This Privacy Policy may be made available in multiple languages. In case of any inconsistency
+      or conflict, the English version shall prevail.</p></section>
+
+  <div class="footer">VznGPT Privacy Policy</div>
+</main>
 </body>
 </html>

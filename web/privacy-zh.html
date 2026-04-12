@@ -1,111 +1,243 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>心显智联 — 隐私政策</title>
-  <meta name="description" content="心显智联（VznGPT）的隐私政策">
-  <link rel="icon" type="image/png" href="favicon.png">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>隐私政策 - VznGPT</title>
   <style>
-    :root { --fg:#1f2937; --muted:#6b7280; --bg:#ffffff; --card:#ffffff; --border:#e5e7eb; --accent:#2563eb; }
-    @media (prefers-color-scheme: dark) {
-      :root { --fg:#e5e7eb; --muted:#9ca3af; --bg:#0b0f14; --card:#0f141a; --border:#1f2937; --accent:#60a5fa; }
+    :root {
+      --text: #1f2328;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --bg: #ffffff;
+      --accent: #2563eb;
+      --max-width: 820px;
     }
-    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, Noto Sans SC, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 64px; }
-    h1 { font-size: 28px; margin: 0 0 12px; }
-    h2 { font-size: 18px; margin: 28px 0 10px; }
-    p { line-height: 1.8; margin: 10px 0; color: var(--fg); }
-    ul { margin: 8px 0 8px 18px; }
-    li { margin: 6px 0; color: var(--fg); }
-    .muted { color: var(--muted); }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    header { margin-bottom: 18px; }
-    .app { font-weight: 600; }
-    .footer { margin-top: 36px; font-size: 13px; color: var(--muted); }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner {
+      width: min(100% - 32px, var(--max-width));
+      margin: 0 auto;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+    .brand {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .container {
+      width: min(100% - 32px, var(--max-width));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .subtitle, .updated {
+      color: var(--muted);
+    }
+    .subtitle { margin: 0 0 8px; font-size: 15px; }
+    .updated { margin: 0 0 28px; font-size: 14px; }
+    .section {
+      padding: 22px 0;
+      border-top: 1px solid var(--line);
+    }
+    .section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: -0.01em;
+    }
+    p { margin: 0; }
+    p + p { margin-top: 12px; }
+    ul { margin: 0; padding-left: 20px; }
+    li + li { margin-top: 8px; }
+    .company-block { white-space: pre-line; }
+    .footer {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    @media (max-width: 640px) {
+      .topbar-inner, .container { width: min(100% - 24px, var(--max-width)); }
+      h1 { font-size: 28px; }
+      h2 { font-size: 18px; }
+    }
   </style>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="心显智联">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="manifest" href="manifest.json">
-  <!-- 本页面为静态文档，不加载或运行 Flutter。 -->
-  <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#0f141a">
 </head>
 <body>
-  <main class="wrap">
-    <header>
-      <h1>隐私政策</h1>
-      <p class="muted">最近更新：2025-11-03</p>
-      <p>本隐私政策旨在说明您使用 <span class="app">心显智联</span>（下称“本应用”）时，我们如何处理与保护您的信息，包括扫描设备二维码、通过蓝牙低功耗（BLE）连接设备以及进行网络配置等场景。</p>
-    </header>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">VznGPT</div>
+  </div>
+</header>
+<main class="container">
+  <h1>隐私政策</h1>
+  <p class="subtitle">本隐私政策说明我们在您使用 VznGPT
+    及相关设备服务时，如何收集、使用、披露、存储和保护您的信息。</p>
+  <p class="updated">更新日期：2026-04-12</p>
 
-    <section class="card">
-      <h2>总体说明</h2>
-      <p>本应用以“最小化数据收集”为原则，仅为实现核心功能而处理必要信息：与设备配对、执行安全握手、并将 Wi‑Fi 凭据安全传输至设备。敏感凭据仅在传输过程中加密处理，不会被本应用持久化存储。</p>
-    </section>
+  <section class="section">
+    <h2>公司信息</h2>
+    <div class="company-block">Wuhan Datou AI Technology Co., Ltd.<br>General Aviation and Satellite
+      Industrial Park<br>No. 1 25407<br>武汉，湖北 430058<br>中国大陆<br>邮箱：support@vzngpt.com
+    </div>
+  </section>
 
-    <h2>我们收集的信息</h2>
-    <p>根据您的使用方式，我们可能会处理以下信息：</p>
-    <ul>
-      <li><strong>账号信息（可选）</strong>：当您登录时，我们会通过身份认证服务商（Supabase）处理您的邮箱地址及基础账号标识。</li>
-      <li><strong>设备绑定元数据</strong>：设备标识、设备名称、设备公钥、固件版本及与账号绑定的相关时间信息。为实现账号下多端访问，上述信息可能会同步至后端。</li>
-      <li><strong>诊断数据（有限）</strong>：在必要时记录非个人化日志或错误代码，用于排查连接问题。</li>
+  <section class="section"><h2>一、概述</h2>
+    <p>我们重视您的隐私，并致力于以负责任的方式处理个人信息。本隐私政策适用于您对 VznGPT
+      的访问和使用，包括相关账户功能、设备配对、网络配置、故障诊断及支持服务。请您仔细阅读本政策，以了解我们会收集哪些信息、为何收集这些信息，以及您可享有的相关选择和权利。</p>
+  </section>
+
+  <section class="section"><h2>二、我们收集的信息</h2>
+    <p>根据您使用本应用及相关设备的方式，我们可能会收集以下类别的信息：</p>
+    <ul style="margin-top:12px;">
+      <li>账户信息，例如您的邮箱地址、登录凭证及认证标识。</li>
+      <li>设备信息，例如设备名称、设备标识符、固件版本、型号信息、配对记录及连接状态。</li>
+      <li>使用信息，例如功能使用记录、操作日志、崩溃日志、错误代码及应用活动记录。</li>
+      <li>技术信息，例如 IP 地址、应用版本、操作系统、语言设置、设备类型及网络环境信息。</li>
+      <li>支持信息，例如您在联系客服、反馈问题或提交建议时主动提供的信息。</li>
     </ul>
+  </section>
 
-    <h2>敏感数据处理</h2>
-    <ul>
-      <li><strong>Wi‑Fi 凭据</strong>：通过端到端加密通道（X25519 ECDH + AES‑GCM）发送到您的设备，不在本应用中持久化保存。</li>
-      <li><strong>加密材料</strong>：会话密钥仅在内存中生成与使用，完成后会清理。</li>
+  <section class="section"><h2>三、我们如何使用信息</h2>
+    <p>我们可能将收集的信息用于以下目的：</p>
+    <ul style="margin-top:12px;">
+      <li>用于注册和管理用户账户，并维持登录会话。</li>
+      <li>用于提供设备发现、配对、连接、配置及管理功能。</li>
+      <li>用于实现二维码扫描、蓝牙低功耗（BLE）通信、Wi-Fi 配置及相关初始化流程。</li>
+      <li>用于维护服务质量、排查技术问题，并持续改进产品性能与稳定性。</li>
+      <li>
+        用于保护本应用、相关设备、用户及系统的安全，包括识别和防止滥用、欺诈、未授权访问及其他有害行为。
+      </li>
+      <li>用于响应咨询、反馈、投诉或技术支持请求。</li>
+      <li>用于遵守适用法律义务、监管要求或合法请求。</li>
     </ul>
+  </section>
 
-    <h2>权限使用与设备访问</h2>
-    <ul>
-      <li><strong>相机</strong>：用于扫描设备二维码。本应用不保存图像或视频内容。</li>
-      <li><strong>蓝牙</strong>：用于发现并通过 BLE 与您的设备连接。</li>
-      <li><strong>位置（Android BLE 要求）</strong>：在部分 Android 版本上，为进行 BLE 扫描需要位置权限。本应用不采集也不存储您的位置信息。</li>
-      <li><strong>照片/媒体（可选）</strong>：仅在您选择从相册选取图片进行二维码解码或设置设备头像等场景下使用；未经您的主动操作不会上传。</li>
+  <section class="section"><h2>四、权限与设备访问</h2>
+    <p>为了实现核心功能，本应用可能会申请访问部分设备权限及硬件能力。例如，相机权限可能用于扫描二维码，蓝牙权限可能用于发现并连接附近设备，部分
+      Android 定位权限可能因操作系统要求而用于 BLE
+      扫描。我们仅会在实现相关功能所合理必要的范围内申请相应权限。</p></section>
+
+  <section class="section"><h2>五、敏感信息与网络配置</h2>
+    <p>
+      某些设备初始化场景可能涉及较为敏感的运行数据。我们会采取合理措施降低隐私与安全风险，包括但不限于：</p>
+    <ul style="margin-top:12px;">
+      <li>在适用情况下，于设备通信及配置过程中采用安全传输方式。</li>
+      <li>将 Wi-Fi 凭证或类似配置信息的使用限制在连接和下发流程中。</li>
+      <li>在非服务必要的情况下，避免在应用中不必要地长期保存高敏感配置数据。</li>
+      <li>在底层技术支持的前提下，采用会话型或临时性的安全保护机制。</li>
     </ul>
+  </section>
 
-    <h2>我们如何使用信息</h2>
-    <ul>
-      <li>用于实现应用核心功能（二维码扫描、BLE 配对、安全配置）。</li>
-      <li>在您登录的前提下，同步设备绑定记录以支持多端使用与会话恢复。</li>
-      <li>用于保障安全、防止滥用并提升稳定性。</li>
+  <section class="section"><h2>六、我们如何共享信息</h2>
+    <p>我们不会出售您的个人信息。我们仅会在有限且必要的情况下共享信息，包括：</p>
+    <ul style="margin-top:12px;">
+      <li>
+        与支持账户服务、托管、存储、分析、安全或客户支持的服务提供商、承包商或技术供应商共享，但其需承担适当义务。
+      </li>
+      <li>在内部管理、产品维护或支持运营必要时，与关联方共享。</li>
+      <li>在适用法律、法规、司法程序或政府机关要求下进行披露。</li>
+      <li>在保护本公司、用户、设备、服务或他人的权利、财产、安全或保障所必需时进行披露。</li>
+      <li>在合并、收购、融资、重组、资产出售或类似公司交易中，在符合法律要求的前提下进行必要披露。</li>
     </ul>
+  </section>
 
-    <h2>数据存储与安全</h2>
-    <ul>
-      <li><strong>本地存储</strong>：如“已保存设备列表”“上次选择的设备”等，可能以当前登录账号为作用域，安全地存储在您的设备上。</li>
-      <li><strong>云端存储</strong>：账号及设备绑定记录可能托管在我们的服务提供商（Supabase）。我们实施访问控制，确保仅您的账号可访问自身数据。</li>
-      <li><strong>加密保护</strong>：敏感网络凭据不做持久化，并在传输链路中以现代密码学进行保护。</li>
+  <section class="section"><h2>七、跨境传输</h2>
+    <p>
+      根据我们的服务架构及供应商情况，您的信息可能会在您所在国家或地区之外被处理、访问或存储。在此情况下：</p>
+    <ul style="margin-top:12px;">
+      <li>我们会采取合理措施，确保跨境传输的信息得到适当保护。</li>
+      <li>您理解，不同司法辖区的数据保护规则可能与您所在地规则存在差异。</li>
+      <li>
+        在法律允许的范围内，您使用本应用即表示您知悉并认可，为实现本政策所述目的，您的信息可能会被跨境传输和处理。
+      </li>
     </ul>
+  </section>
 
-    <h2>共享与披露</h2>
-    <p>我们不会出售您的个人信息。为运营本应用之目的，我们可能与服务提供商共享必要数据（例如通过 Supabase 进行认证与数据存储），该等提供商会依据适当协议代表我们处理数据。</p>
+  <section class="section"><h2>八、数据保留</h2>
+    <p>
+      我们仅会在为实现本政策所述目的合理必要的期限内保留信息，包括提供服务、维持账户功能、解决争议、执行协议、履行法律义务及保障安全等。具体保留期限将根据信息类型及收集场景而有所不同。</p>
+  </section>
 
-    <h2>未成年人保护</h2>
-    <p>本应用并非面向 13 周岁以下的儿童，我们不会有意收集儿童的个人信息。</p>
+  <section class="section"><h2>九、数据安全</h2>
+    <p>
+      我们采取合理的技术、管理和组织措施，旨在防止个人信息遭受未授权访问、丢失、滥用、篡改或披露。但任何软件、设备环境、网络传输或存储系统都无法保证绝对安全，您也应妥善保护自己的账户凭证及设备安全。</p>
+  </section>
 
-    <h2>您的权利与选择</h2>
+  <section class="section"><h2>十、您的选择与控制</h2>
+    <p>
+      您可以自行选择是否提供某些信息，但若拒绝提供，部分功能可能无法正常使用。您也可以通过设备设置管理相关权限，随时停止使用本应用，或就账户相关请求联系我们。如本应用支持或适用法律有要求，您还可以申请删除账户或相关个人信息。</p>
+  </section>
+
+  <section class="section"><h2>十一、您的隐私权利</h2>
     <ul>
-      <li><strong>退出登录</strong>：您可随时在“个人/我的”页面退出登录。</li>
-      <li><strong>访问与删除</strong>：如需访问或删除您的账号数据，请与我们联系。</li>
-      <li><strong>权限管理</strong>：您可在系统设置中撤回相机、蓝牙、位置等权限；撤回后相应功能可能无法使用。</li>
+      <li>在适用法律允许的范围内，请求访问我们持有的您的个人信息。</li>
+      <li>请求更正不准确或不完整的信息。</li>
+      <li>在法律允许的情况下，请求删除个人信息。</li>
+      <li>在适用情形下，反对或限制某些处理活动。</li>
+      <li>在适用法律认可的情况下，请求数据可携带。</li>
     </ul>
+  </section>
 
-    <h2>本政策的变更</h2>
-    <p>我们可能会根据应用功能或法律法规的变化更新本政策，并在页面顶部更新“最近更新”日期；重大变更时将于应用内或版本发布说明中进行提示。</p>
+  <section class="section"><h2>十二、未成年人隐私</h2>
+    <ul>
+      <li>本应用不面向未达到适用法律规定独立同意年龄的未成年人。</li>
+      <li>我们不会在违反适用法律的情况下，故意收集未成年人的个人信息。</li>
+      <li>如您认为有未成年人不当地向我们提供了个人信息，请及时联系我们，以便我们核查并采取适当措施。
+      </li>
+    </ul>
+  </section>
 
-    <h2>联系我们</h2>
-    <p>如对本隐私政策或您的数据有任何疑问，欢迎通过问题反馈渠道联系：
-      <a href="#" rel="noopener">contact@datouai.cn</a>。
-    </p>
+  <section class="section"><h2>十三、第三方服务</h2>
+    <p>
+      本应用可能依赖第三方技术或基础设施服务商，以支持认证、云存储、数据分析、崩溃报告或其他技术功能。这些第三方可能按照合同义务或法律要求代表我们处理数据。在其独立提供平台或服务的范围内，其自身隐私条款也可能适用。</p>
+  </section>
 
-    <p class="footer">应用：心显智联· 组织：武汉市大头人工智能科技有限公司</p>
-  </main>
+  <section class="section"><h2>十四、政策更新</h2>
+    <p>
+      我们可能会不时更新本隐私政策，以反映服务变化、法律要求或运营调整。届时，我们可能会更新页面顶部所示的生效日期。在法律允许的范围内，更新后的政策生效后您继续使用本应用，即视为您接受修订后的版本。</p>
+  </section>
+
+  <section class="section"><h2>十五、联系我们</h2>
+    <p>如您对本隐私政策或我们的信息处理方式有任何疑问、请求或投诉，请通过以下方式联系我们。</p>
+  </section>
+
+  <section class="section"><h2>十六、联系方式</h2>
+    <p>邮箱：support@vzngpt.com</p></section>
+
+  <section class="section"><h2>十七、语言说明</h2>
+    <p>本隐私政策可能提供多语言版本。如不同语言版本之间存在不一致或冲突，以英文版本为准。</p></section>
+
+  <div class="footer">VznGPT 隐私政策</div>
+</main>
 </body>
 </html>
