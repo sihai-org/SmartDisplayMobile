@@ -93,11 +93,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   /// 发送验证码
   Future<void> _sendOtp() async {
     final l10n = context.l10n;
+    FocusScope.of(context).unfocus(); // 先收起键盘，避免底部 toast 被遮挡
     if (!_hasAgreed) {
       Fluttertoast.showToast(msg: l10n.login_agreement_required);
       return;
     }
-    FocusScope.of(context).unfocus(); // 收起键盘
 
     if (_secondsRemaining > 0 || !_isEmailValid) return;
 
@@ -199,11 +199,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   /// 验证验证码（登录）
   Future<void> _verifyOtp() async {
     final l10n = context.l10n;
+    FocusScope.of(context).unfocus(); // 先收起键盘，避免底部 toast 被遮挡
     if (!_hasAgreed) {
       Fluttertoast.showToast(msg: l10n.login_agreement_required);
       return;
     }
-    FocusScope.of(context).unfocus(); // 收起键盘
 
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
