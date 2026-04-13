@@ -9,30 +9,87 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
+import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskFileService {
+  static const String _shareLogTag = 'TaskFileShare';
+
   static Future<void> shareTaskFile(BuildContext context, TaskVO task) async {
     final l10n = context.l10n;
     final shareOrigin = _shareOriginRect(context);
-    try {
-      final localFile =
-          await readValidCachedFileForTask(task) ??
-          await (() async {
-            final downloadUrl = await _fetchTaskDownloadUrl(
-              task,
-              loginExpiredMessage: l10n.login_expired,
-              missingTaskIdMessage: l10n.task_pdf_missing_task_id,
-              noAvailableLinkMessage: l10n.task_pdf_no_available_link,
-            );
-            return downloadToCacheIfNeeded(task, downloadUrl);
-          })();
-      final shareFile = await prepareShareFile(task, localFile);
-      final fileName = _buildFileName(task);
+    final totalStopwatch = Stopwatch()..start();
+    final taskId = task.id.trim();
+    final fileName = _buildFileName(task);
 
-      await SharePlus.instance.share(
+    AppLog.instance.info(
+      'start taskId=$taskId type=${task.normalizedType} fileName="$fileName"',
+      tag: _shareLogTag,
+    );
+
+    try {
+      final cacheLookupStopwatch = Stopwatch()..start();
+      final cachedFile = await readValidCachedFileForTask(task);
+      cacheLookupStopwatch.stop();
+
+      File localFile;
+      if (cachedFile != null) {
+        final cachedSize = await cachedFile.length();
+        AppLog.instance.info(
+          'cache hit taskId=$taskId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds} '
+          'size=${_formatBytes(cachedSize)} path=${_fileLabel(cachedFile)}',
+          tag: _shareLogTag,
+        );
+        localFile = cachedFile;
+      } else {
+        AppLog.instance.info(
+          'cache miss taskId=$taskId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds}',
+          tag: _shareLogTag,
+        );
+
+        final fetchUrlStopwatch = Stopwatch()..start();
+        final downloadUrl = await _fetchTaskDownloadUrl(
+          task,
+          loginExpiredMessage: l10n.login_expired,
+          missingTaskIdMessage: l10n.task_pdf_missing_task_id,
+          noAvailableLinkMessage: l10n.task_pdf_no_available_link,
+        );
+        fetchUrlStopwatch.stop();
+        AppLog.instance.info(
+          'fetch url done taskId=$taskId fetchUrlMs=${fetchUrlStopwatch.elapsedMilliseconds} '
+          'host=${_urlHost(downloadUrl)}',
+          tag: _shareLogTag,
+        );
+
+        final downloadStopwatch = Stopwatch()..start();
+        localFile = await downloadToCacheIfNeeded(task, downloadUrl);
+        downloadStopwatch.stop();
+        final downloadedSize = await localFile.length();
+        AppLog.instance.info(
+          'download done taskId=$taskId downloadMs=${downloadStopwatch.elapsedMilliseconds} '
+          'size=${_formatBytes(downloadedSize)} path=${_fileLabel(localFile)}',
+          tag: _shareLogTag,
+        );
+      }
+
+      final prepareShareStopwatch = Stopwatch()..start();
+      final shareFile = await prepareShareFile(task, localFile);
+      prepareShareStopwatch.stop();
+      final shareFileSize = await shareFile.length();
+      AppLog.instance.info(
+        'prepare share file done taskId=$taskId prepareShareMs=${prepareShareStopwatch.elapsedMilliseconds} '
+        'size=${_formatBytes(shareFileSize)} path=${_fileLabel(shareFile)}',
+        tag: _shareLogTag,
+      );
+
+      AppLog.instance.info(
+        'invoke system share taskId=$taskId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: _shareLogTag,
+      );
+      final shareStopwatch = Stopwatch()..start();
+      final shareResult = await SharePlus.instance.share(
         ShareParams(
           files: [
             XFile(shareFile.path, mimeType: _mimeType(task), name: fileName),
@@ -41,7 +98,24 @@ class TaskFileService {
           sharePositionOrigin: shareOrigin,
         ),
       );
-    } catch (_) {
+      shareStopwatch.stop();
+      totalStopwatch.stop();
+
+      AppLog.instance.info(
+        'share result taskId=$taskId shareMs=${shareStopwatch.elapsedMilliseconds} '
+        'totalMs=${totalStopwatch.elapsedMilliseconds} status=${shareResult.status.name} '
+        'raw=${_shareRaw(shareResult.raw)}',
+        tag: _shareLogTag,
+      );
+    } catch (error, stackTrace) {
+      totalStopwatch.stop();
+      AppLog.instance.error(
+        'share failed taskId=$taskId type=${task.normalizedType} '
+        'totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: _shareLogTag,
+        error: error,
+        stackTrace: stackTrace,
+      );
       Fluttertoast.showToast(msg: l10n.task_pdf_share_failed);
     }
   }
@@ -256,5 +330,32 @@ class TaskFileService {
       }
     }
     return const Rect.fromLTWH(1, 1, 1, 1);
+  }
+
+  static String _fileLabel(File file) {
+    final segments = file.uri.pathSegments;
+    return segments.isEmpty ? file.path : segments.last;
+  }
+
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+  }
+
+  static String _urlHost(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host.isEmpty ? '(empty-host)' : uri.host;
+    } catch (_) {
+      return '(invalid-url)';
+    }
+  }
+
+  static String _shareRaw(String raw) {
+    if (raw.isEmpty) return '(empty)';
+    return raw;
   }
 }
