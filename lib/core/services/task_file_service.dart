@@ -221,12 +221,13 @@ class TaskFileService {
     String? fileExtension,
   }) async {
     final cacheRoot = await _cacheRootDirectory();
+    final extension = _normalizedExtension(task, fileExtension);
     final file = File(
-      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: fileExtension)}',
+      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: extension)}',
     );
-    if (!await file.exists()) return null;
-    if (await file.length() <= 0) return null;
-    return file;
+    final tempFile = File('${file.path}.tmp');
+    await _deleteIfExists(tempFile);
+    return _readAndValidateCachedFile(file, extension: extension);
   }
 
   static Future<File> downloadToCacheIfNeeded(
@@ -234,9 +235,10 @@ class TaskFileService {
     String downloadUrl, {
     String? fileExtension,
   }) async {
+    final extension = _normalizedExtension(task, fileExtension);
     final cached = await readValidCachedFileForTask(
       task,
-      fileExtension: fileExtension,
+      fileExtension: extension,
     );
     if (cached != null) {
       return cached;
@@ -252,9 +254,22 @@ class TaskFileService {
 
     final cacheRoot = await _cacheRootDirectory();
     final file = File(
-      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: fileExtension)}',
+      '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: extension)}',
     );
-    await file.writeAsBytes(response.bodyBytes, flush: true);
+    final tempFile = File('${file.path}.tmp');
+    await _deleteIfExists(tempFile);
+    await tempFile.writeAsBytes(response.bodyBytes, flush: true);
+
+    final validatedTemp = await _readAndValidateCachedFile(
+      tempFile,
+      extension: extension,
+    );
+    if (validatedTemp == null) {
+      throw const HttpException('Invalid downloaded file');
+    }
+
+    await _deleteIfExists(file);
+    await validatedTemp.rename(file.path);
     return file;
   }
 
@@ -357,5 +372,119 @@ class TaskFileService {
   static String _shareRaw(String raw) {
     if (raw.isEmpty) return '(empty)';
     return raw;
+  }
+
+  static Future<File?> _readAndValidateCachedFile(
+    File file, {
+    required String extension,
+  }) async {
+    if (!await file.exists()) return null;
+
+    final length = await file.length();
+    if (length <= 0) {
+      await _deleteCorruptedFile(
+        file,
+        reason: 'empty file',
+        extension: extension,
+      );
+      return null;
+    }
+
+    final isValid = await _isLikelyValidFile(file, extension: extension);
+    if (!isValid) {
+      await _deleteCorruptedFile(
+        file,
+        reason: 'signature check failed',
+        extension: extension,
+      );
+      return null;
+    }
+
+    return file;
+  }
+
+  static Future<bool> _isLikelyValidFile(
+    File file, {
+    required String extension,
+  }) async {
+    final normalized = extension.trim().toLowerCase();
+    if (normalized == 'pdf') {
+      return _looksLikePdf(file);
+    }
+    if (normalized == 'pptx') {
+      return _looksLikeZipContainer(file);
+    }
+    return true;
+  }
+
+  static Future<bool> _looksLikePdf(File file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.length < 8) return false;
+
+    const header = '%PDF-';
+    if (!_hasPrefix(bytes, ascii.encode(header))) {
+      return false;
+    }
+
+    const eof = '%%EOF';
+    return _lastIndexOf(bytes, ascii.encode(eof)) >= 0;
+  }
+
+  static Future<bool> _looksLikeZipContainer(File file) async {
+    final bytes = await file.readAsBytes();
+    if (bytes.length < 22) return false;
+
+    const localFileHeader = [0x50, 0x4B, 0x03, 0x04];
+    if (!_hasPrefix(bytes, localFileHeader)) {
+      return false;
+    }
+
+    const eocd = [0x50, 0x4B, 0x05, 0x06];
+    return _lastIndexOf(bytes, eocd) >= 0;
+  }
+
+  static bool _hasPrefix(List<int> bytes, List<int> prefix) {
+    if (bytes.length < prefix.length) return false;
+    for (var i = 0; i < prefix.length; i++) {
+      if (bytes[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
+  static int _lastIndexOf(List<int> bytes, List<int> pattern) {
+    if (pattern.isEmpty || bytes.length < pattern.length) return -1;
+    for (var i = bytes.length - pattern.length; i >= 0; i--) {
+      var matched = true;
+      for (var j = 0; j < pattern.length; j++) {
+        if (bytes[i + j] != pattern[j]) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) return i;
+    }
+    return -1;
+  }
+
+  static Future<void> _deleteCorruptedFile(
+    File file, {
+    required String reason,
+    required String extension,
+  }) async {
+    AppLog.instance.warning(
+      'delete invalid task cache file=${_fileLabel(file)} extension=$extension reason=$reason',
+      tag: _shareLogTag,
+    );
+    await _deleteIfExists(file);
+  }
+
+  static Future<void> _deleteIfExists(File file) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // best effort
+    }
   }
 }
