@@ -15,6 +15,7 @@ import '../../core/audit/audit_mode.dart';
 import '../../core/providers/audit_mode_provider.dart';
 import '../../core/log/app_log.dart';
 import '../../core/constants/app_environment.dart';
+import '../../core/providers/package_info_provider.dart';
 import '../../core/providers/gray_key_map_provider.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/utils/app_cache_cleanup.dart';
@@ -114,6 +115,7 @@ class ProfilePage extends ConsumerWidget {
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
     final locale = ref.watch(localeProvider);
+    final packageInfoAsync = ref.watch(packageInfoProvider);
     final devicesCount = saved.devices.length;
     final Uri helpUri = Uri.parse(
       'https://monitor.vzngpt.com/manual?from=mobile_help',
@@ -228,7 +230,9 @@ class ProfilePage extends ConsumerWidget {
                   ),
                   title: Text(l10n.version),
                   trailing: Text(
-                    AppConstants.appVersion,
+                    packageInfoAsync.value?.version.isNotEmpty == true
+                        ? packageInfoAsync.value!.version
+                        : '-',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),

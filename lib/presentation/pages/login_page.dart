@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,20 +11,25 @@ import 'package:go_router/go_router.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
+import '../../core/providers/package_info_provider.dart';
+import '../../data/repositories/user_privacy_repository.dart';
 
 import '../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/audit_mode_provider.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   static const String _privacyPolicyUrl = 'https://m.vzngpt.com/privacy.html';
   static const String _termsUrl = 'https://m.vzngpt.com/terms.html';
 
+  final UserPrivacyRepository _userPrivacyRepository = UserPrivacyRepository();
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
@@ -140,8 +146,9 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _handleLogoTap(BuildContext context) async {
+  Future<void> _handleLogoTap() async {
     final now = DateTime.now();
+    final auditModeEnabledMessage = context.l10n.audit_mode_enabled;
     if (_firstTapAt == null ||
         now.difference(_firstTapAt!) > const Duration(seconds: 3)) {
       _firstTapAt = now;
@@ -155,11 +162,37 @@ class _LoginPageState extends State<LoginPage> {
         final container = ProviderScope.containerOf(context, listen: false);
         await container.read(auditModeProvider.notifier).enable();
       } catch (_) {}
-      Fluttertoast.showToast(msg: context.l10n.audit_mode_enabled);
+      if (!mounted) return;
+      Fluttertoast.showToast(msg: auditModeEnabledMessage);
       // Navigate after mock device is seeded and state loaded
-      if (context.mounted) {
-        context.go(AppRoutes.home);
-      }
+      context.go(AppRoutes.home);
+    }
+  }
+
+  Future<void> _reportAgreementAcceptance({
+    required String accessToken,
+    required String locale,
+  }) async {
+    try {
+      final packageInfo = await ref.read(packageInfoProvider.future);
+      await _userPrivacyRepository.acceptAgreement(
+        accessToken: accessToken,
+        locale: locale,
+        packageInfo: packageInfo,
+      );
+    } catch (e, st) {
+      final warningPayload = <String, dynamic>{
+        'event': 'user_privacy_accept_agreement_failed_after_login',
+        'error_type': e.runtimeType.toString(),
+        if (e is UserPrivacyRequestException) ...e.requestPayload,
+        'error_message': e.toString(),
+      };
+      AppLog.instance.warning(
+        jsonEncode(warningPayload),
+        tag: 'UserPrivacyApi',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -195,6 +228,13 @@ class _LoginPageState extends State<LoginPage> {
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'success',
         );
+        unawaited(
+          _reportAgreementAcceptance(
+            accessToken: response.session!.accessToken,
+            locale: l10n.localeName,
+          ),
+        );
+        if (!mounted) return;
         Fluttertoast.showToast(msg: l10n.login_success);
         context.go(AppRoutes.home);
       } else {
@@ -275,7 +315,7 @@ class _LoginPageState extends State<LoginPage> {
                       width: 96,
                       height: 96,
                       child: GestureDetector(
-                        onTap: () => _handleLogoTap(context),
+                        onTap: _handleLogoTap,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
@@ -429,7 +469,6 @@ class _LoginPageState extends State<LoginPage> {
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.primary,
-                                        decoration: TextDecoration.underline,
                                       ),
                                 ),
                               ),
@@ -446,7 +485,6 @@ class _LoginPageState extends State<LoginPage> {
                                         color: Theme.of(
                                           context,
                                         ).colorScheme.primary,
-                                        decoration: TextDecoration.underline,
                                       ),
                                 ),
                               ),

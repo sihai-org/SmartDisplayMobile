@@ -1,21 +1,22 @@
 import 'package:smart_display_mobile/core/models/version_update_config.dart';
 
 import 'dart:io';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/log/app_log.dart';
 
 abstract class VersionUpdateRepository {
-  Future<VersionUpdateConfig?> getVersionUpdateConfig();
+  Future<VersionUpdateConfig?> getVersionUpdateConfig(PackageInfo packageInfo);
 }
 
 class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
   SupabaseVersionUpdateRepository();
 
   @override
-  Future<VersionUpdateConfig?> getVersionUpdateConfig() async {
+  Future<VersionUpdateConfig?> getVersionUpdateConfig(
+    PackageInfo packageInfo,
+  ) async {
     try {
-      final info = await PackageInfo.fromPlatform();
       // platform
       final platform = Platform.isIOS
           ? 'ios'
@@ -23,18 +24,18 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
           ? 'android'
           : null;
       // version_code（⚠️ 必须是纯整数）
-      final version_code = int.tryParse(info.buildNumber) ?? 0;
+      final versionCode = int.tryParse(packageInfo.buildNumber) ?? 0;
       // version_name
-      final version_name = info.version;
+      final versionName = packageInfo.version;
 
       final response = await Supabase.instance.client.functions.invoke(
-        'mobile_check_update?platform=${platform}&version_code=${version_code}&version_name=${version_name}',
+        'mobile_check_update?platform=$platform&version_code=$versionCode&version_name=$versionName',
         method: HttpMethod.get, // 一定要加
       );
       final respData = response.data;
 
       AppLog.instance.info(
-        "mobile_check_update status=${response.status}, data=${respData}",
+        'mobile_check_update status=${response.status}, data=$respData',
       );
 
       if (response.status != 200) {
