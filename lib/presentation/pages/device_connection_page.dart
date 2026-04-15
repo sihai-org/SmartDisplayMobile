@@ -162,7 +162,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
               await _disconnectAndClearOnUserExit();
-              if (!mounted) return;
+              if (!context.mounted) return;
               context.go(AppRoutes.qrScanner);
             },
           ),
@@ -189,12 +189,10 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 20,
                             height: 20,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -239,7 +237,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
+                    color: colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -255,7 +253,7 @@ class _DeviceConnectionPageState extends ConsumerState<DeviceConnectionPage> {
                     children: [
                       Text(
                         qrDeviceData?.deviceName ?? context.l10n.unknown_device,
-                        style: theme.textTheme.titleMedium,
+                        style: const TextStyle(fontSize: 18),
                       ),
                     ],
                   ),
