@@ -216,6 +216,7 @@
   "bind_mobile_network_error": "Mobile network connection failed. Please check and retry.",
   "bind_device_network_timeout": "Device network timeout. Please check and retry.",
   "bind_success": "Device linked successfully",
+  "bind_wifi_help_text": "Having trouble? Try changing device Wi‑Fi",
   
   "firmware_version_label": "Version",
   "manage_network": "Manage Network",

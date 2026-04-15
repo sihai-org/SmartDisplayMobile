@@ -1313,6 +1313,12 @@ abstract class AppLocalizations {
   /// **'Device linked successfully'**
   String get bind_success;
 
+  /// No description provided for @bind_wifi_help_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Having trouble? Try changing device Wi‑Fi'**
+  String get bind_wifi_help_text;
+
   /// No description provided for @firmware_version_label.
   ///
   /// In en, this message translates to:

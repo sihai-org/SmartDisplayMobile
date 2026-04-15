@@ -184,8 +184,11 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final scannedDisplayDeviceId =
             state.uri.queryParameters['scannedDisplayDeviceId'];
+        final returnToBindConfirm =
+            state.uri.queryParameters['returnToBindConfirm'] == '1';
         return WiFiSelectionPage(
           scannedDisplayDeviceId: scannedDisplayDeviceId,
+          returnToBindConfirm: returnToBindConfirm,
         );
       },
     ),

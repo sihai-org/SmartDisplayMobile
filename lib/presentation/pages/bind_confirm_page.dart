@@ -169,24 +169,16 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.tv, color: Colors.grey),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          scanned.deviceName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      scanned.deviceName,
+                      style: const TextStyle(fontSize: 18),
                     ),
                   ),
                 ],
@@ -220,7 +212,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                SizedBox(
+                                const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
@@ -238,6 +230,43 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              _buildWifiHelpText(context),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWifiHelpText(BuildContext context) {
+    final theme = Theme.of(context);
+    final helpStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    void route() {
+      final idParam = Uri.encodeComponent(widget.displayDeviceId);
+      context.push(
+        '${AppRoutes.wifiSelection}?scannedDisplayDeviceId=$idParam&returnToBindConfirm=1',
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: route,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(context.l10n.bind_wifi_help_text, style: helpStyle),
+              Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

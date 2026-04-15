@@ -640,6 +640,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bind_success => 'Device linked successfully';
 
   @override
+  String get bind_wifi_help_text => 'Having trouble? Try changing device Wi‑Fi';
+
+  @override
   String get firmware_version_label => 'Version';
 
   @override

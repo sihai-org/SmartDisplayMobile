@@ -10,9 +10,14 @@ import '../../core/utils/binding_flow_utils.dart';
 import '../../core/utils/wifi_signal_strength.dart';
 
 class WiFiSelectionPage extends ConsumerStatefulWidget {
-  const WiFiSelectionPage({super.key, this.scannedDisplayDeviceId});
+  const WiFiSelectionPage({
+    super.key,
+    this.scannedDisplayDeviceId,
+    this.returnToBindConfirm = false,
+  });
 
   final String? scannedDisplayDeviceId;
+  final bool returnToBindConfirm;
 
   @override
   ConsumerState<WiFiSelectionPage> createState() => _WiFiSelectionPageState();
@@ -23,8 +28,28 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
   final _pwdController = TextEditingController();
   bool _sending = false;
   bool _obscurePwd = true;
+
+  bool get _shouldKeepBindingFlowAlive => widget.returnToBindConfirm;
+
   Future<void> _disconnectAndClearOnUserExit() async {
     await BindingFlowUtils.disconnectAndClearOnUserExit(context, ref);
+  }
+
+  void _handleBack() {
+    if (!context.mounted) return;
+
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+
+    if (_shouldKeepBindingFlowAlive && getIsScanned()) {
+      final idParam = Uri.encodeComponent(widget.scannedDisplayDeviceId ?? "");
+      context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
+      return;
+    }
+
+    context.go(AppRoutes.home);
   }
 
   @override
@@ -60,16 +85,20 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         .read(bleConnectionProvider.notifier)
         .sendWifiConfig(ssid, pwd);
     setState(() => _sending = false);
+    if (!mounted) return;
 
     if (ok) {
       Fluttertoast.showToast(msg: context.l10n.provision_success);
 
-      if (!mounted) return;
-
       if (widget.scannedDisplayDeviceId != null &&
           widget.scannedDisplayDeviceId!.isNotEmpty) {
-        final idParam =
-            Uri.encodeComponent(widget.scannedDisplayDeviceId ?? "");
+        final idParam = Uri.encodeComponent(
+          widget.scannedDisplayDeviceId ?? "",
+        );
+        if (_shouldKeepBindingFlowAlive) {
+          _handleBack();
+          return;
+        }
         if (ref.read(bleConnectionProvider).emptyBound) {
           context.go('${AppRoutes.bindConfirm}?displayDeviceId=$idParam');
         } else {
@@ -97,17 +126,12 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
       // 允许系统返回手势/按钮先尝试出栈
       canPop: true,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop && getIsScanned()) {
+        if (didPop && getIsScanned() && !_shouldKeepBindingFlowAlive) {
           unawaited(_disconnectAndClearOnUserExit());
         }
 
         if (!didPop && context.mounted) {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            // 无回退栈时退回首页（设备详情）
-            context.go(AppRoutes.home);
-          }
+          _handleBack();
         }
       },
       child: Scaffold(
@@ -117,16 +141,10 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () async {
-              if (getIsScanned()) {
+              if (getIsScanned() && !_shouldKeepBindingFlowAlive) {
                 await _disconnectAndClearOnUserExit();
               }
-              if (!context.mounted) return;
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                // 无回退栈时退回首页（设备详情）
-                context.go(AppRoutes.home);
-              }
+              _handleBack();
             },
           ),
           // 移除右侧关闭按钮，统一使用左侧返回
@@ -141,8 +159,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
                 child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(minHeight: constraints.maxHeight - 32),
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 32,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -152,10 +171,11 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                           const Icon(Icons.wifi, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                              context.l10n
-                                  .nearby_networks_count(wifiNetworks.length),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600)),
+                            context.l10n.nearby_networks_count(
+                              wifiNetworks.length,
+                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                           const Spacer(),
                           TextButton.icon(
                             icon: isScanning
@@ -163,44 +183,45 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                                     width: 18,
                                     height: 18,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2),
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Icon(Icons.refresh),
                             label: Text(context.l10n.rescan),
                             onPressed: isScanning
                                 ? null
                                 : () => ref
-                                    .read(bleConnectionProvider.notifier)
-                                    .requestWifiScan(),
-                          )
+                                      .read(bleConnectionProvider.notifier)
+                                      .requestWifiScan(),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       if (isScanning)
                         Text(
                           context.l10n.wifi_scanning,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                  color:
-                                      Theme.of(context).colorScheme.secondary),
+                                color: Theme.of(context).colorScheme.secondary,
+                              ),
                         )
                       else if (lastScanAt != null)
                         Text(
                           context.l10n.last_wifi_scan_time(
-                              _formatDateTime(context, lastScanAt)),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                            _formatDateTime(context, lastScanAt),
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline),
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
                         ),
                       const SizedBox(height: 8),
                       _buildWifiNetworks(wifiNetworks, isScanning),
                       const SizedBox(height: 16),
-                      Text(context.l10n.manual_wifi_entry_title,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        context.l10n.manual_wifi_entry_title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _ssidController,
@@ -244,10 +265,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                     Positioned.fill(
                       child: Container(
                         // scrim 建议用 surface + alpha，暗色/亮色都自然
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surface
-                            .withOpacity(0.72),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surface.withOpacity(0.72),
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -262,7 +282,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                               Text(
                                 context.l10n.provisioning_please_wait,
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -291,7 +313,9 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(Icons.send),
         label: Text(context.l10n.send_provision_request),
@@ -322,19 +346,25 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
                         ? Theme.of(context).colorScheme.outline
                         : Colors.green,
                   ),
-                  title: Text(ap.ssid,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  title: Text(
+                    ap.ssid,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: ap.rssi != 0
-                      ? Text([
-                          wifiSignalStrengthLabel(context.l10n, ap.rssi),
-                          context.l10n.wifi_rssi_dbm_label(ap.rssi),
-                        ].join(' · '))
+                      ? Text(
+                          [
+                            wifiSignalStrengthLabel(context.l10n, ap.rssi),
+                            context.l10n.wifi_rssi_dbm_label(ap.rssi),
+                          ].join(' · '),
+                        )
                       : null,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     _ssidController.text = ap.ssid;
                     Fluttertoast.showToast(
-                        msg: context.l10n.selected_network(ap.ssid));
+                      msg: context.l10n.selected_network(ap.ssid),
+                    );
                   },
                 );
               },
@@ -359,34 +389,29 @@ class _WiFiSelectionPageState extends ConsumerState<WiFiSelectionPage> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color: Theme
-                  .of(context)
-                  .colorScheme
-                  .onSurface
-                  .withOpacity(0.3),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
               borderRadius: BorderRadius.circular(8),
             ),
-              alignment: Alignment.center,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 14),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      blurRadius: 18,
-                      spreadRadius: 1,
-                      offset: Offset(0, 6),
-                      color: Colors.black26,
-                    ),
-                  ],
-                ),
-                child: Text(
-                  context.l10n.wifi_scanning,
-                  style: theme.textTheme.bodyMedium,
-                ),
-              )
+            alignment: Alignment.center,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(
+                    blurRadius: 18,
+                    spreadRadius: 1,
+                    offset: Offset(0, 6),
+                    color: Colors.black26,
+                  ),
+                ],
+              ),
+              child: Text(
+                context.l10n.wifi_scanning,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
           ),
         ),
       ],

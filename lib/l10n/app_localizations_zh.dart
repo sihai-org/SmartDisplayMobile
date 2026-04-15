@@ -640,6 +640,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bind_success => '绑定成功';
 
   @override
+  String get bind_wifi_help_text => '遇到问题？试试切换设备 Wi‑Fi';
+
+  @override
   String get firmware_version_label => '固件版本';
 
   @override
