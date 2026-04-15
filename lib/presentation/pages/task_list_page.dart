@@ -125,7 +125,11 @@ class _TaskListPageState extends State<TaskListPage> {
           if (accessToken != null && accessToken.isNotEmpty)
             'X-Access-Token': accessToken,
         },
-        body: jsonEncode({'page': page, 'page_size': pageSize}),
+        body: jsonEncode({
+          'page': page,
+          'page_size': pageSize,
+          'type_list': AgentTaskType.supportedList,
+        }),
       );
 
       if (response.statusCode != 200) {
@@ -178,26 +182,12 @@ class _TaskListPageState extends State<TaskListPage> {
     if (raw is! Map) return null;
     final map = raw.map((key, value) => MapEntry(key.toString(), value));
 
-    final id = _stringValue(map, ['id']) ?? '';
-    final title = _stringValue(map, ['title']) ?? '';
-    final status = _normalizeStatus(_stringValue(map, ['status']) ?? '');
-    final createTime =
-        _stringValue(map, [
-          'createTime',
-          'create_time',
-          'created_at',
-          'createdAt',
-        ]) ??
-        '';
-    final finishTime =
-        _stringValue(map, [
-          'finishTime',
-          'finish_time',
-          'finished_at',
-          'finishAt',
-        ]) ??
-        '';
-    final type = _stringValue(map, ['type']) ?? '';
+    final id = _textValue(map['id']);
+    final title = _textValue(map['title']);
+    final status = _normalizeStatus(_textValue(map['status']));
+    final createTime = _textValue(map['createTime']);
+    final finishTime = _textValue(map['finishTime']);
+    final type = AgentTaskType.normalize(_textValue(map['type']));
     return TaskVO(
       id: id,
       title: title,
@@ -208,14 +198,9 @@ class _TaskListPageState extends State<TaskListPage> {
     );
   }
 
-  String? _stringValue(Map<String, dynamic> map, List<String> keys) {
-    for (final key in keys) {
-      final value = map[key];
-      if (value == null) continue;
-      final text = value.toString().trim();
-      if (text.isNotEmpty) return text;
-    }
-    return null;
+  String _textValue(dynamic value) {
+    if (value == null) return '';
+    return value.toString().trim();
   }
 
   String _normalizeStatus(String status) {
