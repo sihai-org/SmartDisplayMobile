@@ -113,7 +113,8 @@
   "signout_failed": "Sign out failed. Please try again."
   ,
   "google_signin_placeholder": "Coming soon",
-  "audit_mode_enabled": "Audit mode enabled"
+  "audit_mode_enabled": "Audit mode enabled",
+  "billing_buy_1000_tokens": "Buy 1000 Tokens"
   ,
   "login_expired": "Login session expired",
   

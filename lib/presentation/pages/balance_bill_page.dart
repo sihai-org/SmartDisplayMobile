@@ -3,6 +3,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/utils/billing_amount_formatter.dart';
@@ -43,14 +44,18 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
   bool _isLoading = false;
   bool _hasError = false;
 
+  bool get _isAuditMode => AuditMode.enabled;
+
   @override
   void initState() {
     super.initState();
     final args = widget.args;
-    _items = List<BillingLedgerItem>.from(args?.initialItems ?? const []);
-    _nextPage = args?.nextPage ?? 1;
-    _hasNextPage = args?.hasNextPage ?? true;
-    _hasInitialized = args?.hasInitialized ?? false;
+    _items = _isAuditMode
+        ? const []
+        : List<BillingLedgerItem>.from(args?.initialItems ?? const []);
+    _nextPage = _isAuditMode ? 1 : (args?.nextPage ?? 1);
+    _hasNextPage = _isAuditMode ? false : (args?.hasNextPage ?? true);
+    _hasInitialized = _isAuditMode ? true : (args?.hasInitialized ?? false);
     _scrollController.addListener(_onScroll);
 
     if (!_hasInitialized) {

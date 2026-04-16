@@ -339,6 +339,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get audit_mode_enabled => '审核模式已开启';
 
   @override
+  String get billing_buy_1000_tokens => '购买 1000 Tokens';
+
+  @override
   String get login_expired => '登录已过期';
 
   @override

@@ -743,6 +743,12 @@ abstract class AppLocalizations {
   /// **'Audit mode enabled'**
   String get audit_mode_enabled;
 
+  /// No description provided for @billing_buy_1000_tokens.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy 1000 Tokens'**
+  String get billing_buy_1000_tokens;
+
   /// No description provided for @login_expired.
   ///
   /// In en, this message translates to:

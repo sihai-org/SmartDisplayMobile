@@ -339,6 +339,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get audit_mode_enabled => 'Audit mode enabled';
 
   @override
+  String get billing_buy_1000_tokens => 'Buy 1000 Tokens';
+
+  @override
   String get login_expired => 'Login session expired';
 
   @override

@@ -113,7 +113,8 @@
   "signout_failed": "退出失败，请重试。"
   ,
   "google_signin_placeholder": "敬请期待",
-  "audit_mode_enabled": "审核模式已开启"
+  "audit_mode_enabled": "审核模式已开启",
+  "billing_buy_1000_tokens": "购买 1000 Tokens"
   ,
   "login_expired": "登录已过期",
   
