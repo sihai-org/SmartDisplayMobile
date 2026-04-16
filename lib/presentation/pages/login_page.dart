@@ -441,7 +441,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                   const SizedBox(height: 16),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Checkbox(
                         value: _hasAgreed,
@@ -450,46 +450,42 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         },
                       ),
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                l10n.login_agreement_prefix,
-                                style: Theme.of(context).textTheme.bodySmall,
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              l10n.login_agreement_prefix,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            GestureDetector(
+                              onTap: () => _openExternalUrl(_privacyPolicyUrl),
+                              child: Text(
+                                l10n.privacy_policy,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
                               ),
-                              GestureDetector(
-                                onTap: () =>
-                                    _openExternalUrl(_privacyPolicyUrl),
-                                child: Text(
-                                  l10n.privacy_policy,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
+                            ),
+                            Text(
+                              l10n.login_agreement_and,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            GestureDetector(
+                              onTap: () => _openExternalUrl(_termsUrl),
+                              child: Text(
+                                l10n.user_agreement,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
                               ),
-                              Text(
-                                l10n.login_agreement_and,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              GestureDetector(
-                                onTap: () => _openExternalUrl(_termsUrl),
-                                child: Text(
-                                  l10n.user_agreement,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
