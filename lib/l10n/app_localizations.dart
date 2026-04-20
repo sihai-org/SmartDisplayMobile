@@ -263,6 +263,12 @@ abstract class AppLocalizations {
   /// **'Available Credits'**
   String get billing_available_credits;
 
+  /// No description provided for @billing_buy_credits.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy Credits'**
+  String get billing_buy_credits;
+
   /// No description provided for @billing_credits_label.
   ///
   /// In en, this message translates to:
@@ -298,6 +304,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t load billing data. Please try again later.'**
   String get billing_load_failed;
+
+  /// No description provided for @billing_purchase_sheet_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a Credit Pack'**
+  String get billing_purchase_sheet_title;
+
+  /// No description provided for @billing_purchase_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Play purchases are not available on this device right now.'**
+  String get billing_purchase_unavailable;
+
+  /// No description provided for @billing_purchase_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading available credit packs…'**
+  String get billing_purchase_loading;
+
+  /// No description provided for @billing_purchase_processing.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening Google Play. Finish the purchase there to continue.'**
+  String get billing_purchase_processing;
+
+  /// No description provided for @billing_purchase_verifying.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase received. Verifying and delivering credits…'**
+  String get billing_purchase_verifying;
+
+  /// No description provided for @billing_purchase_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase failed. Please try again later.'**
+  String get billing_purchase_failed;
+
+  /// No description provided for @billing_purchase_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'This purchase was cancelled.'**
+  String get billing_purchase_cancelled;
+
+  /// No description provided for @billing_purchase_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase successful. Your credits have been refreshed.'**
+  String get billing_purchase_success;
+
+  /// No description provided for @billing_products_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No credit packs are available right now.'**
+  String get billing_products_empty;
+
+  /// No description provided for @billing_purchase_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get billing_purchase_retry;
 
   /// No description provided for @serial_number_stats.
   ///

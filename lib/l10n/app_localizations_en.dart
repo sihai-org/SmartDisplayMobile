@@ -93,6 +93,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billing_available_credits => 'Available Credits';
 
   @override
+  String get billing_buy_credits => 'Buy Credits';
+
+  @override
   String get billing_credits_label => 'Credits';
 
   @override
@@ -109,6 +112,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billing_load_failed => 'Couldn\'t load billing data. Please try again later.';
+
+  @override
+  String get billing_purchase_sheet_title => 'Choose a Credit Pack';
+
+  @override
+  String get billing_purchase_unavailable => 'Google Play purchases are not available on this device right now.';
+
+  @override
+  String get billing_purchase_loading => 'Loading available credit packs…';
+
+  @override
+  String get billing_purchase_processing => 'Opening Google Play. Finish the purchase there to continue.';
+
+  @override
+  String get billing_purchase_verifying => 'Purchase received. Verifying and delivering credits…';
+
+  @override
+  String get billing_purchase_failed => 'Purchase failed. Please try again later.';
+
+  @override
+  String get billing_purchase_cancelled => 'This purchase was cancelled.';
+
+  @override
+  String get billing_purchase_success => 'Purchase successful. Your credits have been refreshed.';
+
+  @override
+  String get billing_products_empty => 'No credit packs are available right now.';
+
+  @override
+  String get billing_purchase_retry => 'Reload';
 
   @override
   String get serial_number_stats => 'Serial Number Stats';
