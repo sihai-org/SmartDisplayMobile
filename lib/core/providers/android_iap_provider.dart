@@ -1,58 +1,62 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/billing_repository.dart';
-import '../../data/repositories/billing_purchase_repository.dart';
+import '../../data/repositories/android_iap_repository.dart';
 import '../log/app_log.dart';
-import '../models/billing_purchase_models.dart';
+import '../models/android_iap_models.dart';
+import '../services/android_iap_service.dart';
 import 'lifecycle_provider.dart';
-import '../services/billing_purchase_service.dart';
 
-final billingPurchaseRepositoryProvider = Provider<BillingPurchaseRepository>((
-  ref,
-) {
-  return BillingPurchaseRepository();
+final androidIapRepositoryProvider = Provider<AndroidIapRepository>((ref) {
+  return AndroidIapRepository();
 });
 
-final billingPurchaseServiceProvider = Provider<BillingPurchaseService>((ref) {
-  return BillingPurchaseService();
+final androidIapServiceProvider = Provider<AndroidIapService>((ref) {
+  return AndroidIapService();
 });
 
-final billingPurchaseProvider =
-    StateNotifierProvider<BillingPurchaseNotifier, BillingPurchaseState>((ref) {
-      final notifier = BillingPurchaseNotifier(
+final androidIapProvider =
+    StateNotifierProvider<AndroidIapNotifier, AndroidIapState>((ref) {
+      final notifier = AndroidIapNotifier(
         ref: ref,
-        repository: ref.read(billingPurchaseRepositoryProvider),
-        service: ref.read(billingPurchaseServiceProvider),
+        repository: ref.read(androidIapRepositoryProvider),
+        service: ref.read(androidIapServiceProvider),
       );
       ref.onDispose(notifier.dispose);
       return notifier;
     });
 
-enum BillingPurchaseStage {
+enum AndroidIapStage {
   idle,
   loadingCatalog,
   ready,
   creatingOrder,
   purchasing,
+  awaitingPurchaseResult,
   verifying,
   success,
   failure,
 }
 
-enum BillingPurchaseFailureKind { unavailable, cancelled, generic }
+enum AndroidIapFailureKind {
+  unavailable,
+  cancelled,
+  catalogLoadFailed,
+  generic,
+}
 
-class BillingPurchaseProductOption {
-  const BillingPurchaseProductOption({
+class AndroidIapProductOption {
+  const AndroidIapProductOption({
     required this.catalogProduct,
     required this.productDetails,
   });
 
-  final GooglePlayCatalogProduct catalogProduct;
+  final AndroidIapProductData catalogProduct;
   final ProductDetails productDetails;
 
   String get packageCode => catalogProduct.packageCode;
@@ -70,8 +74,8 @@ class BillingPurchaseProductOption {
   }
 }
 
-class BillingPurchaseSession {
-  const BillingPurchaseSession({
+class AndroidIapSession {
+  const AndroidIapSession({
     required this.orderId,
     required this.packageCode,
     required this.productId,
@@ -82,9 +86,9 @@ class BillingPurchaseSession {
   final String productId;
 }
 
-class BillingPurchaseState {
-  const BillingPurchaseState({
-    this.stage = BillingPurchaseStage.idle,
+class AndroidIapState {
+  const AndroidIapState({
+    this.stage = AndroidIapStage.idle,
     this.products = const [],
     this.isStoreAvailable = true,
     this.failureKind,
@@ -94,35 +98,36 @@ class BillingPurchaseState {
     this.lastCompletedOrderId,
   });
 
-  final BillingPurchaseStage stage;
-  final List<BillingPurchaseProductOption> products;
+  final AndroidIapStage stage;
+  final List<AndroidIapProductOption> products;
   final bool isStoreAvailable;
-  final BillingPurchaseFailureKind? failureKind;
+  final AndroidIapFailureKind? failureKind;
   final String? failureDetail;
-  final BillingPurchaseSession? activeSession;
+  final AndroidIapSession? activeSession;
   final int successTick;
   final String? lastCompletedOrderId;
 
   bool get isBusy =>
-      stage == BillingPurchaseStage.loadingCatalog ||
-      stage == BillingPurchaseStage.creatingOrder ||
-      stage == BillingPurchaseStage.purchasing ||
-      stage == BillingPurchaseStage.verifying;
+      stage == AndroidIapStage.loadingCatalog ||
+      stage == AndroidIapStage.creatingOrder ||
+      stage == AndroidIapStage.purchasing ||
+      stage == AndroidIapStage.awaitingPurchaseResult ||
+      stage == AndroidIapStage.verifying;
 
-  BillingPurchaseState copyWith({
-    BillingPurchaseStage? stage,
-    List<BillingPurchaseProductOption>? products,
+  AndroidIapState copyWith({
+    AndroidIapStage? stage,
+    List<AndroidIapProductOption>? products,
     bool? isStoreAvailable,
-    BillingPurchaseFailureKind? failureKind,
+    AndroidIapFailureKind? failureKind,
     String? failureDetail,
     bool clearFailure = false,
-    BillingPurchaseSession? activeSession,
+    AndroidIapSession? activeSession,
     bool clearActiveSession = false,
     int? successTick,
     String? lastCompletedOrderId,
     bool clearLastCompletedOrderId = false,
   }) {
-    return BillingPurchaseState(
+    return AndroidIapState(
       stage: stage ?? this.stage,
       products: products ?? this.products,
       isStoreAvailable: isStoreAvailable ?? this.isStoreAvailable,
@@ -141,15 +146,15 @@ class BillingPurchaseState {
   }
 }
 
-class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
-  BillingPurchaseNotifier({
+class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
+  AndroidIapNotifier({
     required Ref ref,
-    required BillingPurchaseRepository repository,
-    required BillingPurchaseService service,
+    required AndroidIapRepository repository,
+    required AndroidIapService service,
   }) : _ref = ref,
        _repository = repository,
        _service = service,
-       super(const BillingPurchaseState()) {
+       super(const AndroidIapState()) {
     _foregroundSub = _ref.listen<bool>(isForegroundProvider, (
       previous,
       current,
@@ -162,13 +167,13 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
       (purchases) => unawaited(_handlePurchaseUpdates(purchases)),
       onError: (Object error, StackTrace stackTrace) {
         AppLog.instance.error(
-          '[billing_purchase] purchase stream error',
-          tag: 'BillingPurchase',
+          '[android_iap] purchase stream error',
+          tag: 'AndroidIap',
           error: error,
           stackTrace: stackTrace,
         );
         _setFailure(
-          BillingPurchaseFailureKind.generic,
+          AndroidIapFailureKind.generic,
           detail: error.toString(),
           clearActiveSession: false,
         );
@@ -179,26 +184,18 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
   static const _purchaseResultGracePeriod = Duration(seconds: 2);
 
   final Ref _ref;
-  final BillingPurchaseRepository _repository;
-  final BillingPurchaseService _service;
+  final AndroidIapRepository _repository;
+  final AndroidIapService _service;
   ProviderSubscription<bool>? _foregroundSub;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _purchaseResultTimer;
   bool _receivedPurchaseUpdateForActiveSession = false;
 
-  Future<void> loadCatalog() async {
-    if (!Platform.isAndroid) {
-      _setFailure(
-        BillingPurchaseFailureKind.unavailable,
-        clearActiveSession: true,
-      );
-      return;
-    }
-
+  Future<void> loadProductCatalog() async {
     final accessToken = _currentAccessToken;
     if (accessToken == null) {
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.catalogLoadFailed,
         detail: 'Missing access token',
         clearActiveSession: true,
       );
@@ -206,7 +203,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     }
 
     state = state.copyWith(
-      stage: BillingPurchaseStage.loadingCatalog,
+      stage: AndroidIapStage.loadingCatalog,
       clearFailure: true,
       clearLastCompletedOrderId: true,
     );
@@ -215,21 +212,27 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
       final isAvailable = await _service.isAvailable();
       if (!isAvailable) {
         state = state.copyWith(
-          stage: BillingPurchaseStage.failure,
+          stage: AndroidIapStage.failure,
           isStoreAvailable: false,
-          failureKind: BillingPurchaseFailureKind.unavailable,
+          failureKind: AndroidIapFailureKind.unavailable,
           failureDetail: 'Google Play billing unavailable',
           clearActiveSession: true,
         );
         return;
       }
 
-      final catalogProducts = await _repository.fetchGooglePlayProducts(
+      final catalogProducts = await _repository.fetchAndroidIapProducts(
         accessToken: accessToken,
       );
+      _logDebug('catalog_products_loaded', {
+        'count': catalogProducts.length,
+        'products': catalogProducts
+            .map((item) => item.toJson())
+            .toList(growable: false),
+      });
       if (catalogProducts.isEmpty) {
         state = state.copyWith(
-          stage: BillingPurchaseStage.ready,
+          stage: AndroidIapStage.ready,
           products: const [],
           isStoreAvailable: true,
           clearFailure: true,
@@ -238,9 +241,25 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
         return;
       }
 
-      final productDetails = await _service.queryProducts(
+      final productDetails = await _service.queryProductDetails(
         catalogProducts.map((item) => item.productId).toSet(),
       );
+      _logDebug('google_play_product_details_loaded', {
+        'count': productDetails.length,
+        'product_details': productDetails
+            .map(
+              (item) => {
+                'id': item.id,
+                'title': item.title,
+                'description': item.description,
+                'price': item.price,
+                'raw_price': item.rawPrice,
+                'currency_code': item.currencyCode,
+                'currency_symbol': item.currencySymbol,
+              },
+            )
+            .toList(growable: false),
+      });
       final detailMap = {
         for (final detail in productDetails) detail.id: detail,
       };
@@ -248,7 +267,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
           catalogProducts
               .where((item) => detailMap.containsKey(item.productId))
               .map(
-                (item) => BillingPurchaseProductOption(
+                (item) => AndroidIapProductOption(
                   catalogProduct: item,
                   productDetails: detailMap[item.productId]!,
                 ),
@@ -259,35 +278,54 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
                 right.catalogProduct.sortOrder,
               ),
             );
+      _logDebug('catalog_options_matched', {
+        'count': options.length,
+        'options': options
+            .map(
+              (item) => {
+                'catalog_product': item.catalogProduct.toJson(),
+                'google_play_product': {
+                  'id': item.productDetails.id,
+                  'title': item.productDetails.title,
+                  'description': item.productDetails.description,
+                  'price': item.productDetails.price,
+                  'raw_price': item.productDetails.rawPrice,
+                  'currency_code': item.productDetails.currencyCode,
+                  'currency_symbol': item.productDetails.currencySymbol,
+                },
+              },
+            )
+            .toList(growable: false),
+      });
 
       state = state.copyWith(
-        stage: BillingPurchaseStage.ready,
-        products: List<BillingPurchaseProductOption>.unmodifiable(options),
+        stage: AndroidIapStage.ready,
+        products: List<AndroidIapProductOption>.unmodifiable(options),
         isStoreAvailable: true,
         clearFailure: true,
         clearActiveSession: true,
       );
     } catch (error, stackTrace) {
       AppLog.instance.error(
-        '[billing_purchase] loadCatalog failed',
-        tag: 'BillingPurchase',
+        '[android_iap] loadProductCatalog failed',
+        tag: 'AndroidIap',
         error: error,
         stackTrace: stackTrace,
       );
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.catalogLoadFailed,
         detail: error.toString(),
         clearActiveSession: true,
       );
     }
   }
 
-  Future<void> beginPurchase(BillingPurchaseProductOption option) async {
+  Future<void> startPurchaseFlow(AndroidIapProductOption option) async {
     final accessToken = _currentAccessToken;
     final user = Supabase.instance.client.auth.currentUser;
     if (accessToken == null || user == null) {
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: 'Missing auth session',
         clearActiveSession: true,
       );
@@ -296,15 +334,16 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
 
     try {
       state = state.copyWith(
-        stage: BillingPurchaseStage.creatingOrder,
+        stage: AndroidIapStage.creatingOrder,
         clearFailure: true,
         clearActiveSession: true,
       );
 
-      final order = await _repository.createGooglePlayOrder(
+      final order = await _repository.createAndroidIapOrder(
         accessToken: accessToken,
         packageCode: option.packageCode,
       );
+      _logDebug('pending_order_created', {'order': order.toJson()});
 
       if (order.orderId.isEmpty || order.productId != option.productId) {
         throw const BillingRequestException(
@@ -313,29 +352,34 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
       }
 
       state = state.copyWith(
-        stage: BillingPurchaseStage.purchasing,
-        activeSession: BillingPurchaseSession(
+        stage: AndroidIapStage.purchasing,
+        activeSession: AndroidIapSession(
           orderId: order.orderId,
           packageCode: order.packageCode,
           productId: order.productId,
         ),
       );
+      _logDebug('active_session_started', {
+        'order_id': order.orderId,
+        'package_code': order.packageCode,
+        'product_id': order.productId,
+      });
       _receivedPurchaseUpdateForActiveSession = false;
       _cancelPurchaseResultTimer();
 
-      await _service.buyConsumable(
+      await _service.launchConsumablePurchase(
         productDetails: option.productDetails,
         applicationUserName: user.id,
       );
     } catch (error, stackTrace) {
       AppLog.instance.error(
-        '[billing_purchase] beginPurchase failed',
-        tag: 'BillingPurchase',
+        '[android_iap] startPurchaseFlow failed',
+        tag: 'AndroidIap',
         error: error,
         stackTrace: stackTrace,
       );
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: error.toString(),
         clearActiveSession: true,
       );
@@ -343,8 +387,13 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
+    _logDebug('purchase_stream_batch', {'count': purchases.length});
     for (final purchase in purchases) {
+      _logPurchaseDetails('purchase_update', purchase);
       if (!_isTrackedProduct(purchase.productID)) {
+        _logDebug('purchase_update_ignored', {
+          'product_id': purchase.productID,
+        });
         continue;
       }
 
@@ -354,7 +403,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
       switch (purchase.status) {
         case PurchaseStatus.pending:
           state = state.copyWith(
-            stage: BillingPurchaseStage.purchasing,
+            stage: AndroidIapStage.purchasing,
             clearFailure: true,
           );
           break;
@@ -365,7 +414,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
         case PurchaseStatus.canceled:
           await _safeCompletePurchase(purchase);
           _setFailure(
-            BillingPurchaseFailureKind.cancelled,
+            AndroidIapFailureKind.cancelled,
             detail: 'Purchase cancelled by user',
             clearActiveSession: true,
           );
@@ -373,7 +422,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
         case PurchaseStatus.error:
           await _safeCompletePurchase(purchase);
           _setFailure(
-            BillingPurchaseFailureKind.generic,
+            AndroidIapFailureKind.generic,
             detail: purchase.error?.message ?? 'Google Play purchase error',
             clearActiveSession: true,
           );
@@ -386,7 +435,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     final accessToken = _currentAccessToken;
     if (accessToken == null) {
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: 'Missing access token during verify',
         clearActiveSession: false,
       );
@@ -399,7 +448,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     );
     if (session == null) {
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: 'Unable to resolve purchase session',
         clearActiveSession: false,
       );
@@ -410,7 +459,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
         .trim();
     if (purchaseToken.isEmpty) {
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: 'Missing purchase token',
         clearActiveSession: false,
       );
@@ -418,24 +467,35 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     }
 
     state = state.copyWith(
-      stage: BillingPurchaseStage.verifying,
+      stage: AndroidIapStage.verifying,
       activeSession: session,
       clearFailure: true,
     );
+    _logDebug('verify_purchase_request', {
+      'session': {
+        'order_id': session.orderId,
+        'package_code': session.packageCode,
+        'product_id': session.productId,
+      },
+      'purchase': _serializePurchaseDetails(purchase),
+      'purchase_token': purchaseToken,
+      'purchase_token_length': purchaseToken.length,
+    });
 
     try {
-      final result = await _repository.verifyGooglePlayPurchase(
+      final result = await _repository.verifyAndroidIapPurchase(
         accessToken: accessToken,
         orderId: session.orderId,
         packageCode: session.packageCode,
         productId: session.productId,
         purchaseToken: purchaseToken,
       );
+      _logDebug('verify_purchase_result', {'result': result.toJson()});
 
       if (result.status == 'granted' || result.status == 'already_granted') {
-        await _service.completePurchase(purchase);
+        await _service.completePendingPurchase(purchase);
         state = state.copyWith(
-          stage: BillingPurchaseStage.success,
+          stage: AndroidIapStage.success,
           clearFailure: true,
           clearActiveSession: true,
           successTick: state.successTick + 1,
@@ -444,21 +504,21 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
         return;
       }
 
-      await _service.completePurchase(purchase);
+      await _service.completePendingPurchase(purchase);
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: 'Unexpected verify status: ${result.status}',
         clearActiveSession: true,
       );
     } catch (error, stackTrace) {
       AppLog.instance.error(
-        '[billing_purchase] verify failed',
-        tag: 'BillingPurchase',
+        '[android_iap] verify failed',
+        tag: 'AndroidIap',
         error: error,
         stackTrace: stackTrace,
       );
       _setFailure(
-        BillingPurchaseFailureKind.generic,
+        AndroidIapFailureKind.generic,
         detail: error.toString(),
         clearActiveSession: false,
       );
@@ -466,26 +526,32 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
   }
 
   void _scheduleForegroundPurchaseRecovery() {
-    if (state.stage != BillingPurchaseStage.purchasing ||
+    if ((state.stage != AndroidIapStage.purchasing &&
+            state.stage != AndroidIapStage.awaitingPurchaseResult) ||
         _receivedPurchaseUpdateForActiveSession) {
       return;
+    }
+
+    if (state.stage == AndroidIapStage.purchasing) {
+      state = state.copyWith(stage: AndroidIapStage.awaitingPurchaseResult);
     }
 
     _cancelPurchaseResultTimer();
     _purchaseResultTimer = Timer(_purchaseResultGracePeriod, () {
       if (!mounted) return;
-      if (state.stage != BillingPurchaseStage.purchasing ||
+      if ((state.stage != AndroidIapStage.purchasing &&
+              state.stage != AndroidIapStage.awaitingPurchaseResult) ||
           _receivedPurchaseUpdateForActiveSession) {
         return;
       }
 
       AppLog.instance.info(
-        '[billing_purchase] purchase flow dismissed without purchase update; treating as cancelled',
-        tag: 'BillingPurchase',
+        '[android_iap] purchase flow dismissed without purchase update; treating as cancelled',
+        tag: 'AndroidIap',
       );
       state = state.copyWith(
-        stage: BillingPurchaseStage.failure,
-        failureKind: BillingPurchaseFailureKind.cancelled,
+        stage: AndroidIapStage.failure,
+        failureKind: AndroidIapFailureKind.cancelled,
         failureDetail: 'Purchase cancelled by user',
       );
     });
@@ -498,18 +564,18 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
 
   Future<void> _safeCompletePurchase(PurchaseDetails purchase) async {
     try {
-      await _service.completePurchase(purchase);
+      await _service.completePendingPurchase(purchase);
     } catch (error, stackTrace) {
       AppLog.instance.warning(
-        '[billing_purchase] completePurchase failed',
-        tag: 'BillingPurchase',
+        '[android_iap] completePendingPurchase failed',
+        tag: 'AndroidIap',
         error: error,
         stackTrace: stackTrace,
       );
     }
   }
 
-  Future<BillingPurchaseSession?> _resolveSessionForPurchase({
+  Future<AndroidIapSession?> _resolveSessionForPurchase({
     required String productId,
     required String accessToken,
   }) async {
@@ -521,11 +587,11 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     final option = _findOption(productId);
     if (option == null) return null;
 
-    final order = await _repository.createGooglePlayOrder(
+    final order = await _repository.createAndroidIapOrder(
       accessToken: accessToken,
       packageCode: option.packageCode,
     );
-    final session = BillingPurchaseSession(
+    final session = AndroidIapSession(
       orderId: order.orderId,
       packageCode: order.packageCode,
       productId: order.productId,
@@ -534,7 +600,7 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     return session;
   }
 
-  BillingPurchaseProductOption? _findOption(String productId) {
+  AndroidIapProductOption? _findOption(String productId) {
     for (final option in state.products) {
       if (option.productId == productId) {
         return option;
@@ -561,15 +627,55 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
   }
 
   void _setFailure(
-    BillingPurchaseFailureKind kind, {
+    AndroidIapFailureKind kind, {
     String? detail,
     required bool clearActiveSession,
   }) {
     state = state.copyWith(
-      stage: BillingPurchaseStage.failure,
+      stage: AndroidIapStage.failure,
       failureKind: kind,
       failureDetail: detail,
       clearActiveSession: clearActiveSession,
+    );
+  }
+
+  Map<String, dynamic> _serializePurchaseDetails(PurchaseDetails purchase) {
+    return {
+      'product_id': purchase.productID,
+      'purchase_id': purchase.purchaseID,
+      'status': purchase.status.name,
+      'transaction_date': purchase.transactionDate,
+      'pending_complete_purchase': purchase.pendingCompletePurchase,
+      'verification_data': {
+        'source': purchase.verificationData.source,
+        'server_verification_data':
+            purchase.verificationData.serverVerificationData,
+        'server_verification_data_length':
+            purchase.verificationData.serverVerificationData.length,
+        'local_verification_data':
+            purchase.verificationData.localVerificationData,
+        'local_verification_data_length':
+            purchase.verificationData.localVerificationData.length,
+      },
+      'error': purchase.error == null
+          ? null
+          : {
+              'source': purchase.error!.source,
+              'code': purchase.error!.code,
+              'message': purchase.error!.message,
+              'details': purchase.error!.details,
+            },
+    };
+  }
+
+  void _logPurchaseDetails(String event, PurchaseDetails purchase) {
+    _logDebug(event, _serializePurchaseDetails(purchase));
+  }
+
+  void _logDebug(String event, Map<String, dynamic> payload) {
+    AppLog.instance.debug(
+      jsonEncode({'event': event, ...payload}),
+      tag: 'AndroidIap',
     );
   }
 

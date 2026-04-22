@@ -41,6 +41,7 @@
   "billing_purchase_unavailable": "Google Play purchases are not available on this device right now.",
   "billing_purchase_loading": "Loading available credit packs…",
   "billing_purchase_processing": "Opening Google Play. Finish the purchase there to continue.",
+  "billing_purchase_awaiting_result": "Waiting for the purchase result…",
   "billing_purchase_verifying": "Purchase received. Verifying and delivering credits…",
   "billing_purchase_failed": "Purchase failed. Please try again later.",
   "billing_purchase_cancelled": "This purchase was cancelled.",

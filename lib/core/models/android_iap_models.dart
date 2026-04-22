@@ -1,5 +1,5 @@
-class GooglePlayCatalogProduct {
-  const GooglePlayCatalogProduct({
+class AndroidIapProductData {
+  const AndroidIapProductData({
     required this.packageCode,
     required this.productId,
     required this.creditAmount,
@@ -10,8 +10,8 @@ class GooglePlayCatalogProduct {
     this.amount,
   });
 
-  factory GooglePlayCatalogProduct.fromJson(Map<String, dynamic> json) {
-    return GooglePlayCatalogProduct(
+  factory AndroidIapProductData.fromJson(Map<String, dynamic> json) {
+    return AndroidIapProductData(
       packageCode: json['package_code']?.toString() ?? '',
       productId: json['product_id']?.toString() ?? '',
       displayName: json['display_name']?.toString(),
@@ -31,10 +31,23 @@ class GooglePlayCatalogProduct {
   final String? currency;
   final double? amount;
   final int sortOrder;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'package_code': packageCode,
+      'product_id': productId,
+      'display_name': displayName,
+      'description': description,
+      'credit_amount': creditAmount,
+      'currency': currency,
+      'amount': amount,
+      'sort_order': sortOrder,
+    };
+  }
 }
 
-class GooglePlayCreateOrderResponse {
-  const GooglePlayCreateOrderResponse({
+class AndroidIapOrderData {
+  const AndroidIapOrderData({
     required this.orderId,
     required this.packageCode,
     required this.productId,
@@ -44,8 +57,8 @@ class GooglePlayCreateOrderResponse {
     this.amount,
   });
 
-  factory GooglePlayCreateOrderResponse.fromJson(Map<String, dynamic> json) {
-    return GooglePlayCreateOrderResponse(
+  factory AndroidIapOrderData.fromJson(Map<String, dynamic> json) {
+    return AndroidIapOrderData(
       orderId: json['order_id']?.toString() ?? '',
       packageCode: json['package_code']?.toString() ?? '',
       productId: json['product_id']?.toString() ?? '',
@@ -63,10 +76,22 @@ class GooglePlayCreateOrderResponse {
   final double creditAmount;
   final String? currency;
   final double? amount;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'order_id': orderId,
+      'package_code': packageCode,
+      'product_id': productId,
+      'status': status,
+      'credit_amount': creditAmount,
+      'currency': currency,
+      'amount': amount,
+    };
+  }
 }
 
-class GooglePlayVerifyResponse {
-  const GooglePlayVerifyResponse({
+class AndroidIapVerifyResult {
+  const AndroidIapVerifyResult({
     required this.provider,
     required this.status,
     required this.granted,
@@ -75,8 +100,8 @@ class GooglePlayVerifyResponse {
     this.orderId,
   });
 
-  factory GooglePlayVerifyResponse.fromJson(Map<String, dynamic> json) {
-    return GooglePlayVerifyResponse(
+  factory AndroidIapVerifyResult.fromJson(Map<String, dynamic> json) {
+    return AndroidIapVerifyResult(
       provider: json['provider']?.toString() ?? 'google_play',
       status: json['status']?.toString() ?? '',
       granted: json['granted'] == true,
@@ -92,6 +117,17 @@ class GooglePlayVerifyResponse {
   final int? grantId;
   final String? paymentReference;
   final String? orderId;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'provider': provider,
+      'status': status,
+      'granted': granted,
+      'grant_id': grantId,
+      'payment_reference': paymentReference,
+      'order_id': orderId,
+    };
+  }
 }
 
 double _asDouble(dynamic value, {double fallback = 0}) {

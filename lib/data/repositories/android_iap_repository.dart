@@ -4,11 +4,11 @@ import 'package:http/http.dart' as http;
 
 import '../../core/constants/app_environment.dart';
 import '../../core/log/app_log.dart';
-import '../../core/models/billing_purchase_models.dart';
+import '../../core/models/android_iap_models.dart';
 import 'billing_repository.dart';
 
-class BillingPurchaseRepository {
-  Future<List<GooglePlayCatalogProduct>> fetchGooglePlayProducts({
+class AndroidIapRepository {
+  Future<List<AndroidIapProductData>> fetchAndroidIapProducts({
     required String accessToken,
   }) async {
     final response = await http.get(
@@ -17,10 +17,15 @@ class BillingPurchaseRepository {
       ),
       headers: {'X-Access-Token': accessToken},
     );
+    _logResponse(
+      event: 'server_products_response',
+      endpoint: '/api/billing/google-play/products',
+      response: response,
+    );
 
     if (response.statusCode != 200) {
       AppLog.instance.warning(
-        '[billing_purchase_products] non-200: ${response.statusCode} ${response.body}',
+        '[billing_android_iap_products] non-200: ${response.statusCode} ${response.body}',
         tag: 'BillingApi',
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
@@ -28,17 +33,17 @@ class BillingPurchaseRepository {
 
     final decoded = _decodeResponse(
       response.body,
-      endpoint: 'google_play_products',
+      endpoint: 'android_iap_products',
     );
     final data = decoded['data'];
     if (data is! List) {
       throw const BillingRequestException('Invalid response data');
     }
 
-    return data
+    final products = data
         .whereType<Map>()
         .map(
-          (item) => GooglePlayCatalogProduct.fromJson(
+          (item) => AndroidIapProductData.fromJson(
             item.map((key, value) => MapEntry(key.toString(), value)),
           ),
         )
@@ -46,9 +51,20 @@ class BillingPurchaseRepository {
           (item) => item.packageCode.isNotEmpty && item.productId.isNotEmpty,
         )
         .toList(growable: false);
+    AppLog.instance.debug(
+      jsonEncode({
+        'event': 'server_products_parsed',
+        'count': products.length,
+        'products': products
+            .map((item) => item.toJson())
+            .toList(growable: false),
+      }),
+      tag: 'AndroidIap',
+    );
+    return products;
   }
 
-  Future<GooglePlayCreateOrderResponse> createGooglePlayOrder({
+  Future<AndroidIapOrderData> createAndroidIapOrder({
     required String accessToken,
     required String packageCode,
   }) async {
@@ -62,10 +78,15 @@ class BillingPurchaseRepository {
       },
       body: jsonEncode({'package_code': packageCode}),
     );
+    _logResponse(
+      event: 'server_order_response',
+      endpoint: '/api/billing/google-play/orders',
+      response: response,
+    );
 
     if (response.statusCode != 200) {
       AppLog.instance.warning(
-        '[billing_purchase_create_order] non-200: ${response.statusCode} ${response.body}',
+        '[billing_android_iap_order] non-200: ${response.statusCode} ${response.body}',
         tag: 'BillingApi',
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
@@ -73,13 +94,18 @@ class BillingPurchaseRepository {
 
     final decoded = _decodeResponse(
       response.body,
-      endpoint: 'google_play_order',
+      endpoint: 'android_iap_order',
     );
-    final data = _requireDataMap(decoded, endpoint: 'google_play_order');
-    return GooglePlayCreateOrderResponse.fromJson(data);
+    final data = _requireDataMap(decoded, endpoint: 'android_iap_order');
+    final order = AndroidIapOrderData.fromJson(data);
+    AppLog.instance.debug(
+      jsonEncode({'event': 'server_order_parsed', 'order': order.toJson()}),
+      tag: 'AndroidIap',
+    );
+    return order;
   }
 
-  Future<GooglePlayVerifyResponse> verifyGooglePlayPurchase({
+  Future<AndroidIapVerifyResult> verifyAndroidIapPurchase({
     required String accessToken,
     required String packageCode,
     required String productId,
@@ -103,10 +129,15 @@ class BillingPurchaseRepository {
         'package_name': packageName,
       }),
     );
+    _logResponse(
+      event: 'server_verify_response',
+      endpoint: '/api/billing/google-play/purchases/one-time/verify',
+      response: response,
+    );
 
     if (response.statusCode != 200) {
       AppLog.instance.warning(
-        '[billing_purchase_verify] non-200: ${response.statusCode} ${response.body}',
+        '[billing_android_iap_verify] non-200: ${response.statusCode} ${response.body}',
         tag: 'BillingApi',
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
@@ -114,10 +145,39 @@ class BillingPurchaseRepository {
 
     final decoded = _decodeResponse(
       response.body,
-      endpoint: 'google_play_verify',
+      endpoint: 'android_iap_verify',
     );
-    final data = _requireDataMap(decoded, endpoint: 'google_play_verify');
-    return GooglePlayVerifyResponse.fromJson(data);
+    final data = _requireDataMap(decoded, endpoint: 'android_iap_verify');
+    final result = AndroidIapVerifyResult.fromJson(data);
+    AppLog.instance.debug(
+      jsonEncode({'event': 'server_verify_parsed', 'result': result.toJson()}),
+      tag: 'AndroidIap',
+    );
+    return result;
+  }
+
+  void _logResponse({
+    required String event,
+    required String endpoint,
+    required http.Response response,
+  }) {
+    AppLog.instance.debug(
+      jsonEncode({
+        'event': event,
+        'endpoint': endpoint,
+        'status_code': response.statusCode,
+        'body': _decodeBodyForLog(response.body),
+      }),
+      tag: 'AndroidIap',
+    );
+  }
+
+  Object? _decodeBodyForLog(String body) {
+    try {
+      return jsonDecode(body);
+    } catch (_) {
+      return body;
+    }
   }
 
   Map<String, dynamic> _decodeResponse(

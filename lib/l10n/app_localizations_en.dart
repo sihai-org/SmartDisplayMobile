@@ -126,6 +126,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billing_purchase_processing => 'Opening Google Play. Finish the purchase there to continue.';
 
   @override
+  String get billing_purchase_awaiting_result => 'Waiting for the purchase result…';
+
+  @override
   String get billing_purchase_verifying => 'Purchase received. Verifying and delivering credits…';
 
   @override

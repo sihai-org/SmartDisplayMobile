@@ -7,6 +7,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/log/app_log.dart';
+import '../../core/theme/purchase_button_style.dart';
 import '../../data/repositories/ios_iap_repository.dart';
 import 'ios_product_sheet.dart';
 
@@ -513,35 +514,31 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     final buttonLabel = _buttonLabel();
 
     return SizedBox(
-      width: double.infinity,
-      height: 44,
+      height: 40,
       child: FilledButton(
         onPressed: (_isProductsLoading || _isPurchasing)
             ? null
             : _handlePressed,
-        style: FilledButton.styleFrom(
-          elevation: 0,
-          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-          foregroundColor: theme.colorScheme.primary,
-          disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
-          disabledForegroundColor: theme.colorScheme.onSurfaceVariant,
+        style: PurchaseButtonStyle.invertedFilledButtonStyle(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
           shape: const StadiumBorder(),
           textStyle: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: 15,
           ),
         ),
         child: _isProductsLoading || _isPurchasing
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        theme.colorScheme.onSurfaceVariant,
+                        PurchaseButtonStyle.lightColor,
                       ),
                     ),
                   ),

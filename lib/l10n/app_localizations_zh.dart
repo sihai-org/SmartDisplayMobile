@@ -126,6 +126,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billing_purchase_processing => '正在拉起支付，请在 Google Play 中完成购买。';
 
   @override
+  String get billing_purchase_awaiting_result => '等待支付结果…';
+
+  @override
   String get billing_purchase_verifying => '支付成功，正在核验并发放点数…';
 
   @override

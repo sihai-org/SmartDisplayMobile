@@ -41,6 +41,7 @@
   "billing_purchase_unavailable": "当前设备暂时无法使用 Google Play 购买，请稍后再试。",
   "billing_purchase_loading": "正在加载可购买的点数包…",
   "billing_purchase_processing": "正在拉起支付，请在 Google Play 中完成购买。",
+  "billing_purchase_awaiting_result": "等待支付结果…",
   "billing_purchase_verifying": "支付成功，正在核验并发放点数…",
   "billing_purchase_failed": "购买失败，请稍后重试。",
   "billing_purchase_cancelled": "你已取消本次购买。",

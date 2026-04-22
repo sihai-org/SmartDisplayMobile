@@ -329,6 +329,12 @@ abstract class AppLocalizations {
   /// **'Opening Google Play. Finish the purchase there to continue.'**
   String get billing_purchase_processing;
 
+  /// No description provided for @billing_purchase_awaiting_result.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the purchase result…'**
+  String get billing_purchase_awaiting_result;
+
   /// No description provided for @billing_purchase_verifying.
   ///
   /// In en, this message translates to:
