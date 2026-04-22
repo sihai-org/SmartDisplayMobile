@@ -9,6 +9,7 @@ import '../../data/repositories/billing_repository.dart';
 import '../../data/repositories/billing_purchase_repository.dart';
 import '../log/app_log.dart';
 import '../models/billing_purchase_models.dart';
+import 'lifecycle_provider.dart';
 import '../services/billing_purchase_service.dart';
 
 final billingPurchaseRepositoryProvider = Provider<BillingPurchaseRepository>((
@@ -24,6 +25,7 @@ final billingPurchaseServiceProvider = Provider<BillingPurchaseService>((ref) {
 final billingPurchaseProvider =
     StateNotifierProvider<BillingPurchaseNotifier, BillingPurchaseState>((ref) {
       final notifier = BillingPurchaseNotifier(
+        ref: ref,
         repository: ref.read(billingPurchaseRepositoryProvider),
         service: ref.read(billingPurchaseServiceProvider),
       );
@@ -141,11 +143,21 @@ class BillingPurchaseState {
 
 class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
   BillingPurchaseNotifier({
+    required Ref ref,
     required BillingPurchaseRepository repository,
     required BillingPurchaseService service,
-  }) : _repository = repository,
+  }) : _ref = ref,
+       _repository = repository,
        _service = service,
        super(const BillingPurchaseState()) {
+    _foregroundSub = _ref.listen<bool>(isForegroundProvider, (
+      previous,
+      current,
+    ) {
+      if (previous == false && current == true) {
+        _scheduleForegroundPurchaseRecovery();
+      }
+    });
     _purchaseSubscription = _service.purchaseStream.listen(
       (purchases) => unawaited(_handlePurchaseUpdates(purchases)),
       onError: (Object error, StackTrace stackTrace) {
@@ -164,9 +176,15 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     );
   }
 
+  static const _purchaseResultGracePeriod = Duration(seconds: 2);
+
+  final Ref _ref;
   final BillingPurchaseRepository _repository;
   final BillingPurchaseService _service;
+  ProviderSubscription<bool>? _foregroundSub;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  Timer? _purchaseResultTimer;
+  bool _receivedPurchaseUpdateForActiveSession = false;
 
   Future<void> loadCatalog() async {
     if (!Platform.isAndroid) {
@@ -302,6 +320,8 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
           productId: order.productId,
         ),
       );
+      _receivedPurchaseUpdateForActiveSession = false;
+      _cancelPurchaseResultTimer();
 
       await _service.buyConsumable(
         productDetails: option.productDetails,
@@ -327,6 +347,9 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
       if (!_isTrackedProduct(purchase.productID)) {
         continue;
       }
+
+      _receivedPurchaseUpdateForActiveSession = true;
+      _cancelPurchaseResultTimer();
 
       switch (purchase.status) {
         case PurchaseStatus.pending:
@@ -442,6 +465,37 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
     }
   }
 
+  void _scheduleForegroundPurchaseRecovery() {
+    if (state.stage != BillingPurchaseStage.purchasing ||
+        _receivedPurchaseUpdateForActiveSession) {
+      return;
+    }
+
+    _cancelPurchaseResultTimer();
+    _purchaseResultTimer = Timer(_purchaseResultGracePeriod, () {
+      if (!mounted) return;
+      if (state.stage != BillingPurchaseStage.purchasing ||
+          _receivedPurchaseUpdateForActiveSession) {
+        return;
+      }
+
+      AppLog.instance.info(
+        '[billing_purchase] purchase flow dismissed without purchase update; treating as cancelled',
+        tag: 'BillingPurchase',
+      );
+      state = state.copyWith(
+        stage: BillingPurchaseStage.failure,
+        failureKind: BillingPurchaseFailureKind.cancelled,
+        failureDetail: 'Purchase cancelled by user',
+      );
+    });
+  }
+
+  void _cancelPurchaseResultTimer() {
+    _purchaseResultTimer?.cancel();
+    _purchaseResultTimer = null;
+  }
+
   Future<void> _safeCompletePurchase(PurchaseDetails purchase) async {
     try {
       await _service.completePurchase(purchase);
@@ -521,6 +575,8 @@ class BillingPurchaseNotifier extends StateNotifier<BillingPurchaseState> {
 
   @override
   void dispose() {
+    _cancelPurchaseResultTimer();
+    _foregroundSub?.close();
     unawaited(_purchaseSubscription?.cancel());
     super.dispose();
   }
