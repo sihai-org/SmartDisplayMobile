@@ -1,11 +1,8 @@
 import 'dart:io';
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -14,6 +11,7 @@ import '../../core/router/app_router.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
 import 'balance_bill_page.dart';
+import '../widgets/ios_buy_button.dart';
 
 class BalancePage extends StatefulWidget {
   const BalancePage({super.key});
@@ -24,41 +22,24 @@ class BalancePage extends StatefulWidget {
 
 class _BalancePageState extends State<BalancePage> {
   final BillingRepository _billingRepository = BillingRepository();
-  late final StreamSubscription<List<PurchaseDetails>> _purchaseSubscription;
 
   BillingBalanceData? _balance;
   List<BillingLedgerItem> _ledgerItems = const [];
-  List<AppleIapProductData> _appleIapProducts = const [];
 
   bool _isBalanceLoading = true;
   bool _hasBalanceError = false;
   bool _isLedgerLoading = true;
   bool _hasLedgerError = false;
-  bool _isAppleIapProductsLoading = false;
-  bool _hasAppleIapProductsError = false;
   bool _ledgerInitialized = false;
   int _ledgerNextPage = 1;
   bool _ledgerHasNextPage = true;
-  String? _pendingAppleIapOrderId;
-  String? _pendingAppleIapPackageCode;
-  String? _pendingAppleIapProductId;
 
   bool get _isAuditMode => AuditMode.enabled;
 
   @override
   void initState() {
     super.initState();
-
-    _purchaseSubscription = InAppPurchase.instance.purchaseStream.listen(
-      _onPurchaseUpdated,
-      onDone: () => _purchaseSubscription.cancel(),
-      onError: (error) {
-        debugPrint('purchaseStream error: $error');
-      },
-    );
-
     _loadData();
-    _loadAppleIapProducts();
   }
 
   Future<void> _loadData() async {
@@ -169,297 +150,6 @@ class _BalancePageState extends State<BalancePage> {
       _ledgerNextPage = ledgerNextPage;
       _ledgerHasNextPage = ledgerHasNextPage;
     });
-  }
-
-  Future<void> _loadAppleIapProducts() async {
-    if (!Platform.isIOS) return;
-
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _appleIapProducts = const [];
-        _isAppleIapProductsLoading = false;
-        _hasAppleIapProductsError = true;
-      });
-      return;
-    }
-
-    if (mounted) {
-      setState(() {
-        _isAppleIapProductsLoading = true;
-        _hasAppleIapProductsError = false;
-      });
-    }
-
-    try {
-      final products = await _billingRepository.fetchAppleIapProducts(
-        accessToken: accessToken,
-      );
-      if (!mounted) return;
-      setState(() {
-        _appleIapProducts = products;
-        _isAppleIapProductsLoading = false;
-        _hasAppleIapProductsError = false;
-      });
-    } catch (error, stackTrace) {
-      AppLog.instance.error(
-        'Unexpected error when fetching Apple IAP products',
-        tag: 'BillingApi',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      if (!mounted) return;
-      setState(() {
-        _appleIapProducts = const [];
-        _isAppleIapProductsLoading = false;
-        _hasAppleIapProductsError = true;
-      });
-    }
-  }
-
-  Future<void> _handleAppleIapPurchase(
-    AppleIapProductData catalogProduct,
-  ) async {
-    if (!Platform.isIOS) {
-      Fluttertoast.showToast(msg: 'Coming soon on Android');
-      return;
-    }
-
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
-      if (user == null || accessToken == null || accessToken.isEmpty) {
-        Fluttertoast.showToast(msg: 'Please sign in first');
-        return;
-      }
-
-      final isAvailable = await InAppPurchase.instance.isAvailable();
-      debugPrint('isAvailable: $isAvailable');
-
-      if (!isAvailable) {
-        Fluttertoast.showToast(msg: 'App Store unavailable');
-        return;
-      }
-
-      final order = await _billingRepository.createAppleIapOrder(
-        accessToken: accessToken,
-        packageCode: catalogProduct.packageCode,
-      );
-
-      _pendingAppleIapOrderId = order.orderId;
-      _pendingAppleIapPackageCode = order.packageCode;
-      _pendingAppleIapProductId = order.productId;
-
-      final response = await InAppPurchase.instance
-          .queryProductDetails({order.productId})
-          .timeout(const Duration(seconds: 15));
-
-      debugPrint('productDetails count: ${response.productDetails.length}');
-      debugPrint('notFoundIDs: ${response.notFoundIDs}');
-      debugPrint('error: ${response.error}');
-
-      if (response.productDetails.isEmpty) {
-        _clearPendingAppleIapOrder();
-        Fluttertoast.showToast(msg: 'Product not found');
-        return;
-      }
-
-      final product = response.productDetails.first;
-      final purchaseParam = Sk2PurchaseParam(
-        productDetails: product,
-        applicationUserName: user.id,
-      );
-
-      if (!mounted) return;
-
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(product.title),
-          content: Text(
-            catalogProduct.description?.trim().isNotEmpty == true
-                ? '${catalogProduct.description}\n\nPrice: ${product.price}'
-                : 'Price: ${product.price}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _clearPendingAppleIapOrder();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-
-                await Future.delayed(const Duration(milliseconds: 400));
-
-                final ok = await InAppPurchase.instance.buyNonConsumable(
-                  purchaseParam: purchaseParam,
-                );
-
-                debugPrint('buyNonConsumable started: $ok');
-              },
-              child: const Text('Continue'),
-            ),
-          ],
-        ),
-      );
-    } catch (e, st) {
-      _clearPendingAppleIapOrder();
-      debugPrint('IAP error: $e');
-      debugPrint('$st');
-      Fluttertoast.showToast(msg: 'IAP error: $e');
-    }
-  }
-
-  Future<void> _onPurchaseUpdated(
-    List<PurchaseDetails> purchaseDetailsList,
-  ) async {
-    for (final purchase in purchaseDetailsList) {
-      debugPrint(
-        'purchase update: ${purchase.productID}, status=${purchase.status}, pendingCompletePurchase=${purchase.pendingCompletePurchase}',
-      );
-
-      if (purchase.status == PurchaseStatus.pending) {
-        Fluttertoast.showToast(msg: 'Purchase pending');
-        continue;
-      }
-
-      if (purchase.status == PurchaseStatus.error) {
-        _clearPendingAppleIapOrder();
-        Fluttertoast.showToast(
-          msg: 'Purchase error: ${purchase.error?.message ?? 'unknown'}',
-        );
-        continue;
-      }
-
-      if (purchase.status == PurchaseStatus.canceled) {
-        _clearPendingAppleIapOrder();
-        Fluttertoast.showToast(msg: 'Purchase canceled');
-
-        if (purchase.pendingCompletePurchase) {
-          await InAppPurchase.instance.completePurchase(purchase);
-        }
-        continue;
-      }
-
-      if (purchase.status == PurchaseStatus.purchased) {
-        try {
-          final delivered = await _deliverApplePurchaseToServer(purchase);
-
-          if (!delivered) {
-            Fluttertoast.showToast(msg: 'Token delivery failed');
-            continue;
-          }
-
-          await _loadData();
-          await _loadAppleIapProducts();
-
-          if (purchase.pendingCompletePurchase) {
-            await InAppPurchase.instance.completePurchase(purchase);
-          }
-
-          _clearPendingAppleIapOrder();
-          Fluttertoast.showToast(msg: 'Purchase applied');
-        } catch (e, st) {
-          debugPrint('deliver purchase failed: $e');
-          debugPrint('$st');
-          Fluttertoast.showToast(msg: 'Token delivery failed');
-        }
-      }
-    }
-  }
-
-  Future<bool> _deliverApplePurchaseToServer(PurchaseDetails purchase) async {
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
-
-    if (accessToken == null || accessToken.isEmpty) {
-      debugPrint('deliver purchase failed: missing access token');
-      return false;
-    }
-
-    final signedTransactionInfo = purchase
-        .verificationData
-        .serverVerificationData
-        .trim();
-    if (signedTransactionInfo.isEmpty) {
-      debugPrint('deliver purchase failed: missing signed transaction info');
-      return false;
-    }
-
-    final verificationContext = await _resolveAppleIapVerificationContext(
-      accessToken: accessToken,
-      productId: purchase.productID,
-    );
-    if (verificationContext == null) {
-      debugPrint(
-        'deliver purchase failed: unable to resolve package code for productId=${purchase.productID}',
-      );
-      return false;
-    }
-
-    final result = await _billingRepository.verifyAppleIapOneTimePurchase(
-      accessToken: accessToken,
-      packageCode: verificationContext.packageCode,
-      signedTransactionInfo: signedTransactionInfo,
-      orderId: verificationContext.orderId,
-    );
-
-    debugPrint(
-      'deliver purchase verify result: status=${result.status}, granted=${result.granted}, orderId=${result.orderId}',
-    );
-
-    return result.status == 'granted' || result.status == 'already_granted';
-  }
-
-  Future<_AppleIapVerificationContext?> _resolveAppleIapVerificationContext({
-    required String accessToken,
-    required String productId,
-  }) async {
-    if (_pendingAppleIapPackageCode != null &&
-        _pendingAppleIapPackageCode!.isNotEmpty &&
-        (_pendingAppleIapProductId == null ||
-            _pendingAppleIapProductId == productId)) {
-      return _AppleIapVerificationContext(
-        packageCode: _pendingAppleIapPackageCode!,
-        orderId: _pendingAppleIapOrderId,
-      );
-    }
-
-    final catalogProducts = await _billingRepository.fetchAppleIapProducts(
-      accessToken: accessToken,
-    );
-    final matchedProduct = catalogProducts
-        .where((item) => item.productId == productId)
-        .firstOrNull;
-    if (matchedProduct == null) {
-      return null;
-    }
-    return _AppleIapVerificationContext(
-      packageCode: matchedProduct.packageCode,
-    );
-  }
-
-  void _clearPendingAppleIapOrder() {
-    _pendingAppleIapOrderId = null;
-    _pendingAppleIapPackageCode = null;
-    _pendingAppleIapProductId = null;
-  }
-
-  String _appleIapButtonLabel(AppleIapProductData product) {
-    final title = product.displayName?.trim().isNotEmpty == true
-        ? product.displayName!.trim()
-        : '${product.creditAmount.toStringAsFixed(product.creditAmount % 1 == 0 ? 0 : 2)} credits';
-    if (product.amount == null || (product.currency?.isEmpty ?? true)) {
-      return title;
-    }
-    return '$title · ${product.currency} ${product.amount}';
   }
 
   Widget _sectionCard(BuildContext context, {required List<Widget> children}) {
@@ -585,12 +275,6 @@ class _BalancePageState extends State<BalancePage> {
   }
 
   @override
-  void dispose() {
-    _purchaseSubscription.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final balanceStatusText = _balanceStatusText(context);
@@ -654,58 +338,34 @@ class _BalancePageState extends State<BalancePage> {
                   ],
                   if (Platform.isIOS) ...[
                     const SizedBox(height: 16),
-                    if (_isAppleIapProductsLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (_hasAppleIapProductsError)
-                      Text(
-                        l10n.billing_load_failed,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      )
-                    else if (_appleIapProducts.isEmpty)
-                      Text(
-                        'No iOS products available',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      )
-                    else
-                      ..._appleIapProducts.map(
-                        (product) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: 44,
-                            child: FilledButton(
-                              onPressed: () => _handleAppleIapPurchase(product),
-                              style: FilledButton.styleFrom(
-                                elevation: 0,
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.12),
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                shape: const StadiumBorder(),
-                                textStyle: Theme.of(context)
-                                    .textTheme
-                                    .labelLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
+                    IosBuyButton(onPurchaseSuccess: _loadData),
+                  ] else if (Platform.isAndroid) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: FilledButton(
+                        onPressed: () {
+                          Fluttertoast.showToast(msg: 'Coming soon on Android');
+                        },
+                        style: FilledButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.12),
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          shape: const StadiumBorder(),
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
                               ),
-                              child: Text(_appleIapButtonLabel(product)),
-                            ),
-                          ),
                         ),
+                        child: const Text('Buy credits'),
                       ),
+                    ),
                   ],
                 ],
               ),
@@ -743,11 +403,4 @@ class _BalancePageState extends State<BalancePage> {
       ),
     );
   }
-}
-
-class _AppleIapVerificationContext {
-  const _AppleIapVerificationContext({required this.packageCode, this.orderId});
-
-  final String packageCode;
-  final String? orderId;
 }
