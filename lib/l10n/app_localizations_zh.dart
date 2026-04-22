@@ -93,6 +93,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billing_available_credits => '可用点数';
 
   @override
+  String get billing_buy_credits => '购买点数';
+
+  @override
   String get billing_credits_label => '点数';
 
   @override
@@ -109,6 +112,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billing_load_failed => '账单加载失败，请稍后重试';
+
+  @override
+  String get billing_purchase_sheet_title => '选择点数包';
+
+  @override
+  String get billing_purchase_unavailable => '当前设备暂时无法使用 Google Play 购买，请稍后再试。';
+
+  @override
+  String get billing_purchase_loading => '正在加载可购买的点数包…';
+
+  @override
+  String get billing_purchase_processing => '正在拉起支付，请在 Google Play 中完成购买。';
+
+  @override
+  String get billing_purchase_verifying => '支付成功，正在核验并发放点数…';
+
+  @override
+  String get billing_purchase_failed => '购买失败，请稍后重试。';
+
+  @override
+  String get billing_purchase_cancelled => '你已取消本次购买。';
+
+  @override
+  String get billing_purchase_success => '购买成功，点数已更新。';
+
+  @override
+  String get billing_products_empty => '暂时没有可购买的点数包。';
+
+  @override
+  String get billing_purchase_retry => '重新加载';
 
   @override
   String get serial_number_stats => '编号统计';

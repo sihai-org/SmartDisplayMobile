@@ -1,26 +1,30 @@
 import 'dart:io';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/providers/billing_purchase_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
 import 'balance_bill_page.dart';
 import '../widgets/ios_buy_button.dart';
+import '../widgets/billing_purchase_sheet.dart';
 
-class BalancePage extends StatefulWidget {
+class BalancePage extends ConsumerStatefulWidget {
   const BalancePage({super.key});
 
   @override
-  State<BalancePage> createState() => _BalancePageState();
+  ConsumerState<BalancePage> createState() => _BalancePageState();
 }
 
-class _BalancePageState extends State<BalancePage> {
+class _BalancePageState extends ConsumerState<BalancePage> {
   final BillingRepository _billingRepository = BillingRepository();
 
   BillingBalanceData? _balance;
@@ -33,12 +37,14 @@ class _BalancePageState extends State<BalancePage> {
   bool _ledgerInitialized = false;
   int _ledgerNextPage = 1;
   bool _ledgerHasNextPage = true;
+  bool _isPurchaseSheetVisible = false;
 
   bool get _isAuditMode => AuditMode.enabled;
 
   @override
   void initState() {
     super.initState();
+    ref.read(billingPurchaseProvider.notifier);
     _loadData();
   }
 
@@ -204,6 +210,27 @@ class _BalancePageState extends State<BalancePage> {
     return '';
   }
 
+  Future<void> _openPurchaseSheet() async {
+    if (!Platform.isAndroid) return;
+
+    unawaited(ref.read(billingPurchaseProvider.notifier).loadCatalog());
+    setState(() {
+      _isPurchaseSheetVisible = true;
+    });
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (_) => const BillingPurchaseSheet(),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _isPurchaseSheetVisible = false;
+    });
+  }
+
   Widget _buildStatusTile(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -276,10 +303,23 @@ class _BalancePageState extends State<BalancePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<BillingPurchaseState>(billingPurchaseProvider, (previous, next) {
+      if (previous?.successTick != next.successTick && next.successTick > 0) {
+        if (_isPurchaseSheetVisible && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        unawaited(_loadData());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.billing_purchase_success)),
+        );
+      }
+    });
+
     final l10n = context.l10n;
     final balanceStatusText = _balanceStatusText(context);
     final recentChanges = _ledgerItems.take(3).toList();
     final showBalanceValue = !_isBalanceLoading && _balance != null;
+    final purchaseState = ref.watch(billingPurchaseProvider);
     final showLedgerLoading = _isLedgerLoading;
     final showViewAllButton = !showLedgerLoading && recentChanges.isNotEmpty;
     final showLedgerError =
@@ -341,30 +381,11 @@ class _BalancePageState extends State<BalancePage> {
                     IosBuyButton(onPurchaseSuccess: _loadData),
                   ] else if (Platform.isAndroid) ...[
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: FilledButton(
-                        onPressed: () {
-                          Fluttertoast.showToast(msg: 'Coming soon on Android');
-                        },
-                        style: FilledButton.styleFrom(
-                          elevation: 0,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.12),
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          shape: const StadiumBorder(),
-                          textStyle: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                        ),
-                        child: const Text('Buy credits'),
-                      ),
+                    FilledButton(
+                      onPressed: purchaseState.isBusy
+                          ? null
+                          : _openPurchaseSheet,
+                      child: Text(l10n.billing_buy_credits),
                     ),
                   ],
                 ],
