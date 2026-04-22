@@ -5,6 +5,7 @@ class PurchaseButtonStyle {
 
   static const Color darkColor = Color(0xFF161616);
   static const Color lightColor = Color(0xFFFFE7A8);
+  static const Color heavyLightColor = Color(0xFFFFC400);
   static const Color disabledBackgroundColor = Color(0xFF2A2A2A);
   static const Color invertedDisabledBackgroundColor = Color(0xFFF2E0A9);
   static const Color invertedDisabledForegroundColor = Color(0xFF5A5547);

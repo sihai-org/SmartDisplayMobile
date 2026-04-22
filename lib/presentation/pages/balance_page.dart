@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:smart_display_mobile/core/theme/purchase_button_style.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -170,7 +171,8 @@ class _BalancePageState extends State<BalancePage> {
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.grey.shade800
               : Colors.grey.shade300,
-          indent: MediaQuery.of(context).size.width / 8,
+          indent: 16,
+          endIndent: 16,
         ),
       ),
     );
@@ -220,22 +222,13 @@ class _BalancePageState extends State<BalancePage> {
   Widget _buildChangeTile(BuildContext context, BillingLedgerItem item) {
     final amount = item.displayValue;
     final positive = amount >= 0;
-    final amountColor = positive ? Colors.green.shade700 : Colors.red.shade400;
-    final iconColor = positive ? Colors.green.shade100 : Colors.red.shade100;
-    final iconData = positive ? Icons.arrow_upward : Icons.arrow_downward;
+    final amountColor = positive
+        ? PurchaseButtonStyle.heavyLightColor
+        : Colors.grey.shade900;
     final occurredAtText = _formatOccurredAt(context, item.occurredAt);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: CircleAvatar(
-        radius: 20,
-        backgroundColor: iconColor,
-        child: Icon(
-          iconData,
-          size: 18,
-          color: positive ? Colors.green.shade700 : Colors.red.shade400,
-        ),
-      ),
       title: Text(
         item.displayText,
         maxLines: 2,
@@ -278,6 +271,7 @@ class _BalancePageState extends State<BalancePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final theme = Theme.of(context);
     final balanceStatusText = _balanceStatusText(context);
     final recentChanges = _ledgerItems.take(3).toList();
     final showBalanceValue = !_isBalanceLoading && _balance != null;
@@ -369,7 +363,22 @@ class _BalancePageState extends State<BalancePage> {
                       );
                       context.push(AppRoutes.balanceBills, extra: args);
                     },
-                    child: Text(l10n.billing_view_all),
+                    style: TextButton.styleFrom(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+                      minimumSize: const Size(0, 32),
+                      foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      overlayColor: Colors.transparent,
+                      splashFactory: NoSplash.splashFactory,
+                    ),
+                    child: Text(
+                      l10n.billing_view_all,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
               ],
             ),

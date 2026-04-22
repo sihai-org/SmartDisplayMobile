@@ -205,17 +205,20 @@ class _AndroidIapSheetState extends ConsumerState<AndroidIapSheet> {
                       ? null
                       : notifier.loadProductCatalog,
                   style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onSurface,
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
                     padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 32),
+                    minimumSize: const Size(0, 28),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                     overlayColor: Colors.transparent,
                     splashFactory: NoSplash.splashFactory,
                   ),
-                  icon: const Icon(Icons.refresh, size: 20),
-                  label: Text(l10n.refresh),
-                ),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: Text(
+                    l10n.refresh,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                )
               ],
             ),
             if (statusText != null) ...[

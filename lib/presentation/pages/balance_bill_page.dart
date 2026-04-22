@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/theme/purchase_button_style.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
 
@@ -201,7 +202,8 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.grey.shade800
               : Colors.grey.shade300,
-          indent: MediaQuery.of(context).size.width / 8,
+          indent: 16,
+          endIndent: 16,
         ),
       ),
     );
@@ -240,22 +242,13 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
   Widget _buildChangeTile(BuildContext context, BillingLedgerItem item) {
     final amount = item.displayValue;
     final positive = amount >= 0;
-    final amountColor = positive ? Colors.green.shade700 : Colors.red.shade400;
-    final iconColor = positive ? Colors.green.shade100 : Colors.red.shade100;
-    final iconData = positive ? Icons.arrow_upward : Icons.arrow_downward;
+    final amountColor = positive
+        ? PurchaseButtonStyle.heavyLightColor
+        : Colors.grey.shade900;
     final occurredAtText = _formatOccurredAt(context, item.occurredAt);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: CircleAvatar(
-        radius: 20,
-        backgroundColor: iconColor,
-        child: Icon(
-          iconData,
-          size: 18,
-          color: positive ? Colors.green.shade700 : Colors.red.shade400,
-        ),
-      ),
       title: Text(
         item.displayText,
         maxLines: 2,
