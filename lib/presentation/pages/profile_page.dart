@@ -116,6 +116,7 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
+    final auditState = ref.watch(auditModeProvider);
     final locale = ref.watch(localeProvider);
     final packageInfoAsync = ref.watch(packageInfoProvider);
     final devicesCount = saved.devices.length;
@@ -136,10 +137,12 @@ class ProfilePage extends ConsumerWidget {
       data: (m) => m['factory_test'] == true,
       orElse: () => false,
     );
-    final showBalanceEntry = grayKeyMapAsync.maybeWhen(
-      data: (m) => m['finance_gray'] == true,
-      orElse: () => false,
-    );
+    final showBalanceEntry =
+        auditState.enabled ||
+        grayKeyMapAsync.maybeWhen(
+          data: (m) => m['finance_gray'] == true,
+          orElse: () => false,
+        );
 
     return Scaffold(
       appBar: AppBar(

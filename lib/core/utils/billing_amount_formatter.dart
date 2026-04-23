@@ -21,6 +21,18 @@ String formatBillingAmount({
   ).format(truncated);
 }
 
+String formatBillingCreditAmount({
+  required String locale,
+  required double amount,
+}) {
+  final truncated = floorToDecimalPlaces(amount, 2);
+  final fractionDigits = truncated == truncated.truncateToDouble() ? 0 : 2;
+  return NumberFormat.decimalPatternDigits(
+    locale: locale,
+    decimalDigits: fractionDigits,
+  ).format(truncated);
+}
+
 String formatBillingDeltaAmount({
   required String locale,
   required double amount,

@@ -3,8 +3,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/theme/purchase_button_style.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
 
@@ -43,14 +45,18 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
   bool _isLoading = false;
   bool _hasError = false;
 
+  bool get _isAuditMode => AuditMode.enabled;
+
   @override
   void initState() {
     super.initState();
     final args = widget.args;
-    _items = List<BillingLedgerItem>.from(args?.initialItems ?? const []);
-    _nextPage = args?.nextPage ?? 1;
-    _hasNextPage = args?.hasNextPage ?? true;
-    _hasInitialized = args?.hasInitialized ?? false;
+    _items = _isAuditMode
+        ? const []
+        : List<BillingLedgerItem>.from(args?.initialItems ?? const []);
+    _nextPage = _isAuditMode ? 1 : (args?.nextPage ?? 1);
+    _hasNextPage = _isAuditMode ? false : (args?.hasNextPage ?? true);
+    _hasInitialized = _isAuditMode ? true : (args?.hasInitialized ?? false);
     _scrollController.addListener(_onScroll);
 
     if (!_hasInitialized) {
@@ -196,7 +202,8 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
           color: Theme.of(context).brightness == Brightness.dark
               ? Colors.grey.shade800
               : Colors.grey.shade300,
-          indent: MediaQuery.of(context).size.width / 8,
+          indent: 16,
+          endIndent: 16,
         ),
       ),
     );
@@ -235,22 +242,16 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
   Widget _buildChangeTile(BuildContext context, BillingLedgerItem item) {
     final amount = item.displayValue;
     final positive = amount >= 0;
-    final amountColor = positive ? Colors.green.shade700 : Colors.red.shade400;
-    final iconColor = positive ? Colors.green.shade100 : Colors.red.shade100;
-    final iconData = positive ? Icons.arrow_upward : Icons.arrow_downward;
+    final theme = Theme.of(context);
+    final titleColor =
+        theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface;
+    final amountColor = positive
+        ? PurchaseButtonStyle.heavyLightColor
+        : titleColor;
     final occurredAtText = _formatOccurredAt(context, item.occurredAt);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: CircleAvatar(
-        radius: 20,
-        backgroundColor: iconColor,
-        child: Icon(
-          iconData,
-          size: 18,
-          color: positive ? Colors.green.shade700 : Colors.red.shade400,
-        ),
-      ),
       title: Text(
         item.displayText,
         maxLines: 2,
@@ -273,7 +274,7 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
         children: [
           Text(
             _formatCreditDelta(context, amount),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               color: amountColor,
               fontWeight: FontWeight.w600,
             ),

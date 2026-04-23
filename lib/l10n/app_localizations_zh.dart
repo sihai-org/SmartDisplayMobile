@@ -93,6 +93,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billing_available_credits => '可用点数';
 
   @override
+  String get billing_buy_credits => '购买点数';
+
+  @override
   String get billing_credits_label => '点数';
 
   @override
@@ -109,6 +112,66 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billing_load_failed => '账单加载失败，请稍后重试';
+
+  @override
+  String get billing_purchase_sheet_title => '选择点数包';
+
+  @override
+  String get billing_purchase_unavailable => '当前设备暂时无法使用 Google Play 购买，请稍后再试。';
+
+  @override
+  String get billing_purchase_loading => '正在加载可购买的点数包…';
+
+  @override
+  String get billing_purchase_processing => '正在拉起支付，请在 Google Play 中完成购买。';
+
+  @override
+  String get billing_purchase_awaiting_result => '等待支付结果…';
+
+  @override
+  String get billing_purchase_verifying => '支付成功，正在核验并发放点数…';
+
+  @override
+  String get billing_purchase_failed => '购买失败，请稍后重试。';
+
+  @override
+  String get billing_purchase_cancelled => '你已取消本次购买。';
+
+  @override
+  String get billing_purchase_success => '购买成功，点数已更新。';
+
+  @override
+  String get billing_products_empty => '暂时没有可购买的点数包。';
+
+  @override
+  String get billing_purchase_retry => '重新加载';
+
+  @override
+  String get billing_purchase_sign_in_first => '请先登录后再购买。';
+
+  @override
+  String get billing_purchase_store_unavailable => '当前设备暂时无法使用系统内购买，请稍后再试。';
+
+  @override
+  String get billing_purchase_product_not_found => '该商品暂时不可购买。';
+
+  @override
+  String get billing_purchase_delivery_failed => '已收到支付结果，但点数发放失败，请稍后重试。';
+
+  @override
+  String get billing_ios_purchase_processing => '正在打开 App Store，请在 Apple 购买弹窗中完成支付。';
+
+  @override
+  String get billing_ios_purchase_awaiting_result => '等待 App Store 返回支付结果…';
+
+  @override
+  String get billing_ios_purchase_verifying => '已收到 App Store 支付结果，正在核验并发放点数…';
+
+  @override
+  String get billing_ios_purchase_store_unavailable => '当前设备暂时无法使用 App Store 内购，请稍后再试。';
+
+  @override
+  String get billing_ios_purchase_product_not_found => '该 App Store 商品暂时不可购买。';
 
   @override
   String get serial_number_stats => '编号统计';
@@ -337,6 +400,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get audit_mode_enabled => '审核模式已开启';
+
+  @override
+  String get billing_buy_1000_tokens => '购买 1000 Tokens';
 
   @override
   String get login_expired => '登录已过期';

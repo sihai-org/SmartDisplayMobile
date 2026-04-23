@@ -136,10 +136,6 @@ class BillingRepository {
             occurredAt: _parseLedgerDateTime(item['display_time']),
           ),
         );
-        AppLog.instance.info(
-          '[billing_ledger_item] display_text=$displayText, amount=${item['amount']}, total_credit=${item['total_credit']}, display_time=${item['display_time']}',
-          tag: 'BillingApi',
-        );
       }
     }
 

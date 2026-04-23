@@ -93,6 +93,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billing_available_credits => 'Available Credits';
 
   @override
+  String get billing_buy_credits => 'Buy Credits';
+
+  @override
   String get billing_credits_label => 'Credits';
 
   @override
@@ -109,6 +112,66 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billing_load_failed => 'Couldn\'t load billing data. Please try again later.';
+
+  @override
+  String get billing_purchase_sheet_title => 'Choose a Credit Pack';
+
+  @override
+  String get billing_purchase_unavailable => 'Google Play purchases are not available on this device right now.';
+
+  @override
+  String get billing_purchase_loading => 'Loading available credit packs…';
+
+  @override
+  String get billing_purchase_processing => 'Opening Google Play. Finish the purchase there to continue.';
+
+  @override
+  String get billing_purchase_awaiting_result => 'Waiting for the purchase result…';
+
+  @override
+  String get billing_purchase_verifying => 'Purchase received. Verifying and delivering credits…';
+
+  @override
+  String get billing_purchase_failed => 'Purchase failed. Please try again later.';
+
+  @override
+  String get billing_purchase_cancelled => 'This purchase was cancelled.';
+
+  @override
+  String get billing_purchase_success => 'Purchase successful. Your credits have been refreshed.';
+
+  @override
+  String get billing_products_empty => 'No credit packs are available right now.';
+
+  @override
+  String get billing_purchase_retry => 'Reload';
+
+  @override
+  String get billing_purchase_sign_in_first => 'Please sign in first.';
+
+  @override
+  String get billing_purchase_store_unavailable => 'Purchases are not available on this device right now.';
+
+  @override
+  String get billing_purchase_product_not_found => 'This product is no longer available.';
+
+  @override
+  String get billing_purchase_delivery_failed => 'We received your purchase, but credit delivery failed. Please try again later.';
+
+  @override
+  String get billing_ios_purchase_processing => 'Opening the App Store purchase sheet. Finish the purchase there to continue.';
+
+  @override
+  String get billing_ios_purchase_awaiting_result => 'Waiting for the App Store purchase result…';
+
+  @override
+  String get billing_ios_purchase_verifying => 'App Store purchase received. Verifying and delivering credits…';
+
+  @override
+  String get billing_ios_purchase_store_unavailable => 'App Store purchases are not available on this device right now.';
+
+  @override
+  String get billing_ios_purchase_product_not_found => 'This App Store product is no longer available.';
 
   @override
   String get serial_number_stats => 'Serial Number Stats';
@@ -337,6 +400,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get audit_mode_enabled => 'Audit mode enabled';
+
+  @override
+  String get billing_buy_1000_tokens => 'Buy 1000 Tokens';
 
   @override
   String get login_expired => 'Login session expired';
