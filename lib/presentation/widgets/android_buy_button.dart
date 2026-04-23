@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/android_iap_provider.dart';
-import '../../core/theme/purchase_button_style.dart';
 import 'android_iap_sheet.dart';
+import 'purchase_ui/purchase_entry_button.dart';
 
 class AndroidBuyButton extends ConsumerStatefulWidget {
   const AndroidBuyButton({super.key, this.onPurchaseSuccess});
@@ -55,14 +55,9 @@ class _AndroidBuyButtonState extends ConsumerState<AndroidBuyButton> {
 
     final purchaseState = ref.watch(androidIapProvider);
     return Center(
-      child: FilledButton(
+      child: PurchaseEntryButton(
+        label: context.l10n.billing_buy_credits,
         onPressed: purchaseState.isBusy ? null : _openAndroidIapSheet,
-        style: PurchaseButtonStyle.invertedFilledButtonStyle(
-          minimumSize: const Size(0, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-          shape: const StadiumBorder(),
-        ),
-        child: Text(context.l10n.billing_buy_credits),
       ),
     );
   }

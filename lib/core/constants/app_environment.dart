@@ -15,7 +15,6 @@ class AppEnvironment {
 
   // Unified API server URL entry point. Can be switched by stage later.
   static String get apiServerUrl {
-    return 'https://billing-rtdn.haoyangz.com';
     switch (stage.value) {
       case AppEnvironmentStage.preRelease:
         return 'https://api.smartdisplay.vzngpt.com';

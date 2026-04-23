@@ -371,6 +371,60 @@ abstract class AppLocalizations {
   /// **'Reload'**
   String get billing_purchase_retry;
 
+  /// No description provided for @billing_purchase_sign_in_first.
+  ///
+  /// In en, this message translates to:
+  /// **'Please sign in first.'**
+  String get billing_purchase_sign_in_first;
+
+  /// No description provided for @billing_purchase_store_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases are not available on this device right now.'**
+  String get billing_purchase_store_unavailable;
+
+  /// No description provided for @billing_purchase_product_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'This product is no longer available.'**
+  String get billing_purchase_product_not_found;
+
+  /// No description provided for @billing_purchase_delivery_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'We received your purchase, but credit delivery failed. Please try again later.'**
+  String get billing_purchase_delivery_failed;
+
+  /// No description provided for @billing_ios_purchase_processing.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening the App Store purchase sheet. Finish the purchase there to continue.'**
+  String get billing_ios_purchase_processing;
+
+  /// No description provided for @billing_ios_purchase_awaiting_result.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the App Store purchase result…'**
+  String get billing_ios_purchase_awaiting_result;
+
+  /// No description provided for @billing_ios_purchase_verifying.
+  ///
+  /// In en, this message translates to:
+  /// **'App Store purchase received. Verifying and delivering credits…'**
+  String get billing_ios_purchase_verifying;
+
+  /// No description provided for @billing_ios_purchase_store_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'App Store purchases are not available on this device right now.'**
+  String get billing_ios_purchase_store_unavailable;
+
+  /// No description provided for @billing_ios_purchase_product_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'This App Store product is no longer available.'**
+  String get billing_ios_purchase_product_not_found;
+
   /// No description provided for @serial_number_stats.
   ///
   /// In en, this message translates to:

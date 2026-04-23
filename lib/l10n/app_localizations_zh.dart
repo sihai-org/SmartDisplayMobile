@@ -147,6 +147,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billing_purchase_retry => '重新加载';
 
   @override
+  String get billing_purchase_sign_in_first => '请先登录后再购买。';
+
+  @override
+  String get billing_purchase_store_unavailable => '当前设备暂时无法使用系统内购买，请稍后再试。';
+
+  @override
+  String get billing_purchase_product_not_found => '该商品暂时不可购买。';
+
+  @override
+  String get billing_purchase_delivery_failed => '已收到支付结果，但点数发放失败，请稍后重试。';
+
+  @override
+  String get billing_ios_purchase_processing => '正在打开 App Store，请在 Apple 购买弹窗中完成支付。';
+
+  @override
+  String get billing_ios_purchase_awaiting_result => '等待 App Store 返回支付结果…';
+
+  @override
+  String get billing_ios_purchase_verifying => '已收到 App Store 支付结果，正在核验并发放点数…';
+
+  @override
+  String get billing_ios_purchase_store_unavailable => '当前设备暂时无法使用 App Store 内购，请稍后再试。';
+
+  @override
+  String get billing_ios_purchase_product_not_found => '该 App Store 商品暂时不可购买。';
+
+  @override
   String get serial_number_stats => '编号统计';
 
   @override

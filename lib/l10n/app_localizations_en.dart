@@ -147,6 +147,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billing_purchase_retry => 'Reload';
 
   @override
+  String get billing_purchase_sign_in_first => 'Please sign in first.';
+
+  @override
+  String get billing_purchase_store_unavailable => 'Purchases are not available on this device right now.';
+
+  @override
+  String get billing_purchase_product_not_found => 'This product is no longer available.';
+
+  @override
+  String get billing_purchase_delivery_failed => 'We received your purchase, but credit delivery failed. Please try again later.';
+
+  @override
+  String get billing_ios_purchase_processing => 'Opening the App Store purchase sheet. Finish the purchase there to continue.';
+
+  @override
+  String get billing_ios_purchase_awaiting_result => 'Waiting for the App Store purchase result…';
+
+  @override
+  String get billing_ios_purchase_verifying => 'App Store purchase received. Verifying and delivering credits…';
+
+  @override
+  String get billing_ios_purchase_store_unavailable => 'App Store purchases are not available on this device right now.';
+
+  @override
+  String get billing_ios_purchase_product_not_found => 'This App Store product is no longer available.';
+
+  @override
   String get serial_number_stats => 'Serial Number Stats';
 
   @override
