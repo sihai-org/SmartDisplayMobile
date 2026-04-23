@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 
 import '../../core/constants/app_environment.dart';
 import '../../core/log/app_log.dart';
+import '../../core/log/buy_log.dart';
+import '../../core/log/biz_log_tag.dart';
 import 'billing_repository.dart';
 
 class AppleIapProductData {
@@ -15,6 +17,7 @@ class AppleIapProductData {
     this.description,
     this.currency,
     this.amount,
+    this.displayPrice,
     this.sortOrder = 0,
   });
 
@@ -25,7 +28,32 @@ class AppleIapProductData {
   final String? description;
   final String? currency;
   final double? amount;
+  final String? displayPrice;
   final int sortOrder;
+
+  AppleIapProductData copyWith({
+    String? packageCode,
+    String? productId,
+    double? creditAmount,
+    String? displayName,
+    String? description,
+    String? currency,
+    double? amount,
+    String? displayPrice,
+    int? sortOrder,
+  }) {
+    return AppleIapProductData(
+      packageCode: packageCode ?? this.packageCode,
+      productId: productId ?? this.productId,
+      creditAmount: creditAmount ?? this.creditAmount,
+      displayName: displayName ?? this.displayName,
+      description: description ?? this.description,
+      currency: currency ?? this.currency,
+      amount: amount ?? this.amount,
+      displayPrice: displayPrice ?? this.displayPrice,
+      sortOrder: sortOrder ?? this.sortOrder,
+    );
+  }
 }
 
 class AppleIapOrderData {
@@ -65,22 +93,26 @@ class AppleIapVerifyResult {
 }
 
 class IosIapRepository {
+  static const _productsPath = '/api/billing/apple-iap/products';
+  static const _ordersPath = '/api/billing/apple-iap/orders';
+  static const _verifyPath =
+      '/api/billing/apple-iap/purchases/one-time/verify';
+
   Future<List<AppleIapProductData>> fetchAppleIapProducts({
     required String accessToken,
   }) async {
-    _logRequest(
-      endpoint: 'apple_iap_products',
+    logBuyRequest(
       method: 'GET',
-      path: '/api/billing/apple-iap/products',
+      path: _productsPath,
     );
     final response = await http.get(
       Uri.parse(
-        '${AppEnvironment.apiServerUrl}/api/billing/apple-iap/products',
+        '${AppEnvironment.apiServerUrl}$_productsPath',
       ),
       headers: {'X-Access-Token': accessToken},
     );
-    _logResponse(
-      endpoint: 'apple_iap_products',
+    logBuyResponse(
+      endpoint: _productsPath,
       statusCode: response.statusCode,
       responseBody: response.body,
     );
@@ -88,7 +120,7 @@ class IosIapRepository {
     if (response.statusCode != 200) {
       AppLog.instance.warning(
         '[billing_apple_iap_products] non-200: ${response.statusCode} ${response.body}',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
     }
@@ -101,7 +133,7 @@ class IosIapRepository {
     if (data is! List) {
       AppLog.instance.warning(
         '[billing_apple_iap_products] invalid data: $decoded',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw const BillingRequestException('Invalid response data');
     }
@@ -128,27 +160,6 @@ class IosIapRepository {
           (item) => item.packageCode.isNotEmpty && item.productId.isNotEmpty,
         )
         .toList(growable: false);
-    AppLog.instance.debug(
-      jsonEncode({
-        'event': 'billing_apple_iap_products_parsed',
-        'count': products.length,
-        'products': products
-            .map(
-              (item) => {
-                'package_code': item.packageCode,
-                'product_id': item.productId,
-                'credit_amount': item.creditAmount,
-                'display_name': item.displayName,
-                'description': item.description,
-                'currency': item.currency,
-                'amount': item.amount,
-                'sort_order': item.sortOrder,
-              },
-            )
-            .toList(growable: false),
-      }),
-      tag: 'BillingApi',
-    );
     return products;
   }
 
@@ -157,22 +168,21 @@ class IosIapRepository {
     required String packageCode,
   }) async {
     final requestBody = {'package_code': packageCode};
-    _logRequest(
-      endpoint: 'apple_iap_order',
+    logBuyRequest(
       method: 'POST',
-      path: '/api/billing/apple-iap/orders',
+      path: _ordersPath,
       requestBody: requestBody,
     );
     final response = await http.post(
-      Uri.parse('${AppEnvironment.apiServerUrl}/api/billing/apple-iap/orders'),
+      Uri.parse('${AppEnvironment.apiServerUrl}$_ordersPath'),
       headers: {
         'Content-Type': 'application/json',
         'X-Access-Token': accessToken,
       },
       body: jsonEncode(requestBody),
     );
-    _logResponse(
-      endpoint: 'apple_iap_order',
+    logBuyResponse(
+      endpoint: _ordersPath,
       statusCode: response.statusCode,
       responseBody: response.body,
     );
@@ -180,7 +190,7 @@ class IosIapRepository {
     if (response.statusCode != 200) {
       AppLog.instance.warning(
         '[billing_apple_iap_order] non-200: ${response.statusCode} ${response.body}',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
     }
@@ -188,7 +198,7 @@ class IosIapRepository {
     final decoded = _decodeResponse(response.body, endpoint: 'apple_iap_order');
     final data = _requireDataMap(decoded, endpoint: 'apple_iap_order');
 
-    final order = AppleIapOrderData(
+    return AppleIapOrderData(
       orderId: data['order_id']?.toString() ?? '',
       packageCode: data['package_code']?.toString() ?? '',
       productId: data['product_id']?.toString() ?? '',
@@ -197,20 +207,6 @@ class IosIapRepository {
       currency: data['currency']?.toString(),
       amount: _asNullableDouble(data['amount']),
     );
-    AppLog.instance.debug(
-      jsonEncode({
-        'event': 'billing_apple_iap_order_parsed',
-        'order_id': order.orderId,
-        'package_code': order.packageCode,
-        'product_id': order.productId,
-        'status': order.status,
-        'credit_amount': order.creditAmount,
-        'currency': order.currency,
-        'amount': order.amount,
-      }),
-      tag: 'BillingApi',
-    );
-    return order;
   }
 
   Future<AppleIapVerifyResult> verifyAppleIapOneTimePurchase({
@@ -226,25 +222,22 @@ class IosIapRepository {
     if (orderId != null && orderId.isNotEmpty) {
       body['order_id'] = orderId;
     }
-    _logRequest(
-      endpoint: 'apple_iap_verify',
+    logBuyRequest(
       method: 'POST',
-      path: '/api/billing/apple-iap/purchases/one-time/verify',
+      path: _verifyPath,
       requestBody: body,
     );
 
     final response = await http.post(
-      Uri.parse(
-        '${AppEnvironment.apiServerUrl}/api/billing/apple-iap/purchases/one-time/verify',
-      ),
+      Uri.parse('${AppEnvironment.apiServerUrl}$_verifyPath'),
       headers: {
         'Content-Type': 'application/json',
         'X-Access-Token': accessToken,
       },
       body: jsonEncode(body),
     );
-    _logResponse(
-      endpoint: 'apple_iap_verify',
+    logBuyResponse(
+      endpoint: _verifyPath,
       statusCode: response.statusCode,
       responseBody: response.body,
     );
@@ -252,7 +245,7 @@ class IosIapRepository {
     if (response.statusCode != 200) {
       AppLog.instance.warning(
         '[billing_apple_iap_verify] non-200: ${response.statusCode} ${response.body}',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw BillingRequestException('HTTP ${response.statusCode}');
     }
@@ -263,7 +256,7 @@ class IosIapRepository {
     );
     final data = _requireDataMap(decoded, endpoint: 'apple_iap_verify');
 
-    final result = AppleIapVerifyResult(
+    return AppleIapVerifyResult(
       status: data['status']?.toString() ?? '',
       granted: data['granted'] == true,
       grantId: data['grant_id'] is num
@@ -272,18 +265,6 @@ class IosIapRepository {
       paymentReference: data['payment_reference']?.toString(),
       orderId: data['order_id']?.toString(),
     );
-    AppLog.instance.debug(
-      jsonEncode({
-        'event': 'billing_apple_iap_verify_parsed',
-        'status': result.status,
-        'granted': result.granted,
-        'grant_id': result.grantId,
-        'payment_reference': result.paymentReference,
-        'order_id': result.orderId,
-      }),
-      tag: 'BillingApi',
-    );
-    return result;
   }
 
   Map<String, dynamic> _decodeResponse(
@@ -294,7 +275,7 @@ class IosIapRepository {
     if (decoded is! Map) {
       AppLog.instance.warning(
         '[billing_$endpoint] invalid body: $body',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw const BillingRequestException('Invalid response');
     }
@@ -304,7 +285,7 @@ class IosIapRepository {
       final message = map['message']?.toString().trim();
       AppLog.instance.warning(
         '[billing_$endpoint] code=${map['code']} message=$message',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw BillingRequestException(
         message == null || message.isEmpty ? 'Request failed' : message,
@@ -322,7 +303,7 @@ class IosIapRepository {
     if (data is! Map) {
       AppLog.instance.warning(
         '[billing_$endpoint] invalid data: $response',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
       );
       throw const BillingRequestException('Invalid response data');
     }
@@ -355,39 +336,5 @@ class IosIapRepository {
       if (doubleValue != null) return doubleValue.toInt();
     }
     return fallback;
-  }
-
-  void _logRequest({
-    required String endpoint,
-    required String method,
-    required String path,
-    Object? requestBody,
-  }) {
-    AppLog.instance.debug(
-      jsonEncode({
-        'event': 'billing_request',
-        'endpoint': endpoint,
-        'method': method,
-        'url': '${AppEnvironment.apiServerUrl}$path',
-        'request_body': requestBody,
-      }),
-      tag: 'BillingApi',
-    );
-  }
-
-  void _logResponse({
-    required String endpoint,
-    required int statusCode,
-    required String responseBody,
-  }) {
-    AppLog.instance.debug(
-      jsonEncode({
-        'event': 'billing_response',
-        'endpoint': endpoint,
-        'status_code': statusCode,
-        'response_body': responseBody,
-      }),
-      tag: 'BillingApi',
-    );
   }
 }

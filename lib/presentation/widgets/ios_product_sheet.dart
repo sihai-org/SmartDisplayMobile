@@ -70,17 +70,15 @@ class IosPurchaseSheetState {
 }
 
 class IosProductSheet extends StatefulWidget {
-  IosProductSheet({
+  const IosProductSheet({
     super.key,
     this.initialProducts = const [],
-    Future<List<AppleIapProductData>> Function()? onReload,
-    Future<void> Function(AppleIapProductData product)? onPurchase,
-    ValueListenable<IosPurchaseSheetState>? purchaseStateListenable,
-  }) : onReload = onReload ?? _noopIosProductReload,
-       onPurchase = onPurchase ?? _noopIosProductPurchase,
-       purchaseStateListenable =
-           purchaseStateListenable ??
-           const _FixedValueListenable(IosPurchaseSheetState());
+    this.onReload = _noopIosProductReload,
+    this.onPurchase = _noopIosProductPurchase,
+    this.purchaseStateListenable = const _FixedValueListenable(
+      IosPurchaseSheetState(),
+    ),
+  });
 
   final List<AppleIapProductData> initialProducts;
   final Future<List<AppleIapProductData>> Function() onReload;
@@ -323,6 +321,10 @@ class _IosProductSheetState extends State<IosProductSheet> {
   }
 
   static String _priceText(AppleIapProductData product) {
+    final displayPrice = product.displayPrice?.trim();
+    if (displayPrice != null && displayPrice.isNotEmpty) {
+      return displayPrice;
+    }
     if (product.amount != null && (product.currency?.isNotEmpty ?? false)) {
       return '${product.currency} ${product.amount}';
     }

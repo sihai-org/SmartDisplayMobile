@@ -1,10 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
-import '../log/app_log.dart';
+import '../log/buy_log.dart';
 import '../../data/repositories/billing_repository.dart';
 
 class AndroidIapService {
@@ -17,8 +15,12 @@ class AndroidIapService {
       _inAppPurchase.purchaseStream;
 
   Future<bool> isAvailable() async {
+    logBuyIapRequest(action: 'isAvailable');
     final isAvailable = await _inAppPurchase.isAvailable();
-    _logDebug('google_play_store_availability', {'is_available': isAvailable});
+    logBuyIapResponse(
+      action: 'isAvailable',
+      payload: {'is_available': isAvailable},
+    );
     return isAvailable;
   }
 
@@ -27,8 +29,31 @@ class AndroidIapService {
   ) async {
     if (productIds.isEmpty) return const [];
 
+    logBuyIapRequest(
+      action: 'queryProductDetails',
+      payload: {
+        'product_ids': productIds.toList(growable: false),
+      },
+    );
     final response = await _inAppPurchase.queryProductDetails(productIds);
-    _logProductQueryResponse(productIds, response);
+    logBuyIapResponse(
+      action: 'queryProductDetails',
+      payload: {
+        'product_details_count': response.productDetails.length,
+        'product_details': response.productDetails
+            .map(_serializeProductDetails)
+            .toList(growable: false),
+        'not_found_ids': response.notFoundIDs,
+        'error': response.error == null
+            ? null
+            : {
+                'source': response.error!.source,
+                'code': response.error!.code,
+                'message': response.error!.message,
+                'details': response.error!.details,
+            },
+      },
+    );
     if (response.error != null && response.productDetails.isEmpty) {
       final message = response.error!.message.trim();
       throw BillingRequestException(
@@ -43,10 +68,6 @@ class AndroidIapService {
     required ProductDetails productDetails,
     required String applicationUserName,
   }) async {
-    _logDebug('google_play_buy_consumable_request', {
-      'application_user_name': applicationUserName,
-      'product': _serializeProductDetails(productDetails),
-    });
     final purchaseParam = defaultTargetPlatform == TargetPlatform.android
         ? GooglePlayPurchaseParam(
             productDetails: productDetails,
@@ -56,15 +77,25 @@ class AndroidIapService {
             productDetails: productDetails,
             applicationUserName: applicationUserName,
           );
-
+    logBuyIapRequest(
+      action: 'buyConsumable',
+      payload: {
+        'auto_consume': false,
+        'application_user_name': applicationUserName,
+        'product': _serializeProductDetails(productDetails),
+      },
+    );
     final launched = await _inAppPurchase.buyConsumable(
       purchaseParam: purchaseParam,
       autoConsume: false,
     );
-    _logDebug('google_play_buy_consumable_result', {
-      'launched': launched,
-      'product_id': productDetails.id,
-    });
+    logBuyIapResponse(
+      action: 'buyConsumable',
+      payload: {
+        'launched': launched,
+        'product_id': productDetails.id,
+      },
+    );
     if (!launched) {
       throw const BillingRequestException(
         'Unable to start Android IAP purchase',
@@ -73,44 +104,30 @@ class AndroidIapService {
   }
 
   Future<void> completePendingPurchase(PurchaseDetails purchase) async {
-    _logDebug('google_play_complete_purchase_request', {
-      'purchase': _serializePurchaseDetails(purchase),
-    });
+    logBuyIapRequest(
+      action: 'completePurchase',
+      payload: {'purchase': _serializePurchaseDetails(purchase)},
+    );
     if (!purchase.pendingCompletePurchase) {
-      _logDebug('google_play_complete_purchase_skipped', {
-        'product_id': purchase.productID,
-        'pending_complete_purchase': purchase.pendingCompletePurchase,
-      });
+      logBuyIapResponse(
+        action: 'completePurchase',
+        payload: {
+          'skipped': true,
+          'product_id': purchase.productID,
+          'pending_complete_purchase': purchase.pendingCompletePurchase,
+        },
+      );
       return;
     }
     await _inAppPurchase.completePurchase(purchase);
-    _logDebug('google_play_complete_purchase_result', {
-      'product_id': purchase.productID,
-      'purchase_id': purchase.purchaseID,
-      'completed': true,
-    });
-  }
-
-  void _logProductQueryResponse(
-    Set<String> productIds,
-    ProductDetailsResponse response,
-  ) {
-    _logDebug('google_play_query_product_details_response', {
-      'requested_product_ids': productIds.toList(growable: false),
-      'product_details_count': response.productDetails.length,
-      'product_details': response.productDetails
-          .map(_serializeProductDetails)
-          .toList(growable: false),
-      'not_found_ids': response.notFoundIDs,
-      'error': response.error == null
-          ? null
-          : {
-              'source': response.error!.source,
-              'code': response.error!.code,
-              'message': response.error!.message,
-              'details': response.error!.details,
-            },
-    });
+    logBuyIapResponse(
+      action: 'completePurchase',
+      payload: {
+        'completed': true,
+        'product_id': purchase.productID,
+        'purchase_id': purchase.purchaseID,
+      },
+    );
   }
 
   Map<String, dynamic> _serializeProductDetails(ProductDetails product) {
@@ -152,12 +169,5 @@ class AndroidIapService {
               'details': purchase.error!.details,
             },
     };
-  }
-
-  void _logDebug(String event, Map<String, dynamic> payload) {
-    AppLog.instance.debug(
-      jsonEncode({'event': event, ...payload}),
-      tag: 'AndroidIap',
-    );
   }
 }

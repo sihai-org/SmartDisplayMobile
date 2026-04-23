@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -8,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/log/buy_log.dart';
+import '../../core/log/biz_log_tag.dart';
 import '../../data/repositories/ios_iap_repository.dart';
 import 'ios_product_sheet.dart';
 import 'purchase_ui/purchase_entry_button.dart';
@@ -64,11 +65,12 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       throw StateError('Missing access token');
     }
 
-    final products = await _iosIapRepository.fetchAppleIapProducts(
+    final catalogProducts = await _iosIapRepository.fetchAppleIapProducts(
       accessToken: accessToken,
     );
-    products.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    _logIapDebug('catalog_products_loaded', {
+    catalogProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final products = await _attachStorePrices(catalogProducts);
+    logBuyInfo('catalog_products_loaded', {
       'count': products.length,
       'products': products
           .map(
@@ -80,12 +82,106 @@ class _IosBuyButtonState extends State<IosBuyButton> {
               'description': item.description,
               'currency': item.currency,
               'amount': item.amount,
+              'display_price': item.displayPrice,
               'sort_order': item.sortOrder,
             },
           )
           .toList(growable: false),
     });
     return List<AppleIapProductData>.unmodifiable(products);
+  }
+
+  Future<List<AppleIapProductData>> _attachStorePrices(
+    List<AppleIapProductData> catalogProducts,
+  ) async {
+    if (catalogProducts.isEmpty) return catalogProducts;
+
+    final productIds = catalogProducts
+        .map((item) => item.productId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (productIds.isEmpty) return catalogProducts;
+
+    try {
+      logBuyIapRequest(
+        action: 'isAvailable',
+        payload: {
+          'scene': 'attachStorePrices',
+          'product_id_count': productIds.length,
+        },
+      );
+      final isAvailable = await InAppPurchase.instance.isAvailable();
+      logBuyIapResponse(
+        action: 'isAvailable',
+        payload: {
+          'scene': 'attachStorePrices',
+          'is_available': isAvailable,
+        },
+      );
+      if (!isAvailable) {
+        return catalogProducts;
+      }
+
+      logBuyIapRequest(
+        action: 'queryProductDetails',
+        payload: {
+          'scene': 'attachStorePrices',
+          'product_ids': productIds.toList(growable: false),
+        },
+      );
+      final response = await InAppPurchase.instance
+          .queryProductDetails(productIds)
+          .timeout(const Duration(seconds: 15));
+      logBuyIapResponse(
+        action: 'queryProductDetails',
+        payload: {
+          'scene': 'attachStorePrices',
+          'product_details_count': response.productDetails.length,
+          'product_details': response.productDetails
+              .map(_serializeProductDetails)
+              .toList(growable: false),
+          'not_found_ids': response.notFoundIDs,
+          'error': _serializeIapError(response.error),
+        },
+      );
+
+      final detailsById = {
+        for (final detail in response.productDetails) detail.id: detail,
+      };
+      final products = catalogProducts
+          .map((item) {
+            final detail = detailsById[item.productId];
+            if (detail == null) return item;
+            return item.copyWith(
+              currency: detail.currencyCode,
+              amount: detail.rawPrice,
+              displayPrice: detail.price,
+            );
+          })
+          .toList(growable: false);
+      logBuyInfo('catalog_store_prices_attached', {
+        'matched_count': detailsById.length,
+        'products': products
+            .map(
+              (item) => {
+                'product_id': item.productId,
+                'currency': item.currency,
+                'amount': item.amount,
+                'display_price': item.displayPrice,
+              },
+            )
+            .toList(growable: false),
+      });
+      return products;
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to attach App Store prices to iOS IAP catalog',
+        tag: BizLogTag.buy.tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return catalogProducts;
+    }
   }
 
   Future<void> _loadProducts() async {
@@ -107,7 +203,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when fetching Apple IAP products',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -140,7 +236,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     } catch (error, stackTrace) {
       AppLog.instance.error(
         'Unexpected error when reloading Apple IAP products',
-        tag: 'BillingApi',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -214,8 +310,22 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         activeProductId: catalogProduct.productId,
       );
 
+      logBuyIapRequest(
+        action: 'isAvailable',
+        payload: {
+          'scene': 'purchase',
+          'product_id': catalogProduct.productId,
+        },
+      );
       final isAvailable = await InAppPurchase.instance.isAvailable();
-      _logIapDebug('store_availability', {'is_available': isAvailable});
+      logBuyIapResponse(
+        action: 'isAvailable',
+        payload: {
+          'scene': 'purchase',
+          'product_id': catalogProduct.productId,
+          'is_available': isAvailable,
+        },
+      );
 
       if (!isAvailable) {
         _clearPendingOrder();
@@ -239,22 +349,34 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       _pendingOrderId = order.orderId;
       _pendingPackageCode = order.packageCode;
       _pendingProductId = order.productId;
-      _logIapDebug('pending_order_created', {
-        'order_id': _pendingOrderId,
-        'package_code': _pendingPackageCode,
-        'product_id': _pendingProductId,
-      });
       _purchaseSheetState.value = _purchaseSheetState.value.copyWith(
         stage: IosPurchaseStage.purchasing,
         activeProductId: order.productId,
         clearFailure: true,
       );
 
+      logBuyIapRequest(
+        action: 'queryProductDetails',
+        payload: {
+          'scene': 'purchase',
+          'product_ids': [order.productId],
+        },
+      );
       final response = await InAppPurchase.instance
           .queryProductDetails({order.productId})
           .timeout(const Duration(seconds: 15));
-
-      _logProductQueryResponse(response);
+      logBuyIapResponse(
+        action: 'queryProductDetails',
+        payload: {
+          'scene': 'purchase',
+          'product_details_count': response.productDetails.length,
+          'product_details': response.productDetails
+              .map(_serializeProductDetails)
+              .toList(growable: false),
+          'not_found_ids': response.notFoundIDs,
+          'error': _serializeIapError(response.error),
+        },
+      );
 
       if (response.productDetails.isEmpty) {
         _clearPendingOrder();
@@ -275,21 +397,24 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         productDetails: product,
         applicationUserName: user.id,
       );
-      _logIapDebug('buy_consumable_request', {
-        'application_user_name': user.id,
-        'product_id': product.id,
-        'title': product.title,
-        'description': product.description,
-        'price': product.price,
-        'currency_code': product.currencyCode,
-        'currency_symbol': product.currencySymbol,
-        'raw_price': product.rawPrice,
-      });
+      logBuyIapRequest(
+        action: 'buyConsumable',
+        payload: {
+          'product': _serializeProductDetails(product),
+          'application_user_name': user.id,
+        },
+      );
 
       final started = await InAppPurchase.instance.buyConsumable(
         purchaseParam: purchaseParam,
       );
-      _logIapDebug('buy_consumable_started', {'started': started});
+      logBuyIapResponse(
+        action: 'buyConsumable',
+        payload: {
+          'started': started,
+          'product_id': product.id,
+        },
+      );
 
       if (!started) {
         _clearPendingOrder();
@@ -307,7 +432,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       _clearPendingOrder();
       AppLog.instance.error(
         'Unexpected error during iOS IAP purchase flow',
-        tag: 'IosIap',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -327,7 +452,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   ) async {
     final l10n = context.l10n;
 
-    _logIapDebug('purchase_stream_batch', {
+    logBuyInfo('purchase_stream_batch', {
       'count': purchaseDetailsList.length,
     });
     for (final purchase in purchaseDetailsList) {
@@ -351,7 +476,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       }
 
       if (purchase.status == PurchaseStatus.error) {
-        _logIapDebug('purchase_error_payload', {
+        logBuyInfo('purchase_error_payload', {
           'product_id': purchase.productID,
           'error': _serializePurchaseError(purchase.error),
         });
@@ -372,7 +497,23 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         _clearPendingOrder();
 
         if (purchase.pendingCompletePurchase) {
+          logBuyIapRequest(
+            action: 'completePurchase',
+            payload: {
+              'scene': 'purchaseCanceled',
+              'purchase': _serializePurchaseDetails(purchase),
+            },
+          );
           await InAppPurchase.instance.completePurchase(purchase);
+          logBuyIapResponse(
+            action: 'completePurchase',
+            payload: {
+              'scene': 'purchaseCanceled',
+              'completed': true,
+              'product_id': purchase.productID,
+              'purchase_id': purchase.purchaseID,
+            },
+          );
         }
         if (mounted) {
           setState(() {
@@ -409,7 +550,23 @@ class _IosBuyButtonState extends State<IosBuyButton> {
           }
 
           if (purchase.pendingCompletePurchase) {
+            logBuyIapRequest(
+              action: 'completePurchase',
+              payload: {
+                'scene': 'purchaseSuccess',
+                'purchase': _serializePurchaseDetails(purchase),
+              },
+            );
             await InAppPurchase.instance.completePurchase(purchase);
+            logBuyIapResponse(
+              action: 'completePurchase',
+              payload: {
+                'scene': 'purchaseSuccess',
+                'completed': true,
+                'product_id': purchase.productID,
+                'purchase_id': purchase.purchaseID,
+              },
+            );
           }
 
           await widget.onPurchaseSuccess?.call();
@@ -425,7 +582,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         } catch (error, stackTrace) {
           AppLog.instance.error(
             'Failed to deliver iOS IAP purchase to server',
-            tag: 'IosIap',
+            tag: BizLogTag.buy.tag,
             error: error,
             stackTrace: stackTrace,
           );
@@ -447,7 +604,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         Supabase.instance.client.auth.currentSession?.accessToken;
 
     if (accessToken == null || accessToken.isEmpty) {
-      _logIapDebug('deliver_purchase_failed', {
+      logBuyInfo('deliver_purchase_failed', {
         'reason': 'missing_access_token',
       });
       return false;
@@ -458,13 +615,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         .serverVerificationData
         .trim();
     if (signedTransactionInfo.isEmpty) {
-      _logIapDebug('deliver_purchase_failed', {
+      logBuyInfo('deliver_purchase_failed', {
         'reason': 'missing_signed_transaction_info',
       });
       return false;
     }
     _logPurchaseDetails('deliver_purchase_input', purchase);
-    _logIapDebug('signed_transaction_info', {
+    logBuyInfo('signed_transaction_info', {
       'product_id': purchase.productID,
       'length': signedTransactionInfo.length,
       'value': signedTransactionInfo,
@@ -475,13 +632,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       productId: purchase.productID,
     );
     if (verificationContext == null) {
-      _logIapDebug('deliver_purchase_failed', {
+      logBuyInfo('deliver_purchase_failed', {
         'reason': 'verification_context_not_found',
         'product_id': purchase.productID,
       });
       return false;
     }
-    _logIapDebug('verification_context_resolved', {
+    logBuyInfo('verification_context_resolved', {
       'product_id': purchase.productID,
       'package_code': verificationContext.packageCode,
       'order_id': verificationContext.orderId,
@@ -493,14 +650,6 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       signedTransactionInfo: signedTransactionInfo,
       orderId: verificationContext.orderId,
     );
-
-    _logIapDebug('deliver_purchase_verify_result', {
-      'status': result.status,
-      'granted': result.granted,
-      'grant_id': result.grantId,
-      'payment_reference': result.paymentReference,
-      'order_id': result.orderId,
-    });
 
     return result.status == 'granted' || result.status == 'already_granted';
   }
@@ -525,13 +674,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         .where((item) => item.productId == productId)
         .firstOrNull;
     if (matchedProduct == null) {
-      _logIapDebug('verification_context_lookup_miss', {
+      logBuyInfo('verification_context_lookup_miss', {
         'product_id': productId,
         'catalog_count': catalogProducts.length,
       });
       return null;
     }
-    _logIapDebug('verification_context_lookup_hit', {
+    logBuyInfo('verification_context_lookup_hit', {
       'product_id': productId,
       'package_code': matchedProduct.packageCode,
     });
@@ -541,7 +690,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   }
 
   void _clearPendingOrder() {
-    _logIapDebug('pending_order_cleared', {
+    logBuyInfo('pending_order_cleared', {
       'order_id': _pendingOrderId,
       'package_code': _pendingPackageCode,
       'product_id': _pendingProductId,
@@ -551,36 +700,8 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     _pendingProductId = null;
   }
 
-  void _logProductQueryResponse(ProductDetailsResponse response) {
-    _logIapDebug('query_product_details_response', {
-      'product_details_count': response.productDetails.length,
-      'product_details': response.productDetails
-          .map(
-            (product) => {
-              'id': product.id,
-              'title': product.title,
-              'description': product.description,
-              'price': product.price,
-              'raw_price': product.rawPrice,
-              'currency_code': product.currencyCode,
-              'currency_symbol': product.currencySymbol,
-            },
-          )
-          .toList(growable: false),
-      'not_found_ids': response.notFoundIDs,
-      'error': response.error == null
-          ? null
-          : {
-              'source': response.error!.source,
-              'code': response.error!.code,
-              'message': response.error!.message,
-              'details': response.error!.details,
-            },
-    });
-  }
-
   void _logPurchaseDetails(String event, PurchaseDetails purchase) {
-    _logIapDebug(event, {
+    logBuyInfo(event, {
       'product_id': purchase.productID,
       'purchase_id': purchase.purchaseID,
       'status': purchase.status.name,
@@ -601,7 +722,41 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     });
   }
 
-  Map<String, dynamic>? _serializePurchaseError(IAPError? error) {
+  Map<String, dynamic> _serializePurchaseDetails(PurchaseDetails purchase) {
+    return {
+      'product_id': purchase.productID,
+      'purchase_id': purchase.purchaseID,
+      'status': purchase.status.name,
+      'transaction_date': purchase.transactionDate,
+      'pending_complete_purchase': purchase.pendingCompletePurchase,
+      'verification_data': {
+        'source': purchase.verificationData.source,
+        'server_verification_data':
+            purchase.verificationData.serverVerificationData,
+        'server_verification_data_length':
+            purchase.verificationData.serverVerificationData.length,
+        'local_verification_data':
+            purchase.verificationData.localVerificationData,
+        'local_verification_data_length':
+            purchase.verificationData.localVerificationData.length,
+      },
+      'error': _serializePurchaseError(purchase.error),
+    };
+  }
+
+  Map<String, dynamic> _serializeProductDetails(ProductDetails product) {
+    return {
+      'id': product.id,
+      'title': product.title,
+      'description': product.description,
+      'price': product.price,
+      'raw_price': product.rawPrice,
+      'currency_code': product.currencyCode,
+      'currency_symbol': product.currencySymbol,
+    };
+  }
+
+  Map<String, dynamic>? _serializeIapError(IAPError? error) {
     if (error == null) return null;
     return {
       'source': error.source,
@@ -611,11 +766,14 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     };
   }
 
-  void _logIapDebug(String event, Map<String, dynamic> payload) {
-    AppLog.instance.debug(
-      jsonEncode({'event': event, ...payload}),
-      tag: 'IosIap',
-    );
+  Map<String, dynamic>? _serializePurchaseError(IAPError? error) {
+    if (error == null) return null;
+    return {
+      'source': error.source,
+      'code': error.code,
+      'message': error.message,
+      'details': error.details,
+    };
   }
 
   @override

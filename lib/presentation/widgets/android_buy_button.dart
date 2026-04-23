@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/android_iap_provider.dart';
@@ -47,9 +48,7 @@ class _AndroidBuyButtonState extends ConsumerState<AndroidBuyButton> {
           Navigator.of(context).pop();
         }
         unawaited(widget.onPurchaseSuccess?.call());
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.billing_purchase_success)),
-        );
+        Fluttertoast.showToast(msg: context.l10n.billing_purchase_success);
       }
     });
 

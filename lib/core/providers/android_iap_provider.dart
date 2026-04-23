@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/billing_repository.dart';
 import '../../data/repositories/android_iap_repository.dart';
 import '../log/app_log.dart';
+import '../log/buy_log.dart';
+import '../log/biz_log_tag.dart';
 import '../models/android_iap_models.dart';
 import '../services/android_iap_service.dart';
 import 'lifecycle_provider.dart';
@@ -168,7 +168,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       onError: (Object error, StackTrace stackTrace) {
         AppLog.instance.error(
           '[android_iap] purchase stream error',
-          tag: 'AndroidIap',
+          tag: BizLogTag.buy.tag,
           error: error,
           stackTrace: stackTrace,
         );
@@ -224,12 +224,6 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       final catalogProducts = await _repository.fetchAndroidIapProducts(
         accessToken: accessToken,
       );
-      _logDebug('catalog_products_loaded', {
-        'count': catalogProducts.length,
-        'products': catalogProducts
-            .map((item) => item.toJson())
-            .toList(growable: false),
-      });
       if (catalogProducts.isEmpty) {
         state = state.copyWith(
           stage: AndroidIapStage.ready,
@@ -244,22 +238,6 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       final productDetails = await _service.queryProductDetails(
         catalogProducts.map((item) => item.productId).toSet(),
       );
-      _logDebug('google_play_product_details_loaded', {
-        'count': productDetails.length,
-        'product_details': productDetails
-            .map(
-              (item) => {
-                'id': item.id,
-                'title': item.title,
-                'description': item.description,
-                'price': item.price,
-                'raw_price': item.rawPrice,
-                'currency_code': item.currencyCode,
-                'currency_symbol': item.currencySymbol,
-              },
-            )
-            .toList(growable: false),
-      });
       final detailMap = {
         for (final detail in productDetails) detail.id: detail,
       };
@@ -278,7 +256,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
                 right.catalogProduct.sortOrder,
               ),
             );
-      _logDebug('catalog_options_matched', {
+      logBuyInfo('catalog_options_matched', {
         'count': options.length,
         'options': options
             .map(
@@ -308,7 +286,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     } catch (error, stackTrace) {
       AppLog.instance.error(
         '[android_iap] loadProductCatalog failed',
-        tag: 'AndroidIap',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -343,7 +321,6 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
         accessToken: accessToken,
         packageCode: option.packageCode,
       );
-      _logDebug('pending_order_created', {'order': order.toJson()});
 
       if (order.orderId.isEmpty || order.productId != option.productId) {
         throw const BillingRequestException(
@@ -359,7 +336,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
           productId: order.productId,
         ),
       );
-      _logDebug('active_session_started', {
+      logBuyInfo('active_session_started', {
         'order_id': order.orderId,
         'package_code': order.packageCode,
         'product_id': order.productId,
@@ -374,7 +351,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     } catch (error, stackTrace) {
       AppLog.instance.error(
         '[android_iap] startPurchaseFlow failed',
-        tag: 'AndroidIap',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -387,11 +364,11 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
   }
 
   Future<void> _handlePurchaseUpdates(List<PurchaseDetails> purchases) async {
-    _logDebug('purchase_stream_batch', {'count': purchases.length});
+    logBuyInfo('purchase_stream_batch', {'count': purchases.length});
     for (final purchase in purchases) {
       _logPurchaseDetails('purchase_update', purchase);
       if (!_isTrackedProduct(purchase.productID)) {
-        _logDebug('purchase_update_ignored', {
+        logBuyInfo('purchase_update_ignored', {
           'product_id': purchase.productID,
         });
         continue;
@@ -471,7 +448,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       activeSession: session,
       clearFailure: true,
     );
-    _logDebug('verify_purchase_request', {
+    logBuyInfo('verify_purchase_request', {
       'session': {
         'order_id': session.orderId,
         'package_code': session.packageCode,
@@ -490,7 +467,6 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
         productId: session.productId,
         purchaseToken: purchaseToken,
       );
-      _logDebug('verify_purchase_result', {'result': result.toJson()});
 
       if (result.status == 'granted' || result.status == 'already_granted') {
         await _service.completePendingPurchase(purchase);
@@ -513,7 +489,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     } catch (error, stackTrace) {
       AppLog.instance.error(
         '[android_iap] verify failed',
-        tag: 'AndroidIap',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -547,7 +523,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
 
       AppLog.instance.info(
         '[android_iap] purchase flow dismissed without purchase update; treating as cancelled',
-        tag: 'AndroidIap',
+        tag: BizLogTag.buy.tag,
       );
       state = state.copyWith(
         stage: AndroidIapStage.failure,
@@ -568,7 +544,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         '[android_iap] completePendingPurchase failed',
-        tag: 'AndroidIap',
+        tag: BizLogTag.buy.tag,
         error: error,
         stackTrace: stackTrace,
       );
@@ -669,14 +645,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
   }
 
   void _logPurchaseDetails(String event, PurchaseDetails purchase) {
-    _logDebug(event, _serializePurchaseDetails(purchase));
-  }
-
-  void _logDebug(String event, Map<String, dynamic> payload) {
-    AppLog.instance.debug(
-      jsonEncode({'event': event, ...payload}),
-      tag: 'AndroidIap',
-    );
+    logBuyInfo(event, _serializePurchaseDetails(purchase));
   }
 
   @override
