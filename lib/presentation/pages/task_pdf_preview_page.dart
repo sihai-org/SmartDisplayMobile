@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -87,6 +88,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
     final cachedFile = await _readValidCachedPdfForTask();
     if (cachedFile != null) {
+      unawaited(TaskFileService.markFileAccessed(cachedFile));
       if (!mounted) return;
       setState(() {
         _cachedPdfFile = cachedFile;
@@ -225,7 +227,8 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
       _errorMessage = null;
     });
     _resolveLocalPdfFile(pdfUrl)
-        .then((file) {
+        .then((file) async {
+          unawaited(TaskFileService.markFileAccessed(file));
           if (!mounted) return;
           setState(() {
             _cachedPdfFile = file;
@@ -257,6 +260,7 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
     try {
       final localPdfFile = await _getShareablePdfFile(pdfUrl);
+      unawaited(TaskFileService.markFileAccessed(localPdfFile));
       if (mounted) {
         setState(() {
           _cachedPdfFile = localPdfFile;

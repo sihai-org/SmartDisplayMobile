@@ -44,7 +44,9 @@ class ProfilePage extends ConsumerWidget {
         ref.read(grayKeyMapProvider.notifier).clear();
       } catch (_) {}
       try {
-        await AppCacheCleanup.clearOnLogout();
+        await AppCacheCleanup.clearOnLogout(
+          fallbackUserId: Supabase.instance.client.auth.currentUser?.id,
+        );
       } catch (_) {}
       ref.read(auditModeProvider.notifier).disable();
       if (!context.mounted) return;

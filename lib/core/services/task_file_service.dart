@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
@@ -16,6 +19,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskFileService {
   static const String _shareLogTag = 'TaskFileShare';
+  static const int _maxCachedFiles = 20;
+  static const int _trimmedCachedFiles = 15;
 
   static Future<void> shareTaskFile(BuildContext context, TaskVO task) async {
     final l10n = context.l10n;
@@ -73,6 +78,8 @@ class TaskFileService {
           tag: _shareLogTag,
         );
       }
+
+      unawaited(markFileAccessed(localFile));
 
       final prepareShareStopwatch = Stopwatch()..start();
       final shareFile = await prepareShareFile(task, localFile);
@@ -270,7 +277,31 @@ class TaskFileService {
 
     await _deleteIfExists(file);
     await validatedTemp.rename(file.path);
+    await markFileAccessed(file);
+    await _trimCacheIfNeeded(cacheRoot);
     return file;
+  }
+
+  static Future<void> markFileAccessed(File file) async {
+    try {
+      if (!await file.exists()) return;
+      await file.setLastModified(DateTime.now());
+    } catch (_) {
+      // best effort
+    }
+  }
+
+  static Future<void> clearCurrentUserCache({String? fallbackUserId}) async {
+    try {
+      final dir = await _cacheRootDirectory(
+        fallbackUserId: fallbackUserId,
+        createIfMissing: false,
+      );
+      if (!await dir.exists()) return;
+      await dir.delete(recursive: true);
+    } catch (_) {
+      // best effort
+    }
   }
 
   static Future<File> prepareShareFile(
@@ -321,9 +352,36 @@ class TaskFileService {
     return task?.isPpt == true ? 'pptx' : 'pdf';
   }
 
-  static Future<Directory> _cacheRootDirectory() async {
-    final tempDir = await getTemporaryDirectory();
-    final cacheRoot = Directory('${tempDir.path}/task_file_cache');
+  static String? _currentUserId() {
+    if (AuditMode.enabled) return AuditMode.auditUserId;
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _userFolder({String? fallbackUserId}) {
+    final userId = _currentUserId();
+    final resolved = (userId != null && userId.isNotEmpty)
+        ? userId
+        : ((fallbackUserId != null && fallbackUserId.isNotEmpty)
+              ? fallbackUserId
+              : 'guest');
+    return resolved.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+  }
+
+  static Future<Directory> _cacheRootDirectory({
+    String? fallbackUserId,
+    bool createIfMissing = true,
+  }) async {
+    final appSupportDir = await getApplicationSupportDirectory();
+    final cacheRoot = Directory(
+      '${appSupportDir.path}/tasks/${_userFolder(fallbackUserId: fallbackUserId)}',
+    );
+    if (!createIfMissing) {
+      return cacheRoot;
+    }
     await cacheRoot.create(recursive: true);
     return cacheRoot;
   }
@@ -333,6 +391,56 @@ class TaskFileService {
     final shareRoot = Directory('${tempDir.path}/task_file_share');
     await shareRoot.create(recursive: true);
     return shareRoot;
+  }
+
+  static Future<void> _trimCacheIfNeeded(Directory cacheRoot) async {
+    try {
+      final files = await _cacheFiles(cacheRoot);
+      if (files.length <= _maxCachedFiles) {
+        return;
+      }
+
+      final deleteCount = files.length - _trimmedCachedFiles;
+      if (deleteCount <= 0) {
+        return;
+      }
+
+      for (var i = 0; i < deleteCount; i++) {
+        await _deleteIfExists(files[i]);
+      }
+    } catch (_) {
+      // best effort
+    }
+  }
+
+  static Future<List<File>> _cacheFiles(Directory cacheRoot) async {
+    final files = <File>[];
+    if (!await cacheRoot.exists()) {
+      return files;
+    }
+
+    await for (final entity in cacheRoot.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final name = _fileLabel(entity);
+      if (!name.startsWith('task_file_cache_')) continue;
+      if (name.endsWith('.tmp')) continue;
+      files.add(entity);
+    }
+
+    final timestamps = <File, DateTime>{};
+    for (final file in files) {
+      try {
+        timestamps[file] = await file.lastModified();
+      } catch (_) {
+        timestamps[file] = DateTime.fromMillisecondsSinceEpoch(0);
+      }
+    }
+
+    files.sort(
+      (a, b) => (timestamps[a] ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(timestamps[b] ?? DateTime.fromMillisecondsSinceEpoch(0)),
+    );
+    return files;
   }
 
   static Rect _shareOriginRect(BuildContext context) {
@@ -418,29 +526,51 @@ class TaskFileService {
   }
 
   static Future<bool> _looksLikePdf(File file) async {
-    final bytes = await file.readAsBytes();
-    if (bytes.length < 8) return false;
-
     const header = '%PDF-';
-    if (!_hasPrefix(bytes, ascii.encode(header))) {
+    final prefix = await _readFilePrefix(file, ascii.encode(header).length + 3);
+    if (prefix.length < 8 || !_hasPrefix(prefix, ascii.encode(header))) {
       return false;
     }
 
     const eof = '%%EOF';
-    return _lastIndexOf(bytes, ascii.encode(eof)) >= 0;
+    final tail = await _readFileTail(file, 2048);
+    return _lastIndexOf(tail, ascii.encode(eof)) >= 0;
   }
 
   static Future<bool> _looksLikeZipContainer(File file) async {
-    final bytes = await file.readAsBytes();
-    if (bytes.length < 22) return false;
-
     const localFileHeader = [0x50, 0x4B, 0x03, 0x04];
-    if (!_hasPrefix(bytes, localFileHeader)) {
+    final prefix = await _readFilePrefix(file, localFileHeader.length);
+    if (prefix.length < 4 || !_hasPrefix(prefix, localFileHeader)) {
       return false;
     }
 
     const eocd = [0x50, 0x4B, 0x05, 0x06];
-    return _lastIndexOf(bytes, eocd) >= 0;
+    final tail = await _readFileTail(file, 65557);
+    return _lastIndexOf(tail, eocd) >= 0;
+  }
+
+  static Future<List<int>> _readFilePrefix(File file, int byteCount) async {
+    RandomAccessFile? handle;
+    try {
+      handle = await file.open(mode: FileMode.read);
+      return await handle.read(byteCount);
+    } finally {
+      await handle?.close();
+    }
+  }
+
+  static Future<List<int>> _readFileTail(File file, int byteCount) async {
+    RandomAccessFile? handle;
+    try {
+      handle = await file.open(mode: FileMode.read);
+      final length = await handle.length();
+      if (length <= 0) return const [];
+      final start = math.max(0, length - byteCount);
+      await handle.setPosition(start);
+      return await handle.read(length - start);
+    } finally {
+      await handle?.close();
+    }
   }
 
   static bool _hasPrefix(List<int> bytes, List<int> prefix) {
