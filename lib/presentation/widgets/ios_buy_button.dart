@@ -621,10 +621,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       return false;
     }
     _logPurchaseDetails('deliver_purchase_input', purchase);
+    final signedTransactionPreview = signedTransactionInfo.length <= 12
+        ? signedTransactionInfo
+        : '${signedTransactionInfo.substring(0, 12)}...';
     logBuyInfo('signed_transaction_info', {
       'product_id': purchase.productID,
       'length': signedTransactionInfo.length,
-      'value': signedTransactionInfo,
+      'value_preview': signedTransactionPreview,
     });
 
     final verificationContext = await _resolveVerificationContext(
