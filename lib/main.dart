@@ -149,7 +149,9 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
 
     // 6) 清理应用临时缓存（如 PDF 预览缓存）
     try {
-      await AppCacheCleanup.clearOnLogout();
+      await AppCacheCleanup.clearOnLogout(
+        fallbackUserId: userId ?? _lastSignedInUserId,
+      );
     } catch (_) {}
 
     AppLog.instance.info('_performGlobalCleanup end', tag: 'App');

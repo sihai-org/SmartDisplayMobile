@@ -1,15 +1,19 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:smart_display_mobile/core/services/task_file_service.dart';
 
 /// Clears app-generated cache files that should not survive logout.
 class AppCacheCleanup {
-  static Future<void> clearOnLogout() async {
-    await _clearPdfPreviewCache();
+  static Future<void> clearOnLogout({String? fallbackUserId}) async {
+    await _clearPdfPreviewCache(fallbackUserId: fallbackUserId);
   }
 
-  static Future<void> _clearPdfPreviewCache() async {
+  static Future<void> _clearPdfPreviewCache({String? fallbackUserId}) async {
     try {
+      await TaskFileService.clearCurrentUserCache(
+        fallbackUserId: fallbackUserId,
+      );
       final tempDir = await getTemporaryDirectory();
       await _deleteDirIfExists(Directory('${tempDir.path}/task_file_cache'));
       await _deleteDirIfExists(Directory('${tempDir.path}/task_file_share'));
