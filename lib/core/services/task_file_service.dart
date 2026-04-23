@@ -232,10 +232,9 @@ class TaskFileService {
     final file = File(
       '${cacheRoot.path}/${cacheFileNameForTask(task, fileExtension: extension)}',
     );
-    if (!await file.exists()) return null;
-    final length = await file.length();
-    if (length <= 0) return null;
-    return file;
+    final tempFile = File('${file.path}.tmp');
+    await _deleteIfExists(tempFile);
+    return _readAndValidateCachedFile(file, extension: extension);
   }
 
   static Future<File> downloadToCacheIfNeeded(
