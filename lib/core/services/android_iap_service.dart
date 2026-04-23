@@ -31,9 +31,7 @@ class AndroidIapService {
 
     logBuyIapRequest(
       action: 'queryProductDetails',
-      payload: {
-        'product_ids': productIds.toList(growable: false),
-      },
+      payload: {'product_ids': productIds.toList(growable: false)},
     );
     final response = await _inAppPurchase.queryProductDetails(productIds);
     logBuyIapResponse(
@@ -51,7 +49,7 @@ class AndroidIapService {
                 'code': response.error!.code,
                 'message': response.error!.message,
                 'details': response.error!.details,
-            },
+              },
       },
     );
     if (response.error != null && response.productDetails.isEmpty) {
@@ -91,10 +89,7 @@ class AndroidIapService {
     );
     logBuyIapResponse(
       action: 'buyConsumable',
-      payload: {
-        'launched': launched,
-        'product_id': productDetails.id,
-      },
+      payload: {'launched': launched, 'product_id': productDetails.id},
     );
     if (!launched) {
       throw const BillingRequestException(

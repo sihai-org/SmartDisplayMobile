@@ -222,9 +222,12 @@ class _BalancePageState extends State<BalancePage> {
   Widget _buildChangeTile(BuildContext context, BillingLedgerItem item) {
     final amount = item.displayValue;
     final positive = amount >= 0;
+    final theme = Theme.of(context);
+    final titleColor =
+        theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface;
     final amountColor = positive
         ? PurchaseButtonStyle.heavyLightColor
-        : Colors.grey.shade900;
+        : titleColor;
     final occurredAtText = _formatOccurredAt(context, item.occurredAt);
 
     return ListTile(
@@ -251,7 +254,7 @@ class _BalancePageState extends State<BalancePage> {
         children: [
           Text(
             _formatCreditDelta(context, amount),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               color: amountColor,
               fontWeight: FontWeight.w600,
             ),
@@ -366,7 +369,10 @@ class _BalancePageState extends State<BalancePage> {
                     style: TextButton.styleFrom(
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 16,
+                      ),
                       minimumSize: const Size(0, 32),
                       foregroundColor: theme.colorScheme.onSurfaceVariant,
                       overlayColor: Colors.transparent,

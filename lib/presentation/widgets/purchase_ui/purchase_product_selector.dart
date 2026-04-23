@@ -172,7 +172,6 @@ class _PurchaseProductSelectorState extends State<PurchaseProductSelector> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Center(
                       child: CircularProgressIndicator(
