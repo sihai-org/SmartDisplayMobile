@@ -95,20 +95,14 @@ class AppleIapVerifyResult {
 class IosIapRepository {
   static const _productsPath = '/api/billing/apple-iap/products';
   static const _ordersPath = '/api/billing/apple-iap/orders';
-  static const _verifyPath =
-      '/api/billing/apple-iap/purchases/one-time/verify';
+  static const _verifyPath = '/api/billing/apple-iap/purchases/one-time/verify';
 
   Future<List<AppleIapProductData>> fetchAppleIapProducts({
     required String accessToken,
   }) async {
-    logBuyRequest(
-      method: 'GET',
-      path: _productsPath,
-    );
+    logBuyRequest(method: 'GET', path: _productsPath);
     final response = await http.get(
-      Uri.parse(
-        '${AppEnvironment.apiServerUrl}$_productsPath',
-      ),
+      Uri.parse('${AppEnvironment.apiServerUrl}$_productsPath'),
       headers: {'X-Access-Token': accessToken},
     );
     logBuyResponse(
@@ -168,11 +162,7 @@ class IosIapRepository {
     required String packageCode,
   }) async {
     final requestBody = {'package_code': packageCode};
-    logBuyRequest(
-      method: 'POST',
-      path: _ordersPath,
-      requestBody: requestBody,
-    );
+    logBuyRequest(method: 'POST', path: _ordersPath, requestBody: requestBody);
     final response = await http.post(
       Uri.parse('${AppEnvironment.apiServerUrl}$_ordersPath'),
       headers: {
@@ -222,11 +212,7 @@ class IosIapRepository {
     if (orderId != null && orderId.isNotEmpty) {
       body['order_id'] = orderId;
     }
-    logBuyRequest(
-      method: 'POST',
-      path: _verifyPath,
-      requestBody: body,
-    );
+    logBuyRequest(method: 'POST', path: _verifyPath, requestBody: body);
 
     final response = await http.post(
       Uri.parse('${AppEnvironment.apiServerUrl}$_verifyPath'),

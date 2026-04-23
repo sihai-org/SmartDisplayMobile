@@ -312,10 +312,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
 
       logBuyIapRequest(
         action: 'isAvailable',
-        payload: {
-          'scene': 'purchase',
-          'product_id': catalogProduct.productId,
-        },
+        payload: {'scene': 'purchase', 'product_id': catalogProduct.productId},
       );
       final isAvailable = await InAppPurchase.instance.isAvailable();
       logBuyIapResponse(
@@ -410,10 +407,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       );
       logBuyIapResponse(
         action: 'buyConsumable',
-        payload: {
-          'started': started,
-          'product_id': product.id,
-        },
+        payload: {'started': started, 'product_id': product.id},
       );
 
       if (!started) {
@@ -452,9 +446,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   ) async {
     final l10n = context.l10n;
 
-    logBuyInfo('purchase_stream_batch', {
-      'count': purchaseDetailsList.length,
-    });
+    logBuyInfo('purchase_stream_batch', {'count': purchaseDetailsList.length});
     for (final purchase in purchaseDetailsList) {
       _logPurchaseDetails('purchase_update', purchase);
 
@@ -480,6 +472,25 @@ class _IosBuyButtonState extends State<IosBuyButton> {
           'product_id': purchase.productID,
           'error': _serializePurchaseError(purchase.error),
         });
+        if (purchase.pendingCompletePurchase) {
+          logBuyIapRequest(
+            action: 'completePurchase',
+            payload: {
+              'scene': 'purchaseError',
+              'purchase': _serializePurchaseDetails(purchase),
+            },
+          );
+          await InAppPurchase.instance.completePurchase(purchase);
+          logBuyIapResponse(
+            action: 'completePurchase',
+            payload: {
+              'scene': 'purchaseError',
+              'completed': true,
+              'product_id': purchase.productID,
+              'purchase_id': purchase.purchaseID,
+            },
+          );
+        }
         _clearPendingOrder();
         if (mounted) {
           setState(() {
@@ -604,9 +615,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         Supabase.instance.client.auth.currentSession?.accessToken;
 
     if (accessToken == null || accessToken.isEmpty) {
-      logBuyInfo('deliver_purchase_failed', {
-        'reason': 'missing_access_token',
-      });
+      logBuyInfo('deliver_purchase_failed', {'reason': 'missing_access_token'});
       return false;
     }
 

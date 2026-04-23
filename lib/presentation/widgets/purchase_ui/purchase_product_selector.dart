@@ -25,8 +25,8 @@ class PurchaseProductSelector extends StatefulWidget {
 }
 
 class _PurchaseProductSelectorState extends State<PurchaseProductSelector> {
-  static const double _cardWidth = 140;
-  static const double _cardHeight = 180;
+  static const double _cardWidth = 188;
+  static const double _cardHeight = 208;
   static const double _cardHorizontalPadding = 6;
 
   late PageController _pageController;
