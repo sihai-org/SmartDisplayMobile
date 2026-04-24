@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/billing_repository.dart';
 import '../../data/repositories/android_iap_repository.dart';
+import '../audit/audit_mode.dart';
 import '../log/app_log.dart';
 import '../log/buy_log.dart';
 import '../log/biz_log_tag.dart';
@@ -192,6 +193,17 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
   bool _receivedPurchaseUpdateForActiveSession = false;
 
   Future<void> loadProductCatalog() async {
+    if (AuditMode.enabled) {
+      state = state.copyWith(
+        stage: AndroidIapStage.ready,
+        products: const [],
+        clearFailure: true,
+        clearActiveSession: true,
+        clearLastCompletedOrderId: true,
+      );
+      return;
+    }
+
     final accessToken = _currentAccessToken;
     if (accessToken == null) {
       _setFailure(
@@ -299,6 +311,15 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
   }
 
   Future<void> startPurchaseFlow(AndroidIapProductOption option) async {
+    if (AuditMode.enabled) {
+      _setFailure(
+        AndroidIapFailureKind.generic,
+        detail: 'Audit mode uses local billing only',
+        clearActiveSession: true,
+      );
+      return;
+    }
+
     final accessToken = _currentAccessToken;
     final user = Supabase.instance.client.auth.currentUser;
     if (accessToken == null || user == null) {
@@ -367,6 +388,16 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     logBuyInfo('purchase_stream_batch', {'count': purchases.length});
     for (final purchase in purchases) {
       _logPurchaseDetails('purchase_update', purchase);
+      if (AuditMode.enabled) {
+        logBuyInfo('audit_android_purchase_update_skipped', {
+          'reason': 'audit_mode_uses_local_billing_only',
+          'product_id': purchase.productID,
+          'purchase_id': purchase.purchaseID,
+          'status': purchase.status.name,
+        });
+        continue;
+      }
+
       if (!_isTrackedProduct(purchase.productID)) {
         logBuyInfo('purchase_update_ignored', {
           'product_id': purchase.productID,

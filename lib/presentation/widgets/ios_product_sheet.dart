@@ -73,6 +73,7 @@ class IosProductSheet extends StatefulWidget {
   const IosProductSheet({
     super.key,
     this.initialProducts = const [],
+    this.loadOnOpen = false,
     this.onReload = _noopIosProductReload,
     this.onPurchase = _noopIosProductPurchase,
     this.purchaseStateListenable = const _FixedValueListenable(
@@ -81,6 +82,7 @@ class IosProductSheet extends StatefulWidget {
   });
 
   final List<AppleIapProductData> initialProducts;
+  final bool loadOnOpen;
   final Future<List<AppleIapProductData>> Function() onReload;
   final Future<void> Function(AppleIapProductData product) onPurchase;
   final ValueListenable<IosPurchaseSheetState> purchaseStateListenable;
@@ -99,6 +101,12 @@ class _IosProductSheetState extends State<IosProductSheet> {
   void initState() {
     super.initState();
     _products = List<AppleIapProductData>.unmodifiable(widget.initialProducts);
+    if (widget.loadOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_handleReload());
+      });
+    }
   }
 
   Future<void> _handleReload() async {
@@ -183,8 +191,6 @@ class _IosProductSheetState extends State<IosProductSheet> {
                 id: product.productId,
                 title: _productTitle(product, l10n.billing_credits_label),
                 priceText: _priceText(product),
-                supportingText:
-                    '${formatBillingCreditAmount(locale: locale, amount: product.creditAmount)} ${l10n.billing_credits_label}',
               ),
             )
             .toList(growable: false);

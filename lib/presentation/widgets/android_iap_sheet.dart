@@ -108,8 +108,6 @@ class _AndroidIapSheetState extends ConsumerState<AndroidIapSheet> {
             id: option.productId,
             title: option.displayName,
             priceText: option.priceText,
-            supportingText:
-                '${formatBillingCreditAmount(locale: locale, amount: option.creditAmount)} ${l10n.billing_credits_label}',
           ),
         )
         .toList(growable: false);
