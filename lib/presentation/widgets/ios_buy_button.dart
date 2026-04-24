@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -451,8 +452,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       }
 
       final product = response.productDetails.first;
-      final applicationUserName =
-          user?.id ?? (isAuditMode ? AuditMode.auditUserId : null);
+      final applicationUserName = isAuditMode
+          ? AuditMode.auditStoreAccountToken
+          : user?.id;
       final purchaseParam = PurchaseParam(
         productDetails: product,
         applicationUserName: applicationUserName,
@@ -512,6 +514,29 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
     logBuyInfo('purchase_stream_batch', {'count': purchaseDetailsList.length});
     for (final purchase in purchaseDetailsList) {
       _logPurchaseDetails('purchase_update', purchase);
+      final isAuditStorePurchase = _isAuditStorePurchase(purchase);
+      if (AuditMode.enabled && !isAuditStorePurchase) {
+        logBuyInfo('audit_purchase_update_skipped', {
+          'reason': 'store_account_token_mismatch',
+          'product_id': purchase.productID,
+          'purchase_id': purchase.purchaseID,
+          'status': purchase.status.name,
+          'purchase_type': purchase.runtimeType.toString(),
+          'has_store_account_token':
+              _storeAccountTokenForPurchase(purchase)?.isNotEmpty == true,
+        });
+        continue;
+      }
+      if (!AuditMode.enabled && isAuditStorePurchase) {
+        logBuyInfo('audit_purchase_update_skipped', {
+          'reason': 'audit_store_purchase_outside_audit_mode',
+          'product_id': purchase.productID,
+          'purchase_id': purchase.purchaseID,
+          'status': purchase.status.name,
+          'purchase_type': purchase.runtimeType.toString(),
+        });
+        continue;
+      }
 
       if (purchase.status == PurchaseStatus.pending) {
         if (mounted) {
@@ -661,7 +686,35 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
     }
   }
 
+  bool _isAuditStorePurchase(PurchaseDetails purchase) {
+    return _matchesAuditStoreToken(_storeAccountTokenForPurchase(purchase));
+  }
+
+  String? _storeAccountTokenForPurchase(PurchaseDetails purchase) {
+    if (purchase is SK2PurchaseDetails) {
+      return purchase.appAccountToken;
+    }
+    if (purchase is AppStorePurchaseDetails) {
+      return purchase.skPaymentTransaction.payment.applicationUsername;
+    }
+    return null;
+  }
+
+  bool _matchesAuditStoreToken(String? token) {
+    final normalizedToken = token?.trim().toUpperCase();
+    return normalizedToken == AuditMode.auditStoreAccountToken;
+  }
+
   bool _deliverAuditPurchaseLocally(PurchaseDetails purchase) {
+    if (!_isAuditStorePurchase(purchase)) {
+      logBuyInfo('deliver_audit_purchase_failed', {
+        'reason': 'store_account_token_mismatch',
+        'product_id': purchase.productID,
+        'purchase_id': purchase.purchaseID,
+      });
+      return false;
+    }
+
     final purchaseKey =
         purchase.purchaseID ??
         '${purchase.productID}:${purchase.transactionDate ?? ''}';
@@ -858,7 +911,10 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       final matchesProduct = transaction.productId == productId;
       final matchesPurchase =
           purchaseId == null || transaction.id == purchaseId;
-      if (!matchesProduct || !matchesPurchase) {
+      final matchesAuditStoreToken = _matchesAuditStoreToken(
+        transaction.appAccountToken,
+      );
+      if (!matchesProduct || !matchesPurchase || !matchesAuditStoreToken) {
         continue;
       }
 
@@ -916,9 +972,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       final transactionId = transaction.transactionIdentifier;
       final matchesProduct = transaction.payment.productIdentifier == productId;
       final matchesPurchase = purchaseId == null || transactionId == purchaseId;
-      final matchesAuditUser =
-          transaction.payment.applicationUsername == null ||
-          transaction.payment.applicationUsername == AuditMode.auditUserId;
+      final matchesAuditStoreToken = _matchesAuditStoreToken(
+        transaction.payment.applicationUsername,
+      );
       final finishable =
           transaction.transactionState !=
               SKPaymentTransactionStateWrapper.purchasing &&
@@ -926,7 +982,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
               SKPaymentTransactionStateWrapper.deferred;
       if (!matchesProduct ||
           !matchesPurchase ||
-          !matchesAuditUser ||
+          !matchesAuditStoreToken ||
           !finishable) {
         continue;
       }
