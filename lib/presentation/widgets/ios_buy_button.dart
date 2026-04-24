@@ -1,46 +1,78 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
 import '../../core/log/biz_log_tag.dart';
+import '../../core/providers/ios_iap_order_context_provider.dart';
 import '../../data/repositories/ios_iap_repository.dart';
 import 'ios_product_sheet.dart';
 import 'purchase_ui/purchase_entry_button.dart';
 
-class IosBuyButton extends StatefulWidget {
+const List<AppleIapProductData> _auditFallbackProducts = [
+  AppleIapProductData(
+    packageCode: 'com.datou.vzngpt.credits.1000',
+    productId: 'com.datou.vzngpt.credits.1000',
+    creditAmount: 1000,
+    displayName: '1,000 Credits',
+    description: 'iOS top-up package for 1000 credits',
+    currency: 'USD',
+    amount: 0.99,
+    sortOrder: 0,
+  ),
+  AppleIapProductData(
+    packageCode: 'com.datou.vzngpt.credits.2000',
+    productId: 'com.datou.vzngpt.credits.2000',
+    creditAmount: 2000,
+    displayName: '2,000 Credits',
+    description: 'iOS top-up package for 2000 credits',
+    currency: 'USD',
+    amount: 1.79,
+    sortOrder: 1,
+  ),
+  AppleIapProductData(
+    packageCode: 'com.datou.vzngpt.credits.3000',
+    productId: 'com.datou.vzngpt.credits.3000',
+    creditAmount: 3000,
+    displayName: '3,000 Credits',
+    description: 'iOS top-up package for 3000 credits',
+    currency: 'USD',
+    amount: 2.49,
+    sortOrder: 2,
+  ),
+];
+
+class IosBuyButton extends ConsumerStatefulWidget {
   const IosBuyButton({super.key, this.onPurchaseSuccess});
 
   final Future<void> Function()? onPurchaseSuccess;
 
   @override
-  State<IosBuyButton> createState() => _IosBuyButtonState();
+  ConsumerState<IosBuyButton> createState() => _IosBuyButtonState();
 }
 
-class _IosBuyButtonState extends State<IosBuyButton> {
+class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
   final IosIapRepository _iosIapRepository = IosIapRepository();
   final ValueNotifier<IosPurchaseSheetState> _purchaseSheetState =
       ValueNotifier(const IosPurchaseSheetState());
+  late final IosIapOrderContextNotifier _orderContextNotifier;
   late final StreamSubscription<List<PurchaseDetails>> _purchaseSubscription;
 
   List<AppleIapProductData> _products = const [];
-  bool _isProductsLoading = false;
-  bool _hasProductsError = false;
   bool _isPurchasing = false;
   bool _isPurchaseSheetVisible = false;
-
-  String? _pendingOrderId;
-  String? _pendingPackageCode;
-  String? _pendingProductId;
 
   @override
   void initState() {
     super.initState();
+    _orderContextNotifier = ref.read(iosIapOrderContextProvider.notifier);
     _purchaseSubscription = InAppPurchase.instance.purchaseStream.listen(
       _onPurchaseUpdated,
       onDone: () => _purchaseSubscription.cancel(),
@@ -48,12 +80,12 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         debugPrint('purchaseStream error: $error');
       },
     );
-    _loadProducts();
   }
 
   @override
   void dispose() {
     _purchaseSubscription.cancel();
+    _orderContextNotifier.clear();
     _purchaseSheetState.dispose();
     super.dispose();
   }
@@ -61,16 +93,60 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   Future<List<AppleIapProductData>> _requestProducts() async {
     final accessToken =
         Supabase.instance.client.auth.currentSession?.accessToken;
+    if (AuditMode.enabled && (accessToken == null || accessToken.isEmpty)) {
+      return _loadAuditFallbackProducts(reason: 'missing_access_token');
+    }
     if (accessToken == null || accessToken.isEmpty) {
       throw StateError('Missing access token');
     }
 
-    final catalogProducts = await _iosIapRepository.fetchAppleIapProducts(
-      accessToken: accessToken,
-    );
+    List<AppleIapProductData> catalogProducts;
+    try {
+      catalogProducts = await _iosIapRepository.fetchAppleIapProducts(
+        accessToken: accessToken,
+      );
+    } catch (error, stackTrace) {
+      if (AuditMode.enabled) {
+        AppLog.instance.warning(
+          'Falling back to fixed Apple IAP catalog in audit mode',
+          tag: BizLogTag.buy.tag,
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return _loadAuditFallbackProducts(reason: 'server_fetch_failed');
+      }
+      rethrow;
+    }
+
     catalogProducts.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final products = await _attachStorePrices(catalogProducts);
     logBuyInfo('catalog_products_loaded', {
+      'count': products.length,
+      'products': products
+          .map(
+            (item) => {
+              'package_code': item.packageCode,
+              'product_id': item.productId,
+              'credit_amount': item.creditAmount,
+              'display_name': item.displayName,
+              'description': item.description,
+              'currency': item.currency,
+              'amount': item.amount,
+              'display_price': item.displayPrice,
+              'sort_order': item.sortOrder,
+            },
+          )
+          .toList(growable: false),
+    });
+    return List<AppleIapProductData>.unmodifiable(products);
+  }
+
+  Future<List<AppleIapProductData>> _loadAuditFallbackProducts({
+    required String reason,
+  }) async {
+    final products = await _attachStorePrices(_auditFallbackProducts);
+    logBuyInfo('catalog_products_audit_fallback_loaded', {
+      'reason': reason,
       'count': products.length,
       'products': products
           .map(
@@ -113,10 +189,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       final isAvailable = await InAppPurchase.instance.isAvailable();
       logBuyIapResponse(
         action: 'isAvailable',
-        payload: {
-          'scene': 'attachStorePrices',
-          'is_available': isAvailable,
-        },
+        payload: {'scene': 'attachStorePrices', 'is_available': isAvailable},
       );
       if (!isAvailable) {
         return catalogProducts;
@@ -185,20 +258,11 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   }
 
   Future<void> _loadProducts() async {
-    if (mounted) {
-      setState(() {
-        _isProductsLoading = true;
-        _hasProductsError = false;
-      });
-    }
-
     try {
       final products = await _requestProducts();
       if (!mounted) return;
       setState(() {
         _products = products;
-        _isProductsLoading = false;
-        _hasProductsError = false;
       });
     } catch (error, stackTrace) {
       AppLog.instance.error(
@@ -207,30 +271,15 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         error: error,
         stackTrace: stackTrace,
       );
-      if (!mounted) return;
-      setState(() {
-        _products = const [];
-        _isProductsLoading = false;
-        _hasProductsError = true;
-      });
     }
   }
 
   Future<List<AppleIapProductData>> _reloadProductsForSheet() async {
-    if (mounted) {
-      setState(() {
-        _isProductsLoading = true;
-        _hasProductsError = false;
-      });
-    }
-
     try {
       final products = await _requestProducts();
       if (!mounted) return products;
       setState(() {
         _products = products;
-        _isProductsLoading = false;
-        _hasProductsError = false;
       });
       return products;
     } catch (error, stackTrace) {
@@ -240,29 +289,12 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         error: error,
         stackTrace: stackTrace,
       );
-      if (mounted) {
-        setState(() {
-          _products = const [];
-          _isProductsLoading = false;
-          _hasProductsError = true;
-        });
-      }
       rethrow;
     }
   }
 
   Future<void> _handlePressed() async {
-    if (_isProductsLoading || _isPurchasing) return;
-
-    if (_hasProductsError) {
-      await _loadProducts();
-      return;
-    }
-
-    if (_products.isEmpty) {
-      _showToast(context.l10n.billing_products_empty);
-      return;
-    }
+    if (_isPurchasing) return;
 
     _purchaseSheetState.value = const IosPurchaseSheetState();
     setState(() {
@@ -275,6 +307,7 @@ class _IosBuyButtonState extends State<IosBuyButton> {
       showDragHandle: false,
       builder: (context) => IosProductSheet(
         initialProducts: _products,
+        loadOnOpen: true,
         onReload: _reloadProductsForSheet,
         onPurchase: _purchase,
         purchaseStateListenable: _purchaseSheetState,
@@ -289,10 +322,12 @@ class _IosBuyButtonState extends State<IosBuyButton> {
 
   Future<void> _purchase(AppleIapProductData catalogProduct) async {
     try {
+      final isAuditMode = AuditMode.enabled;
       final user = Supabase.instance.client.auth.currentUser;
       final accessToken =
           Supabase.instance.client.auth.currentSession?.accessToken;
-      if (user == null || accessToken == null || accessToken.isEmpty) {
+      if (!isAuditMode &&
+          (user == null || accessToken == null || accessToken.isEmpty)) {
         _setSheetFailure(
           IosPurchaseFailureKind.signInRequired,
           activeProductId: catalogProduct.productId,
@@ -338,17 +373,36 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         return;
       }
 
-      final order = await _iosIapRepository.createAppleIapOrder(
-        accessToken: accessToken,
-        packageCode: catalogProduct.packageCode,
-      );
-
-      _pendingOrderId = order.orderId;
-      _pendingPackageCode = order.packageCode;
-      _pendingProductId = order.productId;
+      final shouldCreateOrder = !isAuditMode;
+      var purchaseProductId = catalogProduct.productId;
+      if (shouldCreateOrder) {
+        final order = await _iosIapRepository.createAppleIapOrder(
+          accessToken: accessToken!,
+          packageCode: catalogProduct.packageCode,
+        );
+        ref
+            .read(iosIapOrderContextProvider.notifier)
+            .setContext(
+              orderId: order.orderId,
+              packageCode: order.packageCode,
+              productId: order.productId,
+            );
+        purchaseProductId = order.productId;
+      } else {
+        ref
+            .read(iosIapOrderContextProvider.notifier)
+            .setContext(
+              packageCode: catalogProduct.packageCode,
+              productId: catalogProduct.productId,
+            );
+        logBuyInfo('audit_mode_skip_create_order', {
+          'package_code': catalogProduct.packageCode,
+          'product_id': catalogProduct.productId,
+        });
+      }
       _purchaseSheetState.value = _purchaseSheetState.value.copyWith(
         stage: IosPurchaseStage.purchasing,
-        activeProductId: order.productId,
+        activeProductId: purchaseProductId,
         clearFailure: true,
       );
 
@@ -356,11 +410,11 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         action: 'queryProductDetails',
         payload: {
           'scene': 'purchase',
-          'product_ids': [order.productId],
+          'product_ids': [purchaseProductId],
         },
       );
       final response = await InAppPurchase.instance
-          .queryProductDetails({order.productId})
+          .queryProductDetails({purchaseProductId})
           .timeout(const Duration(seconds: 15));
       logBuyIapResponse(
         action: 'queryProductDetails',
@@ -384,21 +438,23 @@ class _IosBuyButtonState extends State<IosBuyButton> {
         }
         _setSheetFailure(
           IosPurchaseFailureKind.productNotFound,
-          activeProductId: catalogProduct.productId,
+          activeProductId: purchaseProductId,
         );
         return;
       }
 
       final product = response.productDetails.first;
+      final applicationUserName =
+          user?.id ?? (isAuditMode ? AuditMode.auditUserId : null);
       final purchaseParam = PurchaseParam(
         productDetails: product,
-        applicationUserName: user.id,
+        applicationUserName: applicationUserName,
       );
       logBuyIapRequest(
         action: 'buyConsumable',
         payload: {
           'product': _serializeProductDetails(product),
-          'application_user_name': user.id,
+          'application_user_name': applicationUserName,
         },
       );
 
@@ -670,12 +726,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
     required String accessToken,
     required String productId,
   }) async {
-    if (_pendingPackageCode != null &&
-        _pendingPackageCode!.isNotEmpty &&
-        (_pendingProductId == null || _pendingProductId == productId)) {
+    final pendingContext = ref.read(iosIapOrderContextProvider);
+    if (pendingContext != null &&
+        pendingContext.packageCode.isNotEmpty &&
+        pendingContext.productId == productId) {
       return _AppleIapVerificationContext(
-        packageCode: _pendingPackageCode!,
-        orderId: _pendingOrderId,
+        packageCode: pendingContext.packageCode,
+        orderId: pendingContext.orderId,
       );
     }
 
@@ -702,14 +759,13 @@ class _IosBuyButtonState extends State<IosBuyButton> {
   }
 
   void _clearPendingOrder() {
+    final pendingContext = ref.read(iosIapOrderContextProvider);
     logBuyInfo('pending_order_cleared', {
-      'order_id': _pendingOrderId,
-      'package_code': _pendingPackageCode,
-      'product_id': _pendingProductId,
+      'order_id': pendingContext?.orderId,
+      'package_code': pendingContext?.packageCode,
+      'product_id': pendingContext?.productId,
     });
-    _pendingOrderId = null;
-    _pendingPackageCode = null;
-    _pendingProductId = null;
+    ref.read(iosIapOrderContextProvider.notifier).clear();
   }
 
   void _logPurchaseDetails(String event, PurchaseDetails purchase) {
@@ -794,13 +850,12 @@ class _IosBuyButtonState extends State<IosBuyButton> {
 
     return PurchaseEntryButton(
       label: buttonLabel,
-      isLoading: _isProductsLoading || _isPurchasing,
-      onPressed: (_isProductsLoading || _isPurchasing) ? null : _handlePressed,
+      isLoading: _isPurchasing,
+      onPressed: _isPurchasing ? null : _handlePressed,
     );
   }
 
   String _buttonLabel(BuildContext context) {
-    if (_hasProductsError) return context.l10n.billing_purchase_retry;
     return context.l10n.billing_buy_credits;
   }
 
