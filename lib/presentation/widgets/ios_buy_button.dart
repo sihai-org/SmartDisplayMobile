@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/audit/audit_mode.dart';
@@ -400,6 +402,10 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
           'package_code': catalogProduct.packageCode,
           'product_id': catalogProduct.productId,
         });
+        await _tryFinalizeAuditStoreTransactions(
+          productId: catalogProduct.productId,
+          scene: 'beforePurchaseAuditCleanup',
+        );
       }
       _purchaseSheetState.value = _purchaseSheetState.value.copyWith(
         stage: IosPurchaseStage.purchasing,
@@ -619,25 +625,11 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
             continue;
           }
 
-          if (purchase.pendingCompletePurchase) {
-            logBuyIapRequest(
-              action: 'completePurchase',
-              payload: {
-                'scene': 'purchaseSuccess',
-                'purchase': _serializePurchaseDetails(purchase),
-              },
-            );
-            await InAppPurchase.instance.completePurchase(purchase);
-            logBuyIapResponse(
-              action: 'completePurchase',
-              payload: {
-                'scene': 'purchaseSuccess',
-                'completed': true,
-                'product_id': purchase.productID,
-                'purchase_id': purchase.purchaseID,
-              },
-            );
-          }
+          await _completeDeliveredPurchase(
+            purchase,
+            scene: 'purchaseSuccess',
+            allowAuditFallback: AuditMode.enabled,
+          );
 
           await widget.onPurchaseSuccess?.call();
           _closePurchaseSheet();
@@ -767,6 +759,207 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
     );
 
     return result.status == 'granted' || result.status == 'already_granted';
+  }
+
+  Future<void> _completeDeliveredPurchase(
+    PurchaseDetails purchase, {
+    required String scene,
+    required bool allowAuditFallback,
+  }) async {
+    if (purchase.pendingCompletePurchase) {
+      logBuyIapRequest(
+        action: 'completePurchase',
+        payload: {
+          'scene': scene,
+          'purchase': _serializePurchaseDetails(purchase),
+        },
+      );
+      await InAppPurchase.instance.completePurchase(purchase);
+      logBuyIapResponse(
+        action: 'completePurchase',
+        payload: {
+          'scene': scene,
+          'completed': true,
+          'product_id': purchase.productID,
+          'purchase_id': purchase.purchaseID,
+        },
+      );
+      return;
+    }
+
+    if (!allowAuditFallback) {
+      logBuyIapResponse(
+        action: 'completePurchase',
+        payload: {
+          'scene': scene,
+          'skipped': true,
+          'product_id': purchase.productID,
+          'purchase_id': purchase.purchaseID,
+          'pending_complete_purchase': purchase.pendingCompletePurchase,
+        },
+      );
+      return;
+    }
+
+    await _tryFinalizeAuditStoreTransactions(
+      productId: purchase.productID,
+      purchaseId: purchase.purchaseID,
+      scene: '$scene:fallbackFinishTransaction',
+    );
+  }
+
+  Future<void> _tryFinalizeAuditStoreTransactions({
+    required String productId,
+    String? purchaseId,
+    required String scene,
+  }) async {
+    if (productId.isEmpty) {
+      return;
+    }
+
+    try {
+      final finishedSk2Count = await _finishAuditStoreKit2Transactions(
+        productId: productId,
+        purchaseId: purchaseId,
+        scene: scene,
+      );
+      final finishedSk1Count = await _finishAuditStoreKit1Transactions(
+        productId: productId,
+        purchaseId: purchaseId,
+        scene: scene,
+      );
+      logBuyInfo('audit_store_transactions_finalize_result', {
+        'scene': scene,
+        'product_id': productId,
+        'purchase_id': purchaseId,
+        'finished_sk2_count': finishedSk2Count,
+        'finished_sk1_count': finishedSk1Count,
+      });
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to finalize audit-mode iOS store transactions',
+        tag: BizLogTag.buy.tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<int> _finishAuditStoreKit2Transactions({
+    required String productId,
+    String? purchaseId,
+    required String scene,
+  }) async {
+    final unfinishedTransactions =
+        await SK2Transaction.unfinishedTransactions();
+    var finishedCount = 0;
+
+    for (final transaction in unfinishedTransactions) {
+      final matchesProduct = transaction.productId == productId;
+      final matchesPurchase =
+          purchaseId == null || transaction.id == purchaseId;
+      final matchesAuditUser =
+          transaction.appAccountToken == null ||
+          transaction.appAccountToken == AuditMode.auditUserId;
+      if (!matchesProduct || !matchesPurchase || !matchesAuditUser) {
+        continue;
+      }
+
+      final transactionId = int.tryParse(transaction.id);
+      if (transactionId == null) {
+        logBuyInfo('audit_storekit2_finish_skipped', {
+          'scene': scene,
+          'reason': 'invalid_transaction_id',
+          'product_id': productId,
+          'purchase_id': purchaseId,
+          'transaction_id': transaction.id,
+        });
+        continue;
+      }
+
+      logBuyIapRequest(
+        action: 'finishTransaction',
+        payload: {
+          'scene': scene,
+          'storekit': 2,
+          'product_id': productId,
+          'purchase_id': purchaseId,
+          'transaction_id': transaction.id,
+          'app_account_token': transaction.appAccountToken,
+        },
+      );
+      await SK2Transaction.finish(transactionId);
+      finishedCount += 1;
+      logBuyIapResponse(
+        action: 'finishTransaction',
+        payload: {
+          'scene': scene,
+          'storekit': 2,
+          'finished': true,
+          'product_id': productId,
+          'purchase_id': purchaseId,
+          'transaction_id': transaction.id,
+        },
+      );
+    }
+
+    return finishedCount;
+  }
+
+  Future<int> _finishAuditStoreKit1Transactions({
+    required String productId,
+    String? purchaseId,
+    required String scene,
+  }) async {
+    final queue = SKPaymentQueueWrapper();
+    final transactions = await queue.transactions();
+    var finishedCount = 0;
+
+    for (final transaction in transactions) {
+      final transactionId = transaction.transactionIdentifier;
+      final matchesProduct = transaction.payment.productIdentifier == productId;
+      final matchesPurchase = purchaseId == null || transactionId == purchaseId;
+      final matchesAuditUser =
+          transaction.payment.applicationUsername == null ||
+          transaction.payment.applicationUsername == AuditMode.auditUserId;
+      final finishable =
+          transaction.transactionState !=
+          SKPaymentTransactionStateWrapper.purchasing;
+      if (!matchesProduct ||
+          !matchesPurchase ||
+          !matchesAuditUser ||
+          !finishable) {
+        continue;
+      }
+
+      logBuyIapRequest(
+        action: 'finishTransaction',
+        payload: {
+          'scene': scene,
+          'storekit': 1,
+          'product_id': productId,
+          'purchase_id': purchaseId,
+          'transaction_id': transactionId,
+          'transaction_state': transaction.transactionState.name,
+          'application_username': transaction.payment.applicationUsername,
+        },
+      );
+      await queue.finishTransaction(transaction);
+      finishedCount += 1;
+      logBuyIapResponse(
+        action: 'finishTransaction',
+        payload: {
+          'scene': scene,
+          'storekit': 1,
+          'finished': true,
+          'product_id': productId,
+          'purchase_id': purchaseId,
+          'transaction_id': transactionId,
+        },
+      );
+    }
+
+    return finishedCount;
   }
 
   Future<_AppleIapVerificationContext?> _resolveVerificationContext({
