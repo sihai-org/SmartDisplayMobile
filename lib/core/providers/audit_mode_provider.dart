@@ -4,6 +4,7 @@ import '../models/device_qr_data.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import 'saved_devices_provider.dart';
 import '../log/app_log.dart';
+import 'audit_billing_provider.dart';
 
 class AuditState {
   final bool enabled;
@@ -21,6 +22,7 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
   Future<void> enable() async {
     AuditMode.enable();
     state = AuditState(enabled: true, since: DateTime.now());
+    _ref.read(auditBillingProvider.notifier).reset();
     // Seed a mock device for audit mode if none exists yet
     await _seedMockDeviceIfNeeded();
     // Ensure provider state reflects saved list immediately（仅本地加载）
@@ -29,6 +31,7 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
 
   void disable() {
     AuditMode.disable();
+    _ref.read(auditBillingProvider.notifier).reset();
     state = const AuditState(enabled: false, since: null);
   }
 
@@ -37,7 +40,9 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
       AppLog.instance.info('_seedMockDeviceIfNeeded', tag: 'Audit');
       final repo = SavedDevicesRepository();
       final list = await repo.loadLocal();
-      final exists = list.any((e) => e.displayDeviceId == AuditMode.mockDisplayDeviceId);
+      final exists = list.any(
+        (e) => e.displayDeviceId == AuditMode.mockDisplayDeviceId,
+      );
       if (!exists) {
         final mock = DeviceQrData(
           displayDeviceId: AuditMode.mockDisplayDeviceId,
@@ -52,7 +57,8 @@ class AuditModeNotifier extends StateNotifier<AuditState> {
   }
 }
 
-final auditModeProvider =
-    StateNotifierProvider<AuditModeNotifier, AuditState>((ref) {
+final auditModeProvider = StateNotifierProvider<AuditModeNotifier, AuditState>((
+  ref,
+) {
   return AuditModeNotifier(ref);
 });

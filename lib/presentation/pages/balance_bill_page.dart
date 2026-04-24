@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/providers/audit_billing_provider.dart';
 import '../../core/theme/purchase_button_style.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
@@ -24,16 +26,16 @@ class BalanceBillsArgs {
   final bool hasInitialized;
 }
 
-class BalanceBillPage extends StatefulWidget {
+class BalanceBillPage extends ConsumerStatefulWidget {
   const BalanceBillPage({super.key, this.args});
 
   final BalanceBillsArgs? args;
 
   @override
-  State<BalanceBillPage> createState() => _BalanceBillPageState();
+  ConsumerState<BalanceBillPage> createState() => _BalanceBillPageState();
 }
 
-class _BalanceBillPageState extends State<BalanceBillPage> {
+class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
   final BillingRepository _billingRepository = BillingRepository();
   final ScrollController _scrollController = ScrollController();
 
@@ -51,8 +53,9 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
   void initState() {
     super.initState();
     final args = widget.args;
+    final auditBilling = ref.read(auditBillingProvider);
     _items = _isAuditMode
-        ? const []
+        ? List<BillingLedgerItem>.from(auditBilling.ledgerItems)
         : List<BillingLedgerItem>.from(args?.initialItems ?? const []);
     _nextPage = _isAuditMode ? 1 : (args?.nextPage ?? 1);
     _hasNextPage = _isAuditMode ? false : (args?.hasNextPage ?? true);
@@ -220,10 +223,10 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
     return DateFormat('yyyy-MM-dd HH:mm', locale).format(dateTime.toLocal());
   }
 
-  String _statusText(BuildContext context) {
+  String _statusText(BuildContext context, {required bool hasItems}) {
     final l10n = context.l10n;
-    if (_isLoading && _items.isEmpty) return l10n.loading;
-    if (_hasError && _items.isEmpty) return l10n.billing_load_failed;
+    if (_isLoading && !hasItems) return l10n.loading;
+    if (_hasError && !hasItems) return l10n.billing_load_failed;
     return l10n.billing_recent_activity_empty;
   }
 
@@ -293,12 +296,14 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
 
   @override
   Widget build(BuildContext context) {
+    final auditBilling = ref.watch(auditBillingProvider);
+    final items = _isAuditMode ? auditBilling.ledgerItems : _items;
     final l10n = context.l10n;
-    final changeWidgets = _items.isNotEmpty
-        ? _items.map((item) => _buildChangeTile(context, item)).toList()
-        : [_buildStatusTile(context, _statusText(context))];
+    final changeWidgets = items.isNotEmpty
+        ? items.map((item) => _buildChangeTile(context, item)).toList()
+        : [_buildStatusTile(context, _statusText(context, hasItems: false))];
 
-    if (_isLoading && _items.isNotEmpty) {
+    if (_isLoading && items.isNotEmpty) {
       changeWidgets.add(
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
@@ -322,7 +327,19 @@ class _BalanceBillPageState extends State<BalanceBillPage> {
         child: ListView(
           controller: _scrollController,
           padding: const EdgeInsets.all(16),
-          children: [_sectionCard(context, children: changeWidgets)],
+          children: [
+            if (_isAuditMode)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  auditBillingNoticeText,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                ),
+              ),
+            _sectionCard(context, children: changeWidgets),
+          ],
         ),
       ),
     );

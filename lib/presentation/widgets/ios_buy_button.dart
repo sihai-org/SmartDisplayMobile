@@ -11,6 +11,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
 import '../../core/log/biz_log_tag.dart';
+import '../../core/providers/audit_billing_provider.dart';
 import '../../core/providers/ios_iap_order_context_provider.dart';
 import '../../data/repositories/ios_iap_repository.dart';
 import 'ios_product_sheet.dart';
@@ -601,7 +602,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
             activeProductId: purchase.productID,
             clearFailure: true,
           );
-          final delivered = await _deliverPurchaseToServer(purchase);
+          final delivered = AuditMode.enabled
+              ? _deliverAuditPurchaseLocally(purchase)
+              : await _deliverPurchaseToServer(purchase);
 
           if (!delivered) {
             if (mounted) {
@@ -664,6 +667,50 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
         }
       }
     }
+  }
+
+  bool _deliverAuditPurchaseLocally(PurchaseDetails purchase) {
+    final purchaseKey =
+        purchase.purchaseID ??
+        '${purchase.productID}:${purchase.transactionDate ?? ''}';
+    final matchedProduct = _findCatalogProduct(purchase.productID);
+    final credits = matchedProduct?.creditAmount.toDouble() ?? 0;
+
+    if (credits <= 0) {
+      logBuyInfo('deliver_audit_purchase_failed', {
+        'reason': 'missing_catalog_product',
+        'product_id': purchase.productID,
+      });
+      return false;
+    }
+
+    ref
+        .read(auditBillingProvider.notifier)
+        .recordReviewPurchase(
+          purchaseKey: purchaseKey,
+          productName: matchedProduct?.displayName ?? purchase.productID,
+          credits: credits,
+        );
+    logBuyInfo('deliver_audit_purchase_locally', {
+      'product_id': purchase.productID,
+      'purchase_id': purchase.purchaseID,
+      'credits': credits,
+    });
+    return true;
+  }
+
+  AppleIapProductData? _findCatalogProduct(String productId) {
+    for (final product in _products) {
+      if (product.productId == productId) {
+        return product;
+      }
+    }
+    for (final product in _auditFallbackProducts) {
+      if (product.productId == productId) {
+        return product;
+      }
+    }
+    return null;
   }
 
   Future<bool> _deliverPurchaseToServer(PurchaseDetails purchase) async {

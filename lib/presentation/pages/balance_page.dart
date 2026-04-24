@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_display_mobile/core/theme/purchase_button_style.dart';
@@ -8,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
+import '../../core/providers/audit_billing_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/billing_repository.dart';
@@ -15,14 +17,14 @@ import 'balance_bill_page.dart';
 import '../widgets/android_buy_button.dart';
 import '../widgets/ios_buy_button.dart';
 
-class BalancePage extends StatefulWidget {
+class BalancePage extends ConsumerStatefulWidget {
   const BalancePage({super.key});
 
   @override
-  State<BalancePage> createState() => _BalancePageState();
+  ConsumerState<BalancePage> createState() => _BalancePageState();
 }
 
-class _BalancePageState extends State<BalancePage> {
+class _BalancePageState extends ConsumerState<BalancePage> {
   final BillingRepository _billingRepository = BillingRepository();
 
   BillingBalanceData? _balance;
@@ -46,14 +48,11 @@ class _BalancePageState extends State<BalancePage> {
 
   Future<void> _loadData() async {
     if (_isAuditMode) {
+      final auditBilling = ref.read(auditBillingProvider);
       if (!mounted) return;
       setState(() {
-        _balance = const BillingBalanceData(
-          availableBalance: 0,
-          totalConsumed: 0,
-          totalExpired: 0,
-        );
-        _ledgerItems = const [];
+        _balance = auditBilling.balance;
+        _ledgerItems = auditBilling.ledgerItems;
         _isBalanceLoading = false;
         _hasBalanceError = false;
         _isLedgerLoading = false;
@@ -194,12 +193,6 @@ class _BalancePageState extends State<BalancePage> {
     return DateFormat('yyyy-MM-dd HH:mm', locale).format(dateTime.toLocal());
   }
 
-  String _balanceText(BuildContext context) {
-    final balance = _balance;
-    if (balance == null) return '--';
-    return _formatCredits(context, balance.availableBalance);
-  }
-
   String _balanceStatusText(BuildContext context) {
     final l10n = context.l10n;
     if (_isBalanceLoading) return l10n.loading;
@@ -273,12 +266,16 @@ class _BalancePageState extends State<BalancePage> {
 
   @override
   Widget build(BuildContext context) {
+    final auditBilling = ref.watch(auditBillingProvider);
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final balanceStatusText = _balanceStatusText(context);
-    final recentChanges = _ledgerItems.take(3).toList();
-    final showBalanceValue = !_isBalanceLoading && _balance != null;
-    final showLedgerLoading = _isLedgerLoading;
+    final balance = _isAuditMode ? auditBilling.balance : _balance;
+    final ledgerItems = _isAuditMode ? auditBilling.ledgerItems : _ledgerItems;
+    final recentChanges = ledgerItems.take(3).toList();
+    final showBalanceValue =
+        _isAuditMode || (!_isBalanceLoading && balance != null);
+    final showLedgerLoading = _isAuditMode ? false : _isLedgerLoading;
     final showViewAllButton = !showLedgerLoading && recentChanges.isNotEmpty;
     final showLedgerError =
         !showLedgerLoading && recentChanges.isEmpty && _hasLedgerError;
@@ -318,10 +315,22 @@ class _BalancePageState extends State<BalancePage> {
                   if (showBalanceValue) ...[
                     const SizedBox(height: 12),
                     Text(
-                      _balanceText(context),
+                      balance == null
+                          ? '--'
+                          : _formatCredits(context, balance.availableBalance),
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                  if (_isAuditMode) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      auditBillingNoticeText,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                     ),
                   ],
                   if (balanceStatusText.isNotEmpty) ...[
@@ -358,7 +367,7 @@ class _BalancePageState extends State<BalancePage> {
                     onPressed: () {
                       final args = BalanceBillsArgs(
                         initialItems: List<BillingLedgerItem>.unmodifiable(
-                          _ledgerItems,
+                          ledgerItems,
                         ),
                         nextPage: _ledgerNextPage,
                         hasNextPage: _ledgerHasNextPage,
