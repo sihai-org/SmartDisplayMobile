@@ -858,10 +858,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       final matchesProduct = transaction.productId == productId;
       final matchesPurchase =
           purchaseId == null || transaction.id == purchaseId;
-      final matchesAuditUser =
-          transaction.appAccountToken == null ||
-          transaction.appAccountToken == AuditMode.auditUserId;
-      if (!matchesProduct || !matchesPurchase || !matchesAuditUser) {
+      if (!matchesProduct || !matchesPurchase) {
         continue;
       }
 
@@ -924,7 +921,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
           transaction.payment.applicationUsername == AuditMode.auditUserId;
       final finishable =
           transaction.transactionState !=
-          SKPaymentTransactionStateWrapper.purchasing;
+              SKPaymentTransactionStateWrapper.purchasing &&
+          transaction.transactionState !=
+              SKPaymentTransactionStateWrapper.deferred;
       if (!matchesProduct ||
           !matchesPurchase ||
           !matchesAuditUser ||
