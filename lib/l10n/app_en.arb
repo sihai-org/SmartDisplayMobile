@@ -118,6 +118,7 @@
   "login_success": "Signed in successfully",
   "otp_invalid": "Invalid code, please retry",
   "login_failed_generic": "Sign in failed. Please try again later.",
+  "network_or_timeout_tip": "Connection error. Check and try again.",
   "login_failed_otp_invalid": "Invalid code, please retry",
   "login_failed_otp_expired": "Invalid or expired code. Please try again.",
   "login_failed_rate_limited": "Too many attempts. Please try again later.",

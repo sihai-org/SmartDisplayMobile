@@ -352,6 +352,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get login_failed_generic => 'Sign in failed. Please try again later.';
 
   @override
+  String get network_or_timeout_tip => 'Connection error. Check and try again.';
+
+  @override
   String get login_failed_otp_invalid => 'Invalid code, please retry';
 
   @override

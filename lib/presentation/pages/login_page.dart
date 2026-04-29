@@ -18,6 +18,7 @@ import '../../data/repositories/user_privacy_repository.dart';
 import '../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/audit_mode_provider.dart';
+import '../../core/errors/network_error_util.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -130,6 +131,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       _startCountdown();
     } catch (e, st) {
+      final isNetworkOrTimeout = NetworkErrorUtil.isNetworkOrTimeout(e);
+
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'fail',
@@ -138,9 +141,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         extra: {
           ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
+          'is_network_or_timeout': isNetworkOrTimeout,
         },
       );
-      setState(() => _error = l10n.login_failed_generic);
+      setState(() {
+        _error = isNetworkOrTimeout
+            ? l10n.network_or_timeout_tip
+            : l10n.login_failed_generic;
+      });
     } finally {
       setState(() => _isSendingOtp = false);
     }
@@ -252,6 +260,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } catch (e, st) {
       final errorCode = e is AuthApiException ? e.code : null;
+      final isNetworkOrTimeout = NetworkErrorUtil.isNetworkOrTimeout(e);
+
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpVerify,
         result: 'fail',
@@ -260,11 +270,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         extra: {
           ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
+          'is_network_or_timeout': isNetworkOrTimeout,
           if (errorCode != null && errorCode.isNotEmpty)
             'error_code': errorCode,
         },
       );
-      final errorMessage = _mapVerifyOtpError(e, l10n);
+      final errorMessage = isNetworkOrTimeout
+          ? l10n.network_or_timeout_tip
+          : _mapVerifyOtpError(e, l10n);
+
       setState(() => _error = errorMessage);
     } finally {
       setState(() => _isLoading = false);

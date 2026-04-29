@@ -773,6 +773,12 @@ abstract class AppLocalizations {
   /// **'Sign in failed. Please try again later.'**
   String get login_failed_generic;
 
+  /// No description provided for @network_or_timeout_tip.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection error. Check and try again.'**
+  String get network_or_timeout_tip;
+
   /// No description provided for @login_failed_otp_invalid.
   ///
   /// In en, this message translates to:

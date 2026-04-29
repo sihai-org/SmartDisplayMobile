@@ -74,14 +74,10 @@ void main() async {
     options.enableAutoSessionTracking = true;
     options.attachStacktrace = true;
     options.reportPackages = true;
-    options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
-    // Crash-only: release 构建仅上报“致命/未处理异常”，避免把业务错误当作 crash 发送。
+    options.sendDefaultPii = true;
     options.beforeSend = (event, hint) {
-      if (!kReleaseMode) return event;
-      final isFatal = event.level == SentryLevel.fatal;
-      final hasUnhandledException =
-          event.exceptions?.any((e) => e.mechanism?.handled == false) ?? false;
-      return (isFatal || hasUnhandledException) ? event : null;
+      if (kDebugMode) return null;
+      return event;
     };
     options.debug = false;
   }, appRunner: _bootstrapApp);

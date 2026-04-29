@@ -352,6 +352,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get login_failed_generic => '登录失败，请稍后重试';
 
   @override
+  String get network_or_timeout_tip => '网络连接异常，请检查网络后重试';
+
+  @override
   String get login_failed_otp_invalid => '验证码无效，请重试';
 
   @override
