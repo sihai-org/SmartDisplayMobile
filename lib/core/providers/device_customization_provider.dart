@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
@@ -275,6 +276,7 @@ class DeviceCustomizationNotifier
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
+      await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions.invoke(
         'device_customization_save',
         body: payload,
@@ -388,6 +390,7 @@ class DeviceCustomizationNotifier
     }
 
     try {
+      await AuthManager.instance.ensureFreshSession();
       final response = await supabase.functions.invoke(
         'device_wallpaper_upload',
         method: HttpMethod.post,
@@ -485,8 +488,7 @@ class DeviceCustomizationNotifier
       return fallbackWakeWordCandidates;
     }
 
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty || deviceId.isEmpty) {
       AppLog.instance.error(
         '_fetchWakeWordCandidates invalid params',
