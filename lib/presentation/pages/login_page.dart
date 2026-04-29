@@ -12,6 +12,7 @@ import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
 import '../../core/providers/package_info_provider.dart';
+import '../../core/utils/email_masking_util.dart';
 import '../../data/repositories/user_privacy_repository.dart';
 
 import '../../core/router/app_router.dart';
@@ -110,14 +111,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpSend,
       result: 'start',
-      extra: {'email': email},
+      extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
       DeviceOnboardingLog.info(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'success',
-        extra: {'email': email},
+        extra: EmailMaskingUtil.toLogParts(email),
       );
 
       Fluttertoast.showToast(msg: l10n.otp_sent_to(email));
@@ -134,13 +135,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         result: 'fail',
         error: e,
         stackTrace: st,
-        extra: {'email': email, 'error_type': e.runtimeType.toString()},
-      );
-      AppLog.instance.error(
-        '[signInWithOtp] failed',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
+        extra: {
+          ...EmailMaskingUtil.toLogParts(email),
+          'error_type': e.runtimeType.toString(),
+        },
       );
       setState(() => _error = l10n.login_failed_generic);
     } finally {
@@ -217,7 +215,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpVerify,
       result: 'start',
-      extra: {'email': email},
+      extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
@@ -230,7 +228,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'success',
-          extra: {'email': email},
+          extra: EmailMaskingUtil.toLogParts(email),
         );
         unawaited(
           _reportAgreementAcceptance(
@@ -245,7 +243,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.warning(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'fail',
-          extra: {'email': email, 'error_code': 'session_missing'},
+          extra: {
+            ...EmailMaskingUtil.toLogParts(email),
+            'error_code': 'session_missing',
+          },
         );
         Fluttertoast.showToast(msg: l10n.otp_invalid);
       }
@@ -257,17 +258,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         error: e,
         stackTrace: st,
         extra: {
-          'email': email,
+          ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
           if (errorCode != null && errorCode.isNotEmpty)
             'error_code': errorCode,
         },
-      );
-      AppLog.instance.error(
-        '[verifyOTP] failed',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
       );
       final errorMessage = _mapVerifyOtpError(e, l10n);
       setState(() => _error = errorMessage);
