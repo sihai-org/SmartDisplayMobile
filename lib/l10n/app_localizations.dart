@@ -767,11 +767,29 @@ abstract class AppLocalizations {
   /// **'Invalid code, please retry'**
   String get otp_invalid;
 
+  /// No description provided for @otp_send_failed_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send code. Please try again.'**
+  String get otp_send_failed_generic;
+
   /// No description provided for @login_failed_generic.
   ///
   /// In en, this message translates to:
   /// **'Sign in failed. Please try again later.'**
   String get login_failed_generic;
+
+  /// No description provided for @network_or_timeout_tip.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection error. Check and try again.'**
+  String get network_or_timeout_tip;
+
+  /// No description provided for @login_failed_email_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address.'**
+  String get login_failed_email_invalid;
 
   /// No description provided for @login_failed_otp_invalid.
   ///

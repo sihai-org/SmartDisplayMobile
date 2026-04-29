@@ -12,11 +12,13 @@ import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
 import '../../core/providers/package_info_provider.dart';
+import '../../core/utils/email_masking_util.dart';
 import '../../data/repositories/user_privacy_repository.dart';
 
 import '../../core/router/app_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/audit_mode_provider.dart';
+import '../../core/errors/network_error_util.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -110,12 +112,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpSend,
       result: 'start',
+      extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
       DeviceOnboardingLog.info(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'success',
+        extra: EmailMaskingUtil.toLogParts(email),
       );
 
       Fluttertoast.showToast(msg: l10n.otp_sent_to(email));
@@ -127,20 +131,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       _startCountdown();
     } catch (e, st) {
+      final errorCode = _authErrorCode(e);
+      final errorMessage = _mapSendOtpError(e, l10n);
+
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'fail',
         error: e,
         stackTrace: st,
-        extra: {'error_type': e.runtimeType.toString()},
+        extra: {
+          ...EmailMaskingUtil.toLogParts(email),
+          'error_type': e.runtimeType.toString(),
+          if (errorCode != null && errorCode.isNotEmpty)
+            'error_code': errorCode,
+          'error_message': errorMessage,
+        },
       );
-      AppLog.instance.error(
-        '[signInWithOtp] failed',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
-      );
-      setState(() => _error = l10n.login_failed_generic);
+      setState(() => _error = errorMessage);
     } finally {
       setState(() => _isSendingOtp = false);
     }
@@ -215,6 +222,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpVerify,
       result: 'start',
+      extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
@@ -227,6 +235,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'success',
+          extra: EmailMaskingUtil.toLogParts(email),
         );
         unawaited(
           _reportAgreementAcceptance(
@@ -241,50 +250,94 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.warning(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'fail',
-          extra: const {'error_code': 'session_missing'},
+          extra: {
+            ...EmailMaskingUtil.toLogParts(email),
+            'error_code': 'session_missing',
+          },
         );
-        Fluttertoast.showToast(msg: l10n.otp_invalid);
+        Fluttertoast.showToast(
+          msg: _msgWithAuthCode(l10n.login_failed_generic, 'session_missing'),
+        );
       }
     } catch (e, st) {
-      final errorCode = e is AuthApiException ? e.code : null;
+      final errorCode = _authErrorCode(e);
+      final errorMessage = _mapVerifyOtpError(e, l10n);
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpVerify,
         result: 'fail',
         error: e,
         stackTrace: st,
         extra: {
+          ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
           if (errorCode != null && errorCode.isNotEmpty)
             'error_code': errorCode,
+          'error_message': errorMessage,
         },
       );
-      AppLog.instance.error(
-        '[verifyOTP] failed',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
-      );
-      final errorMessage = _mapVerifyOtpError(e, l10n);
       setState(() => _error = errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  String _mapVerifyOtpError(Object error, AppLocalizations l10n) {
-    if (error is AuthApiException) {
-      switch (error.code) {
-        case 'otp_expired':
-          return l10n.login_failed_otp_expired;
-        case 'over_request_rate_limit':
-        case 'over_email_send_rate_limit':
-          return l10n.login_failed_rate_limited;
-        case 'validation_failed':
-          return l10n.login_failed_otp_invalid;
-      }
+  String? _authErrorCode(Object error) {
+    return error is AuthApiException ? error.code : null;
+  }
+
+  bool _isNetworkOrTimeoutAuthError(Object error) {
+    return NetworkErrorUtil.isNetworkOrTimeout(error) ||
+        _authErrorCode(error) == 'request_timeout';
+  }
+
+  bool _isRateLimitAuthCode(String? code) {
+    return code == 'over_request_rate_limit' ||
+        code == 'over_email_send_rate_limit';
+  }
+
+  String _msgWithAuthCode(String message, String? code) {
+    if (code == null || code.isEmpty) return message;
+    return '$message [$code]';
+  }
+
+  String _mapSendOtpError(Object error, AppLocalizations l10n) {
+    final code = _authErrorCode(error);
+
+    if (_isNetworkOrTimeoutAuthError(error)) {
+      return l10n.network_or_timeout_tip;
     }
 
-    return l10n.login_failed_generic;
+    if (_isRateLimitAuthCode(code)) {
+      return l10n.login_failed_rate_limited;
+    }
+
+    if (code == 'email_address_invalid') {
+      return l10n.login_failed_email_invalid;
+    }
+
+    return _msgWithAuthCode(l10n.otp_send_failed_generic, code);
+  }
+
+  String _mapVerifyOtpError(Object error, AppLocalizations l10n) {
+    final code = _authErrorCode(error);
+
+    if (_isNetworkOrTimeoutAuthError(error)) {
+      return l10n.network_or_timeout_tip;
+    }
+
+    if (_isRateLimitAuthCode(code)) {
+      return l10n.login_failed_rate_limited;
+    }
+
+    switch (code) {
+      case 'otp_expired':
+        return l10n.login_failed_otp_expired;
+
+      case 'validation_failed':
+        return l10n.login_failed_otp_invalid;
+    }
+
+    return _msgWithAuthCode(l10n.login_failed_generic, code);
   }
 
   Future<void> _openExternalUrl(String url) async {
