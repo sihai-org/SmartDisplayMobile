@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
 import '../../core/constants/storage_keys.dart';
 import '../../core/log/app_log.dart';
 import '../../core/models/device_customization.dart';
@@ -24,8 +25,8 @@ class CustomizationFetchResult {
   });
 
   const CustomizationFetchResult.empty()
-      : customization = const DeviceCustomization.empty(),
-        localWallpaperPaths = const [];
+    : customization = const DeviceCustomization.empty(),
+      localWallpaperPaths = const [];
 }
 
 /// 本地持久化：用户为不同设备设置的壁纸/布局偏好。
@@ -89,9 +90,7 @@ class DeviceCustomizationRepository {
   Future<void> _saveAll(Map<String, DeviceCustomization> data) async {
     final key = _storageKeyForUser();
     if (key == null) return;
-    final encoded = json.encode(
-      data.map((k, v) => MapEntry(k, v.toJson())),
-    );
+    final encoded = json.encode(data.map((k, v) => MapEntry(k, v.toJson())));
     await _storage.write(key: key, value: encoded);
   }
 
@@ -99,7 +98,8 @@ class DeviceCustomizationRepository {
   ///
   /// 当设备没有任何自定义时，返回空对象（等同于 default）。
   Future<DeviceCustomization> getUserCustomization(
-      String displayDeviceId) async {
+    String displayDeviceId,
+  ) async {
     if (displayDeviceId.isEmpty) return const DeviceCustomization.empty();
     final all = await _loadAll();
     return all[displayDeviceId] ?? const DeviceCustomization.empty();
@@ -166,6 +166,7 @@ class DeviceCustomizationRepository {
     }
 
     try {
+      await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions.invoke(
         'device_customization_get?device_id=${displayDeviceId}',
         method: HttpMethod.get, // 一定要加
@@ -173,8 +174,8 @@ class DeviceCustomizationRepository {
       final respData = response.data;
 
       AppLog.instance.info(
-          "device_customization_get status=${response.status}, data=${respData}");
-
+        "device_customization_get status=${response.status}, data=${respData}",
+      );
 
       if (response.status != 200) {
         final respMsg = _responseMessage(respData);

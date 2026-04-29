@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
@@ -145,8 +145,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
     required int pageSize,
   }) async {
     try {
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
+      final accessToken = await AuthManager.instance.getFreshAccessToken();
       final response = await http.post(
         Uri.parse('${AppEnvironment.apiServerUrl}/meeting/query_meeting_task'),
         headers: {
@@ -154,10 +153,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
           if (accessToken != null && accessToken.isNotEmpty)
             'accessToken': accessToken,
         },
-        body: jsonEncode({
-          'page': page,
-          'page_size': pageSize,
-        }),
+        body: jsonEncode({'page': page, 'page_size': pageSize}),
       );
       if (response.statusCode != 200) {
         AppLog.instance.warning(
@@ -194,10 +190,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
       final item = _parseMeetingItem(entry);
       if (item != null) items.add(item);
     }
-    return _MeetingMinutesPageResult(
-      items: items,
-      hasNextPage: hasNextPage,
-    );
+    return _MeetingMinutesPageResult(items: items, hasNextPage: hasNextPage);
   }
 
   MeetingMinutesItem? _parseMeetingItem(dynamic raw) {
@@ -284,24 +277,20 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.grey[600],
-        );
+    final textStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]);
     final emptyTitleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.grey[700],
-          fontWeight: FontWeight.w600,
-        );
+      color: Colors.grey[700],
+      fontWeight: FontWeight.w600,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.meeting_minutes_list),
         leading: const BackButton(),
       ),
-      body: _buildBody(
-        l10n,
-        textStyle,
-        emptyTitleStyle,
-      ),
+      body: _buildBody(l10n, textStyle, emptyTitleStyle),
     );
   }
 
@@ -412,10 +401,8 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
                     item.taskStatus,
                     baseTitle,
                   );
-                  final titleStyle =
-                      Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isEnabled ? null : Colors.grey[500],
-                          );
+                  final titleStyle = Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(color: isEnabled ? null : Colors.grey[500]);
                   return Material(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
@@ -423,9 +410,9 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
                       borderRadius: BorderRadius.circular(12),
                       onTap: isEnabled
                           ? () => context.push(
-                                AppRoutes.meetingMinutesDetail,
-                                extra: item,
-                              )
+                              AppRoutes.meetingMinutesDetail,
+                              extra: item,
+                            )
                           : null,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -463,10 +450,9 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
                 Positioned.fill(
                   child: AbsorbPointer(
                     child: Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surface
-                          .withOpacity(0.75),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withOpacity(0.75),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -499,6 +485,6 @@ class _MeetingMinutesPageResult {
   });
 
   const _MeetingMinutesPageResult.empty()
-      : items = const [],
-        hasNextPage = false;
+    : items = const [],
+      hasNextPage = false;
 }

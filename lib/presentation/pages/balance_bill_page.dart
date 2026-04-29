@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -77,8 +77,7 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
 
   Future<void> _loadFirstPage() async {
     if (_isLoading) return;
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       if (!mounted) return;
       setState(() {
@@ -136,8 +135,7 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasNextPage) return;
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       if (!mounted) return;
       setState(() {
