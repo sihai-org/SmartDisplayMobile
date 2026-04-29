@@ -131,7 +131,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       _startCountdown();
     } catch (e, st) {
-      final isNetworkOrTimeout = NetworkErrorUtil.isNetworkOrTimeout(e);
+      final errorCode = _authErrorCode(e);
+      final errorMessage = _mapSendOtpError(e, l10n);
 
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpSend,
@@ -141,14 +142,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         extra: {
           ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
-          'is_network_or_timeout': isNetworkOrTimeout,
+          if (errorCode != null && errorCode.isNotEmpty)
+            'error_code': errorCode,
+          'error_message': errorMessage,
         },
       );
-      setState(() {
-        _error = isNetworkOrTimeout
-            ? l10n.network_or_timeout_tip
-            : l10n.login_failed_generic;
-      });
+      setState(() => _error = errorMessage);
     } finally {
       setState(() => _isSendingOtp = false);
     }
@@ -256,12 +255,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             'error_code': 'session_missing',
           },
         );
-        Fluttertoast.showToast(msg: l10n.otp_invalid);
+        Fluttertoast.showToast(
+          msg: _msgWithAuthCode(l10n.login_failed_generic, 'session_missing'),
+        );
       }
     } catch (e, st) {
-      final errorCode = e is AuthApiException ? e.code : null;
-      final isNetworkOrTimeout = NetworkErrorUtil.isNetworkOrTimeout(e);
-
+      final errorCode = _authErrorCode(e);
+      final errorMessage = _mapVerifyOtpError(e, l10n);
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.authOtpVerify,
         result: 'fail',
@@ -270,35 +270,74 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         extra: {
           ...EmailMaskingUtil.toLogParts(email),
           'error_type': e.runtimeType.toString(),
-          'is_network_or_timeout': isNetworkOrTimeout,
           if (errorCode != null && errorCode.isNotEmpty)
             'error_code': errorCode,
+          'error_message': errorMessage,
         },
       );
-      final errorMessage = isNetworkOrTimeout
-          ? l10n.network_or_timeout_tip
-          : _mapVerifyOtpError(e, l10n);
-
       setState(() => _error = errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  String _mapVerifyOtpError(Object error, AppLocalizations l10n) {
-    if (error is AuthApiException) {
-      switch (error.code) {
-        case 'otp_expired':
-          return l10n.login_failed_otp_expired;
-        case 'over_request_rate_limit':
-        case 'over_email_send_rate_limit':
-          return l10n.login_failed_rate_limited;
-        case 'validation_failed':
-          return l10n.login_failed_otp_invalid;
-      }
+  String? _authErrorCode(Object error) {
+    return error is AuthApiException ? error.code : null;
+  }
+
+  bool _isNetworkOrTimeoutAuthError(Object error) {
+    return NetworkErrorUtil.isNetworkOrTimeout(error) ||
+        _authErrorCode(error) == 'request_timeout';
+  }
+
+  bool _isRateLimitAuthCode(String? code) {
+    return code == 'over_request_rate_limit' ||
+        code == 'over_email_send_rate_limit';
+  }
+
+  String _msgWithAuthCode(String message, String? code) {
+    if (code == null || code.isEmpty) return message;
+    return '$message [$code]';
+  }
+
+  String _mapSendOtpError(Object error, AppLocalizations l10n) {
+    final code = _authErrorCode(error);
+
+    if (_isNetworkOrTimeoutAuthError(error)) {
+      return l10n.network_or_timeout_tip;
     }
 
-    return l10n.login_failed_generic;
+    if (_isRateLimitAuthCode(code)) {
+      return l10n.login_failed_rate_limited;
+    }
+
+    if (code == 'email_address_invalid') {
+      return l10n.login_failed_email_invalid;
+    }
+
+    return _msgWithAuthCode(l10n.otp_send_failed_generic, code);
+  }
+
+  String _mapVerifyOtpError(Object error, AppLocalizations l10n) {
+    final code = _authErrorCode(error);
+
+    if (_isNetworkOrTimeoutAuthError(error)) {
+      return l10n.network_or_timeout_tip;
+    }
+
+    if (_isRateLimitAuthCode(code)) {
+      return l10n.login_failed_rate_limited;
+    }
+
+    switch (code) {
+      case 'otp_expired':
+        return l10n.login_failed_otp_expired;
+
+      case 'validation_failed':
+        return l10n.login_failed_otp_invalid;
+    }
+
+    return _msgWithAuthCode(l10n.login_failed_generic, code);
   }
 
   Future<void> _openExternalUrl(String url) async {

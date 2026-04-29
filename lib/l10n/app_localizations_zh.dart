@@ -349,10 +349,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otp_invalid => '验证码无效，请重试';
 
   @override
+  String get otp_send_failed_generic => '验证码发送失败，请稍后重试';
+
+  @override
   String get login_failed_generic => '登录失败，请稍后重试';
 
   @override
   String get network_or_timeout_tip => '网络连接异常，请检查网络后重试';
+
+  @override
+  String get login_failed_email_invalid => '请输入有效的邮箱地址';
 
   @override
   String get login_failed_otp_invalid => '验证码无效，请重试';
