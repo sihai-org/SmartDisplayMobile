@@ -110,12 +110,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpSend,
       result: 'start',
+      extra: {'email': email},
     );
     try {
       await Supabase.instance.client.auth.signInWithOtp(email: email);
       DeviceOnboardingLog.info(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'success',
+        extra: {'email': email},
       );
 
       Fluttertoast.showToast(msg: l10n.otp_sent_to(email));
@@ -132,7 +134,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         result: 'fail',
         error: e,
         stackTrace: st,
-        extra: {'error_type': e.runtimeType.toString()},
+        extra: {'email': email, 'error_type': e.runtimeType.toString()},
       );
       AppLog.instance.error(
         '[signInWithOtp] failed',
@@ -215,6 +217,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     DeviceOnboardingLog.info(
       event: DeviceOnboardingEvents.authOtpVerify,
       result: 'start',
+      extra: {'email': email},
     );
     try {
       final response = await Supabase.instance.client.auth.verifyOTP(
@@ -227,6 +230,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.info(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'success',
+          extra: {'email': email},
         );
         unawaited(
           _reportAgreementAcceptance(
@@ -241,7 +245,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         DeviceOnboardingLog.warning(
           event: DeviceOnboardingEvents.authOtpVerify,
           result: 'fail',
-          extra: const {'error_code': 'session_missing'},
+          extra: {'email': email, 'error_code': 'session_missing'},
         );
         Fluttertoast.showToast(msg: l10n.otp_invalid);
       }
@@ -253,6 +257,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         error: e,
         stackTrace: st,
         extra: {
+          'email': email,
           'error_type': e.runtimeType.toString(),
           if (errorCode != null && errorCode.isNotEmpty)
             'error_code': errorCode,
