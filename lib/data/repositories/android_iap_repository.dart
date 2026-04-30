@@ -7,20 +7,22 @@ import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
 import '../../core/log/biz_log_tag.dart';
 import '../../core/models/android_iap_models.dart';
+import '../../core/network/http_timeouts.dart';
 import 'billing_repository.dart';
 
 class AndroidIapRepository {
   Future<List<AndroidIapProductData>> fetchAndroidIapProducts({
     required String accessToken,
   }) async {
-    logBuyRequest(
-      method: 'GET',
-      path: '/api/billing/google-play/products',
-    );
-    final response = await http.get(
-      Uri.parse('${AppEnvironment.apiServerUrl}/api/billing/google-play/products'),
-      headers: {'X-Access-Token': accessToken},
-    );
+    logBuyRequest(method: 'GET', path: '/api/billing/google-play/products');
+    final response = await http
+        .get(
+          Uri.parse(
+            '${AppEnvironment.apiServerUrl}/api/billing/google-play/products',
+          ),
+          headers: {'X-Access-Token': accessToken},
+        )
+        .timeout(HttpTimeouts.purchaseVerify);
     logBuyResponse(
       endpoint: '/api/billing/google-play/products',
       statusCode: response.statusCode,
@@ -68,16 +70,18 @@ class AndroidIapRepository {
       path: '/api/billing/google-play/orders',
       requestBody: requestBody,
     );
-    final response = await http.post(
-      Uri.parse(
-        '${AppEnvironment.apiServerUrl}/api/billing/google-play/orders',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode(requestBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(
+            '${AppEnvironment.apiServerUrl}/api/billing/google-play/orders',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode(requestBody),
+        )
+        .timeout(HttpTimeouts.purchaseVerify);
     logBuyResponse(
       endpoint: '/api/billing/google-play/orders',
       statusCode: response.statusCode,
@@ -121,16 +125,18 @@ class AndroidIapRepository {
       path: '/api/billing/google-play/purchases/one-time/verify',
       requestBody: requestBody,
     );
-    final response = await http.post(
-      Uri.parse(
-        '${AppEnvironment.apiServerUrl}/api/billing/google-play/purchases/one-time/verify',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode(requestBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse(
+            '${AppEnvironment.apiServerUrl}/api/billing/google-play/purchases/one-time/verify',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode(requestBody),
+        )
+        .timeout(HttpTimeouts.purchaseVerify);
     logBuyResponse(
       endpoint: '/api/billing/google-play/purchases/one-time/verify',
       statusCode: response.statusCode,

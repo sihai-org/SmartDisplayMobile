@@ -7,6 +7,7 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/device_customization_repository.dart';
@@ -275,10 +276,9 @@ class DeviceCustomizationNotifier
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       }..removeWhere((_, value) => value == null);
 
-      final response = await Supabase.instance.client.functions.invoke(
-        'device_customization_save',
-        body: payload,
-      );
+      final response = await Supabase.instance.client.functions
+          .invoke('device_customization_save', body: payload)
+          .timeout(HttpTimeouts.business);
 
       if (response.status != 200) {
         final data = response.data;
@@ -388,12 +388,14 @@ class DeviceCustomizationNotifier
     }
 
     try {
-      final response = await supabase.functions.invoke(
-        'device_wallpaper_upload',
-        method: HttpMethod.post,
-        files: files,
-        headers: {'x-device-id': deviceId},
-      );
+      final response = await supabase.functions
+          .invoke(
+            'device_wallpaper_upload',
+            method: HttpMethod.post,
+            files: files,
+            headers: {'x-device-id': deviceId},
+          )
+          .timeout(HttpTimeouts.transfer);
 
       final data = response.data;
 
@@ -497,16 +499,18 @@ class DeviceCustomizationNotifier
     }
 
     try {
-      final response = await http.post(
-        Uri.parse(
-          '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Access-Token': accessToken,
-          'X-Device-Id': deviceId,
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse(
+              '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
+            ),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Access-Token': accessToken,
+              'X-Device-Id': deviceId,
+            },
+          )
+          .timeout(HttpTimeouts.business);
 
       AppLog.instance.info(
         'response=${response.body}',

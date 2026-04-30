@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/constants/app_environment.dart';
 import '../../core/log/app_log.dart';
+import '../../core/network/http_timeouts.dart';
 
 const int billingLedgerPageSize = 20;
 
@@ -60,10 +61,12 @@ class BillingLedgerPageData {
 
 class BillingRepository {
   Future<BillingBalanceData> fetchBalance({required String accessToken}) async {
-    final response = await http.get(
-      Uri.parse('${AppEnvironment.apiServerUrl}/api/billing/balance'),
-      headers: {'X-Access-Token': accessToken},
-    );
+    final response = await http
+        .get(
+          Uri.parse('${AppEnvironment.apiServerUrl}/api/billing/balance'),
+          headers: {'X-Access-Token': accessToken},
+        )
+        .timeout(HttpTimeouts.business);
 
     if (response.statusCode != 200) {
       AppLog.instance.warning(
@@ -97,10 +100,9 @@ class BillingRepository {
       '${AppEnvironment.apiServerUrl}/api/billing/ledger',
     ).replace(queryParameters: {'page': '$page', 'page_size': '$pageSize'});
 
-    final response = await http.get(
-      uri,
-      headers: {'X-Access-Token': accessToken},
-    );
+    final response = await http
+        .get(uri, headers: {'X-Access-Token': accessToken})
+        .timeout(HttpTimeouts.business);
 
     if (response.statusCode != 200) {
       AppLog.instance.warning(

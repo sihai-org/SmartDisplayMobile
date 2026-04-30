@@ -4,6 +4,7 @@ import '../../core/errors/network_error_util.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
+import '../../core/network/http_timeouts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -299,10 +300,9 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       }
 
       final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke(
-        functionName,
-        body: {'device_id': device.displayDeviceId},
-      );
+      final response = await supabase.functions
+          .invoke(functionName, body: {'device_id': device.displayDeviceId})
+          .timeout(HttpTimeouts.business);
       if (response.status != 200) {
         DeviceOnboardingLog.warning(
           event: DeviceOnboardingEvents.bindServerOtp,

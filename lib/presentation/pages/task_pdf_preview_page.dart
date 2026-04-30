@@ -7,8 +7,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -151,16 +153,18 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
     final parsedTaskId = int.tryParse(taskId);
     final body = <String, dynamic>{'agent_task_id': parsedTaskId ?? taskId};
 
-    final response = await http.post(
-      Uri.parse(
-        '${AppEnvironment.apiServerUrl}/agent_task/deepresearch/get_pdf',
-      ),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode(body),
-    );
+    final response = await http
+        .post(
+          Uri.parse(
+            '${AppEnvironment.apiServerUrl}/agent_task/deepresearch/get_pdf',
+          ),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(HttpTimeouts.business);
 
     if (response.statusCode != 200) {
       throw HttpException('HTTP ${response.statusCode}');
@@ -422,6 +426,9 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
   }
 
   String _readableError(Object error) {
+    if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+      return context.l10n.network_or_timeout_tip;
+    }
     if (error is HttpException) {
       return error.message;
     }

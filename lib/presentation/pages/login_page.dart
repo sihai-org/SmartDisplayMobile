@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
+import '../../core/network/http_timeouts.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/utils/email_masking_util.dart';
 import '../../data/repositories/user_privacy_repository.dart';
@@ -115,7 +116,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
-      await Supabase.instance.client.auth.signInWithOtp(email: email);
+      await Supabase.instance.client.auth
+          .signInWithOtp(email: email)
+          .timeout(HttpTimeouts.business);
       DeviceOnboardingLog.info(
         event: DeviceOnboardingEvents.authOtpSend,
         result: 'success',
@@ -225,11 +228,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       extra: EmailMaskingUtil.toLogParts(email),
     );
     try {
-      final response = await Supabase.instance.client.auth.verifyOTP(
-        type: OtpType.email,
-        email: email,
-        token: otp,
-      );
+      final response = await Supabase.instance.client.auth
+          .verifyOTP(type: OtpType.email, email: email, token: otp)
+          .timeout(HttpTimeouts.business);
 
       if (response.session != null) {
         DeviceOnboardingLog.info(

@@ -14,6 +14,7 @@ import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
 import '../../core/log/biz_log_tag.dart';
+import '../../core/network/http_timeouts.dart';
 import '../../core/providers/audit_billing_provider.dart';
 import '../../core/providers/ios_iap_order_context_provider.dart';
 import '../../data/repositories/ios_iap_repository.dart';
@@ -208,7 +209,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       );
       final response = await InAppPurchase.instance
           .queryProductDetails(productIds)
-          .timeout(const Duration(seconds: 15));
+          .timeout(HttpTimeouts.purchaseVerify);
       logBuyIapResponse(
         action: 'queryProductDetails',
         payload: {
@@ -423,7 +424,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       );
       final response = await InAppPurchase.instance
           .queryProductDetails({purchaseProductId})
-          .timeout(const Duration(seconds: 15));
+          .timeout(HttpTimeouts.purchaseVerify);
       logBuyIapResponse(
         action: 'queryProductDetails',
         payload: {
