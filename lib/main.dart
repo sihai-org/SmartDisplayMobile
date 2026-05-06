@@ -74,7 +74,7 @@ void main() async {
     options.enableAutoSessionTracking = true;
     options.attachStacktrace = true;
     options.reportPackages = true;
-    options.sendDefaultPii = true;
+    options.sendDefaultPii = false; // 如需上报用户信息，登录后在 scope 中设置
     options.beforeSend = (event, hint) {
       if (kDebugMode) return null;
       return event;
