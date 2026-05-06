@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
 import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 enum _PdfPreviewState { idle, loadingUrl, preparingPdf, ready, error }
@@ -142,10 +142,10 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
 
   Future<String> _fetchPdfDownloadUrl(String taskId) async {
     final noAvailableLinkMessage = context.l10n.task_pdf_no_available_link;
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final loginExpiredMessage = context.l10n.login_expired;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
-      throw HttpException(context.l10n.login_expired);
+      throw HttpException(loginExpiredMessage);
     }
 
     final parsedTaskId = int.tryParse(taskId);

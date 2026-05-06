@@ -9,6 +9,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
@@ -133,8 +134,7 @@ class TaskFileService {
     required String missingTaskIdMessage,
     required String noAvailableLinkMessage,
   }) async {
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       throw HttpException(loginExpiredMessage);
     }

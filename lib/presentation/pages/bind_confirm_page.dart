@@ -18,6 +18,7 @@ import '../../core/constants/enum.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
 import '../../core/ble/reliable_queue.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../core/utils/binding_flow_utils.dart';
@@ -298,6 +299,7 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       }
 
       final supabase = Supabase.instance.client;
+      await AuthManager.instance.ensureFreshSession();
       final response = await supabase.functions.invoke(
         functionName,
         body: {'device_id': device.displayDeviceId},

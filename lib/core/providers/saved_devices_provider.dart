@@ -1,8 +1,8 @@
 import 'package:collection/collection.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/data/repositories/saved_devices_repository.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/device_qr_data.dart';
 import '../providers/locale_provider.dart';
 import '../../l10n/app_localizations_en.dart';
@@ -62,23 +62,23 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     // 保证本地已加载
     await ensureLocalLoaded();
 
-    // Require login session; skip if not logged in
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
-      return false;
-    }
-    // Show top toast for syncing
-    if (allowToast) {
-      final locale = _ref.read(localeProvider);
-      final l10n = (locale?.languageCode == 'zh')
-          ? AppLocalizationsZh()
-          : AppLocalizationsEn();
-      Fluttertoast.showToast(
-        msg: l10n.sync_devices_in_progress,
-        gravity: ToastGravity.TOP,
-      );
-    }
     try {
+      // Require login session; skip if not logged in
+      final session = await AuthManager.instance.ensureFreshSession();
+      if (session == null) {
+        return false;
+      }
+      // Show top toast for syncing
+      if (allowToast) {
+        final locale = _ref.read(localeProvider);
+        final l10n = (locale?.languageCode == 'zh')
+            ? AppLocalizationsZh()
+            : AppLocalizationsEn();
+        Fluttertoast.showToast(
+          msg: l10n.sync_devices_in_progress,
+          gravity: ToastGravity.TOP,
+        );
+      }
       final remote = await _repo.fetchRemote();
       // 仅保留本地的 lastConnectedAt（上次 BLE 连接时间），远端不提供该字段
       final local = state.devices;
@@ -116,7 +116,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       }
       return true;
     } catch (e, st) {
-      AppLog.instance.warning(
+      AppLog.instance.error(
         'syncFromServer failed',
         tag: 'Supabase',
         error: e,

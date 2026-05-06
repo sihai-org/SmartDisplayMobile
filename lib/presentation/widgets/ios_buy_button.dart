@@ -10,6 +10,7 @@ import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
@@ -95,8 +96,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
   }
 
   Future<List<AppleIapProductData>> _requestProducts() async {
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (AuditMode.enabled && (accessToken == null || accessToken.isEmpty)) {
       return _loadAuditFallbackProducts(reason: 'missing_access_token');
     }
@@ -328,8 +328,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
     try {
       final isAuditMode = AuditMode.enabled;
       final user = Supabase.instance.client.auth.currentUser;
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
+      final accessToken = await AuthManager.instance.getFreshAccessToken();
       if (!isAuditMode &&
           (user == null || accessToken == null || accessToken.isEmpty)) {
         _setSheetFailure(
@@ -759,8 +758,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
   }
 
   Future<bool> _deliverPurchaseToServer(PurchaseDetails purchase) async {
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
 
     if (accessToken == null || accessToken.isEmpty) {
       logBuyInfo('deliver_purchase_failed', {'reason': 'missing_access_token'});
