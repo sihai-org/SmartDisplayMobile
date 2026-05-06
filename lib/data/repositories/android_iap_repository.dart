@@ -22,7 +22,7 @@ class AndroidIapRepository {
           ),
           headers: {'X-Access-Token': accessToken},
         )
-        .timeout(HttpTimeouts.purchaseVerify);
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: '/api/billing/google-play/products',
       statusCode: response.statusCode,
@@ -81,7 +81,7 @@ class AndroidIapRepository {
           },
           body: jsonEncode(requestBody),
         )
-        .timeout(HttpTimeouts.purchaseVerify);
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: '/api/billing/google-play/orders',
       statusCode: response.statusCode,

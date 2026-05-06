@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/billing_repository.dart';
 import '../../data/repositories/android_iap_repository.dart';
 import '../audit/audit_mode.dart';
+import '../errors/network_error_util.dart';
 import '../log/app_log.dart';
 import '../log/buy_log.dart';
 import '../log/biz_log_tag.dart';
@@ -48,6 +49,7 @@ enum AndroidIapFailureKind {
   unavailable,
   cancelled,
   catalogLoadFailed,
+  networkOrTimeout,
   generic,
 }
 
@@ -303,7 +305,9 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
         stackTrace: stackTrace,
       );
       _setFailure(
-        AndroidIapFailureKind.catalogLoadFailed,
+        NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? AndroidIapFailureKind.networkOrTimeout
+            : AndroidIapFailureKind.catalogLoadFailed,
         detail: error.toString(),
         clearActiveSession: true,
       );
@@ -377,7 +381,9 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
         stackTrace: stackTrace,
       );
       _setFailure(
-        AndroidIapFailureKind.generic,
+        NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? AndroidIapFailureKind.networkOrTimeout
+            : AndroidIapFailureKind.generic,
         detail: error.toString(),
         clearActiveSession: true,
       );
@@ -450,19 +456,6 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       return;
     }
 
-    final session = await _resolveSessionForPurchase(
-      productId: purchase.productID,
-      accessToken: accessToken,
-    );
-    if (session == null) {
-      _setFailure(
-        AndroidIapFailureKind.generic,
-        detail: 'Unable to resolve purchase session',
-        clearActiveSession: false,
-      );
-      return;
-    }
-
     final purchaseToken = purchase.verificationData.serverVerificationData
         .trim();
     if (purchaseToken.isEmpty) {
@@ -476,21 +469,35 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
 
     state = state.copyWith(
       stage: AndroidIapStage.verifying,
-      activeSession: session,
       clearFailure: true,
     );
     logBuyInfo('verify_purchase_request', {
-      'session': {
-        'order_id': session.orderId,
-        'package_code': session.packageCode,
-        'product_id': session.productId,
-      },
       'purchase': _serializePurchaseDetails(purchase),
       'purchase_token': purchaseToken,
       'purchase_token_length': purchaseToken.length,
     });
 
     try {
+      final session = await _resolveSessionForPurchase(
+        productId: purchase.productID,
+        accessToken: accessToken,
+      );
+      if (session == null) {
+        _setFailure(
+          AndroidIapFailureKind.generic,
+          detail: 'Unable to resolve purchase session',
+          clearActiveSession: false,
+        );
+        return;
+      }
+
+      state = state.copyWith(activeSession: session);
+      logBuyInfo('verify_purchase_session_resolved', {
+        'order_id': session.orderId,
+        'package_code': session.packageCode,
+        'product_id': session.productId,
+      });
+
       final result = await _repository.verifyAndroidIapPurchase(
         accessToken: accessToken,
         orderId: session.orderId,
@@ -525,7 +532,9 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
         stackTrace: stackTrace,
       );
       _setFailure(
-        AndroidIapFailureKind.generic,
+        NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? AndroidIapFailureKind.networkOrTimeout
+            : AndroidIapFailureKind.generic,
         detail: error.toString(),
         clearActiveSession: false,
       );

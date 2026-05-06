@@ -107,7 +107,7 @@ class IosIapRepository {
           Uri.parse('${AppEnvironment.apiServerUrl}$_productsPath'),
           headers: {'X-Access-Token': accessToken},
         )
-        .timeout(HttpTimeouts.purchaseVerify);
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: _productsPath,
       statusCode: response.statusCode,
@@ -175,7 +175,7 @@ class IosIapRepository {
           },
           body: jsonEncode(requestBody),
         )
-        .timeout(HttpTimeouts.purchaseVerify);
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: _ordersPath,
       statusCode: response.statusCode,

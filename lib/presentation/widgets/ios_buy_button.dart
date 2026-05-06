@@ -10,6 +10,7 @@ import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/audit/audit_mode.dart';
+import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
@@ -209,7 +210,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       );
       final response = await InAppPurchase.instance
           .queryProductDetails(productIds)
-          .timeout(HttpTimeouts.purchaseVerify);
+          .timeout(HttpTimeouts.business);
       logBuyIapResponse(
         action: 'queryProductDetails',
         payload: {
@@ -424,7 +425,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       );
       final response = await InAppPurchase.instance
           .queryProductDetails({purchaseProductId})
-          .timeout(HttpTimeouts.purchaseVerify);
+          .timeout(HttpTimeouts.business);
       logBuyIapResponse(
         action: 'queryProductDetails',
         payload: {
@@ -501,7 +502,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
         _isPurchasing = false;
       });
       _setSheetFailure(
-        IosPurchaseFailureKind.generic,
+        NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? IosPurchaseFailureKind.networkOrTimeout
+            : IosPurchaseFailureKind.generic,
         activeProductId: catalogProduct.productId,
       );
     }
@@ -679,7 +682,9 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
             _isPurchasing = false;
           });
           _setSheetFailure(
-            IosPurchaseFailureKind.generic,
+            NetworkErrorUtil.isNetworkOrTimeout(error)
+                ? IosPurchaseFailureKind.networkOrTimeout
+                : IosPurchaseFailureKind.generic,
             activeProductId: purchase.productID,
           );
         }
@@ -1189,6 +1194,7 @@ class _IosBuyButtonState extends ConsumerState<IosBuyButton> {
       IosPurchaseFailureKind.cancelled => l10n.billing_purchase_cancelled,
       IosPurchaseFailureKind.deliveryFailed =>
         l10n.billing_purchase_delivery_failed,
+      IosPurchaseFailureKind.networkOrTimeout => l10n.network_or_timeout_tip,
       IosPurchaseFailureKind.generic => l10n.billing_purchase_failed,
     };
   }

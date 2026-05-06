@@ -90,6 +90,7 @@ class _AndroidIapSheetState extends ConsumerState<AndroidIapSheet> {
       AndroidIapFailureKind.unavailable => l10n.billing_purchase_unavailable,
       AndroidIapFailureKind.cancelled => l10n.billing_purchase_cancelled,
       AndroidIapFailureKind.catalogLoadFailed => l10n.billing_load_failed,
+      AndroidIapFailureKind.networkOrTimeout => l10n.network_or_timeout_tip,
       AndroidIapFailureKind.generic => l10n.billing_purchase_failed,
       null => null,
     };
