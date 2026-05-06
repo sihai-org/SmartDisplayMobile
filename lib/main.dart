@@ -117,8 +117,13 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
       final session = await AuthManager.instance.ensureFreshSession();
       if (session == null || !mounted) return;
 
-      await ref.read(savedDevicesProvider.notifier).syncFromServer();
-      await ref.read(grayKeyMapProvider.notifier).refreshIfLoggedIn();
+      final savedDevicesNotifier = ref.read(savedDevicesProvider.notifier);
+      final grayKeyMapNotifier = ref.read(grayKeyMapProvider.notifier);
+
+      await Future.wait([
+        savedDevicesNotifier.syncFromServer(),
+        grayKeyMapNotifier.refreshIfLoggedIn(),
+      ]);
     } catch (e, st) {
       AppLog.instance.error(
         '_syncDevicesAndGrayKeysIfFresh failed',
