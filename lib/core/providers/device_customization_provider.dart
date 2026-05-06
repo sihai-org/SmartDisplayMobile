@@ -7,6 +7,7 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -332,6 +333,9 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
+      if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+        rethrow;
+      }
       throw Exception('保存失败：$error');
     } finally {
       state = state.copyWith(isSaving: false);
@@ -448,6 +452,9 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
+      if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+        rethrow;
+      }
       throw Exception('请稍后重试');
     }
   }
