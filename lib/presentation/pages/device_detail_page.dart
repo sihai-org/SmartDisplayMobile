@@ -51,18 +51,6 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     );
   }
 
-  String _formatDateTime(DateTime? dt) {
-    if (dt == null) return '-';
-    // Simple human-readable format: yyyy-MM-dd HH:mm
-    String two(int n) => n.toString().padLeft(2, '0');
-    final y = dt.year.toString();
-    final m = two(dt.month);
-    final d = two(dt.day);
-    final hh = two(dt.hour);
-    final mm = two(dt.minute);
-    return '$y-$m-$d $hh:$mm';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -233,32 +221,29 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
                   final versionSlot = Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 仅在蓝牙已连接到当前设备时显示“检查更新”按钮
-                      if (bleView.bleStatus ==
-                          BleDeviceStatus.authenticated) ...[
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            textStyle: Theme.of(context).textTheme.bodyMedium,
-                            overlayColor: Colors.transparent,
-                          ),
-                          onPressed: _checkingUpdate
-                              ? null
-                              : () {
-                                  _sendCheckUpdate(rec);
-                                },
-                          child: Text(context.l10n.check_update),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: Theme.of(context).textTheme.bodyMedium,
+                          overlayColor: Colors.transparent,
                         ),
-                        if (_checkingUpdate) ...[
-                          const SizedBox(width: 6),
-                          const SizedBox(
-                            width: 10,
-                            height: 10,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
-                          ),
-                        ],
+                        onPressed:
+                            (_checkingUpdate || bleView.isLoadingForCurrent)
+                            ? null
+                            : () {
+                                _handleClickCheckUpdate(rec, bleView.bleStatus);
+                              },
+                        child: Text(context.l10n.check_update),
+                      ),
+                      if (_checkingUpdate) ...[
+                        const SizedBox(width: 6),
+                        const SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
                       ],
                     ],
                   );
@@ -359,12 +344,39 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     }
   }
 
-  void _sendCheckUpdate(SavedDeviceRecord device) async {
-    if (_checkingUpdate) return; // 简单防抖
-    setState(() => _checkingUpdate = true);
+  Future<BleConnectResult?> _connectCurrentDevice(
+    SavedDeviceRecord device,
+  ) async {
+    if (device.displayDeviceId.isEmpty) return null;
 
+    final qr = _qrFromRecord(device);
+    if (qr == null) return null;
+
+    final result = await ref
+        .read(conn.bleConnectionProvider.notifier)
+        .enableBleConnection(qr);
+    _safelyHandleConnectRes(result, displayDeviceId: device.displayDeviceId);
+    return result;
+  }
+
+  void _handleClickCheckUpdate(
+    SavedDeviceRecord device,
+    BleDeviceStatus bleStatus,
+  ) async {
     try {
       final notifier = ref.read(conn.bleConnectionProvider.notifier);
+      if (bleStatus != BleDeviceStatus.authenticated) {
+        final connectResult = await _connectCurrentDevice(device);
+        if (!mounted) return;
+
+        if (connectResult != BleConnectResult.success &&
+            connectResult != BleConnectResult.alreadyConnected) {
+          return;
+        }
+      }
+
+      if (_checkingUpdate) return;
+      setState(() => _checkingUpdate = true);
       final result = await notifier.requestUpdateCheck();
       _safelyToastDeviceUpdateCheckRes(result);
     } catch (e) {
@@ -451,13 +463,7 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
       if (value) {
         // 打开：尝试连接到当前选中设备
         final rec = savedNotifier.getSelectedRec();
-        if (rec.displayDeviceId.isEmpty) return;
-        final qr = _qrFromRecord(rec);
-        if (qr == null) return;
-        final result = await ref
-            .read(conn.bleConnectionProvider.notifier)
-            .enableBleConnection(qr);
-        _safelyHandleConnectRes(result, displayDeviceId: rec.displayDeviceId);
+        await _connectCurrentDevice(rec);
       } else {
         // 关闭：主动断开
         await ref
