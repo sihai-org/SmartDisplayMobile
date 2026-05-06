@@ -78,8 +78,9 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
   Future<void> _loadFirstPage() async {
     if (_isLoading) return;
     final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
+
     if (accessToken == null || accessToken.isEmpty) {
-      if (!mounted) return;
       setState(() {
         _items = const [];
         _nextPage = 1;
@@ -136,8 +137,9 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
   Future<void> _loadMore() async {
     if (_isLoading || !_hasNextPage) return;
     final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
+
     if (accessToken == null || accessToken.isEmpty) {
-      if (!mounted) return;
       setState(() {
         _hasError = _items.isEmpty;
       });

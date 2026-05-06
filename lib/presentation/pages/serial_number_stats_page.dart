@@ -105,6 +105,8 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
 
     final loginExpiredMessage = context.l10n.login_expired;
     final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
+
     if (accessToken == null || accessToken.isEmpty) {
       Fluttertoast.showToast(msg: loginExpiredMessage);
       return;
