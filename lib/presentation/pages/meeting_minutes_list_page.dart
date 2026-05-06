@@ -1,15 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/models/meeting_minutes_item.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
 
 class MeetingMinutesListPage extends StatefulWidget {
@@ -133,6 +136,9 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
         stackTrace: stackTrace,
       );
       if (mounted) {
+        if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+          Fluttertoast.showToast(msg: context.l10n.network_or_timeout_tip);
+        }
         setState(() {
           _isLoading = false;
         });
@@ -154,7 +160,7 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
             'accessToken': accessToken,
         },
         body: jsonEncode({'page': page, 'page_size': pageSize}),
-      );
+      ).timeout(HttpTimeouts.business);
       if (response.statusCode != 200) {
         AppLog.instance.warning(
           '[meeting_minutes_get] non-200: ${response.statusCode} ${response.body}',

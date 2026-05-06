@@ -349,7 +349,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otp_invalid => 'Invalid code, please retry';
 
   @override
+  String get otp_send_failed_generic => 'Couldn\'t send code. Please try again.';
+
+  @override
+  String get otp_send_maybe_sent_check_email => 'Code may be sent. Check email.';
+
+  @override
   String get login_failed_generic => 'Sign in failed. Please try again later.';
+
+  @override
+  String get network_or_timeout_tip => 'Connection error. Check and try again.';
+
+  @override
+  String get login_failed_email_invalid => 'Enter a valid email address.';
 
   @override
   String get login_failed_otp_invalid => 'Invalid code, please retry';
@@ -692,6 +704,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bind_failed => 'Binding failed. Please try again later.';
+
+  @override
+  String get network_weak_retry_later => 'Weak network signal. Please try again later.';
 
   @override
   String get bind_timeout_check_network_and_retry => 'Binding timed out. Please confirm network access and stay near the device before retrying.';

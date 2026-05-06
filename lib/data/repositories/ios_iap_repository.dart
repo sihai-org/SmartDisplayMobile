@@ -6,6 +6,7 @@ import '../../core/constants/app_environment.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/buy_log.dart';
 import '../../core/log/biz_log_tag.dart';
+import '../../core/network/http_timeouts.dart';
 import 'billing_repository.dart';
 
 class AppleIapProductData {
@@ -101,10 +102,12 @@ class IosIapRepository {
     required String accessToken,
   }) async {
     logBuyRequest(method: 'GET', path: _productsPath);
-    final response = await http.get(
-      Uri.parse('${AppEnvironment.apiServerUrl}$_productsPath'),
-      headers: {'X-Access-Token': accessToken},
-    );
+    final response = await http
+        .get(
+          Uri.parse('${AppEnvironment.apiServerUrl}$_productsPath'),
+          headers: {'X-Access-Token': accessToken},
+        )
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: _productsPath,
       statusCode: response.statusCode,
@@ -163,14 +166,16 @@ class IosIapRepository {
   }) async {
     final requestBody = {'package_code': packageCode};
     logBuyRequest(method: 'POST', path: _ordersPath, requestBody: requestBody);
-    final response = await http.post(
-      Uri.parse('${AppEnvironment.apiServerUrl}$_ordersPath'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode(requestBody),
-    );
+    final response = await http
+        .post(
+          Uri.parse('${AppEnvironment.apiServerUrl}$_ordersPath'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode(requestBody),
+        )
+        .timeout(HttpTimeouts.business);
     logBuyResponse(
       endpoint: _ordersPath,
       statusCode: response.statusCode,
@@ -214,14 +219,16 @@ class IosIapRepository {
     }
     logBuyRequest(method: 'POST', path: _verifyPath, requestBody: body);
 
-    final response = await http.post(
-      Uri.parse('${AppEnvironment.apiServerUrl}$_verifyPath'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode(body),
-    );
+    final response = await http
+        .post(
+          Uri.parse('${AppEnvironment.apiServerUrl}$_verifyPath'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(HttpTimeouts.purchaseVerify);
     logBuyResponse(
       endpoint: _verifyPath,
       statusCode: response.statusCode,

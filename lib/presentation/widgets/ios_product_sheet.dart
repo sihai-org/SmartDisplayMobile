@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/utils/billing_amount_formatter.dart';
 import '../../data/repositories/ios_iap_repository.dart';
@@ -28,6 +29,7 @@ enum IosPurchaseFailureKind {
   productNotFound,
   cancelled,
   deliveryFailed,
+  networkOrTimeout,
   generic,
 }
 
@@ -95,6 +97,7 @@ class _IosProductSheetState extends State<IosProductSheet> {
   late List<AppleIapProductData> _products;
   bool _isReloading = false;
   bool _hasError = false;
+  Object? _reloadError;
   int _selectedIndex = 0;
 
   @override
@@ -122,16 +125,18 @@ class _IosProductSheetState extends State<IosProductSheet> {
         _products = List<AppleIapProductData>.unmodifiable(products);
         _isReloading = false;
         _hasError = false;
+        _reloadError = null;
         _selectedIndex = _products.isEmpty
             ? 0
             : _selectedIndex.clamp(0, _products.length - 1);
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _products = const [];
         _isReloading = false;
         _hasError = true;
+        _reloadError = error;
         _selectedIndex = 0;
       });
     }
@@ -215,8 +220,15 @@ class _IosProductSheetState extends State<IosProductSheet> {
           IosPurchaseFailureKind.cancelled => l10n.billing_purchase_cancelled,
           IosPurchaseFailureKind.deliveryFailed =>
             l10n.billing_purchase_delivery_failed,
+          IosPurchaseFailureKind.networkOrTimeout =>
+            l10n.network_or_timeout_tip,
           IosPurchaseFailureKind.generic => l10n.billing_purchase_failed,
-          null => _hasError ? l10n.billing_load_failed : null,
+          null =>
+            _hasError
+                ? NetworkErrorUtil.isNetworkOrTimeout(_reloadError)
+                      ? l10n.network_or_timeout_tip
+                      : l10n.billing_load_failed
+                : null,
         };
 
         return PurchaseSheet(

@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_display_mobile/core/auth/auth_manager.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/theme/purchase_button_style.dart';
 import '../../core/audit/audit_mode.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -102,6 +104,7 @@ class _BalancePageState extends ConsumerState<BalancePage> {
     var ledgerNextPage = 1;
     var ledgerHasNextPage = true;
     var ledgerInitialized = false;
+    var hasNetworkOrTimeoutError = false;
 
     try {
       balance = await _billingRepository.fetchBalance(accessToken: accessToken);
@@ -112,6 +115,7 @@ class _BalancePageState extends ConsumerState<BalancePage> {
         error: error,
         stackTrace: stackTrace,
       );
+      hasNetworkOrTimeoutError |= NetworkErrorUtil.isNetworkOrTimeout(error);
       hasBalanceError = true;
     }
 
@@ -132,6 +136,7 @@ class _BalancePageState extends ConsumerState<BalancePage> {
         error: error,
         stackTrace: stackTrace,
       );
+      hasNetworkOrTimeoutError |= NetworkErrorUtil.isNetworkOrTimeout(error);
       hasLedgerError = true;
       ledgerInitialized = true;
       ledgerHasNextPage = true;
@@ -150,6 +155,9 @@ class _BalancePageState extends ConsumerState<BalancePage> {
       _ledgerNextPage = ledgerNextPage;
       _ledgerHasNextPage = ledgerHasNextPage;
     });
+    if (hasNetworkOrTimeoutError) {
+      Fluttertoast.showToast(msg: context.l10n.network_or_timeout_tip);
+    }
   }
 
   Widget _sectionCard(BuildContext context, {required List<Widget> children}) {

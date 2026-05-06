@@ -8,6 +8,8 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/constants/enum.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/device_customization_repository.dart';
@@ -277,10 +279,9 @@ class DeviceCustomizationNotifier
       }..removeWhere((_, value) => value == null);
 
       await AuthManager.instance.ensureFreshSession();
-      final response = await Supabase.instance.client.functions.invoke(
-        'device_customization_save',
-        body: payload,
-      );
+      final response = await Supabase.instance.client.functions
+          .invoke('device_customization_save', body: payload)
+          .timeout(HttpTimeouts.business);
 
       if (response.status != 200) {
         final data = response.data;
@@ -334,6 +335,9 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
+      if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+        rethrow;
+      }
       throw Exception('保存失败：$error');
     } finally {
       state = state.copyWith(isSaving: false);
@@ -391,12 +395,14 @@ class DeviceCustomizationNotifier
 
     try {
       await AuthManager.instance.ensureFreshSession();
-      final response = await supabase.functions.invoke(
-        'device_wallpaper_upload',
-        method: HttpMethod.post,
-        files: files,
-        headers: {'x-device-id': deviceId},
-      );
+      final response = await supabase.functions
+          .invoke(
+            'device_wallpaper_upload',
+            method: HttpMethod.post,
+            files: files,
+            headers: {'x-device-id': deviceId},
+          )
+          .timeout(HttpTimeouts.transfer);
 
       final data = response.data;
 
@@ -449,6 +455,9 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
+      if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+        rethrow;
+      }
       throw Exception('请稍后重试');
     }
   }
@@ -499,16 +508,18 @@ class DeviceCustomizationNotifier
     }
 
     try {
-      final response = await http.post(
-        Uri.parse(
-          '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
-        ),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Access-Token': accessToken,
-          'X-Device-Id': deviceId,
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse(
+              '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
+            ),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Access-Token': accessToken,
+              'X-Device-Id': deviceId,
+            },
+          )
+          .timeout(HttpTimeouts.business);
 
       AppLog.instance.info(
         'response=${response.body}',

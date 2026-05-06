@@ -14,6 +14,7 @@ import '../../core/auth/auth_manager.dart';
 import '../../core/constants/storage_keys.dart';
 import '../../core/log/app_log.dart';
 import '../../core/models/device_customization.dart';
+import '../../core/network/http_timeouts.dart';
 
 class CustomizationFetchResult {
   final DeviceCustomization customization;
@@ -167,10 +168,12 @@ class DeviceCustomizationRepository {
 
     try {
       await AuthManager.instance.ensureFreshSession();
-      final response = await Supabase.instance.client.functions.invoke(
-        'device_customization_get?device_id=${displayDeviceId}',
-        method: HttpMethod.get, // 一定要加
-      );
+      final response = await Supabase.instance.client.functions
+          .invoke(
+            'device_customization_get?device_id=${displayDeviceId}',
+            method: HttpMethod.get, // 一定要加
+          )
+          .timeout(HttpTimeouts.business);
       final respData = response.data;
 
       AppLog.instance.info(

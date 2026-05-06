@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_manager.dart';
 import '../log/app_log.dart';
+import '../network/http_timeouts.dart';
 
 /// 灰度开关
 final grayKeyMapProvider =
@@ -43,10 +44,9 @@ class GrayKeyMapNotifier extends AsyncNotifier<Map<String, bool>> {
     try {
       final supabase = Supabase.instance.client;
       await AuthManager.instance.ensureFreshSession();
-      final response = await supabase.functions.invoke(
-        'mobile_gray_key_map_get',
-        method: HttpMethod.get,
-      );
+      final response = await supabase.functions
+          .invoke('mobile_gray_key_map_get', method: HttpMethod.get)
+          .timeout(HttpTimeouts.business);
       AppLog.instance.info(
         '[$_tag] status=${response.status} data=${response.data}',
       );
