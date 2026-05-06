@@ -339,6 +339,24 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         _showToastIfMounted((l10n) => l10n.bind_failed);
         return BindResult.fail;
       }
+    } on TimeoutException catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bindServerOtp,
+        result: 'timeout',
+        displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
+        firmwareVersion: firmwareVersion,
+        error: e,
+        stackTrace: st,
+        extra: {
+          'error_type': e.runtimeType.toString(),
+          'error_message': 'pairing otp timed out; request result unknown',
+          'function_name': functionName,
+          'has_session': Supabase.instance.client.auth.currentSession != null,
+        },
+      );
+      _showToastIfMounted((l10n) => l10n.network_weak_retry_later);
+      return BindResult.fail;
     } on SocketException catch (e, st) {
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,

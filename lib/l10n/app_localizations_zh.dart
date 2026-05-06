@@ -352,6 +352,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get otp_send_failed_generic => '验证码发送失败，请稍后重试';
 
   @override
+  String get otp_send_maybe_sent_check_email => '验证码可能已发送，请检查邮箱';
+
+  @override
   String get login_failed_generic => '登录失败，请稍后重试';
 
   @override
@@ -701,6 +704,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bind_failed => '绑定失败，请稍后再试';
+
+  @override
+  String get network_weak_retry_later => '网络信号弱，请稍后重试';
 
   @override
   String get bind_timeout_check_network_and_retry => '绑定超时，请确认联网并靠近重试';

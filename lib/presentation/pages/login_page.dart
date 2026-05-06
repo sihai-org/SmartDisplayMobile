@@ -133,6 +133,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
 
       _startCountdown();
+    } on TimeoutException catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.authOtpSend,
+        result: 'timeout',
+        error: e,
+        stackTrace: st,
+        extra: {
+          ...EmailMaskingUtil.toLogParts(email),
+          'error_type': e.runtimeType.toString(),
+          'error_message': 'OTP send timed out; request result unknown',
+        },
+      );
+
+      Fluttertoast.showToast(msg: l10n.otp_send_maybe_sent_check_email);
+
+      setState(() {
+        _otpSent = true;
+        _error = null;
+      });
+
+      _startCountdown();
     } catch (e, st) {
       final errorCode = _authErrorCode(e);
       final errorMessage = _mapSendOtpError(e, l10n);

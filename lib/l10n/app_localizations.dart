@@ -773,6 +773,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t send code. Please try again.'**
   String get otp_send_failed_generic;
 
+  /// No description provided for @otp_send_maybe_sent_check_email.
+  ///
+  /// In en, this message translates to:
+  /// **'Code may be sent. Check email.'**
+  String get otp_send_maybe_sent_check_email;
+
   /// No description provided for @login_failed_generic.
   ///
   /// In en, this message translates to:
@@ -1438,6 +1444,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Binding failed. Please try again later.'**
   String get bind_failed;
+
+  /// No description provided for @network_weak_retry_later.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak network signal. Please try again later.'**
+  String get network_weak_retry_later;
 
   /// No description provided for @bind_timeout_check_network_and_retry.
   ///
