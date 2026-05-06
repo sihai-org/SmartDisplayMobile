@@ -1,5 +1,4 @@
 import 'dart:async';
-import '../audit/audit_mode.dart';
 import 'secure_channel.dart';
 
 class MockSecureChannel implements SecureChannel {
@@ -45,16 +44,15 @@ class MockSecureChannel implements SecureChannel {
   }) async {
     final type = (msg['type'] ?? '').toString();
     switch (type) {
+      case 'system.ping':
+        return {'ok': true, 'data': {}};
       case 'device.info':
         return {
           'ok': true,
           'data': {
-            'network': {
-              'connected': true,
-              'ssid': 'MockWiFi',
-            },
+            'network': {'connected': true, 'ssid': 'MockWiFi'},
             'firmwareVersion': '1.0.0',
-          }
+          },
         };
       case 'wifi.scan':
         return {
@@ -62,20 +60,17 @@ class MockSecureChannel implements SecureChannel {
           'data': [
             {'ssid': 'MockWiFi', 'rssi': -50, 'secure': true},
             {'ssid': 'Cafe_Free', 'rssi': -70, 'secure': false},
-          ]
+          ],
         };
       case 'wifi.config':
         return {
           'ok': true,
-          'data': {'status': 'connected'}
+          'data': {'status': 'connected'},
         };
       case 'network.status':
         return {
           'ok': true,
-          'data': {
-            'connected': true,
-            'ssid': 'MockWiFi',
-          }
+          'data': {'connected': true, 'ssid': 'MockWiFi'},
         };
       case 'login.auth':
         return {'ok': true, 'data': {}};

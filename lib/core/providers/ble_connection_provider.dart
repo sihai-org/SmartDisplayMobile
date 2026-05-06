@@ -238,13 +238,13 @@ class BleConnectionNotifier extends StateNotifier<BleConnectionState> {
     _activeOps++;
     _lastHeartbeatAt = now;
     _heartbeatSeq += 1;
-    _logDebug('心跳开始(#$_heartbeatSeq) device.info');
+    _logDebug('心跳开始(#$_heartbeatSeq) system.ping');
     try {
-      // 使用现有 device.info 作为联通检测，但不更新业务状态，也不触发 ensure/reconnect
+      // 使用 system.ping 作为联通检测，不更新业务状态，也不触发 ensure/reconnect
       await _ref
           .read(secureChannelManagerProvider)
           .sendIfReady(
-            {'type': 'device.info', 'data': null},
+            {'type': 'system.ping', 'data': null},
             timeout: BleConstants.kHeartbeatTimeout,
             retries: 0,
           );
