@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:http/http.dart' as http;
@@ -13,7 +14,6 @@ import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:smart_display_mobile/core/router/app_router.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TaskListPage extends StatefulWidget {
   const TaskListPage({super.key});
@@ -121,8 +121,7 @@ class _TaskListPageState extends State<TaskListPage> {
     required int pageSize,
   }) async {
     try {
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
+      final accessToken = await AuthManager.instance.getFreshAccessToken();
       final response = await http
           .post(
             Uri.parse('${AppEnvironment.apiServerUrl}/agent_task/get_list'),

@@ -1,4 +1,5 @@
 enum BizLogTag {
+  auth('auth'),
   buy('buy'),
   wallpaper('wallpaper'),
   wakeword('wakeword');

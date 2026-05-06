@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/billing_repository.dart';
 import '../../data/repositories/android_iap_repository.dart';
 import '../audit/audit_mode.dart';
+import '../auth/auth_manager.dart';
 import '../errors/network_error_util.dart';
 import '../log/app_log.dart';
 import '../log/buy_log.dart';
@@ -206,7 +207,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       return;
     }
 
-    final accessToken = _currentAccessToken;
+    final accessToken = await _currentAccessToken();
     if (accessToken == null) {
       _setFailure(
         AndroidIapFailureKind.catalogLoadFailed,
@@ -324,7 +325,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
       return;
     }
 
-    final accessToken = _currentAccessToken;
+    final accessToken = await _currentAccessToken();
     final user = Supabase.instance.client.auth.currentUser;
     if (accessToken == null || user == null) {
       _setFailure(
@@ -446,7 +447,7 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
   }
 
   Future<void> _verifyAndFinalizePurchase(PurchaseDetails purchase) async {
-    final accessToken = _currentAccessToken;
+    final accessToken = await _currentAccessToken();
     if (accessToken == null) {
       _setFailure(
         AndroidIapFailureKind.generic,
@@ -633,13 +634,8 @@ class AndroidIapNotifier extends StateNotifier<AndroidIapState> {
     return _findOption(productId) != null;
   }
 
-  String? get _currentAccessToken {
-    final session = Supabase.instance.client.auth.currentSession;
-    final accessToken = session?.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      return null;
-    }
-    return accessToken;
+  Future<String?> _currentAccessToken() {
+    return AuthManager.instance.getFreshAccessToken();
   }
 
   void _setFailure(

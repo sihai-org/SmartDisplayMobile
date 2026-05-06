@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
 import '../../core/constants/storage_keys.dart';
 import '../../core/log/app_log.dart';
 import '../../core/models/device_customization.dart';
@@ -166,6 +167,7 @@ class DeviceCustomizationRepository {
     }
 
     try {
+      await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions
           .invoke(
             'device_customization_get?device_id=${displayDeviceId}',

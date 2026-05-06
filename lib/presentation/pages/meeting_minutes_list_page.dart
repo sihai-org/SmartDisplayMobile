@@ -5,8 +5,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
@@ -151,21 +151,16 @@ class _MeetingMinutesListPageState extends State<MeetingMinutesListPage> {
     required int pageSize,
   }) async {
     try {
-      final accessToken =
-          Supabase.instance.client.auth.currentSession?.accessToken;
-      final response = await http
-          .post(
-            Uri.parse(
-              '${AppEnvironment.apiServerUrl}/meeting/query_meeting_task',
-            ),
-            headers: {
-              'Content-Type': 'application/json',
-              if (accessToken != null && accessToken.isNotEmpty)
-                'accessToken': accessToken,
-            },
-            body: jsonEncode({'page': page, 'page_size': pageSize}),
-          )
-          .timeout(HttpTimeouts.business);
+      final accessToken = await AuthManager.instance.getFreshAccessToken();
+      final response = await http.post(
+        Uri.parse('${AppEnvironment.apiServerUrl}/meeting/query_meeting_task'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (accessToken != null && accessToken.isNotEmpty)
+            'accessToken': accessToken,
+        },
+        body: jsonEncode({'page': page, 'page_size': pageSize}),
+      ).timeout(HttpTimeouts.business);
       if (response.statusCode != 200) {
         AppLog.instance.warning(
           '[meeting_minutes_get] non-200: ${response.statusCode} ${response.body}',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/utils/check_update.dart';
 import 'core/providers/app_state_provider.dart';
 import 'core/providers/ble_connection_provider.dart';
@@ -107,6 +108,28 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     });
   }
 
+  Future<void> _syncDevicesAndGrayKeysIfFresh() async {
+    try {
+      final session = await AuthManager.instance.ensureFreshSession();
+      if (session == null || !mounted) return;
+
+      final savedDevicesNotifier = ref.read(savedDevicesProvider.notifier);
+      final grayKeyMapNotifier = ref.read(grayKeyMapProvider.notifier);
+
+      await Future.wait([
+        savedDevicesNotifier.syncFromServer(),
+        grayKeyMapNotifier.refreshIfLoggedIn(),
+      ]);
+    } catch (e, st) {
+      AppLog.instance.error(
+        '_syncDevicesAndGrayKeysIfFresh failed',
+        tag: 'App',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
   /// 所有登出后的清理都放这里
   Future<void> _performGlobalCleanup({String? userId}) async {
     AppLog.instance.info('_performGlobalCleanup start', tag: 'App');
@@ -206,8 +229,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && mounted) {
-        ref.read(savedDevicesProvider.notifier).syncFromServer();
-        ref.read(grayKeyMapProvider.notifier).refreshIfLoggedIn();
+        unawaited(_syncDevicesAndGrayKeysIfFresh());
       }
     });
   }
@@ -225,9 +247,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     // satisfies Riverpod's requirement for ref.listen in Consumer widgets.
     ref.listen<bool>(isForegroundProvider, (prev, curr) {
       if (prev == false && curr == true) {
-        Future.microtask(
-          () => ref.read(savedDevicesProvider.notifier).syncFromServer(),
-        );
+        unawaited(_syncDevicesAndGrayKeysIfFresh());
         // Force-update check when returning to foreground
         Future.microtask(() => checkUpdateOnce(ref));
       }

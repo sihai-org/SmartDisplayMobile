@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/network/http_timeouts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
@@ -105,28 +105,27 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
     if (_isReporting) return;
     if (n == null || link == null || link.isEmpty) return;
 
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final loginExpiredMessage = context.l10n.login_expired;final accessToken =
+        await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
     if (accessToken == null || accessToken.isEmpty) {
-      Fluttertoast.showToast(msg: context.l10n.login_expired);
+      Fluttertoast.showToast(msg: loginExpiredMessage);
       return;
     }
 
     setState(() => _isReporting = true);
     try {
-      final response = await http
-          .post(
-            Uri.parse('${AppEnvironment.apiServerUrl}/monitorapp/report'),
-            headers: {
-              'X-Device-Id': 'test',
-              'X-Access-Token': accessToken,
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'data': {'number': n, 'link': link},
-            }),
-          )
-          .timeout(HttpTimeouts.business);
+      final response = await http.post(
+        Uri.parse('${AppEnvironment.apiServerUrl}/monitorapp/report'),
+        headers: {
+          'X-Device-Id': 'test',
+          'X-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'data': {'number': n, 'link': link},
+        }),
+      ).timeout(HttpTimeouts.business);
 
       if (response.statusCode != 200) {
         AppLog.instance.warning(
