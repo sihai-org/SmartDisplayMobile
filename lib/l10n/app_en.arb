@@ -418,5 +418,22 @@
   "task_pdf_retry": "Retry",
   "task_pdf_download": "Download",
   "task_pdf_share": "Share",
-  "task_pdf_loading": "Loading PDF..."
+  "task_pdf_loading": "Loading PDF...",
+  "driver_bind_title": "Bind Driver",
+  "driver_bind_hw_id_label": "Driver ID",
+  "driver_bind_choose_device": "Choose associated device",
+  "driver_bind_submit": "Bind",
+  "driver_bind_success": "Bound successfully",
+  "driver_bind_failed": "Bind failed, please try again",
+  "driver_bind_empty_devices": "No devices yet. Please scan a device QR code to add one first.",
+  "driver_list_title": "My Drivers",
+  "driver_list_empty": "No bound drivers yet",
+  "driver_list_bound_device": "Device: {name}",
+  "@driver_list_bound_device": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "driver_list_device_id": "Device ID: {id}",
+  "@driver_list_device_id": {
+    "placeholders": { "id": { "type": "String" } }
+  }
 }

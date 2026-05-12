@@ -96,6 +96,12 @@ dependencies:
   in_app_purchase_android: ^0.4.0+10
   in_app_purchase_storekit: ^0.4.8+1
 
+# 钉住 url_launcher_android：6.3.27+ 会传递依赖 androidx.browser:1.9.0，
+# 该版本要求 AGP 8.9.1+，与当前项目的 AGP 8.6.0 不兼容。
+# 等 AGP 升级后可移除此 override。
+dependency_overrides:
+  url_launcher_android: 6.3.26
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

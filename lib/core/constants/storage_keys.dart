@@ -11,4 +11,7 @@ class StorageKeys {
 
   /// DeviceCustomizationRepository：当前用户的设备自定义配置。
   static const deviceCustomizationBase = 'device_customization_v1';
+
+  /// DriversRepository：当前用户已绑定的龙虾驱动列表。
+  static const driversBase = 'drivers_v1';
 }

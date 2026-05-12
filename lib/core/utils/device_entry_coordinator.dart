@@ -7,6 +7,7 @@ import '../audit/audit_mode.dart';
 
 import '../router/app_router.dart';
 import '../providers/app_state_provider.dart';
+import 'driver_qr_parser.dart';
 import 'qr_data_parser.dart';
 import '../models/device_qr_data.dart';
 import '../log/device_onboarding_log.dart';
@@ -27,6 +28,21 @@ class DeviceEntryCoordinator {
         '[DeviceEntryCoordinator.handle] invoke',
         tag: 'Binding',
       );
+
+      // 龙虾驱动二维码：跳转到龙虾绑定页
+      final driverHwId = DriverQrParser.tryParse(content);
+      if (driverHwId != null) {
+        AppLog.instance.info(
+          '[DeviceEntryCoordinator.handle] driver QR detected',
+          tag: 'Binding',
+        );
+        if (context.mounted) {
+          context.go(
+            '${AppRoutes.driverBind}?hwId=${Uri.encodeComponent(driverHwId)}',
+          );
+        }
+        return;
+      }
 
       // 审核模式 + 当前选中mock设备：直接去首页
       if (AuditMode.enabled) {
@@ -85,8 +101,7 @@ class DeviceEntryCoordinator {
       // Parsing failed -> show raw content page for copy/reference
       if (context.mounted) {
         final raw = Uri.encodeComponent(content);
-        // 使用 push 保留返回栈，支持返回按钮与手势返回
-        context.push('${AppRoutes.qrCodeResult}?text=$raw');
+        context.go('${AppRoutes.qrCodeResult}?text=$raw');
       }
     }
   }

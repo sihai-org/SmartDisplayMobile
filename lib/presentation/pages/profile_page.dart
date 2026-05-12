@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/providers/drivers_provider.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
@@ -37,6 +38,9 @@ class ProfilePage extends ConsumerWidget {
       } catch (_) {}
       try {
         await ref.read(savedDevicesProvider.notifier).clearForLogout();
+      } catch (_) {}
+      try {
+        await ref.read(driversProvider.notifier).clearForLogout();
       } catch (_) {}
       try {
         ref.read(appStateProvider.notifier).clearScannedData();
@@ -318,6 +322,12 @@ class ProfilePage extends ConsumerWidget {
                   title: Text(l10n.meeting_minutes),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(AppRoutes.meetingMinutesList),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.driver_list_title),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.driverList),
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),

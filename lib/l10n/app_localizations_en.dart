@@ -1133,4 +1133,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get task_pdf_loading => 'Loading PDF...';
+
+  @override
+  String get driver_bind_title => 'Bind Driver';
+
+  @override
+  String get driver_bind_hw_id_label => 'Driver ID';
+
+  @override
+  String get driver_bind_choose_device => 'Choose associated device';
+
+  @override
+  String get driver_bind_submit => 'Bind';
+
+  @override
+  String get driver_bind_success => 'Bound successfully';
+
+  @override
+  String get driver_bind_failed => 'Bind failed, please try again';
+
+  @override
+  String get driver_bind_empty_devices => 'No devices yet. Please scan a device QR code to add one first.';
+
+  @override
+  String get driver_list_title => 'My Drivers';
+
+  @override
+  String get driver_list_empty => 'No bound drivers yet';
+
+  @override
+  String driver_list_bound_device(String name) {
+    return 'Device: $name';
+  }
+
+  @override
+  String driver_list_device_id(String id) {
+    return 'Device ID: $id';
+  }
 }

@@ -17,6 +17,7 @@ import 'core/deeplink/deep_link_handler.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'core/l10n/l10n_extensions.dart';
 import 'core/providers/lifecycle_provider.dart';
+import 'core/providers/drivers_provider.dart';
 import 'core/providers/saved_devices_provider.dart';
 import 'core/providers/gray_key_map_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 如果你要清 SharedPreferences
@@ -140,6 +141,7 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
 
     // 2. 失效 Riverpod 的状态（把内存里的缓存都打掉）
     ref.invalidate(savedDevicesProvider);
+    ref.invalidate(driversProvider);
     ref.invalidate(isForegroundProvider);
     ref.invalidate(appStateProvider);
     ref.invalidate(bleConnectionProvider);

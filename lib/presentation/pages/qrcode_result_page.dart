@@ -21,10 +21,11 @@ class QrCodeResultPage extends StatelessWidget {
         title: Text(context.l10n.qr_content_title),
         leading: BackButton(
           onPressed: () {
+            // 从扫码页跳来时通过 context.go 进入（栈被替换），返回到扫码页继续扫
             if (Navigator.of(context).canPop()) {
               context.pop();
             } else {
-              context.go(AppRoutes.home);
+              context.go(AppRoutes.qrScanner);
             }
           },
         ),
