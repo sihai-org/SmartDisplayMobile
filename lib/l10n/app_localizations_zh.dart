@@ -849,6 +849,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get layout_frame_hint => '突出展示照片的相框式排版';
 
   @override
+  String get layout_calendar => '日历布局';
+
+  @override
+  String get layout_calendar_hint => '突出日期、日程与提醒的排版';
+
+  @override
   String get wake_word_section_title => '唤醒词';
 
   @override

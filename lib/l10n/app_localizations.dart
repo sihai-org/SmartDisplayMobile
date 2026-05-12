@@ -1715,6 +1715,18 @@ abstract class AppLocalizations {
   /// **'Photo-forward layout like a frame'**
   String get layout_frame_hint;
 
+  /// No description provided for @layout_calendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar layout'**
+  String get layout_calendar;
+
+  /// No description provided for @layout_calendar_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Date-forward layout for schedules and reminders'**
+  String get layout_calendar_hint;
+
   /// No description provided for @wake_word_section_title.
   ///
   /// In en, this message translates to:

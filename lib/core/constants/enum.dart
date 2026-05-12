@@ -54,7 +54,8 @@ enum WallpaperType {
 
 enum LayoutType {
   defaultLayout('default'),
-  frame('frame');
+  frame('frame'),
+  calendar('calendar');
 
   final String value;
 

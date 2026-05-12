@@ -849,6 +849,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get layout_frame_hint => 'Photo-forward layout like a frame';
 
   @override
+  String get layout_calendar => 'Calendar layout';
+
+  @override
+  String get layout_calendar_hint => 'Date-forward layout for schedules and reminders';
+
+  @override
   String get wake_word_section_title => 'Wake Word';
 
   @override

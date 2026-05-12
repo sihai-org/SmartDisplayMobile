@@ -758,6 +758,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         subtitle: l10n.layout_frame_hint,
         iconAsset: 'assets/images/layout_frame_icon.png', // ✅ 左侧图标
       ),
+      _LayoutOption(
+        value: LayoutType.calendar,
+        title: l10n.layout_calendar,
+        subtitle: l10n.layout_calendar_hint,
+        iconData: Icons.calendar_month,
+      ),
     ];
 
     return Card(
@@ -777,29 +783,24 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
               ),
             ),
 
-            // ✅ 两行列表
-            _LayoutChoiceTile(
-              title: options[0].title,
-              iconAsset: options[0].iconAsset,
-              selected: _layout == options[0].value,
-              onTap: () => _setLayout(options[0].value, 0),
-            ),
-
-            Divider(
-              height: 1,
-              thickness: 0.8,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.grey.shade800
-                  : Colors.grey.shade300,
-              indent: MediaQuery.of(context).size.width / 7, // 左侧留白
-            ),
-
-            _LayoutChoiceTile(
-              title: options[1].title,
-              iconAsset: options[1].iconAsset,
-              selected: _layout == options[1].value,
-              onTap: () => _setLayout(options[1].value, 1),
-            ),
+            for (var i = 0; i < options.length; i++) ...[
+              _LayoutChoiceTile(
+                title: options[i].title,
+                iconAsset: options[i].iconAsset,
+                iconData: options[i].iconData,
+                selected: _layout == options[i].value,
+                onTap: () => _setLayout(options[i].value, i),
+              ),
+              if (i != options.length - 1)
+                Divider(
+                  height: 1,
+                  thickness: 0.8,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade800
+                      : Colors.grey.shade300,
+                  indent: MediaQuery.of(context).size.width / 7, // 左侧留白
+                ),
+            ],
           ],
         ),
       ),
@@ -977,13 +978,15 @@ class _LayoutOption {
   final LayoutType value;
   final String title;
   final String subtitle;
-  final String iconAsset;
+  final String? iconAsset;
+  final IconData? iconData;
 
   const _LayoutOption({
     required this.value,
     required this.title,
     required this.subtitle,
-    required this.iconAsset,
+    this.iconAsset,
+    this.iconData,
   });
 }
 
@@ -1037,13 +1040,15 @@ class _CurrentToggle extends StatelessWidget {
 
 class _LayoutChoiceTile extends StatelessWidget {
   final String title;
-  final String iconAsset;
+  final String? iconAsset;
+  final IconData? iconData;
   final bool selected;
   final VoidCallback onTap;
 
   const _LayoutChoiceTile({
     required this.title,
-    required this.iconAsset,
+    this.iconAsset,
+    this.iconData,
     required this.selected,
     required this.onTap,
   });
@@ -1072,7 +1077,13 @@ class _LayoutChoiceTile extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.asset(iconAsset, fit: BoxFit.contain),
+                child: iconAsset != null
+                    ? Image.asset(iconAsset!, fit: BoxFit.contain)
+                    : Icon(
+                        iconData ?? Icons.dashboard_outlined,
+                        color: const Color(0xFF1A73E8),
+                        size: 22,
+                      ),
               ),
             ),
             const SizedBox(width: 16),
