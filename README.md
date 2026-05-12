@@ -12,17 +12,25 @@
 - 🛠️ **设备管理** - 设备绑定、命名和状态监控
 
 ### 技术架构
-- **前端**: Flutter 3.16+ (iOS/Android)
+- **前端**: Flutter 3.35+ (iOS/Android)
 - **通信**: BLE GATT服务
 - **加密**: X25519 ECDH密钥交换 + AES-256-GCM
 - **测试**: 真实BLE设备
 
+### 当前项目信息
+- **包名**: `smart_display_mobile`
+- **应用名称**: `VznGPT`
+- **应用版本**: `1.3.0+30`
+- **Android applicationId / namespace**: `com.datou.smart_display_mobile`
+- **iOS URL Scheme**: `smartdisplay`
+
 ## 🚀 快速开始
 
 ### 环境要求
-- Flutter 3.16.7+
-- Dart 3.2.4+
-- iOS 13.0+ / Android 8.0+
+- Flutter 3.35.0+（当前本地工具链：3.35.3）
+- Dart 3.9.0+ 且 < 4.0.0（当前本地工具链：3.9.2）
+- iOS 13.0+
+- Android minSdk 24 / targetSdk 36 / compileSdk 36
 - Xcode 15.0+ / Android Studio 2023.1+
 
 ### 安装依赖
@@ -86,13 +94,31 @@ SmartDisplayMobile/
 
 ```yaml
 dependencies:
-  flutter_reactive_ble: ^5.3.1      # BLE通信
-  mobile_scanner: ^3.5.6            # 二维码扫描
-  cryptography: ^2.5.0              # 加密算法
-  flutter_secure_storage: ^9.0.0    # 安全存储
-  riverpod: ^2.4.9                  # 状态管理
-  go_router: ^12.1.3                # 路由管理
+  flutter_reactive_ble: 5.4.0       # BLE通信
+  qr_code_scanner_plus: 2.0.14      # 二维码扫描
+  cryptography: 2.9.0               # 加密算法
+  flutter_secure_storage: 8.1.0     # 安全存储
+  flutter_riverpod: 2.6.1           # 状态管理
+  go_router: 12.1.3                 # 路由管理
+  http: 1.6.0                       # HTTP网络请求
+  supabase_flutter: 2.10.3          # Supabase客户端
+  app_links: 6.4.1                  # App Links / Deep Links
+  url_launcher: 6.3.2               # 外部链接打开
+  sentry_flutter: 9.14.0            # 日志与崩溃监控
+  device_info_plus: 12.3.0          # 设备信息
+  package_info_plus: 8.3.1          # 应用版本信息
+  in_app_purchase: 3.2.3            # 应用内购买
+  in_app_purchase_android: 0.4.0+10 # Android应用内购买
+  in_app_purchase_storekit: 0.4.8+1 # iOS应用内购买
 ```
+
+### 平台构建版本
+- **Android Gradle Plugin**: 8.6.0
+- **Kotlin Gradle Plugin**: 2.2.0
+- **Java / Kotlin JVM target**: 11
+- **Android NDK**: 26.1.10909125
+- **Android ABI**: `armeabi-v7a`, `arm64-v8a`
+- **iOS Deployment Target**: 13.0
 
 ## 📋 开发计划
 

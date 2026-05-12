@@ -9,11 +9,14 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/audit/audit_mode.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -123,7 +126,11 @@ class TaskFileService {
         error: error,
         stackTrace: stackTrace,
       );
-      Fluttertoast.showToast(msg: l10n.task_pdf_share_failed);
+      Fluttertoast.showToast(
+        msg: NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? l10n.network_or_timeout_tip
+            : l10n.task_pdf_share_failed,
+      );
     }
   }
 
@@ -133,8 +140,7 @@ class TaskFileService {
     required String missingTaskIdMessage,
     required String noAvailableLinkMessage,
   }) async {
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       throw HttpException(loginExpiredMessage);
     }
@@ -145,14 +151,16 @@ class TaskFileService {
     }
 
     final parsedTaskId = int.tryParse(taskId);
-    final response = await http.post(
-      Uri.parse('${AppEnvironment.apiServerUrl}${_endpoint(task)}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Access-Token': accessToken,
-      },
-      body: jsonEncode({'agent_task_id': parsedTaskId ?? taskId}),
-    );
+    final response = await http
+        .post(
+          Uri.parse('${AppEnvironment.apiServerUrl}${_endpoint(task)}'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Token': accessToken,
+          },
+          body: jsonEncode({'agent_task_id': parsedTaskId ?? taskId}),
+        )
+        .timeout(HttpTimeouts.business);
 
     if (response.statusCode != 200) {
       throw HttpException('HTTP ${response.statusCode}');
@@ -251,7 +259,9 @@ class TaskFileService {
       return cached;
     }
 
-    final response = await http.get(Uri.parse(downloadUrl));
+    final response = await http
+        .get(Uri.parse(downloadUrl))
+        .timeout(HttpTimeouts.transfer);
     if (response.statusCode != 200) {
       throw HttpException('HTTP ${response.statusCode}');
     }

@@ -12,6 +12,7 @@ import 'package:smart_display_mobile/core/log/app_log.dart';
 import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 
 import '../../core/constants/enum.dart';
+import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
@@ -73,7 +74,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       progress.success(l10n.settings_saved);
       await Future.delayed(const Duration(milliseconds: 600));
     } catch (e) {
-      progress.error(l10n.settings_save_failed);
+      progress.error(
+        NetworkErrorUtil.isNetworkOrTimeout(e)
+            ? l10n.network_or_timeout_tip
+            : l10n.settings_save_failed,
+      );
       await Future.delayed(const Duration(seconds: 4));
       rethrow;
     }
@@ -300,6 +305,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         final message = switch (error) {
           ImageProcessingException e => e.message,
           String s when s.isNotEmpty => s,
+          _ when NetworkErrorUtil.isNetworkOrTimeout(error) =>
+            l10n.network_or_timeout_tip,
           _ => l10n.image_processing_failed,
         };
         AppLog.instance.warning(

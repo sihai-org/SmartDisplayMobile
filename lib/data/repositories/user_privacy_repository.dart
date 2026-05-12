@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/constants/app_environment.dart';
 import '../../core/constants/user_privacy_constants.dart';
 import '../../core/log/app_log.dart';
+import '../../core/network/http_timeouts.dart';
 
 class UserPrivacyRepository {
   Future<void> acceptAgreement({
@@ -49,7 +50,7 @@ class UserPrivacyRepository {
           },
           body: jsonEncode(requestPayload),
         )
-        .timeout(const Duration(seconds: 5));
+        .timeout(HttpTimeouts.business);
 
     if (response.statusCode != 200) {
       throw UserPrivacyRequestException(

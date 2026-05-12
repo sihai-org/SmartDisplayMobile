@@ -12,6 +12,7 @@ import '../../core/providers/locale_provider.dart';
 import '../../core/router/app_router.dart';
 import '../../core/providers/ble_connection_provider.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/network/http_timeouts.dart';
 import '../../core/providers/audit_mode_provider.dart';
 import '../../core/log/app_log.dart';
 import '../../core/constants/app_environment.dart';
@@ -54,7 +55,9 @@ class ProfilePage extends ConsumerWidget {
       return;
     }
     try {
-      await Supabase.instance.client.auth.signOut();
+      await Supabase.instance.client.auth.signOut().timeout(
+        HttpTimeouts.business,
+      );
       AppLog.instance.info('after logout: 退登成功', tag: 'Auth');
       // 登出成功走 main.dart 的统一清理
     } catch (e, st) {

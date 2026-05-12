@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/constants/app_environment.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_display_mobile/core/errors/network_error_util.dart';
+import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
@@ -103,9 +105,11 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
     if (_isReporting) return;
     if (n == null || link == null || link.isEmpty) return;
 
-    final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+    final loginExpiredMessage = context.l10n.login_expired;final accessToken =
+        await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
     if (accessToken == null || accessToken.isEmpty) {
-      Fluttertoast.showToast(msg: context.l10n.login_expired);
+      Fluttertoast.showToast(msg: loginExpiredMessage);
       return;
     }
 
@@ -119,12 +123,9 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'data': {
-            'number': n,
-            'link': link,
-          },
+          'data': {'number': n, 'link': link},
         }),
-      );
+      ).timeout(HttpTimeouts.business);
 
       if (response.statusCode != 200) {
         AppLog.instance.warning(
@@ -148,6 +149,20 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
         _parsed = null;
         _parseError = null;
       });
+    } catch (error, stackTrace) {
+      AppLog.instance.error(
+        '[SerialNumberStats] report failed',
+        tag: 'SerialStats',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        Fluttertoast.showToast(
+          msg: NetworkErrorUtil.isNetworkOrTimeout(error)
+              ? context.l10n.network_or_timeout_tip
+              : context.l10n.report_failed,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isReporting = false);
@@ -259,8 +274,9 @@ class _SerialNumberStatsPageState extends ConsumerState<SerialNumberStatsPage> {
                               child: Text(
                                 l10n.copy_link,
                                 style: TextStyle(
-                                  fontSize:
-                                      Theme.of(context).textTheme.labelLarge?.fontSize,
+                                  fontSize: Theme.of(
+                                    context,
+                                  ).textTheme.labelLarge?.fontSize,
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),

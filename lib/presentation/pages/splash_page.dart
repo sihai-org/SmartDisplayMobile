@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:app_links/app_links.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 import 'package:smart_display_mobile/core/utils/check_update.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/deeplink/deep_link_handler.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/log/app_log.dart';
 import '../../core/utils/device_entry_coordinator.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -47,21 +48,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
+    );
 
     _animationController.forward();
   }
@@ -81,14 +74,23 @@ class _SplashPageState extends ConsumerState<SplashPage>
       }
 
       // Stream subscription
-      _linkSub = _appLinks!.uriLinkStream.listen((uri) {
+      _linkSub = _appLinks!.uriLinkStream.listen((uri) async {
         setState(() {
           _incomingUri = uri;
         });
         // If already authenticated and received a link while running, process immediately
-        final session = Supabase.instance.client.auth.currentSession;
-        if (session != null && mounted) {
-          _processDeepLink(uri);
+        try {
+          final session = await AuthManager.instance.ensureFreshSession();
+          if (session != null && mounted) {
+            _processDeepLink(uri);
+          }
+        } catch (e, st) {
+          AppLog.instance.error(
+            'process app link failed',
+            tag: 'Splash',
+            error: e,
+            stackTrace: st,
+          );
         }
       });
     } catch (e) {
@@ -109,7 +111,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
     unawaited(checkUpdateOnce(ref)); // 需要 dart:async
 
     try {
-      final session = Supabase.instance.client.auth.currentSession;
+      final session = await AuthManager.instance.ensureFreshSession();
       if (!mounted) return;
 
       // 先判断登录状态
@@ -169,7 +171,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     const SizedBox(height: 24),
                     Text(
                       context.l10n.splash_title,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
                             color: isDark ? Colors.white : Colors.black,
                             fontWeight: FontWeight.bold,
                           ),
@@ -178,10 +181,10 @@ class _SplashPageState extends ConsumerState<SplashPage>
                     Text(
                       context.l10n.splash_subtitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.7)
-                                : Colors.black.withOpacity(0.6),
-                          ),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.7)
+                            : Colors.black.withOpacity(0.6),
+                      ),
                     ),
                   ],
                 ),

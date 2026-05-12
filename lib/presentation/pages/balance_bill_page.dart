@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:smart_display_mobile/core/auth/auth_manager.dart';
 
 import '../../core/audit/audit_mode.dart';
+import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/log/app_log.dart';
 import '../../core/providers/audit_billing_provider.dart';
@@ -77,10 +78,10 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
 
   Future<void> _loadFirstPage() async {
     if (_isLoading) return;
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
+
     if (accessToken == null || accessToken.isEmpty) {
-      if (!mounted) return;
       setState(() {
         _items = const [];
         _nextPage = 1;
@@ -131,15 +132,18 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
         _hasError = true;
         _isLoading = false;
       });
+      if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
+        Fluttertoast.showToast(msg: context.l10n.network_or_timeout_tip);
+      }
     }
   }
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasNextPage) return;
-    final accessToken =
-        Supabase.instance.client.auth.currentSession?.accessToken;
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (!mounted) return;
+
     if (accessToken == null || accessToken.isEmpty) {
-      if (!mounted) return;
       setState(() {
         _hasError = _items.isEmpty;
       });
@@ -176,7 +180,11 @@ class _BalanceBillPageState extends ConsumerState<BalanceBillPage> {
         _hasError = _items.isEmpty;
         _isLoading = false;
       });
-      Fluttertoast.showToast(msg: context.l10n.billing_load_failed);
+      Fluttertoast.showToast(
+        msg: NetworkErrorUtil.isNetworkOrTimeout(error)
+            ? context.l10n.network_or_timeout_tip
+            : context.l10n.billing_load_failed,
+      );
     }
   }
 

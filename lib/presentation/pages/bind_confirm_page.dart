@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import '../../core/errors/network_error_util.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
+import '../../core/network/http_timeouts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +20,7 @@ import '../../core/constants/enum.dart';
 import '../../core/models/device_qr_data.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
 import '../../core/ble/reliable_queue.dart';
 import '../../data/repositories/saved_devices_repository.dart';
 import '../../core/utils/binding_flow_utils.dart';
@@ -298,10 +301,10 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
       }
 
       final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke(
-        functionName,
-        body: {'device_id': device.displayDeviceId},
-      );
+      await AuthManager.instance.ensureFreshSession();
+      final response = await supabase.functions
+          .invoke(functionName, body: {'device_id': device.displayDeviceId})
+          .timeout(HttpTimeouts.business);
       if (response.status != 200) {
         DeviceOnboardingLog.warning(
           event: DeviceOnboardingEvents.bindServerOtp,
@@ -310,10 +313,6 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           versionCode: device.versionCode,
           firmwareVersion: firmwareVersion,
           extra: {'status_code': response.status},
-        );
-        AppLog.instance.warning(
-          '[bindViaOtp] edge function pairing-otp non-200: ${response.status} ${response.data}',
-          tag: 'Supabase',
         );
         _showToastIfMounted((l10n) => l10n.bind_failed);
         return BindResult.fail;
@@ -342,6 +341,24 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
         _showToastIfMounted((l10n) => l10n.bind_failed);
         return BindResult.fail;
       }
+    } on TimeoutException catch (e, st) {
+      DeviceOnboardingLog.error(
+        event: DeviceOnboardingEvents.bindServerOtp,
+        result: 'timeout',
+        displayDeviceId: device.displayDeviceId,
+        versionCode: device.versionCode,
+        firmwareVersion: firmwareVersion,
+        error: e,
+        stackTrace: st,
+        extra: {
+          'error_type': e.runtimeType.toString(),
+          'error_message': 'pairing otp timed out; request result unknown',
+          'function_name': functionName,
+          'has_session': Supabase.instance.client.auth.currentSession != null,
+        },
+      );
+      _showToastIfMounted((l10n) => l10n.network_weak_retry_later);
+      return BindResult.fail;
     } on SocketException catch (e, st) {
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,
@@ -360,15 +377,11 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           'has_session': Supabase.instance.client.auth.currentSession != null,
         },
       );
-      AppLog.instance.error(
-        '[bindViaOtp] socket exception during $functionName',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
-      );
       _showToastIfMounted((l10n) => l10n.bind_mobile_network_error);
       return BindResult.fail;
     } catch (e, st) {
+      final isNetworkOrTimeout = NetworkErrorUtil.isNetworkOrTimeout(e);
+
       DeviceOnboardingLog.error(
         event: DeviceOnboardingEvents.bindServerOtp,
         result: 'fail',
@@ -382,15 +395,15 @@ class _BindConfirmPageState extends ConsumerState<BindConfirmPage> {
           'error_message': e.toString(),
           'function_name': functionName,
           'has_session': Supabase.instance.client.auth.currentSession != null,
+          'is_network_or_timeout': isNetworkOrTimeout,
         },
       );
-      AppLog.instance.error(
-        '[bindViaOtp] exception during pairing-otp + sendDeviceLoginCode',
-        tag: 'Supabase',
-        error: e,
-        stackTrace: st,
+      _showToastIfMounted(
+        (l10n) => isNetworkOrTimeout
+            ? l10n.bind_mobile_network_error
+            : l10n.bind_failed,
       );
-      _showToastIfMounted((l10n) => l10n.bind_failed);
+
       return BindResult.fail;
     }
 

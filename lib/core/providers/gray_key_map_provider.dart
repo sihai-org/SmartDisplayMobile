@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_display_mobile/core/log/biz_log_tag.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../auth/auth_manager.dart';
 import '../log/app_log.dart';
+import '../network/http_timeouts.dart';
 
 /// 灰度开关
 final grayKeyMapProvider =
     AsyncNotifierProvider<GrayKeyMapNotifier, Map<String, bool>>(
-  GrayKeyMapNotifier.new,
-);
+      GrayKeyMapNotifier.new,
+    );
 
 class GrayKeyMapNotifier extends AsyncNotifier<Map<String, bool>> {
-  static const _tag = 'grayKeyMapProvider';
+  static const _tag = 'grayKeyProvider';
 
   @override
   Future<Map<String, bool>> build() async {
@@ -38,21 +43,25 @@ class GrayKeyMapNotifier extends AsyncNotifier<Map<String, bool>> {
   }
 
   Future<Map<String, bool>> _fetchFromServer() async {
-    AppLog.instance.info('[$_tag] fetch');
+    AppLog.instance.info(
+      '[$_tag] call _fetchFromServer',
+      tag: BizLogTag.gray.value,
+    );
     try {
       final supabase = Supabase.instance.client;
-      final response = await supabase.functions.invoke(
-        'mobile_gray_key_map_get',
-        method: HttpMethod.get,
-      );
+      await AuthManager.instance.ensureFreshSession();
+      final response = await supabase.functions
+          .invoke('mobile_gray_key_map_get', method: HttpMethod.get)
+          .timeout(HttpTimeouts.business);
       AppLog.instance.info(
-        '[$_tag] status=${response.status} data=${response.data}',
+        '[$_tag] _fetchFromServer res: status=${response.status} data=${response.data}',
+        tag: BizLogTag.gray.value,
       );
 
       if (response.status != 200) {
         AppLog.instance.warning(
-          '[GrayKey] edge function mobile_gray_key_map_get non-200: ${response.status} ${response.data}',
-          tag: 'Supabase',
+          '[$_tag] _fetchFromServer res non-200: ${response.status} ${response.data}',
+          tag: BizLogTag.gray.value,
         );
       }
 
@@ -61,8 +70,8 @@ class GrayKeyMapNotifier extends AsyncNotifier<Map<String, bool>> {
 
       if (grayKeyMap is! Map) {
         AppLog.instance.warning(
-          '[GrayKey] grayKeyMap invalid type: ${grayKeyMap.runtimeType} $grayKeyMap',
-          tag: 'Supabase',
+          '[$_tag] _fetchFromServer res invalid type: ${grayKeyMap.runtimeType} $grayKeyMap',
+          tag: BizLogTag.gray.value,
         );
         return const <String, bool>{};
       }
@@ -71,12 +80,20 @@ class GrayKeyMapNotifier extends AsyncNotifier<Map<String, bool>> {
           .map((k, v) => MapEntry(k.toString(), v is bool ? v : (v == true)))
           .cast<String, bool>();
 
-      AppLog.instance.info('[$_tag] res=$res');
+      AppLog.instance.info('[$_tag] _fetchFromServer res=$res');
       return res;
+    } on TimeoutException catch (e, st) {
+      AppLog.instance.warning(
+        '[$_tag] _fetchFromServer timeout',
+        tag: BizLogTag.gray.value,
+        error: e,
+        stackTrace: st,
+      );
+      return const <String, bool>{};
     } catch (e, st) {
       AppLog.instance.error(
-        '[GrayKey] fetch failed',
-        tag: 'Supabase',
+        '[$_tag] _fetchFromServer error',
+        tag: BizLogTag.gray.value,
         error: e,
         stackTrace: st,
       );

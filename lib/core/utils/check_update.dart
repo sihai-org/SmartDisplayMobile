@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../router/app_router.dart';
 import '../models/version_update_config.dart';
+import '../network/http_timeouts.dart';
 import '../providers/version_update_provider.dart';
 
 bool _checkUpdateInFlight = false;
@@ -20,14 +21,12 @@ Future<bool> checkUpdateOnce(WidgetRef ref) async {
     // 兜底超时：10秒
     final result = await ref
         .read(versionUpdateCheckProvider.future)
-        .timeout(const Duration(seconds: 10));
+        .timeout(HttpTimeouts.business);
 
-    final currentPath =
-        appRouter.routeInformationProvider.value.uri.path;
+    final currentPath = appRouter.routeInformationProvider.value.uri.path;
 
     final shouldForceUpdate =
-        result?.forceUpdate == true &&
-            (result?.storeUrl?.isNotEmpty ?? false);
+        result?.forceUpdate == true && (result?.storeUrl?.isNotEmpty ?? false);
 
     if (shouldForceUpdate) {
       if (!_forceUpdateShown && currentPath != AppRoutes.forceUpdate) {
@@ -46,8 +45,7 @@ Future<bool> checkUpdateOnce(WidgetRef ref) async {
     } else {
       _forceUpdateShown = false;
       if (currentPath == AppRoutes.forceUpdate) {
-        final loggedIn =
-            Supabase.instance.client.auth.currentSession != null;
+        final loggedIn = Supabase.instance.client.auth.currentSession != null;
         Future.microtask(() {
           appRouter.go(loggedIn ? AppRoutes.home : AppRoutes.login);
         });

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/log/app_log.dart';
+import '../../core/network/http_timeouts.dart';
 
 abstract class VersionUpdateRepository {
   Future<VersionUpdateConfig?> getVersionUpdateConfig(PackageInfo packageInfo);
@@ -28,10 +29,12 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
       // version_name
       final versionName = packageInfo.version;
 
-      final response = await Supabase.instance.client.functions.invoke(
-        'mobile_check_update?platform=$platform&version_code=$versionCode&version_name=$versionName',
-        method: HttpMethod.get, // 一定要加
-      );
+      final response = await Supabase.instance.client.functions
+          .invoke(
+            'mobile_check_update?platform=$platform&version_code=$versionCode&version_name=$versionName',
+            method: HttpMethod.get, // 一定要加
+          )
+          .timeout(HttpTimeouts.business);
       final respData = response.data;
 
       AppLog.instance.info(
