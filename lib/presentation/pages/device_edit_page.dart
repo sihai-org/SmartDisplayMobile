@@ -926,9 +926,6 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Widget _buildUploadedWallpaperPreview(DeviceCustomizationState state) {
     final l10n = context.l10n;
     final paths = state.localWallpaperPaths;
-    if (state.isRefreshingWallpaperCache) {
-      return _buildWallpaperLoadingPlaceholder();
-    }
     if (paths.isEmpty) {
       return _buildWallpaperLoadingPlaceholder();
     }

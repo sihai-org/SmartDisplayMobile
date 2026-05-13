@@ -36,6 +36,24 @@ class DeviceCustomization {
       layout == LayoutType.defaultLayout &&
       wakeWord == defaultWakeWord;
 
+  /// 按字段值判断是否等价（用于幂等守卫，避免被无变化的 copyWith 误判为"已被编辑"）。
+  bool hasSameContent(DeviceCustomization other) {
+    if (identical(this, other)) return true;
+    if (wallpaper != other.wallpaper ||
+        layout != other.layout ||
+        wakeWord != other.wakeWord) {
+      return false;
+    }
+    final a = wallpaperInfos;
+    final b = other.wallpaperInfos;
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!a[i].hasSameContent(b[i])) return false;
+    }
+    return true;
+  }
+
   DeviceCustomization copyWith({
     List<CustomWallpaperInfo>? wallpaperInfos,
     WallpaperType? wallpaper,
@@ -111,6 +129,15 @@ class CustomWallpaperInfo {
   });
 
   bool get canDownload => downloadUrl.isNotEmpty;
+
+  /// 按字段值判断是否等价。
+  bool hasSameContent(CustomWallpaperInfo other) {
+    if (identical(this, other)) return true;
+    return key == other.key &&
+        md5 == other.md5 &&
+        mime == other.mime &&
+        downloadUrl == other.downloadUrl;
+  }
 
   static CustomWallpaperInfo fromJson(Map<String, dynamic> json) {
     final keyVal = json['key'];

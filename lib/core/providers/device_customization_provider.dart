@@ -193,7 +193,7 @@ class DeviceCustomizationNotifier
       if (remote == null || !mounted || state.displayDeviceId != deviceId) {
         return;
       }
-      if (!identical(state.customization, baselineCustomization)) {
+      if (!state.customization.hasSameContent(baselineCustomization)) {
         AppLog.instance.info(
           'remote customization discarded staleBaseline deviceId=$deviceId',
           tag: 'CustomizationPerf',
