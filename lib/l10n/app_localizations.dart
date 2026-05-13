@@ -221,6 +221,18 @@ abstract class AppLocalizations {
   /// **'Report issues or suggestions'**
   String get feedback_desc;
 
+  /// No description provided for @feedback_email_open_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'No email app is available.'**
+  String get feedback_email_open_failed;
+
+  /// No description provided for @feedback_email_subject.
+  ///
+  /// In en, this message translates to:
+  /// **'[{appTitle}] App Feedback'**
+  String feedback_email_subject(Object appTitle);
+
   /// No description provided for @account_security.
   ///
   /// In en, this message translates to:

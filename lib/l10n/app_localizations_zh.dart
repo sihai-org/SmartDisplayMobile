@@ -72,6 +72,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get feedback_desc => '报告问题或提出建议';
 
   @override
+  String get feedback_email_open_failed => '未找到可用的邮件应用。';
+
+  @override
+  String feedback_email_subject(Object appTitle) {
+    return '[$appTitle] 问题反馈';
+  }
+
+  @override
   String get account_security => '账号与安全';
 
   @override

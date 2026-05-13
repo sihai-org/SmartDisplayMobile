@@ -29,6 +29,27 @@ class ProfilePage extends ConsumerWidget {
     Fluttertoast.showToast(msg: message, gravity: ToastGravity.TOP);
   }
 
+  Future<void> _openFeedbackEmail(BuildContext context) async {
+    final l10n = context.l10n;
+    final subject = Uri.encodeComponent(
+      l10n.feedback_email_subject(l10n.appTitle),
+    );
+    final feedbackEmailUri = Uri(
+      scheme: 'mailto',
+      path: 'support@vzngpt.com',
+      query: 'subject=$subject',
+    );
+
+    final opened = await launchUrl(
+      feedbackEmailUri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!opened && context.mounted) {
+      _showTopToast(context, l10n.feedback_email_open_failed);
+    }
+  }
+
   // 只退出，不解绑（暂不调用 edge function: account_signout）
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     if (AuditMode.enabled) {
@@ -435,9 +456,7 @@ class ProfilePage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.feedback),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
-                  },
+                  onTap: () => _openFeedbackEmail(context),
                 ),
               ],
             ),

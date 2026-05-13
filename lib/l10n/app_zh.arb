@@ -21,7 +21,14 @@
   "help": "使用帮助",
   "help_desc": "查看使用说明和常见问题",
   "feedback": "问题反馈",
-  "feedback_desc": "报告问题或提出建议"
+  "feedback_desc": "报告问题或提出建议",
+  "feedback_email_open_failed": "未找到可用的邮件应用。",
+  "feedback_email_subject": "[{appTitle}] 问题反馈",
+  "@feedback_email_subject": {
+    "placeholders": {
+      "appTitle": {}
+    }
+  }
   ,
   "account_security": "账号与安全",
   "clear_device_settings_cache": "清理缓存",
