@@ -25,7 +25,6 @@ class DeviceCustomizationState {
   final bool isLoading;
   final bool isSaving;
   final bool isUploading;
-  final bool isRefreshingWallpaperCache;
   final List<String> localWallpaperPaths;
   final List<String> wakeWordCandidates;
 
@@ -35,7 +34,6 @@ class DeviceCustomizationState {
     this.isLoading = false,
     this.isSaving = false,
     this.isUploading = false,
-    this.isRefreshingWallpaperCache = false,
     this.localWallpaperPaths = const [],
     this.wakeWordCandidates = fallbackWakeWordCandidates,
   });
@@ -49,7 +47,6 @@ class DeviceCustomizationState {
     bool? isLoading,
     bool? isSaving,
     bool? isUploading,
-    bool? isRefreshingWallpaperCache,
     Object? localWallpaperPaths = _unset,
     Object? wakeWordCandidates = _unset,
   }) {
@@ -64,8 +61,6 @@ class DeviceCustomizationState {
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       isUploading: isUploading ?? this.isUploading,
-      isRefreshingWallpaperCache:
-          isRefreshingWallpaperCache ?? this.isRefreshingWallpaperCache,
 
       localWallpaperPaths: identical(localWallpaperPaths, _unset)
           ? this.localWallpaperPaths
@@ -99,7 +94,6 @@ class DeviceCustomizationNotifier
         displayDeviceId: displayDeviceId,
         customization: const DeviceCustomization.empty(),
         isLoading: false,
-        isRefreshingWallpaperCache: false,
         localWallpaperPaths: const [],
         wakeWordCandidates: fallbackWakeWordCandidates,
       );
@@ -228,15 +222,14 @@ class DeviceCustomizationNotifier
         currentWakeWord: remote.customization.wakeWord,
         candidates: mergedWakeWordCandidates,
       );
+      final nextCustomization = remote.customization.copyWith(
+        wakeWord: defaultWakeWordOnRefresh,
+      );
       state = state.copyWith(
-        customization: remote.customization.copyWith(
-          wakeWord: defaultWakeWordOnRefresh,
-        ),
-        isRefreshingWallpaperCache:
-            remote.customization.wallpaperInfos.isNotEmpty,
+        customization: nextCustomization,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
-      unawaited(_refreshWallpaperCache(deviceId, remote.customization));
+      unawaited(_refreshWallpaperCache(deviceId, nextCustomization));
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to refresh customization for $deviceId',
@@ -249,13 +242,13 @@ class DeviceCustomizationNotifier
 
   Future<void> _refreshWallpaperCache(
     String deviceId,
-    DeviceCustomization customization,
+    DeviceCustomization baselineCustomization,
   ) async {
     try {
       final wallpaperStopwatch = Stopwatch()..start();
       final localPaths = await _repo.syncWallpaperListCache(
         deviceId: deviceId,
-        wallpaperInfos: customization.wallpaperInfos,
+        wallpaperInfos: baselineCustomization.wallpaperInfos,
       );
       wallpaperStopwatch.stop();
       AppLog.instance.info(
@@ -263,11 +256,15 @@ class DeviceCustomizationNotifier
         tag: 'CustomizationPerf',
       );
       if (!mounted || state.displayDeviceId != deviceId) return;
+      if (!state.customization.hasSameContent(baselineCustomization)) {
+        AppLog.instance.info(
+          'wallpaper cache discarded staleBaseline deviceId=$deviceId',
+          tag: 'CustomizationPerf',
+        );
+        return;
+      }
 
-      state = state.copyWith(
-        isRefreshingWallpaperCache: false,
-        localWallpaperPaths: localPaths,
-      );
+      state = state.copyWith(localWallpaperPaths: localPaths);
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to refresh wallpaper cache for $deviceId',
@@ -275,8 +272,6 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
-      if (!mounted || state.displayDeviceId != deviceId) return;
-      state = state.copyWith(isRefreshingWallpaperCache: false);
     }
   }
 
@@ -398,7 +393,6 @@ class DeviceCustomizationNotifier
 
       state = state.copyWith(
         customization: next,
-        isRefreshingWallpaperCache: false,
         localWallpaperPaths: localPaths,
       );
     } catch (error, stackTrace) {
@@ -427,7 +421,6 @@ class DeviceCustomizationNotifier
 
     state = state.copyWith(
       customization: next,
-      isRefreshingWallpaperCache: false,
       localWallpaperPaths: const [],
     );
   }
@@ -530,7 +523,6 @@ class DeviceCustomizationNotifier
       customization: const DeviceCustomization.empty().copyWith(
         wakeWord: defaultWakeWordOnReset,
       ),
-      isRefreshingWallpaperCache: false,
       localWallpaperPaths: const [],
     );
   }

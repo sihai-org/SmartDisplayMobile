@@ -720,9 +720,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final isViewingEmptyCustom =
         isViewingCustom && !state.customization.wallpaperInfos.isNotEmpty;
     final isWallpaperPreviewPending =
-        state.isRefreshingWallpaperCache ||
-        (state.customization.wallpaperInfos.isNotEmpty &&
-            state.localWallpaperPaths.isEmpty);
+        state.customization.wallpaperInfos.isNotEmpty &&
+        state.localWallpaperPaths.isEmpty;
     final isWallpaperActionDisabled =
         isWallpaperPreviewPending || state.isUploading;
 
