@@ -201,6 +201,25 @@ class DeviceCustomizationNotifier
         return;
       }
 
+      // 守卫通过后再落盘，避免覆盖窗口期内的本地编辑/保存
+      final saveStopwatch = Stopwatch()..start();
+      await _repo.saveUserCustomization(deviceId, remote.customization);
+      saveStopwatch.stop();
+      AppLog.instance.info(
+        'remote customization local save done deviceId=$deviceId saveMs=${saveStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      if (!mounted || state.displayDeviceId != deviceId) {
+        return;
+      }
+      if (!state.customization.hasSameContent(baselineCustomization)) {
+        AppLog.instance.info(
+          'remote customization discarded staleBaselineAfterSave deviceId=$deviceId',
+          tag: 'CustomizationPerf',
+        );
+        return;
+      }
+
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         state.wakeWordCandidates,
         selectedWakeWord: remote.customization.wakeWord,

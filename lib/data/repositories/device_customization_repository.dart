@@ -302,13 +302,8 @@ class DeviceCustomizationRepository {
       }
 
       final newCustomization = DeviceCustomization.fromJson(customizationMap);
-      final saveStopwatch = Stopwatch()..start();
-      await saveUserCustomization(displayDeviceId, newCustomization);
-      saveStopwatch.stop();
-      AppLog.instance.info(
-        'device_customization_get local save done deviceId=$displayDeviceId saveMs=${saveStopwatch.elapsedMilliseconds}',
-        tag: 'CustomizationPerf',
-      );
+      // 不在 fetch 内写盘：由调用方在过时守卫通过后再决定是否落盘，
+      // 避免远端旧快照在异步窗口里覆盖刚保存的本地编辑。
 
       if (!syncWallpapers) {
         final localPaths = await getCachedWallpaperPaths(
