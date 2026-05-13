@@ -61,6 +61,12 @@ class DeviceCustomizationRepository {
     return '${StorageKeys.deviceCustomizationBase}_$uid';
   }
 
+  String? _wakeWordCandidatesStorageKeyForUser({String? fallbackUserId}) {
+    final uid = _resolveUserId(fallbackUserId: fallbackUserId);
+    if (uid == null || uid.isEmpty) return null;
+    return '${StorageKeys.deviceCustomizationBase}_wake_word_candidates_$uid';
+  }
+
   String _userFolder({String? fallbackUserId}) {
     final uid = _resolveUserId(fallbackUserId: fallbackUserId);
     if (uid == null || uid.isEmpty) return 'guest';
@@ -125,6 +131,74 @@ class DeviceCustomizationRepository {
     await _saveAll(all);
   }
 
+  Future<List<String>> getCachedWakeWordCandidates(String deviceId) async {
+    if (deviceId.isEmpty) return const [];
+    try {
+      final all = await _loadAllWakeWordCandidates();
+      return all[deviceId] ?? const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveWakeWordCandidates(
+    String deviceId,
+    List<String> candidates,
+  ) async {
+    if (deviceId.isEmpty) return;
+
+    final normalized = _normalizeWakeWordCandidates(candidates);
+    final all = await _loadAllWakeWordCandidates();
+    if (normalized.isEmpty) {
+      all.remove(deviceId);
+    } else {
+      all[deviceId] = normalized;
+    }
+    await _saveAllWakeWordCandidates(all);
+  }
+
+  Future<Map<String, List<String>>> _loadAllWakeWordCandidates() async {
+    final key = _wakeWordCandidatesStorageKeyForUser();
+    if (key == null) return {};
+    final raw = await _storage.read(key: key);
+    if (raw == null || raw.isEmpty) return {};
+
+    try {
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return {};
+      return decoded.map((deviceId, value) {
+        if (value is! List) {
+          return MapEntry(deviceId.toString(), const <String>[]);
+        }
+        return MapEntry(
+          deviceId.toString(),
+          _normalizeWakeWordCandidates(
+            value.map((item) => item?.toString() ?? '').toList(),
+          ),
+        );
+      });
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _saveAllWakeWordCandidates(
+    Map<String, List<String>> data,
+  ) async {
+    final key = _wakeWordCandidatesStorageKeyForUser();
+    if (key == null) return;
+    final encoded = json.encode(data);
+    await _storage.write(key: key, value: encoded);
+  }
+
+  List<String> _normalizeWakeWordCandidates(List<String> candidates) {
+    return candidates
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
   /// 清空当前用户所有设备的缓存（用于登出）。
   Future<void> clearCurrentUserData({String? fallbackUserId}) async {
     final userId = _resolveUserId(fallbackUserId: fallbackUserId);
@@ -134,6 +208,12 @@ class DeviceCustomizationRepository {
     final key = _storageKeyForUser(fallbackUserId: userId);
     if (key != null) {
       await _storage.delete(key: key);
+    }
+    final wakeWordKey = _wakeWordCandidatesStorageKeyForUser(
+      fallbackUserId: userId,
+    );
+    if (wakeWordKey != null) {
+      await _storage.delete(key: wakeWordKey);
     }
     try {
       final dir = await _wallpaperDir(userFolder: userFolder);
@@ -148,9 +228,15 @@ class DeviceCustomizationRepository {
   /// 从服务端获取指定设备的配置，并更新本地缓存
   /// 调用失败则返回 null
   Future<CustomizationFetchResult?> fetchUserCustomizationRemote(
-    String displayDeviceId,
-  ) async {
+    String displayDeviceId, {
+    bool syncWallpapers = true,
+  }) async {
+    final totalStopwatch = Stopwatch()..start();
     if (displayDeviceId.isEmpty) {
+      AppLog.instance.info(
+        'api device_customization_get skipped emptyDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
       return const CustomizationFetchResult.empty();
     }
     // 审核模式直接走本地缓存，避免网络访问
@@ -167,17 +253,29 @@ class DeviceCustomizationRepository {
     }
 
     try {
+      final sessionStopwatch = Stopwatch()..start();
       await AuthManager.instance.ensureFreshSession();
+      sessionStopwatch.stop();
+      AppLog.instance.info(
+        'device_customization_get session ready deviceId=$displayDeviceId sessionMs=${sessionStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      final apiStopwatch = Stopwatch()..start();
       final response = await Supabase.instance.client.functions
           .invoke(
-            'device_customization_get?device_id=${displayDeviceId}',
+            'device_customization_get?device_id=$displayDeviceId',
             method: HttpMethod.get, // 一定要加
           )
           .timeout(HttpTimeouts.business);
+      apiStopwatch.stop();
       final respData = response.data;
 
       AppLog.instance.info(
-        "device_customization_get status=${response.status}, data=${respData}",
+        'api device_customization_get status=${response.status} deviceId=$displayDeviceId httpMs=${apiStopwatch.elapsedMilliseconds} totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      AppLog.instance.info(
+        "device_customization_get status=${response.status}, data=$respData",
       );
 
       if (response.status != 200) {
@@ -194,11 +292,34 @@ class DeviceCustomizationRepository {
       }
 
       final newCustomization = DeviceCustomization.fromJson(customizationMap);
+      final saveStopwatch = Stopwatch()..start();
       await saveUserCustomization(displayDeviceId, newCustomization);
+      saveStopwatch.stop();
+      AppLog.instance.info(
+        'device_customization_get local save done deviceId=$displayDeviceId saveMs=${saveStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
 
-      final newLocalPaths = await _syncWallpaperListCache(
+      if (!syncWallpapers) {
+        final localPaths = await getCachedWallpaperPaths(
+          displayDeviceId,
+          infos: newCustomization.wallpaperInfos,
+        );
+        return CustomizationFetchResult(
+          customization: newCustomization,
+          localWallpaperPaths: localPaths,
+        );
+      }
+
+      final wallpaperStopwatch = Stopwatch()..start();
+      final newLocalPaths = await syncWallpaperListCache(
         deviceId: displayDeviceId,
         wallpaperInfos: newCustomization.wallpaperInfos,
+      );
+      wallpaperStopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper cache sync done deviceId=$displayDeviceId syncMs=${wallpaperStopwatch.elapsedMilliseconds} wallpapers=${newLocalPaths.length}',
+        tag: 'CustomizationPerf',
       );
 
       return CustomizationFetchResult(
@@ -206,6 +327,10 @@ class DeviceCustomizationRepository {
         localWallpaperPaths: newLocalPaths,
       );
     } on FunctionException catch (error, stackTrace) {
+      AppLog.instance.info(
+        'api device_customization_get failed deviceId=$displayDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
       AppLog.instance.warning(
         '[device_customization_get] status=${error.status}, details=${error.details}',
         tag: 'Supabase',
@@ -214,6 +339,10 @@ class DeviceCustomizationRepository {
       );
       return null;
     } catch (error, stackTrace) {
+      AppLog.instance.info(
+        'api device_customization_get failed deviceId=$displayDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
       AppLog.instance.warning(
         'Unexpected error when fetching customization',
         tag: 'Supabase',
@@ -321,6 +450,16 @@ class DeviceCustomizationRepository {
     }
   }
 
+  Future<List<String>> syncWallpaperListCache({
+    required String deviceId,
+    required List<CustomWallpaperInfo> wallpaperInfos,
+  }) {
+    return _syncWallpaperListCache(
+      deviceId: deviceId,
+      wallpaperInfos: wallpaperInfos,
+    );
+  }
+
   /// 按需更新本地缓存的壁纸图片
   Future<List<String>> _syncWallpaperListCache({
     required String deviceId,
@@ -331,64 +470,30 @@ class DeviceCustomizationRepository {
       return const [];
     }
 
-    final localPaths = <String>[];
     final expectedPaths = <String>[];
-
     for (var i = 0; i < wallpaperInfos.length; i++) {
-      final info = wallpaperInfos[i];
-
-      final ext = _resolveExtension(info);
-      final filePath = await _wallpaperFilePath(
-        deviceId,
-        extension: ext,
-        index: i,
-      );
-      final file = File(filePath);
-      expectedPaths.add(file.path);
-      final remoteMd5 = info.md5.trim();
-      final downloadUrl = info.downloadUrl;
-
       try {
-        if (await file.exists()) {
-          final localMd5 = await _computeFileMd5(file);
-          if (localMd5 != null &&
-              remoteMd5.isNotEmpty &&
-              remoteMd5 == localMd5) {
-            localPaths.add(file.path);
-            continue;
-          }
-        }
-
-        if (downloadUrl == null || downloadUrl.isEmpty) {
-          if (await file.exists()) {
-            localPaths.add(file.path);
-          }
-          continue;
-        }
-
-        await _downloadToFile(downloadUrl, file);
-        final downloadedMd5 = await _computeFileMd5(file);
-        if (remoteMd5.isNotEmpty &&
-            downloadedMd5 != null &&
-            remoteMd5 != downloadedMd5) {
-          AppLog.instance.warning(
-            'Wallpaper md5 mismatch, remote=$remoteMd5, local=$downloadedMd5',
-            tag: 'Customization',
-          );
-        }
-        localPaths.add(file.path);
+        final filePath = await _wallpaperFilePath(
+          deviceId,
+          extension: _resolveExtension(wallpaperInfos[i]),
+          index: i,
+        );
+        expectedPaths.add(filePath);
       } catch (error, stackTrace) {
         AppLog.instance.warning(
-          'Failed to sync wallpaper cache',
+          'Failed to resolve wallpaper cache path',
           tag: 'Customization',
           error: error,
           stackTrace: stackTrace,
         );
-        if (await file.exists()) {
-          localPaths.add(file.path);
-        }
       }
     }
+
+    final results = await Future.wait([
+      for (var i = 0; i < wallpaperInfos.length; i++)
+        _syncOneWallpaperCache(deviceId, wallpaperInfos[i], i),
+    ]);
+    final localPaths = results.whereType<String>().toList(growable: false);
 
     await _removeStaleCachedWallpapers(
       deviceId: deviceId,
@@ -396,6 +501,100 @@ class DeviceCustomizationRepository {
     );
 
     return localPaths;
+  }
+
+  Future<String?> _syncOneWallpaperCache(
+    String deviceId,
+    CustomWallpaperInfo info,
+    int index,
+  ) async {
+    final itemStopwatch = Stopwatch()..start();
+    File? file;
+
+    try {
+      final ext = _resolveExtension(info);
+      final filePath = await _wallpaperFilePath(
+        deviceId,
+        extension: ext,
+        index: index,
+      );
+      file = File(filePath);
+      final remoteMd5 = info.md5.trim();
+      final downloadUrl = info.downloadUrl;
+
+      if (await file.exists()) {
+        final md5Stopwatch = Stopwatch()..start();
+        final localMd5 = await _computeFileMd5(file);
+        md5Stopwatch.stop();
+        AppLog.instance.info(
+          'wallpaper md5 checked deviceId=$deviceId index=$index md5Ms=${md5Stopwatch.elapsedMilliseconds}',
+          tag: 'CustomizationPerf',
+        );
+        if (localMd5 != null && remoteMd5.isNotEmpty && remoteMd5 == localMd5) {
+          itemStopwatch.stop();
+          AppLog.instance.info(
+            'wallpaper cache hit deviceId=$deviceId index=$index itemMs=${itemStopwatch.elapsedMilliseconds}',
+            tag: 'CustomizationPerf',
+          );
+          return file.path;
+        }
+      }
+
+      if (downloadUrl.isEmpty) {
+        final localPath = await file.exists() ? file.path : null;
+        itemStopwatch.stop();
+        AppLog.instance.info(
+          'wallpaper cache fallback deviceId=$deviceId index=$index hasDownloadUrl=false itemMs=${itemStopwatch.elapsedMilliseconds}',
+          tag: 'CustomizationPerf',
+        );
+        return localPath;
+      }
+
+      final downloadStopwatch = Stopwatch()..start();
+      await _downloadToFile(downloadUrl, file);
+      downloadStopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper downloaded deviceId=$deviceId index=$index downloadMs=${downloadStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      final downloadedMd5Stopwatch = Stopwatch()..start();
+      final downloadedMd5 = await _computeFileMd5(file);
+      downloadedMd5Stopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper downloaded md5 checked deviceId=$deviceId index=$index md5Ms=${downloadedMd5Stopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      if (remoteMd5.isNotEmpty &&
+          downloadedMd5 != null &&
+          remoteMd5 != downloadedMd5) {
+        AppLog.instance.warning(
+          'Wallpaper md5 mismatch, remote=$remoteMd5, local=$downloadedMd5',
+          tag: 'Customization',
+        );
+      }
+      itemStopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper cache item done deviceId=$deviceId index=$index itemMs=${itemStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      return file.path;
+    } catch (error, stackTrace) {
+      itemStopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper cache item failed deviceId=$deviceId index=$index itemMs=${itemStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+      AppLog.instance.warning(
+        'Failed to sync wallpaper cache',
+        tag: 'Customization',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (file != null && await file.exists()) {
+        return file.path;
+      }
+      return null;
+    }
   }
 
   Future<void> _removeStaleCachedWallpapers({

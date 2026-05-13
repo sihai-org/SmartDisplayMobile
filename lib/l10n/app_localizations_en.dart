@@ -87,6 +87,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get account_security => 'Account & Security';
 
   @override
+  String get clear_device_settings_cache => 'Clear Cache';
+
+  @override
+  String get clear_device_settings_cache_confirm => 'This clears local device settings and wallpaper files on this phone. Remote settings will not be deleted.';
+
+  @override
+  String get clear_device_settings_cache_done => 'Device settings cache cleared.';
+
+  @override
+  String get clear_device_settings_cache_failed => 'Failed to clear device settings cache.';
+
+  @override
+  String get clear_cache => 'Clear Cache';
+
+  @override
   String get billing_title => 'Billing';
 
   @override
@@ -888,6 +903,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reset_to_default => 'Reset to default';
 
   @override
+  String get reset_to_default_confirm_title => 'Restore default settings?';
+
+  @override
+  String get reset_to_default_confirm_message => 'After confirmation, the default wallpaper, default layout, and default wake word will be restored. Custom wallpapers will also be deleted.';
+
+  @override
+  String get reset_to_default_confirm_action => 'Confirm';
+
+  @override
   String get device_edit_load_failed => 'Unable to load device settings. Please try again.';
 
   @override
@@ -1005,6 +1029,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get new_wallpaper => 'New wallpaper';
+
+  @override
+  String get wallpaper_loading => 'Loading wallpaper...';
 
   @override
   String get loading => 'Loading...';

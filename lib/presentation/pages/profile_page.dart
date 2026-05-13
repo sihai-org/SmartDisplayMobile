@@ -6,6 +6,7 @@ import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
+import '../../data/repositories/device_customization_repository.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
@@ -73,6 +74,52 @@ class ProfilePage extends ConsumerWidget {
       Fluttertoast.showToast(msg: l10n.signout_failed);
       // 登出失败先啥也不干
       return;
+    }
+  }
+
+  Future<void> _clearDeviceSettingsCache(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l10n = context.l10n;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.clear_cache),
+        content: Text(l10n.clear_device_settings_cache_confirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.clear_cache),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await DeviceCustomizationRepository().clearCurrentUserData(
+        fallbackUserId: Supabase.instance.client.auth.currentUser?.id,
+      );
+      AppLog.instance.info(
+        'Device settings cache cleared from profile',
+        tag: 'CustomizationPerf',
+      );
+      if (!context.mounted) return;
+      _showTopToast(context, l10n.clear_device_settings_cache_done);
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to clear device settings cache from profile',
+        tag: 'CustomizationPerf',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (!context.mounted) return;
+      _showTopToast(context, l10n.clear_device_settings_cache_failed);
     }
   }
 
@@ -267,6 +314,12 @@ class ProfilePage extends ConsumerWidget {
                   title: Text(l10n.account_security),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(AppRoutes.accountSecurity),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.clear_cache),
+                  trailing: const Icon(Icons.cleaning_services_outlined),
+                  onTap: () => _clearDeviceSettingsCache(context, ref),
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),

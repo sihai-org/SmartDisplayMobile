@@ -251,6 +251,36 @@ abstract class AppLocalizations {
   /// **'Account & Security'**
   String get account_security;
 
+  /// No description provided for @clear_device_settings_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get clear_device_settings_cache;
+
+  /// No description provided for @clear_device_settings_cache_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'This clears local device settings and wallpaper files on this phone. Remote settings will not be deleted.'**
+  String get clear_device_settings_cache_confirm;
+
+  /// No description provided for @clear_device_settings_cache_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Device settings cache cleared.'**
+  String get clear_device_settings_cache_done;
+
+  /// No description provided for @clear_device_settings_cache_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to clear device settings cache.'**
+  String get clear_device_settings_cache_failed;
+
+  /// No description provided for @clear_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get clear_cache;
+
   /// No description provided for @billing_title.
   ///
   /// In en, this message translates to:
@@ -1793,6 +1823,24 @@ abstract class AppLocalizations {
   /// **'Reset to default'**
   String get reset_to_default;
 
+  /// No description provided for @reset_to_default_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore default settings?'**
+  String get reset_to_default_confirm_title;
+
+  /// No description provided for @reset_to_default_confirm_message.
+  ///
+  /// In en, this message translates to:
+  /// **'After confirmation, the default wallpaper, default layout, and default wake word will be restored. Custom wallpapers will also be deleted.'**
+  String get reset_to_default_confirm_message;
+
+  /// No description provided for @reset_to_default_confirm_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get reset_to_default_confirm_action;
+
   /// No description provided for @device_edit_load_failed.
   ///
   /// In en, this message translates to:
@@ -1990,6 +2038,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New wallpaper'**
   String get new_wallpaper;
+
+  /// No description provided for @wallpaper_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading wallpaper...'**
+  String get wallpaper_loading;
 
   /// No description provided for @loading.
   ///

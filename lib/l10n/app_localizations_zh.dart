@@ -87,6 +87,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get account_security => '账号与安全';
 
   @override
+  String get clear_device_settings_cache => '清理缓存';
+
+  @override
+  String get clear_device_settings_cache_confirm => '会清理本机保存的设备设置和壁纸文件，不会删除远端设置。';
+
+  @override
+  String get clear_device_settings_cache_done => '设备设置缓存已清理';
+
+  @override
+  String get clear_device_settings_cache_failed => '设备设置缓存清理失败';
+
+  @override
+  String get clear_cache => '清理缓存';
+
+  @override
   String get billing_title => '账单';
 
   @override
@@ -888,6 +903,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reset_to_default => '恢复默认';
 
   @override
+  String get reset_to_default_confirm_title => '恢复默认设置？';
+
+  @override
+  String get reset_to_default_confirm_message => '确认后将恢复默认壁纸、默认布局和默认唤醒词。同时，自定义壁纸会被删除。';
+
+  @override
+  String get reset_to_default_confirm_action => '确认';
+
+  @override
   String get device_edit_load_failed => '设备设置加载失败，请重试。';
 
   @override
@@ -1005,6 +1029,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get new_wallpaper => '新壁纸';
+
+  @override
+  String get wallpaper_loading => '壁纸加载中...';
 
   @override
   String get loading => '加载中...';

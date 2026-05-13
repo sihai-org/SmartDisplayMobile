@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart' as crypto;
@@ -24,6 +25,7 @@ class DeviceCustomizationState {
   final bool isLoading;
   final bool isSaving;
   final bool isUploading;
+  final bool isRefreshingWallpaperCache;
   final List<String> localWallpaperPaths;
   final List<String> wakeWordCandidates;
 
@@ -33,6 +35,7 @@ class DeviceCustomizationState {
     this.isLoading = false,
     this.isSaving = false,
     this.isUploading = false,
+    this.isRefreshingWallpaperCache = false,
     this.localWallpaperPaths = const [],
     this.wakeWordCandidates = fallbackWakeWordCandidates,
   });
@@ -46,6 +49,7 @@ class DeviceCustomizationState {
     bool? isLoading,
     bool? isSaving,
     bool? isUploading,
+    bool? isRefreshingWallpaperCache,
     Object? localWallpaperPaths = _unset,
     Object? wakeWordCandidates = _unset,
   }) {
@@ -60,6 +64,8 @@ class DeviceCustomizationState {
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       isUploading: isUploading ?? this.isUploading,
+      isRefreshingWallpaperCache:
+          isRefreshingWallpaperCache ?? this.isRefreshingWallpaperCache,
 
       localWallpaperPaths: identical(localWallpaperPaths, _unset)
           ? this.localWallpaperPaths
@@ -87,58 +93,66 @@ class DeviceCustomizationNotifier
 
   /// 初始化 / 加载（本地 + 远端）。
   Future<void> load(String? displayDeviceId) async {
+    final totalStopwatch = Stopwatch()..start();
     if (displayDeviceId == null || displayDeviceId.isEmpty) {
       state = state.copyWith(
         displayDeviceId: displayDeviceId,
         customization: const DeviceCustomization.empty(),
+        isLoading: false,
+        isRefreshingWallpaperCache: false,
         localWallpaperPaths: const [],
         wakeWordCandidates: fallbackWakeWordCandidates,
+      );
+      AppLog.instance.info(
+        'load skipped emptyDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
       );
       return;
     }
 
+    AppLog.instance.info(
+      'load start deviceId=$displayDeviceId',
+      tag: 'CustomizationPerf',
+    );
     state = state.copyWith(displayDeviceId: displayDeviceId, isLoading: true);
 
     try {
-      // 先本地
+      final localStopwatch = Stopwatch()..start();
       final local = await _repo.getUserCustomization(displayDeviceId);
       final localPaths = await _repo.getCachedWallpaperPaths(
         displayDeviceId,
         infos: local.wallpaperInfos,
       );
-      state = state.copyWith(
-        customization: local,
-        localWallpaperPaths: localPaths,
-      );
-
-      // 再远端
-      final remote = await _repo.fetchUserCustomizationRemote(displayDeviceId);
-      if (remote != null) {
-        state = state.copyWith(
-          customization: remote.customization,
-          localWallpaperPaths: remote.localWallpaperPaths,
-        );
-      }
-
-      final wakeWordCandidates = await _fetchWakeWordCandidates(
+      final cachedWakeWordCandidates = await _repo.getCachedWakeWordCandidates(
         displayDeviceId,
       );
-      // 当前版本约定：默认唤醒词等价于服务端候选列表首项；
-      // 客户端加载后会补齐为该显式值，后续保存 customization 时一并持久化。
+      localStopwatch.stop();
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
-        wakeWordCandidates,
-        selectedWakeWord: state.customization.wakeWord,
+        cachedWakeWordCandidates,
+        selectedWakeWord: local.wakeWord,
       );
       final defaultWakeWordOnLoad = _defaultWakeWordSelection(
-        currentWakeWord: state.customization.wakeWord,
+        currentWakeWord: local.wakeWord,
         candidates: mergedWakeWordCandidates,
       );
+      AppLog.instance.info(
+        'local customization loaded deviceId=$displayDeviceId localMs=${localStopwatch.elapsedMilliseconds} wallpapers=${localPaths.length} wakeWords=${cachedWakeWordCandidates.length}',
+        tag: 'CustomizationPerf',
+      );
       state = state.copyWith(
-        customization: state.customization.copyWith(
-          wakeWord: defaultWakeWordOnLoad,
-        ),
+        customization: local.copyWith(wakeWord: defaultWakeWordOnLoad),
+        isLoading: false,
+        localWallpaperPaths: localPaths,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
+      totalStopwatch.stop();
+      AppLog.instance.info(
+        'load loading false deviceId=$displayDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
+
+      unawaited(_refreshRemoteCustomization(displayDeviceId));
+      unawaited(_refreshWakeWordCandidates(displayDeviceId));
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to load customization for $displayDeviceId',
@@ -148,7 +162,142 @@ class DeviceCustomizationNotifier
       );
       rethrow;
     } finally {
-      state = state.copyWith(isLoading: false);
+      if (state.isLoading) {
+        state = state.copyWith(isLoading: false);
+        if (totalStopwatch.isRunning) {
+          totalStopwatch.stop();
+        }
+        AppLog.instance.info(
+          'load loading false deviceId=$displayDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+          tag: 'CustomizationPerf',
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshRemoteCustomization(String deviceId) async {
+    try {
+      final remoteStopwatch = Stopwatch()..start();
+      final remote = await _repo.fetchUserCustomizationRemote(
+        deviceId,
+        syncWallpapers: false,
+      );
+      remoteStopwatch.stop();
+      AppLog.instance.info(
+        'remote customization finished deviceId=$deviceId remoteTotalMs=${remoteStopwatch.elapsedMilliseconds} hasRemote=${remote != null} wallpapers=${remote?.localWallpaperPaths.length ?? 0}',
+        tag: 'CustomizationPerf',
+      );
+      if (remote == null || !mounted || state.displayDeviceId != deviceId) {
+        return;
+      }
+
+      final mergedWakeWordCandidates = _mergeWakeWordCandidates(
+        state.wakeWordCandidates,
+        selectedWakeWord: remote.customization.wakeWord,
+      );
+      final defaultWakeWordOnRefresh = _defaultWakeWordSelection(
+        currentWakeWord: remote.customization.wakeWord,
+        candidates: mergedWakeWordCandidates,
+      );
+      state = state.copyWith(
+        customization: remote.customization.copyWith(
+          wakeWord: defaultWakeWordOnRefresh,
+        ),
+        isRefreshingWallpaperCache:
+            remote.customization.wallpaperInfos.isNotEmpty,
+        wakeWordCandidates: mergedWakeWordCandidates,
+      );
+      unawaited(_refreshWallpaperCache(deviceId, remote.customization));
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to refresh customization for $deviceId',
+        tag: 'Customization',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _refreshWallpaperCache(
+    String deviceId,
+    DeviceCustomization customization,
+  ) async {
+    try {
+      final wallpaperStopwatch = Stopwatch()..start();
+      final localPaths = await _repo.syncWallpaperListCache(
+        deviceId: deviceId,
+        wallpaperInfos: customization.wallpaperInfos,
+      );
+      wallpaperStopwatch.stop();
+      AppLog.instance.info(
+        'wallpaper cache refresh finished deviceId=$deviceId wallpaperTotalMs=${wallpaperStopwatch.elapsedMilliseconds} wallpapers=${localPaths.length}',
+        tag: 'CustomizationPerf',
+      );
+      if (!mounted || state.displayDeviceId != deviceId) return;
+
+      state = state.copyWith(
+        isRefreshingWallpaperCache: false,
+        localWallpaperPaths: localPaths,
+      );
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to refresh wallpaper cache for $deviceId',
+        tag: 'Customization',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (!mounted || state.displayDeviceId != deviceId) return;
+      state = state.copyWith(isRefreshingWallpaperCache: false);
+    }
+  }
+
+  Future<void> _refreshWakeWordCandidates(String deviceId) async {
+    try {
+      final wakeWordStopwatch = Stopwatch()..start();
+      final wakeWordCandidates = await _fetchWakeWordCandidates(
+        deviceId,
+        returnFallbackOnError: false,
+      );
+      wakeWordStopwatch.stop();
+      AppLog.instance.info(
+        'wake word candidates loaded deviceId=$deviceId wakeWordTotalMs=${wakeWordStopwatch.elapsedMilliseconds} count=${wakeWordCandidates.length}',
+        tag: 'CustomizationPerf',
+      );
+      try {
+        await _repo.saveWakeWordCandidates(deviceId, wakeWordCandidates);
+      } catch (error, stackTrace) {
+        AppLog.instance.warning(
+          'Failed to cache wake word candidates for $deviceId',
+          tag: BizLogTag.wakeword.value,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+      if (!mounted || state.displayDeviceId != deviceId) return;
+
+      // 当前版本约定：默认唤醒词等价于服务端候选列表首项；
+      // 客户端加载后会补齐为该显式值，后续保存 customization 时一并持久化。
+      final mergedWakeWordCandidates = _mergeWakeWordCandidates(
+        wakeWordCandidates,
+        selectedWakeWord: state.customization.wakeWord,
+      );
+      final defaultWakeWordOnRefresh = _defaultWakeWordSelection(
+        currentWakeWord: state.customization.wakeWord,
+        candidates: mergedWakeWordCandidates,
+      );
+      state = state.copyWith(
+        customization: state.customization.copyWith(
+          wakeWord: defaultWakeWordOnRefresh,
+        ),
+        wakeWordCandidates: mergedWakeWordCandidates,
+      );
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to refresh wake word candidates for $deviceId',
+        tag: BizLogTag.wakeword.value,
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -227,6 +376,7 @@ class DeviceCustomizationNotifier
 
       state = state.copyWith(
         customization: next,
+        isRefreshingWallpaperCache: false,
         localWallpaperPaths: localPaths,
       );
     } catch (error, stackTrace) {
@@ -253,7 +403,11 @@ class DeviceCustomizationNotifier
       wallpaper: WallpaperType.defaultWallpaper,
     );
 
-    state = state.copyWith(customization: next, localWallpaperPaths: const []);
+    state = state.copyWith(
+      customization: next,
+      isRefreshingWallpaperCache: false,
+      localWallpaperPaths: const [],
+    );
   }
 
   /// 将当前状态保存到远端
@@ -354,6 +508,7 @@ class DeviceCustomizationNotifier
       customization: const DeviceCustomization.empty().copyWith(
         wakeWord: defaultWakeWordOnReset,
       ),
+      isRefreshingWallpaperCache: false,
       localWallpaperPaths: const [],
     );
   }
@@ -492,22 +647,41 @@ class DeviceCustomizationNotifier
     return const [];
   }
 
-  Future<List<String>> _fetchWakeWordCandidates(String deviceId) async {
+  Future<List<String>> _fetchWakeWordCandidates(
+    String deviceId, {
+    bool returnFallbackOnError = true,
+  }) async {
+    final totalStopwatch = Stopwatch()..start();
     if (AuditMode.enabled) {
+      AppLog.instance.info(
+        'api wakeword/get_word_candidates skipped auditMode deviceId=$deviceId apiMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
       return fallbackWakeWordCandidates;
     }
 
+    final tokenStopwatch = Stopwatch()..start();
     final accessToken = await AuthManager.instance.getFreshAccessToken();
+    tokenStopwatch.stop();
+    AppLog.instance.info(
+      'wakeword token ready deviceId=$deviceId tokenMs=${tokenStopwatch.elapsedMilliseconds} hasToken=${accessToken != null && accessToken.isNotEmpty}',
+      tag: 'CustomizationPerf',
+    );
     if (accessToken == null || accessToken.isEmpty || deviceId.isEmpty) {
       AppLog.instance.error(
         '_fetchWakeWordCandidates invalid params',
         tag: BizLogTag.wakeword.value,
+      );
+      AppLog.instance.info(
+        'api wakeword/get_word_candidates skipped invalidParams deviceId=$deviceId apiMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
       );
 
       return fallbackWakeWordCandidates;
     }
 
     try {
+      final apiStopwatch = Stopwatch()..start();
       final response = await http
           .post(
             Uri.parse(
@@ -520,6 +694,11 @@ class DeviceCustomizationNotifier
             },
           )
           .timeout(HttpTimeouts.business);
+      apiStopwatch.stop();
+      AppLog.instance.info(
+        'api wakeword/get_word_candidates status=${response.statusCode} deviceId=$deviceId httpMs=${apiStopwatch.elapsedMilliseconds} totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
 
       AppLog.instance.info(
         'response=${response.body}',
@@ -538,12 +717,19 @@ class DeviceCustomizationNotifier
       }
       return candidates;
     } catch (error, stackTrace) {
+      AppLog.instance.info(
+        'api wakeword/get_word_candidates failed deviceId=$deviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        tag: 'CustomizationPerf',
+      );
       AppLog.instance.warning(
         'Failed to fetch wake word candidates for $deviceId',
         tag: BizLogTag.wakeword.value,
         error: error,
         stackTrace: stackTrace,
       );
+      if (!returnFallbackOnError) {
+        rethrow;
+      }
       return fallbackWakeWordCandidates;
     }
   }
