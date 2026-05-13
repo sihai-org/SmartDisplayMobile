@@ -6,7 +6,6 @@ import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
-import '../../data/repositories/device_customization_repository.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/providers/saved_devices_provider.dart';
 import '../../core/providers/locale_provider.dart';
@@ -67,7 +66,7 @@ class ProfilePage extends ConsumerWidget {
         ref.read(grayKeyMapProvider.notifier).clear();
       } catch (_) {}
       try {
-        await AppCacheCleanup.clearOnLogout(
+        await AppCacheCleanup.clearLocalCaches(
           fallbackUserId: Supabase.instance.client.auth.currentUser?.id,
         );
       } catch (_) {}
@@ -123,9 +122,8 @@ class ProfilePage extends ConsumerWidget {
     if (confirm != true) return;
 
     try {
-      await DeviceCustomizationRepository().clearCurrentUserData(
-        fallbackUserId: Supabase.instance.client.auth.currentUser?.id,
-      );
+      final fallbackUserId = Supabase.instance.client.auth.currentUser?.id;
+      await AppCacheCleanup.clearLocalCaches(fallbackUserId: fallbackUserId);
       AppLog.instance.info(
         'Device settings cache cleared from profile',
         tag: 'CustomizationPerf',

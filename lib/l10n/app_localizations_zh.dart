@@ -95,7 +95,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clear_device_settings_cache => '清理缓存';
 
   @override
-  String get clear_device_settings_cache_confirm => '会清理本机保存的设备设置和壁纸文件，不会删除远端设置。';
+  String get clear_device_settings_cache_confirm => '会清理本机保存的壁纸和任务文件缓存，不会影响设备设置。';
 
   @override
   String get clear_device_settings_cache_done => '设备设置缓存已清理';

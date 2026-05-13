@@ -199,12 +199,12 @@ class DeviceCustomizationRepository {
         .toList(growable: false);
   }
 
-  /// 清空当前用户所有设备的缓存（用于登出）。
+  /// 清空当前用户在 SecureStorage 中的设备设置（用于登出）。
+  /// 不动壁纸图片文件，那部分由 AppCacheCleanup 统一负责。
   Future<void> clearCurrentUserData({String? fallbackUserId}) async {
     final userId = _resolveUserId(fallbackUserId: fallbackUserId);
     if (userId == null || userId.isEmpty) return;
 
-    final userFolder = _userFolder(fallbackUserId: userId);
     final key = _storageKeyForUser(fallbackUserId: userId);
     if (key != null) {
       await _storage.delete(key: key);
@@ -215,6 +215,16 @@ class DeviceCustomizationRepository {
     if (wakeWordKey != null) {
       await _storage.delete(key: wakeWordKey);
     }
+  }
+
+  /// 仅清空当前用户的本地壁纸图片文件（不影响 SecureStorage 中的配置）。
+  Future<void> clearWallpaperFilesForCurrentUser({
+    String? fallbackUserId,
+  }) async {
+    final userId = _resolveUserId(fallbackUserId: fallbackUserId);
+    if (userId == null || userId.isEmpty) return;
+
+    final userFolder = _userFolder(fallbackUserId: userId);
     try {
       final dir = await _wallpaperDir(userFolder: userFolder);
       if (await dir.exists()) {

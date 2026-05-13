@@ -35,7 +35,7 @@
   ,
   "account_security": "账号与安全",
   "clear_device_settings_cache": "清理缓存",
-  "clear_device_settings_cache_confirm": "会清理本机保存的设备设置和壁纸文件，不会删除远端设置。",
+  "clear_device_settings_cache_confirm": "会清理本机保存的壁纸和任务文件缓存，不会影响设备设置。",
   "clear_device_settings_cache_done": "设备设置缓存已清理",
   "clear_device_settings_cache_failed": "设备设置缓存清理失败",
   "clear_cache": "清理缓存",

@@ -19,7 +19,6 @@ import 'core/l10n/l10n_extensions.dart';
 import 'core/providers/lifecycle_provider.dart';
 import 'core/providers/saved_devices_provider.dart';
 import 'core/providers/gray_key_map_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 如果你要清 SharedPreferences
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'core/log/app_log.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -145,32 +144,18 @@ class _SmartDisplayAppState extends ConsumerState<SmartDisplayApp> {
     ref.invalidate(bleConnectionProvider);
     ref.read(grayKeyMapProvider.notifier).clear();
 
-    // 3) 清理本地缓存/偏好（按你的项目来定）
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      // 举例：如果你把设备列表、本地 flags 持久化了，就删掉或重置
-      // await prefs.remove('saved_devices');
-      // await prefs.clear(); // 如果你想一把全清
-    } catch (_) {}
+    final cleanupUserId = userId ?? _lastSignedInUserId;
 
-    // 4) 解绑/停止其它前台监听（如有）
-    try {
-      // 比如：DeepLinkHandler 有 dispose 能力就调用
-      // await DeepLinkHandler.dispose();
-    } catch (_) {}
-
-    // 5) 清理本地设备自定义（壁纸、布局）缓存
+    // 3) 清理本地设备设置（SecureStorage）
     try {
       await DeviceCustomizationRepository().clearCurrentUserData(
-        fallbackUserId: userId ?? _lastSignedInUserId,
+        fallbackUserId: cleanupUserId,
       );
     } catch (_) {}
 
-    // 6) 清理应用临时缓存（如 PDF 预览缓存）
+    // 4) 清理本地缓存文件（壁纸、任务 PDF/PPT、临时文件）
     try {
-      await AppCacheCleanup.clearOnLogout(
-        fallbackUserId: userId ?? _lastSignedInUserId,
-      );
+      await AppCacheCleanup.clearLocalCaches(fallbackUserId: cleanupUserId);
     } catch (_) {}
 
     AppLog.instance.info('_performGlobalCleanup end', tag: 'App');

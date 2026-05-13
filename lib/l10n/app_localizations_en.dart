@@ -95,7 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clear_device_settings_cache => 'Clear Cache';
 
   @override
-  String get clear_device_settings_cache_confirm => 'This clears local device settings and wallpaper files on this phone. Remote settings will not be deleted.';
+  String get clear_device_settings_cache_confirm => 'This clears locally cached wallpapers and task files on this phone. Device settings will not be affected.';
 
   @override
   String get clear_device_settings_cache_done => 'Device settings cache cleared.';
