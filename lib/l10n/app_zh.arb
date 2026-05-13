@@ -9,9 +9,12 @@
   "login_button": "登录",
   "settings_title": "设置"
   ,
-  "app_info": "应用信息",
+  "app_info": "关于应用",
   "app_name": "应用名称",
   "version": "版本号",
+  "creative_and_files": "创作与文件",
+  "writing_tasks": "写作任务",
+  "help_and_feedback": "帮助与反馈",
   "language": "语言",
   "language_system": "跟随系统",
   "language_zh": "中文",
@@ -142,6 +145,8 @@
   "login_agreement_and": "和",
   "privacy_policy": "《隐私政策》",
   "user_agreement": "《用户协议》",
+  "privacy_policy_menu": "隐私政策",
+  "user_agreement_menu": "用户协议",
   "login_agreement_required": "请先阅读并同意《隐私政策》和《用户协议》",
   "signout_failed": "退出失败，请重试。"
   ,

@@ -33,13 +33,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_title => '设置';
 
   @override
-  String get app_info => '应用信息';
+  String get app_info => '关于应用';
 
   @override
   String get app_name => '应用名称';
 
   @override
   String get version => '版本号';
+
+  @override
+  String get creative_and_files => '创作与文件';
+
+  @override
+  String get writing_tasks => '写作任务';
+
+  @override
+  String get help_and_feedback => '帮助与反馈';
 
   @override
   String get language => '语言';
@@ -411,6 +420,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get user_agreement => '《用户协议》';
+
+  @override
+  String get privacy_policy_menu => '隐私政策';
+
+  @override
+  String get user_agreement_menu => '用户协议';
 
   @override
   String get login_agreement_required => '请先阅读并同意《隐私政策》和《用户协议》';

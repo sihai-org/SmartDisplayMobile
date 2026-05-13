@@ -33,13 +33,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_title => 'Settings';
 
   @override
-  String get app_info => 'App Info';
+  String get app_info => 'About App';
 
   @override
   String get app_name => 'App Name';
 
   @override
   String get version => 'Version';
+
+  @override
+  String get creative_and_files => 'Creation & Files';
+
+  @override
+  String get writing_tasks => 'Writing Tasks';
+
+  @override
+  String get help_and_feedback => 'Help & Feedback';
 
   @override
   String get language => 'Language';
@@ -411,6 +420,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get user_agreement => 'User Agreement';
+
+  @override
+  String get privacy_policy_menu => 'Privacy Policy';
+
+  @override
+  String get user_agreement_menu => 'User Agreement';
 
   @override
   String get login_agreement_required => 'Please read and agree to the Privacy Policy and User Agreement first.';

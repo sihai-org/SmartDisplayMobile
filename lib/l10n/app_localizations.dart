@@ -146,7 +146,7 @@ abstract class AppLocalizations {
   /// No description provided for @app_info.
   ///
   /// In en, this message translates to:
-  /// **'App Info'**
+  /// **'About App'**
   String get app_info;
 
   /// No description provided for @app_name.
@@ -160,6 +160,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get version;
+
+  /// No description provided for @creative_and_files.
+  ///
+  /// In en, this message translates to:
+  /// **'Creation & Files'**
+  String get creative_and_files;
+
+  /// No description provided for @writing_tasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing Tasks'**
+  String get writing_tasks;
+
+  /// No description provided for @help_and_feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Feedback'**
+  String get help_and_feedback;
 
   /// No description provided for @language.
   ///
@@ -886,6 +904,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'User Agreement'**
   String get user_agreement;
+
+  /// No description provided for @privacy_policy_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacy_policy_menu;
+
+  /// No description provided for @user_agreement_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'User Agreement'**
+  String get user_agreement_menu;
 
   /// No description provided for @login_agreement_required.
   ///

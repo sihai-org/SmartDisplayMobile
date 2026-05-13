@@ -9,9 +9,12 @@
   "login_button": "Log in",
   "settings_title": "Settings"
   ,
-  "app_info": "App Info",
+  "app_info": "About App",
   "app_name": "App Name",
   "version": "Version",
+  "creative_and_files": "Creation & Files",
+  "writing_tasks": "Writing Tasks",
+  "help_and_feedback": "Help & Feedback",
   "language": "Language",
   "language_system": "Follow system",
   "language_zh": "Chinese",
@@ -142,6 +145,8 @@
   "login_agreement_and": " and ",
   "privacy_policy": "Privacy Policy",
   "user_agreement": "User Agreement",
+  "privacy_policy_menu": "Privacy Policy",
+  "user_agreement_menu": "User Agreement",
   "login_agreement_required": "Please read and agree to the Privacy Policy and User Agreement first.",
   "signout_failed": "Sign out failed. Please try again."
   ,
