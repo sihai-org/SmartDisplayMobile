@@ -54,19 +54,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language_en => 'English';
 
   @override
-  String get bluetooth_settings => 'Bluetooth Settings';
-
-  @override
-  String get manage_bluetooth => 'Manage Bluetooth connection and permissions';
-
-  @override
-  String get camera_permission => 'Camera Permission';
-
-  @override
   String get camera_permission_denied => 'Camera permission denied. Please enable it in Settings.';
-
-  @override
-  String get manage_qr_permission => 'Manage QR scanning permission';
 
   @override
   String get about => 'About';

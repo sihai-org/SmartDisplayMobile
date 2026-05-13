@@ -378,14 +378,6 @@ class ProfilePage extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push(AppRoutes.taskList),
                 ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.bluetooth_settings),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
-                  },
-                ),
                 if (kDebugMode)
                   ValueListenableBuilder<AppEnvironmentStage>(
                     valueListenable: AppEnvironment.stage,
@@ -417,14 +409,6 @@ class ProfilePage extends ConsumerWidget {
                       );
                     },
                   ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.camera_permission),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
-                  },
-                ),
               ],
             ),
           ),

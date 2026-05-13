@@ -185,35 +185,11 @@ abstract class AppLocalizations {
   /// **'English'**
   String get language_en;
 
-  /// No description provided for @bluetooth_settings.
-  ///
-  /// In en, this message translates to:
-  /// **'Bluetooth Settings'**
-  String get bluetooth_settings;
-
-  /// No description provided for @manage_bluetooth.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage Bluetooth connection and permissions'**
-  String get manage_bluetooth;
-
-  /// No description provided for @camera_permission.
-  ///
-  /// In en, this message translates to:
-  /// **'Camera Permission'**
-  String get camera_permission;
-
   /// No description provided for @camera_permission_denied.
   ///
   /// In en, this message translates to:
   /// **'Camera permission denied. Please enable it in Settings.'**
   String get camera_permission_denied;
-
-  /// No description provided for @manage_qr_permission.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage QR scanning permission'**
-  String get manage_qr_permission;
 
   /// No description provided for @about.
   ///

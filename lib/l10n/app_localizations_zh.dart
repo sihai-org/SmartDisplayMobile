@@ -54,19 +54,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language_en => '英语';
 
   @override
-  String get bluetooth_settings => '蓝牙设置';
-
-  @override
-  String get manage_bluetooth => '管理蓝牙连接和权限';
-
-  @override
-  String get camera_permission => '相机权限';
-
-  @override
   String get camera_permission_denied => '相机权限被拒绝，请在系统设置中开启。';
-
-  @override
-  String get manage_qr_permission => '管理二维码扫描权限';
 
   @override
   String get about => '关于';
