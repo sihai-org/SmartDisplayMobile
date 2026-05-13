@@ -285,20 +285,13 @@ class DeviceCustomizationNotifier
       }
       if (!mounted || state.displayDeviceId != deviceId) return;
 
-      // 当前版本约定：默认唤醒词等价于服务端候选列表首项；
-      // 客户端加载后会补齐为该显式值，后续保存 customization 时一并持久化。
+      // 只刷新候选列表本身；customization.wakeWord 的兜底由 load() 和
+      // _refreshRemoteCustomization() 负责，避免污染 baseline 守卫。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         wakeWordCandidates,
         selectedWakeWord: state.customization.wakeWord,
       );
-      final defaultWakeWordOnRefresh = _defaultWakeWordSelection(
-        currentWakeWord: state.customization.wakeWord,
-        candidates: mergedWakeWordCandidates,
-      );
       state = state.copyWith(
-        customization: state.customization.copyWith(
-          wakeWord: defaultWakeWordOnRefresh,
-        ),
         wakeWordCandidates: mergedWakeWordCandidates,
       );
     } catch (error, stackTrace) {
