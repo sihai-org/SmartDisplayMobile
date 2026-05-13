@@ -2057,12 +2057,6 @@ abstract class AppLocalizations {
   /// **'New wallpaper'**
   String get new_wallpaper;
 
-  /// No description provided for @wallpaper_loading.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading wallpaper...'**
-  String get wallpaper_loading;
-
   /// No description provided for @loading.
   ///
   /// In en, this message translates to:

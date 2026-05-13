@@ -95,13 +95,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clear_device_settings_cache => '清理缓存';
 
   @override
-  String get clear_device_settings_cache_confirm => '会清理本机保存的壁纸和任务文件缓存，不会影响设备设置。';
+  String get clear_device_settings_cache_confirm => '清理 app 下载到本机的壁纸、任务文件等缓存。';
 
   @override
-  String get clear_device_settings_cache_done => '设备设置缓存已清理';
+  String get clear_device_settings_cache_done => '缓存已清理';
 
   @override
-  String get clear_device_settings_cache_failed => '设备设置缓存清理失败';
+  String get clear_device_settings_cache_failed => '缓存清理失败';
 
   @override
   String get clear_cache => '清理缓存';
@@ -1040,9 +1040,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get new_wallpaper => '新壁纸';
-
-  @override
-  String get wallpaper_loading => '壁纸加载中...';
 
   @override
   String get loading => '加载中...';

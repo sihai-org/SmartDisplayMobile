@@ -95,13 +95,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clear_device_settings_cache => 'Clear Cache';
 
   @override
-  String get clear_device_settings_cache_confirm => 'This clears locally cached wallpapers and task files on this phone. Device settings will not be affected.';
+  String get clear_device_settings_cache_confirm => 'Clears wallpapers, task files and other downloads cached on this phone.';
 
   @override
-  String get clear_device_settings_cache_done => 'Device settings cache cleared.';
+  String get clear_device_settings_cache_done => 'Cache cleared.';
 
   @override
-  String get clear_device_settings_cache_failed => 'Failed to clear device settings cache.';
+  String get clear_device_settings_cache_failed => 'Failed to clear cache.';
 
   @override
   String get clear_cache => 'Clear Cache';
@@ -1040,9 +1040,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get new_wallpaper => 'New wallpaper';
-
-  @override
-  String get wallpaper_loading => 'Loading wallpaper...';
 
   @override
   String get loading => 'Loading...';

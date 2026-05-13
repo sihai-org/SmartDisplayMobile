@@ -1028,8 +1028,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
     final foregroundColor = colorScheme.onSurfaceVariant;
     final borderColor = theme.brightness == Brightness.dark
-        ? colorScheme.outlineVariant.withValues(alpha: 0.42)
-        : colorScheme.outlineVariant.withValues(alpha: 0.78);
+        ? colorScheme.outlineVariant.withValues(alpha: 0.28)
+        : colorScheme.outlineVariant.withValues(alpha: 0.42);
     return Container(
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -1043,7 +1043,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             Icon(Icons.image_outlined, size: 34, color: foregroundColor),
             const SizedBox(height: 8),
             Text(
-              context.l10n.wallpaper_loading,
+              context.l10n.loading,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: foregroundColor,
                 fontWeight: FontWeight.w500,
