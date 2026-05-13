@@ -194,8 +194,8 @@ class ProfilePage extends ConsumerWidget {
     final Uri helpUri = Uri.parse(
       'https://monitor.vzngpt.com/manual?from=mobile_help',
     );
-    final Uri privacyPolicyUri = Uri.parse('https://m.vzngpt.com/privacy.html');
-    final Uri termsUri = Uri.parse('https://m.vzngpt.com/terms.html');
+    final Uri privacyPolicyUri = Uri.parse(AppConstants.privacyPolicyUrl);
+    final Uri termsUri = Uri.parse(AppConstants.userAgreementUrl);
 
     final user = Supabase.instance.client.auth.currentUser;
     final displayName = (user?.userMetadata?['name'] as String?)?.trim();
