@@ -176,6 +176,9 @@ class DeviceCustomizationNotifier
   }
 
   Future<void> _refreshRemoteCustomization(String deviceId) async {
+    // 用本地快照做幂等守卫：远程返回时若 state.customization 已被任何
+    // 本地编辑或 saveRemote 替换过，则丢弃远程结果，避免覆盖用户未持久化或刚保存的数据。
+    final baselineCustomization = state.customization;
     try {
       final remoteStopwatch = Stopwatch()..start();
       final remote = await _repo.fetchUserCustomizationRemote(
@@ -188,6 +191,13 @@ class DeviceCustomizationNotifier
         tag: 'CustomizationPerf',
       );
       if (remote == null || !mounted || state.displayDeviceId != deviceId) {
+        return;
+      }
+      if (!identical(state.customization, baselineCustomization)) {
+        AppLog.instance.info(
+          'remote customization discarded staleBaseline deviceId=$deviceId',
+          tag: 'CustomizationPerf',
+        );
         return;
       }
 
