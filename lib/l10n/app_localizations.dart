@@ -233,12 +233,6 @@ abstract class AppLocalizations {
   /// **'Feedback'**
   String get feedback;
 
-  /// No description provided for @feedback_desc.
-  ///
-  /// In en, this message translates to:
-  /// **'Report issues or suggestions'**
-  String get feedback_desc;
-
   /// No description provided for @feedback_email_open_failed.
   ///
   /// In en, this message translates to:
@@ -266,19 +260,19 @@ abstract class AppLocalizations {
   /// No description provided for @clear_device_settings_cache_confirm.
   ///
   /// In en, this message translates to:
-  /// **'This clears local device settings and wallpaper files on this phone. Remote settings will not be deleted.'**
+  /// **'Clears wallpapers, task files and other downloads cached on this phone.'**
   String get clear_device_settings_cache_confirm;
 
   /// No description provided for @clear_device_settings_cache_done.
   ///
   /// In en, this message translates to:
-  /// **'Device settings cache cleared.'**
+  /// **'Cache cleared.'**
   String get clear_device_settings_cache_done;
 
   /// No description provided for @clear_device_settings_cache_failed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to clear device settings cache.'**
+  /// **'Failed to clear cache.'**
   String get clear_device_settings_cache_failed;
 
   /// No description provided for @clear_cache.

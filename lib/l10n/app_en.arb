@@ -24,7 +24,6 @@
   "help": "Help",
   "help_desc": "View guide and FAQs",
   "feedback": "Feedback",
-  "feedback_desc": "Report issues or suggestions",
   "feedback_email_open_failed": "No email app is available.",
   "feedback_email_subject": "[{appTitle}] App Feedback",
   "@feedback_email_subject": {

@@ -78,9 +78,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get feedback => 'Feedback';
 
   @override
-  String get feedback_desc => 'Report issues or suggestions';
-
-  @override
   String get feedback_email_open_failed => 'No email app is available.';
 
   @override
