@@ -133,20 +133,24 @@ class DeviceCustomizationNotifier
         'local customization loaded deviceId=$displayDeviceId localMs=${localStopwatch.elapsedMilliseconds} wallpapers=${localPaths.length} wakeWords=${cachedWakeWordCandidates.length}',
         tag: 'CustomizationPerf',
       );
+      // 本地数据先合并入 state，但保持 isLoading = true：
+      // 阻塞用户编辑直到远端 customization + 候选词都到达，避免在本地→远端
+      // 合并窗口期内用户切 layout/wakeWord 触发竞态。
       state = state.copyWith(
         customization: local.copyWith(wakeWord: defaultWakeWordOnLoad),
-        isLoading: false,
         localWallpaperPaths: localPaths,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
-      totalStopwatch.stop();
-      AppLog.instance.info(
-        'load loading false deviceId=$displayDeviceId totalMs=${totalStopwatch.elapsedMilliseconds}',
-        tag: 'CustomizationPerf',
-      );
 
-      unawaited(_refreshRemoteCustomization(displayDeviceId));
-      unawaited(_refreshWakeWordCandidates(displayDeviceId));
+      // 并行拉取远端 customization 和唤醒词候选；两者内部都自带 try/catch，
+      // 不会让 Future.wait 整体失败。等都返回后再放开 isLoading。
+      // 壁纸图片下载（_refreshWallpaperCache）由 _refreshRemoteCustomization
+      // 在内部 unawaited 触发，允许它在 isLoading=false 之后继续在后台跑，
+      // 配合壁纸 tile 自己的 inline loading 占位。
+      await Future.wait<void>([
+        _refreshRemoteCustomization(displayDeviceId),
+        _refreshWakeWordCandidates(displayDeviceId),
+      ]);
     } catch (error, stackTrace) {
       AppLog.instance.warning(
         'Failed to load customization for $displayDeviceId',
@@ -156,7 +160,7 @@ class DeviceCustomizationNotifier
       );
       rethrow;
     } finally {
-      if (state.isLoading) {
+      if (mounted && state.isLoading) {
         state = state.copyWith(isLoading: false);
         if (totalStopwatch.isRunning) {
           totalStopwatch.stop();
@@ -263,9 +267,14 @@ class DeviceCustomizationNotifier
         tag: 'CustomizationPerf',
       );
       if (!mounted || state.displayDeviceId != deviceId) return;
-      if (!state.customization.hasSameContent(baselineCustomization)) {
+      // 守卫粒度只对齐到 wallpaperInfos：localPaths 的有效性只由 infos 决定，
+      // layout / wakeWord / wallpaper 字段的变化不影响已下载文件，不该让结果作废。
+      if (!_sameWallpaperInfos(
+        state.customization.wallpaperInfos,
+        baselineCustomization.wallpaperInfos,
+      )) {
         AppLog.instance.info(
-          'wallpaper cache discarded staleBaseline deviceId=$deviceId',
+          'wallpaper cache discarded staleWallpaperInfos deviceId=$deviceId',
           tag: 'CustomizationPerf',
         );
         return;
@@ -280,6 +289,18 @@ class DeviceCustomizationNotifier
         stackTrace: stackTrace,
       );
     }
+  }
+
+  bool _sameWallpaperInfos(
+    List<CustomWallpaperInfo> a,
+    List<CustomWallpaperInfo> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!a[i].hasSameContent(b[i])) return false;
+    }
+    return true;
   }
 
   Future<void> _refreshWakeWordCandidates(String deviceId) async {
