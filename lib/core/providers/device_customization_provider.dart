@@ -481,7 +481,7 @@ class DeviceCustomizationNotifier
   }
 
   /// 将当前状态保存到远端
-  Future<void> saveRemote() async {
+  Future<void> saveRemote({String? deviceNick}) async {
     final deviceId = state.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
       throw Exception('缺少设备 ID');
@@ -502,12 +502,13 @@ class DeviceCustomizationNotifier
         'layout': currentValue.layout.value,
         'wallpaper': currentValue.wallpaper.value,
         'wake_word': trimmedWakeWord.isEmpty ? null : trimmedWakeWord,
+        if (deviceNick != null) 'deviceNick': deviceNick.trim(),
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       };
 
       await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions
-          .invoke('device_customization_save', body: payload)
+          .invoke('yc-test', body: payload)
           .timeout(HttpTimeouts.business);
 
       if (response.status != 200) {
@@ -546,7 +547,7 @@ class DeviceCustomizationNotifier
       }
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.error(
-        '[device_customization_save] status=${error.status}, details=${error.details}',
+        '[yc-test] status=${error.status}, details=${error.details}',
         tag: 'Supabase',
         error: error,
         stackTrace: stackTrace,

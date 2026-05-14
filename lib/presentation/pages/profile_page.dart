@@ -18,8 +18,10 @@ import '../../core/log/app_log.dart';
 import '../../core/constants/app_environment.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/providers/gray_key_map_provider.dart';
+import '../../core/providers/user_profile_refresh_provider.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/utils/app_cache_cleanup.dart';
+import '../../core/utils/user_display_name_util.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -183,6 +185,7 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(userProfileRefreshProvider);
     final l10n = context.l10n;
     final saved = ref.watch(savedDevicesProvider);
     final auditState = ref.watch(auditModeProvider);
@@ -196,11 +199,7 @@ class ProfilePage extends ConsumerWidget {
     final Uri termsUri = Uri.parse(AppConstants.userAgreementUrl);
 
     final user = Supabase.instance.client.auth.currentUser;
-    final displayName = (user?.userMetadata?['name'] as String?)?.trim();
-    final email = user?.email;
-    final userLabel = displayName?.isNotEmpty == true
-        ? displayName!
-        : (email ?? l10n.user_fallback);
+    final userLabel = resolveUserDisplayName(user, fallback: l10n.user_fallback);
 
     // 所有人都请求灰度开关（服务端自行返回对应可见的 keys）
     final grayKeyMapAsync = ref.watch(grayKeyMapProvider);

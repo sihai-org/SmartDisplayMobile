@@ -16,6 +16,7 @@ import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
+import '../../core/providers/saved_devices_provider.dart';
 import '../../core/utils/wallpaper_image_util.dart';
 import '../../core/widgets/progress_dialog.dart';
 import '../../l10n/app_localizations.dart';
@@ -48,6 +49,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   int _wallpaperPageIndex = 0;
   double _wallpaperPage = 0;
   int _wakeWordFieldVersion = 0;
+  bool _isSavingDeviceName = false;
+  late final TextEditingController _deviceNameController;
+  late final FocusNode _saveButtonFocusNode;
 
   PageController? _wallpaperController;
   ProviderSubscription<DeviceCustomizationState>? _loadingLogSub;
@@ -67,12 +71,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Future<void> _saveRemoteWithProgress(
     ProgressDialogController progress,
     AppLocalizations l10n,
+    String? deviceNick,
   ) async {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     progress.update(l10n.saving_ellipsis);
     try {
-      await notifier.saveRemote();
+      await notifier.saveRemote(deviceNick: deviceNick);
       progress.success(l10n.settings_saved);
       await Future.delayed(const Duration(milliseconds: 600));
     } catch (e) {
@@ -86,7 +91,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
   }
 
-  Future<void> _saveRemote() async {
+  Future<void> _saveRemote({String? deviceNick}) async {
     final l10n = context.l10n;
     final state = ref.read(deviceCustomizationProvider);
 
@@ -103,7 +108,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       initialMessage: l10n.saving_ellipsis,
     );
     try {
-      await _saveRemoteWithProgress(progress, l10n);
+      await _saveRemoteWithProgress(progress, l10n, deviceNick);
     } catch (e, st) {
       AppLog.instance.error(
         '[device_edit_page][_handleSave] error',
@@ -123,6 +128,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     if (!confirmed) return;
 
     ref.read(deviceCustomizationProvider.notifier).resetToDefault();
+    final current = widget.displayDeviceId == null
+        ? null
+        : ref.read(savedDevicesProvider.notifier).findById(widget.displayDeviceId!);
+    final defaultName = (current?.name ?? widget.deviceName ?? '').trim();
+    _deviceNameController.text = defaultName;
 
     setState(() {
       _wallpaperPageIndex = 0;
@@ -139,7 +149,18 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       });
     }
 
-    await _saveRemote();
+    await _saveRemote(deviceNick: '');
+
+    final deviceId = widget.displayDeviceId;
+    if (deviceId != null && deviceId.isNotEmpty) {
+      await ref
+          .read(savedDevicesProvider.notifier)
+          .updateFields(
+            displayDeviceId: deviceId,
+            deviceName: defaultName,
+            nick: '',
+          );
+    }
   }
 
   Future<bool> _confirmResetToDefault() async {
@@ -327,7 +348,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
       if (mounted) {
         _setCurrentWallpaperLocal(1);
-        await _saveRemoteWithProgress(progress, l10n);
+        await _saveRemoteWithProgress(progress, l10n, null);
       }
     } catch (error) {
       if (mounted) {
@@ -519,6 +540,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   @override
   void initState() {
     super.initState();
+    _deviceNameController = TextEditingController(text: widget.deviceName ?? '');
+    _saveButtonFocusNode = FocusNode(debugLabel: 'saveDeviceNameButton');
     _ensureWallpaperController();
     _loadingLogSub = ref.listenManual<DeviceCustomizationState>(
       deviceCustomizationProvider,
@@ -566,8 +589,71 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   @override
   void dispose() {
     _loadingLogSub?.close();
+    _deviceNameController.dispose();
+    _saveButtonFocusNode.dispose();
     _wallpaperController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveDeviceName() async {
+    if (_isSavingDeviceName) return;
+    // Move focus away from TextField to avoid IME re-open after save flow.
+    FocusScope.of(context).requestFocus(_saveButtonFocusNode);
+
+    final l10n = context.l10n;
+    final deviceId = widget.displayDeviceId;
+    if (deviceId == null || deviceId.isEmpty) {
+      _safelyShowToast(l10n.missing_device_id_save);
+      return;
+    }
+
+    final deviceName = _deviceNameController.text.trim();
+    if (deviceName.isEmpty) {
+      _safelyShowToast('请输入设备名称');
+      return;
+    }
+    final originalName = (widget.deviceName ?? '').trim();
+    if (deviceName == originalName) {
+      return;
+    }
+
+    setState(() {
+      _isSavingDeviceName = true;
+    });
+    try {
+      final progress = await showProgressDialog(
+        context,
+        initialMessage: l10n.saving_ellipsis,
+      );
+      try {
+        await _saveRemoteWithProgress(progress, l10n, deviceName);
+      } finally {
+        if (mounted) {
+          progress.close();
+        }
+      }
+
+      await ref
+          .read(savedDevicesProvider.notifier)
+          .updateFields(
+            displayDeviceId: deviceId,
+            deviceName: deviceName,
+            nick: deviceName,
+          );
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[device_edit_page][_saveDeviceName] error',
+        error: e,
+        stackTrace: st,
+      );
+      _safelyShowToast(l10n.settings_save_failed);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingDeviceName = false;
+        });
+      }
+    }
   }
 
   @override
@@ -576,7 +662,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final l10n = context.l10n;
 
-    var isLoading = ref.watch(deviceCustomizationProvider).isLoading;
+    final isLoading = ref.watch(deviceCustomizationProvider).isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -595,6 +681,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   _buildWallpaperSelector(),
                   const SizedBox(height: 12),
                   _buildLayoutSection(),
+                  const SizedBox(height: 12),
+                  _buildDeviceNameSection(),
                   const SizedBox(height: 12),
                   _buildWakeWordSection(),
                   const SizedBox(height: 12),
@@ -697,6 +785,80 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 _setWakeWord(value);
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceNameSection() {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                l10n.device_name_label,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _deviceNameController,
+              decoration: InputDecoration(
+                hintText: l10n.device_name_label,
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Divider(
+              height: 1,
+              thickness: 0.8,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey.shade800
+                  : Colors.grey.shade300,
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 44,
+              child: Material(
+                color: Colors.transparent,
+                child: Focus(
+                  focusNode: _saveButtonFocusNode,
+                  child: InkWell(
+                    onTap: _isSavingDeviceName ? null : _saveDeviceName,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Center(
+                      child: Text(
+                        _isSavingDeviceName ? l10n.saving_ellipsis : l10n.save_settings,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
           ],
         ),
       ),
