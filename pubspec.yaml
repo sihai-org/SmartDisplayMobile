@@ -87,7 +87,7 @@ dependencies:
   image: ^4.1.7
   crypto: ^3.0.3
   http: ^1.6.0
-  device_info_plus: ^12.3.0
+  device_info_plus: 12.3.0
   package_info_plus: ^8.1.2
   flutter_markdown: ^0.7.3
   syncfusion_flutter_pdfviewer: ^32.2.7
