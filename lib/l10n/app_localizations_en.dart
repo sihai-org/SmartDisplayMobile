@@ -890,7 +890,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wake_word_section_title => 'Wake Word';
 
   @override
-  String get wake_word_default => 'Use device default';
+  String get wake_word_default => 'Device default';
 
   @override
   String get wake_word_default_hint => 'Changing this restarts the device immediately';

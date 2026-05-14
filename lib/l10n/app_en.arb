@@ -309,7 +309,7 @@
   "layout_frame": "Frame layout",
   "layout_frame_hint": "Photo-forward layout like a frame",
   "wake_word_section_title": "Wake Word",
-  "wake_word_default": "Use device default",
+  "wake_word_default": "Device default",
   "wake_word_default_hint": "Changing this restarts the device immediately",
   "wake_word_confirm_title": "Change wake word?",
   "wake_word_confirm_message": "The device will restart immediately to apply this change.",

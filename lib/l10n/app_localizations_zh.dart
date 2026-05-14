@@ -890,7 +890,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wake_word_section_title => '唤醒词';
 
   @override
-  String get wake_word_default => '使用设备默认';
+  String get wake_word_default => '设备默认词';
 
   @override
   String get wake_word_default_hint => '修改后设备将立即重启';
