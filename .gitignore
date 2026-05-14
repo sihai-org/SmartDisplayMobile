@@ -27,6 +27,7 @@ test/
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
+/ios/build/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -53,7 +54,7 @@ app.*.map.json
 /profile/
 
 # Claude Code settings - commented out to track settings
-# .claude/
+.claude/
 .env
 
 sentry.properties

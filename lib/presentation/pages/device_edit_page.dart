@@ -50,6 +50,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   int _wakeWordFieldVersion = 0;
 
   PageController? _wallpaperController;
+  ProviderSubscription<DeviceCustomizationState>? _loadingLogSub;
+  Stopwatch? _loadingStopwatch;
 
   int get _selectedWallpaperPageIndex {
     final c = ref.read(deviceCustomizationProvider).customization;
@@ -117,6 +119,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   /// 恢复默认
   Future<void> _resetToDefault() async {
+    final confirmed = await _confirmResetToDefault();
+    if (!confirmed) return;
+
     ref.read(deviceCustomizationProvider.notifier).resetToDefault();
 
     setState(() {
@@ -135,6 +140,30 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
 
     await _saveRemote();
+  }
+
+  Future<bool> _confirmResetToDefault() async {
+    final l10n = context.l10n;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.reset_to_default_confirm_title),
+        content: Text(l10n.reset_to_default_confirm_message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l10n.reset_to_default_confirm_action),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
   }
 
   /// 上传壁纸
@@ -166,7 +195,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
     try {
       final picked = await picker.pickMultiImage(limit: maxCount);
-      if (!mounted || picked == null || picked.isEmpty) return;
+      if (!mounted || picked.isEmpty) return;
 
       var selected = picked;
       if (picked.length > maxCount) {
@@ -491,8 +520,38 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   void initState() {
     super.initState();
     _ensureWallpaperController();
+    _loadingLogSub = ref.listenManual<DeviceCustomizationState>(
+      deviceCustomizationProvider,
+      (previous, next) {
+        final wasLoading = previous?.isLoading ?? false;
+        if (!wasLoading && next.isLoading) {
+          _loadingStopwatch ??= Stopwatch()..start();
+          AppLog.instance.info(
+            'loading mask shown deviceId=${widget.displayDeviceId}',
+            tag: 'CustomizationPerf',
+          );
+          return;
+        }
+
+        if (wasLoading && !next.isLoading) {
+          final stopwatch = _loadingStopwatch;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            stopwatch?.stop();
+            AppLog.instance.info(
+              'loading mask hidden deviceId=${widget.displayDeviceId} totalMs=${stopwatch?.elapsedMilliseconds ?? -1}',
+              tag: 'CustomizationPerf',
+            );
+            if (identical(_loadingStopwatch, stopwatch)) {
+              _loadingStopwatch = null;
+            }
+          });
+        }
+      },
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadingStopwatch ??= Stopwatch()..start();
       ref
           .read(deviceCustomizationProvider.notifier)
           .load(widget.displayDeviceId)
@@ -506,6 +565,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
   @override
   void dispose() {
+    _loadingLogSub?.close();
     _wallpaperController?.dispose();
     super.dispose();
   }
@@ -608,6 +668,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             DropdownButtonFormField<String>(
               key: ValueKey('wake-word-$_wakeWordFieldVersion-$_wakeWord'),
               initialValue: dropdownValue,
+              hint: Text(l10n.wake_word_default),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
@@ -659,6 +720,11 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final isViewingEmptyCustom =
         isViewingCustom && !state.customization.wallpaperInfos.isNotEmpty;
+    final isWallpaperPreviewPending =
+        state.customization.wallpaperInfos.isNotEmpty &&
+        state.localWallpaperPaths.isEmpty;
+    final isWallpaperActionDisabled =
+        isWallpaperPreviewPending || state.isUploading;
 
     return Card(
       elevation: 0,
@@ -734,7 +800,14 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                       : isViewingEmptyCustom
                       ? l10n.new_wallpaper
                       : l10n.set_as_current,
-                  onSetAsCurrent: !isCurrentView && !isViewingEmptyCustom
+                  showDisabledButton:
+                      !isCurrentView &&
+                      !isViewingEmptyCustom &&
+                      isWallpaperActionDisabled,
+                  onSetAsCurrent:
+                      !isCurrentView &&
+                          !isViewingEmptyCustom &&
+                          !isWallpaperActionDisabled
                       ? () => _setCurrentWallpaper(_wallpaperPageIndex)
                       : null,
                 ),
@@ -852,16 +925,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   /// 自定义壁纸：预览
   Widget _buildUploadedWallpaperPreview(DeviceCustomizationState state) {
     final l10n = context.l10n;
-    const fallbackDecoration = BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF1E1E1E), Color(0xFF444545)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    );
     final paths = state.localWallpaperPaths;
     if (paths.isEmpty) {
-      return Container(decoration: fallbackDecoration);
+      return _buildWallpaperLoadingPlaceholder();
     }
 
     final cacheKey = state.customization.wallpaperInfos
@@ -899,7 +965,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   key: ValueKey('$cacheKey-$i-${visible[i]}'),
                   fit: BoxFit.cover,
                   errorBuilder: (context, _, __) {
-                    return Container(decoration: fallbackDecoration);
+                    return _buildWallpaperLoadingPlaceholder();
                   },
                 ),
               ),
@@ -951,6 +1017,41 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     );
   }
 
+  Widget _buildWallpaperLoadingPlaceholder() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final backgroundColor = theme.brightness == Brightness.dark
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.52)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final foregroundColor = colorScheme.onSurfaceVariant;
+    final borderColor = theme.brightness == Brightness.dark
+        ? colorScheme.outlineVariant.withValues(alpha: 0.28)
+        : colorScheme.outlineVariant.withValues(alpha: 0.42);
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_outlined, size: 34, color: foregroundColor),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.loading,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 自定义壁纸：占位
   Widget _buildUploadPlaceholder() {
     return Material(
@@ -997,8 +1098,13 @@ class _LayoutOption {
 class _CurrentToggle extends StatelessWidget {
   final String currentText;
   final VoidCallback? onSetAsCurrent;
+  final bool showDisabledButton;
 
-  const _CurrentToggle({required this.currentText, this.onSetAsCurrent});
+  const _CurrentToggle({
+    required this.currentText,
+    this.onSetAsCurrent,
+    this.showDisabledButton = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1008,7 +1114,7 @@ class _CurrentToggle extends StatelessWidget {
       child: Center(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 160),
-          child: onSetAsCurrent != null
+          child: onSetAsCurrent != null || showDisabledButton
               ? FilledButton(
                   onPressed: onSetAsCurrent,
                   key: const ValueKey('set'),

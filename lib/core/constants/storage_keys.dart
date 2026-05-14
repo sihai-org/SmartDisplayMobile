@@ -1,8 +1,5 @@
 /// 本地持久化所使用的 key 统一入口，方便版本升级与清理。
 class StorageKeys {
-  /// WifiCredentialsRepository：当前用户的 Wi-Fi 凭据字典。
-  static const wifiCredentialsBase = 'wifi_credentials_v1';
-
   /// SavedDevicesRepository：当前用户的已绑定设备列表。
   static const savedDevicesBase = 'saved_devices_v1';
 

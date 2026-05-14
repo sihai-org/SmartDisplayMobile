@@ -2,15 +2,17 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:smart_display_mobile/core/services/task_file_service.dart';
+import 'package:smart_display_mobile/data/repositories/device_customization_repository.dart';
 
-/// Clears app-generated cache files that should not survive logout.
+/// 清理 app 产生的本地缓存文件（壁纸、任务文件、临时分享文件）。
+///
+/// 只动"丢了能从服务端重拉"的内容，不动 SecureStorage 里的用户设置。
 class AppCacheCleanup {
-  static Future<void> clearOnLogout({String? fallbackUserId}) async {
-    await _clearPdfPreviewCache(fallbackUserId: fallbackUserId);
-  }
-
-  static Future<void> _clearPdfPreviewCache({String? fallbackUserId}) async {
+  static Future<void> clearLocalCaches({String? fallbackUserId}) async {
     try {
+      await DeviceCustomizationRepository().clearWallpaperFilesForCurrentUser(
+        fallbackUserId: fallbackUserId,
+      );
       await TaskFileService.clearCurrentUserCache(
         fallbackUserId: fallbackUserId,
       );
@@ -23,7 +25,7 @@ class AppCacheCleanup {
       await _deleteDirIfExists(Directory('${tempDir.path}/pdf_share'));
       await _deleteFilesByPrefix(tempDir, 'pdf_cache_');
     } catch (_) {
-      // Ignore cleanup failure to avoid blocking logout flow.
+      // best effort，不要阻塞调用方
     }
   }
 

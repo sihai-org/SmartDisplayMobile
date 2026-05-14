@@ -33,13 +33,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_title => 'Settings';
 
   @override
-  String get app_info => 'App Info';
+  String get app_info => 'About App';
 
   @override
   String get app_name => 'App Name';
 
   @override
   String get version => 'Version';
+
+  @override
+  String get creative_and_files => 'Creation & Files';
+
+  @override
+  String get writing_tasks => 'Writing Tasks';
+
+  @override
+  String get help_and_feedback => 'Help & Feedback';
 
   @override
   String get language => 'Language';
@@ -54,19 +63,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language_en => 'English';
 
   @override
-  String get bluetooth_settings => 'Bluetooth Settings';
-
-  @override
-  String get manage_bluetooth => 'Manage Bluetooth connection and permissions';
-
-  @override
-  String get camera_permission => 'Camera Permission';
-
-  @override
   String get camera_permission_denied => 'Camera permission denied. Please enable it in Settings.';
-
-  @override
-  String get manage_qr_permission => 'Manage QR scanning permission';
 
   @override
   String get about => 'About';
@@ -81,10 +78,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get feedback => 'Feedback';
 
   @override
-  String get feedback_desc => 'Report issues or suggestions';
+  String get feedback_email_open_failed => 'No email app is available.';
+
+  @override
+  String feedback_email_subject(Object appTitle) {
+    return '[$appTitle] App Feedback';
+  }
 
   @override
   String get account_security => 'Account & Security';
+
+  @override
+  String get clear_device_settings_cache => 'Clear Cache';
+
+  @override
+  String get clear_device_settings_cache_confirm => 'Clears wallpapers, task files and other downloads cached on this phone.';
+
+  @override
+  String get clear_device_settings_cache_done => 'Cache cleared.';
+
+  @override
+  String get clear_device_settings_cache_failed => 'Failed to clear cache.';
+
+  @override
+  String get clear_cache => 'Clear Cache';
 
   @override
   String get billing_title => 'Billing';
@@ -400,6 +417,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get user_agreement => 'User Agreement';
+
+  @override
+  String get privacy_policy_menu => 'Privacy Policy';
+
+  @override
+  String get user_agreement_menu => 'User Agreement';
 
   @override
   String get login_agreement_required => 'Please read and agree to the Privacy Policy and User Agreement first.';
@@ -867,7 +890,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wake_word_section_title => 'Wake Word';
 
   @override
-  String get wake_word_default => 'Use device default';
+  String get wake_word_default => 'Device default';
 
   @override
   String get wake_word_default_hint => 'Changing this restarts the device immediately';
@@ -886,6 +909,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reset_to_default => 'Reset to default';
+
+  @override
+  String get reset_to_default_confirm_title => 'Restore default settings?';
+
+  @override
+  String get reset_to_default_confirm_message => 'After confirmation, the default wallpaper, default layout, and default wake word will be restored. Custom wallpapers will also be deleted.';
+
+  @override
+  String get reset_to_default_confirm_action => 'Confirm';
 
   @override
   String get device_edit_load_failed => 'Unable to load device settings. Please try again.';

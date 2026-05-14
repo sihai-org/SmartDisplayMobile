@@ -146,7 +146,7 @@ abstract class AppLocalizations {
   /// No description provided for @app_info.
   ///
   /// In en, this message translates to:
-  /// **'App Info'**
+  /// **'About App'**
   String get app_info;
 
   /// No description provided for @app_name.
@@ -160,6 +160,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get version;
+
+  /// No description provided for @creative_and_files.
+  ///
+  /// In en, this message translates to:
+  /// **'Creation & Files'**
+  String get creative_and_files;
+
+  /// No description provided for @writing_tasks.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing Tasks'**
+  String get writing_tasks;
+
+  /// No description provided for @help_and_feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Feedback'**
+  String get help_and_feedback;
 
   /// No description provided for @language.
   ///
@@ -185,35 +203,11 @@ abstract class AppLocalizations {
   /// **'English'**
   String get language_en;
 
-  /// No description provided for @bluetooth_settings.
-  ///
-  /// In en, this message translates to:
-  /// **'Bluetooth Settings'**
-  String get bluetooth_settings;
-
-  /// No description provided for @manage_bluetooth.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage Bluetooth connection and permissions'**
-  String get manage_bluetooth;
-
-  /// No description provided for @camera_permission.
-  ///
-  /// In en, this message translates to:
-  /// **'Camera Permission'**
-  String get camera_permission;
-
   /// No description provided for @camera_permission_denied.
   ///
   /// In en, this message translates to:
   /// **'Camera permission denied. Please enable it in Settings.'**
   String get camera_permission_denied;
-
-  /// No description provided for @manage_qr_permission.
-  ///
-  /// In en, this message translates to:
-  /// **'Manage QR scanning permission'**
-  String get manage_qr_permission;
 
   /// No description provided for @about.
   ///
@@ -239,17 +233,53 @@ abstract class AppLocalizations {
   /// **'Feedback'**
   String get feedback;
 
-  /// No description provided for @feedback_desc.
+  /// No description provided for @feedback_email_open_failed.
   ///
   /// In en, this message translates to:
-  /// **'Report issues or suggestions'**
-  String get feedback_desc;
+  /// **'No email app is available.'**
+  String get feedback_email_open_failed;
+
+  /// No description provided for @feedback_email_subject.
+  ///
+  /// In en, this message translates to:
+  /// **'[{appTitle}] App Feedback'**
+  String feedback_email_subject(Object appTitle);
 
   /// No description provided for @account_security.
   ///
   /// In en, this message translates to:
   /// **'Account & Security'**
   String get account_security;
+
+  /// No description provided for @clear_device_settings_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get clear_device_settings_cache;
+
+  /// No description provided for @clear_device_settings_cache_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clears wallpapers, task files and other downloads cached on this phone.'**
+  String get clear_device_settings_cache_confirm;
+
+  /// No description provided for @clear_device_settings_cache_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache cleared.'**
+  String get clear_device_settings_cache_done;
+
+  /// No description provided for @clear_device_settings_cache_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to clear cache.'**
+  String get clear_device_settings_cache_failed;
+
+  /// No description provided for @clear_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get clear_cache;
 
   /// No description provided for @billing_title.
   ///
@@ -868,6 +898,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'User Agreement'**
   String get user_agreement;
+
+  /// No description provided for @privacy_policy_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacy_policy_menu;
+
+  /// No description provided for @user_agreement_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'User Agreement'**
+  String get user_agreement_menu;
 
   /// No description provided for @login_agreement_required.
   ///
@@ -1792,6 +1834,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reset to default'**
   String get reset_to_default;
+
+  /// No description provided for @reset_to_default_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore default settings?'**
+  String get reset_to_default_confirm_title;
+
+  /// No description provided for @reset_to_default_confirm_message.
+  ///
+  /// In en, this message translates to:
+  /// **'After confirmation, the default wallpaper, default layout, and default wake word will be restored. Custom wallpapers will also be deleted.'**
+  String get reset_to_default_confirm_message;
+
+  /// No description provided for @reset_to_default_confirm_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get reset_to_default_confirm_action;
 
   /// No description provided for @device_edit_load_failed.
   ///

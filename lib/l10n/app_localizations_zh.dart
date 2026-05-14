@@ -33,13 +33,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_title => '设置';
 
   @override
-  String get app_info => '应用信息';
+  String get app_info => '关于应用';
 
   @override
   String get app_name => '应用名称';
 
   @override
   String get version => '版本号';
+
+  @override
+  String get creative_and_files => '创作与文件';
+
+  @override
+  String get writing_tasks => '写作任务';
+
+  @override
+  String get help_and_feedback => '帮助与反馈';
 
   @override
   String get language => '语言';
@@ -54,19 +63,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get language_en => '英语';
 
   @override
-  String get bluetooth_settings => '蓝牙设置';
-
-  @override
-  String get manage_bluetooth => '管理蓝牙连接和权限';
-
-  @override
-  String get camera_permission => '相机权限';
-
-  @override
   String get camera_permission_denied => '相机权限被拒绝，请在系统设置中开启。';
-
-  @override
-  String get manage_qr_permission => '管理二维码扫描权限';
 
   @override
   String get about => '关于';
@@ -81,10 +78,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get feedback => '问题反馈';
 
   @override
-  String get feedback_desc => '报告问题或提出建议';
+  String get feedback_email_open_failed => '未找到可用的邮件应用。';
+
+  @override
+  String feedback_email_subject(Object appTitle) {
+    return '[$appTitle] 问题反馈';
+  }
 
   @override
   String get account_security => '账号与安全';
+
+  @override
+  String get clear_device_settings_cache => '清理缓存';
+
+  @override
+  String get clear_device_settings_cache_confirm => '清理 app 下载到本机的壁纸、任务文件等缓存。';
+
+  @override
+  String get clear_device_settings_cache_done => '缓存已清理';
+
+  @override
+  String get clear_device_settings_cache_failed => '缓存清理失败';
+
+  @override
+  String get clear_cache => '清理缓存';
 
   @override
   String get billing_title => '账单';
@@ -400,6 +417,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get user_agreement => '《用户协议》';
+
+  @override
+  String get privacy_policy_menu => '隐私政策';
+
+  @override
+  String get user_agreement_menu => '用户协议';
 
   @override
   String get login_agreement_required => '请先阅读并同意《隐私政策》和《用户协议》';
@@ -867,7 +890,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get wake_word_section_title => '唤醒词';
 
   @override
-  String get wake_word_default => '使用设备默认';
+  String get wake_word_default => '设备默认词';
 
   @override
   String get wake_word_default_hint => '修改后设备将立即重启';
@@ -886,6 +909,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get reset_to_default => '恢复默认';
+
+  @override
+  String get reset_to_default_confirm_title => '恢复默认设置？';
+
+  @override
+  String get reset_to_default_confirm_message => '确认后将恢复默认壁纸、默认布局和默认唤醒词。同时，自定义壁纸会被删除。';
+
+  @override
+  String get reset_to_default_confirm_action => '确认';
 
   @override
   String get device_edit_load_failed => '设备设置加载失败，请重试。';

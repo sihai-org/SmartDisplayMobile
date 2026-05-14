@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/log/app_log.dart';
 import '../../core/log/device_onboarding_log.dart';
 import '../../core/log/device_onboarding_events.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/network/http_timeouts.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/utils/email_masking_util.dart';
@@ -29,9 +30,6 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  static const String _privacyPolicyUrl = 'https://m.vzngpt.com/privacy.html';
-  static const String _termsUrl = 'https://m.vzngpt.com/terms.html';
-
   final UserPrivacyRepository _userPrivacyRepository = UserPrivacyRepository();
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
@@ -533,7 +531,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             GestureDetector(
-                              onTap: () => _openExternalUrl(_privacyPolicyUrl),
+                              onTap: () => _openExternalUrl(
+                                AppConstants.privacyPolicyUrl,
+                              ),
                               child: Text(
                                 l10n.privacy_policy,
                                 style: Theme.of(context).textTheme.bodySmall
@@ -549,7 +549,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             GestureDetector(
-                              onTap: () => _openExternalUrl(_termsUrl),
+                              onTap: () => _openExternalUrl(
+                                AppConstants.userAgreementUrl,
+                              ),
                               child: Text(
                                 l10n.user_agreement,
                                 style: Theme.of(context).textTheme.bodySmall

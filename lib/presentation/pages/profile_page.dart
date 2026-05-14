@@ -28,6 +28,27 @@ class ProfilePage extends ConsumerWidget {
     Fluttertoast.showToast(msg: message, gravity: ToastGravity.TOP);
   }
 
+  Future<void> _openFeedbackEmail(BuildContext context) async {
+    final l10n = context.l10n;
+    final subject = Uri.encodeComponent(
+      l10n.feedback_email_subject(l10n.appTitle),
+    );
+    final feedbackEmailUri = Uri(
+      scheme: 'mailto',
+      path: 'support@vzngpt.com',
+      query: 'subject=$subject',
+    );
+
+    final opened = await launchUrl(
+      feedbackEmailUri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!opened && context.mounted) {
+      _showTopToast(context, l10n.feedback_email_open_failed);
+    }
+  }
+
   // 只退出，不解绑（暂不调用 edge function: account_signout）
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     if (AuditMode.enabled) {
@@ -45,7 +66,7 @@ class ProfilePage extends ConsumerWidget {
         ref.read(grayKeyMapProvider.notifier).clear();
       } catch (_) {}
       try {
-        await AppCacheCleanup.clearOnLogout(
+        await AppCacheCleanup.clearLocalCaches(
           fallbackUserId: Supabase.instance.client.auth.currentUser?.id,
         );
       } catch (_) {}
@@ -73,6 +94,51 @@ class ProfilePage extends ConsumerWidget {
       Fluttertoast.showToast(msg: l10n.signout_failed);
       // 登出失败先啥也不干
       return;
+    }
+  }
+
+  Future<void> _clearDeviceSettingsCache(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l10n = context.l10n;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.clear_cache),
+        content: Text(l10n.clear_device_settings_cache_confirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.clear_cache),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final fallbackUserId = Supabase.instance.client.auth.currentUser?.id;
+      await AppCacheCleanup.clearLocalCaches(fallbackUserId: fallbackUserId);
+      AppLog.instance.info(
+        'Device settings cache cleared from profile',
+        tag: 'CustomizationPerf',
+      );
+      if (!context.mounted) return;
+      _showTopToast(context, l10n.clear_device_settings_cache_done);
+    } catch (error, stackTrace) {
+      AppLog.instance.warning(
+        'Failed to clear device settings cache from profile',
+        tag: 'CustomizationPerf',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (!context.mounted) return;
+      _showTopToast(context, l10n.clear_device_settings_cache_failed);
     }
   }
 
@@ -126,6 +192,8 @@ class ProfilePage extends ConsumerWidget {
     final Uri helpUri = Uri.parse(
       'https://monitor.vzngpt.com/manual?from=mobile_help',
     );
+    final Uri privacyPolicyUri = Uri.parse(AppConstants.privacyPolicyUrl);
+    final Uri termsUri = Uri.parse(AppConstants.userAgreementUrl);
 
     final user = Supabase.instance.client.auth.currentUser;
     final displayName = (user?.userMetadata?['name'] as String?)?.trim();
@@ -198,51 +266,47 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
           ),
-          if (showBalanceEntry) ...[
+          if (showSerialNumberStats || showBalanceEntry) ...[
             const SizedBox(height: 12),
             _whiteListSection(
               context,
               tiles: [
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.billing_title),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.balance),
-                ),
+                if (showSerialNumberStats)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(l10n.serial_number_stats),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.serialNumberStats),
+                  ),
+                if (showBalanceEntry)
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(l10n.billing_title),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.balance),
+                  ),
               ],
             ),
           ],
 
-          // 应用信息
-          _sectionHeader(context, l10n.app_info),
+          // 创作与文件
+          _sectionHeader(context, l10n.creative_and_files),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _whiteListSection(
               context,
               tiles: [
                 ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 2,
-                  ),
-                  title: Text(l10n.app_name),
-                  trailing: Text(
-                    AppConstants.appName,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.writing_tasks),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.taskList),
                 ),
                 ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 2,
-                  ),
-                  title: Text(l10n.version),
-                  trailing: Text(
-                    packageInfoAsync.value?.version.isNotEmpty == true
-                        ? packageInfoAsync.value!.version
-                        : '-',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.meeting_minutes),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(AppRoutes.meetingMinutesList),
                 ),
               ],
             ),
@@ -255,19 +319,6 @@ class ProfilePage extends ConsumerWidget {
             child: _whiteListSection(
               context,
               tiles: [
-                if (showSerialNumberStats)
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: Text(l10n.serial_number_stats),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push(AppRoutes.serialNumberStats),
-                  ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.account_security),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.accountSecurity),
-                ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.language),
@@ -315,23 +366,9 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.meeting_minutes),
+                  title: Text(l10n.account_security),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.meetingMinutesList),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.task_menu_item),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.taskList),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.bluetooth_settings),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
-                  },
+                  onTap: () => context.push(AppRoutes.accountSecurity),
                 ),
                 if (kDebugMode)
                   ValueListenableBuilder<AppEnvironmentStage>(
@@ -364,20 +401,12 @@ class ProfilePage extends ConsumerWidget {
                       );
                     },
                   ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.camera_permission),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
-                  },
-                ),
               ],
             ),
           ),
 
-          // 关于
-          _sectionHeader(context, l10n.about),
+          // 帮助与反馈
+          _sectionHeader(context, l10n.help_and_feedback),
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _whiteListSection(
@@ -398,9 +427,70 @@ class ProfilePage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.feedback),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    _showTopToast(context, l10n.google_signin_placeholder);
+                  onTap: () => _openFeedbackEmail(context),
+                ),
+              ],
+            ),
+          ),
+
+          // 关于应用
+          _sectionHeader(context, l10n.app_info),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _whiteListSection(
+              context,
+              tiles: [
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  title: Text(l10n.app_name),
+                  trailing: Text(
+                    AppConstants.appName,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 2,
+                  ),
+                  title: Text(l10n.version),
+                  trailing: Text(
+                    packageInfoAsync.value?.version.isNotEmpty == true
+                        ? packageInfoAsync.value!.version
+                        : '-',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.privacy_policy_menu),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await launchUrl(
+                      privacyPolicyUri,
+                      mode: LaunchMode.externalApplication,
+                    );
                   },
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.user_agreement_menu),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await launchUrl(
+                      termsUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.clear_cache),
+                  trailing: const Icon(Icons.cleaning_services_outlined),
+                  onTap: () => _clearDeviceSettingsCache(context, ref),
                 ),
               ],
             ),
