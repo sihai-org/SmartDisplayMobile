@@ -196,6 +196,13 @@ class DeviceCustomizationNotifier
       }
 
       // 守卫通过后再落盘，避免覆盖窗口期内的本地编辑/保存
+      // TODO(known-race): 本地写盘期间（约几十毫秒）若用户正好编辑设置，
+      // 下面的 await 会让出事件循环，导致 stale 远程数据落到本地存储。
+      // 第二次守卫只能阻止内存 state 被覆盖，无法回滚已写入的磁盘数据，
+      // 用户在该窗口内的编辑会在下次启动/离线加载时丢失。
+      // 触发概率低且后果可恢复（重新编辑即可），暂不修复；
+      // 若 saveUserCustomization 变慢或线上出现"设置被还原"反馈，
+      // 改为先同步更新 state、再异步落盘，让用户编辑路径后写后赢。
       final saveStopwatch = Stopwatch()..start();
       await _repo.saveUserCustomization(deviceId, remote.customization);
       saveStopwatch.stop();
