@@ -236,9 +236,16 @@ class DeviceCustomizationNotifier
       final nextCustomization = remote.customization.copyWith(
         wakeWord: defaultWakeWordOnRefresh,
       );
+      final shouldResetLocalWallpaperPaths = !_sameWallpaperCacheIdentity(
+        state.customization.wallpaperInfos,
+        nextCustomization.wallpaperInfos,
+      );
       state = state.copyWith(
         customization: nextCustomization,
         wakeWordCandidates: mergedWakeWordCandidates,
+        localWallpaperPaths: shouldResetLocalWallpaperPaths
+            ? const []
+            : state.localWallpaperPaths,
       );
       unawaited(_refreshWallpaperCache(deviceId, nextCustomization));
     } catch (error, stackTrace) {
@@ -301,6 +308,36 @@ class DeviceCustomizationNotifier
       if (!a[i].hasSameContent(b[i])) return false;
     }
     return true;
+  }
+
+  bool _sameWallpaperCacheIdentity(
+    List<CustomWallpaperInfo> a,
+    List<CustomWallpaperInfo> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (_normalizeWallpaperIdentityPart(left.mime) !=
+          _normalizeWallpaperIdentityPart(right.mime)) {
+        return false;
+      }
+
+      final leftMd5 = _normalizeWallpaperIdentityPart(left.md5);
+      final rightMd5 = _normalizeWallpaperIdentityPart(right.md5);
+      if (leftMd5.isNotEmpty || rightMd5.isNotEmpty) {
+        if (leftMd5 != rightMd5) return false;
+        continue;
+      }
+
+      if (left.key.trim() != right.key.trim()) return false;
+    }
+    return true;
+  }
+
+  String _normalizeWallpaperIdentityPart(String value) {
+    return value.trim().toLowerCase();
   }
 
   Future<void> _refreshWakeWordCandidates(String deviceId) async {
@@ -456,10 +493,7 @@ class DeviceCustomizationNotifier
       wallpaper: WallpaperType.defaultWallpaper,
     );
 
-    state = state.copyWith(
-      customization: next,
-      localWallpaperPaths: const [],
-    );
+    state = state.copyWith(customization: next, localWallpaperPaths: const []);
   }
 
   /// 将当前状态保存到远端
@@ -733,11 +767,11 @@ class DeviceCustomizationNotifier
 
     try {
       final apiStopwatch = Stopwatch()..start();
+
+      final url = '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates';
       final response = await http
           .post(
-            Uri.parse(
-              '${AppEnvironment.apiServerUrl}/wakeword/get_word_candidates',
-            ),
+            Uri.parse(url),
             headers: {
               'Content-Type': 'application/json',
               'X-Access-Token': accessToken,
