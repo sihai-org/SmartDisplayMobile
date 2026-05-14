@@ -35,6 +35,9 @@ Future<void> _bootstrapApp() async {
   // Initialize iOS deep link channel and fetch any initial link
   await DeepLinkHandler.init();
 
+  // 启动时同步读取已持久化的语言偏好，避免首帧闪烁。
+  final savedLocale = await loadSavedLocale();
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -49,7 +52,14 @@ Future<void> _bootstrapApp() async {
     ),
   );
 
-  runApp(const ProviderScope(child: SmartDisplayApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        localeProvider.overrideWith(() => LocaleNotifier(savedLocale)),
+      ],
+      child: const SmartDisplayApp(),
+    ),
+  );
 }
 
 void main() async {

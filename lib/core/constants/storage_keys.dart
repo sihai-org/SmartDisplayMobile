@@ -8,4 +8,7 @@ class StorageKeys {
 
   /// DeviceCustomizationRepository：当前用户的设备自定义配置。
   static const deviceCustomizationBase = 'device_customization_v1';
+
+  /// LocaleProvider：用户手动选择的语言（languageCode；为空表示跟随系统）。
+  static const localePreference = 'locale_preference_v1';
 }

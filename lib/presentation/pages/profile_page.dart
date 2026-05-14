@@ -360,7 +360,9 @@ class ProfilePage extends ConsumerWidget {
                       ),
                     );
                     if (picked != null || locale != null) {
-                      ref.read(localeProvider.notifier).state = picked;
+                      await ref
+                          .read(localeProvider.notifier)
+                          .setLocale(picked);
                     }
                   },
                 ),
