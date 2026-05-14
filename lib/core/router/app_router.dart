@@ -22,6 +22,8 @@ import '../../presentation/pages/force_update_page.dart';
 import '../../presentation/pages/serial_number_stats_page.dart';
 import '../../presentation/pages/balance_page.dart';
 import '../../presentation/pages/balance_bill_page.dart';
+import '../../presentation/pages/driver_bind_page.dart';
+import '../../presentation/pages/driver_list_page.dart';
 import '../models/version_update_config.dart';
 import '../models/meeting_minutes_item.dart';
 import '../models/task_vo.dart';
@@ -49,6 +51,8 @@ class AppRoutes {
   static const String serialNumberStats = '/serial-number-stats';
   static const String balance = '/balance';
   static const String balanceBills = '/balance/bills';
+  static const String driverBind = '/driver-bind';
+  static const String driverList = '/drivers';
 }
 
 /// Router configuration
@@ -254,6 +258,21 @@ final GoRouter appRouter = GoRouter(
         final args = state.extra as BalanceBillsArgs?;
         return BalanceBillPage(args: args);
       },
+    ),
+
+    GoRoute(
+      path: AppRoutes.driverBind,
+      name: 'driver-bind',
+      builder: (context, state) {
+        final hwId = state.uri.queryParameters['hwId'] ?? '';
+        return DriverBindPage(driverHwId: hwId);
+      },
+    ),
+
+    GoRoute(
+      path: AppRoutes.driverList,
+      name: 'driver-list',
+      builder: (context, state) => const DriverListPage(),
     ),
   ],
 

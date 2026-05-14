@@ -2230,6 +2230,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading PDF...'**
   String get task_pdf_loading;
+
+  /// No description provided for @driver_bind_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Bind Driver'**
+  String get driver_bind_title;
+
+  /// No description provided for @driver_bind_hw_id_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver ID'**
+  String get driver_bind_hw_id_label;
+
+  /// No description provided for @driver_bind_choose_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose associated device'**
+  String get driver_bind_choose_device;
+
+  /// No description provided for @driver_bind_submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Bind'**
+  String get driver_bind_submit;
+
+  /// No description provided for @driver_bind_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Bound successfully'**
+  String get driver_bind_success;
+
+  /// No description provided for @driver_bind_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Bind failed, please try again'**
+  String get driver_bind_failed;
+
+  /// No description provided for @driver_bind_empty_devices.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices yet. Please scan a device QR code to add one first.'**
+  String get driver_bind_empty_devices;
+
+  /// No description provided for @driver_list_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My Drivers'**
+  String get driver_list_title;
+
+  /// No description provided for @driver_list_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No bound drivers yet'**
+  String get driver_list_empty;
+
+  /// No description provided for @driver_list_bound_device.
+  ///
+  /// In en, this message translates to:
+  /// **'Device: {name}'**
+  String driver_list_bound_device(String name);
+
+  /// No description provided for @driver_list_device_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID: {id}'**
+  String driver_list_device_id(String id);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

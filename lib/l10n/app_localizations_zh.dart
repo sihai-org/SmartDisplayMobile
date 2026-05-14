@@ -1133,4 +1133,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get task_pdf_loading => '正在加载PDF...';
+
+  @override
+  String get driver_bind_title => '绑定龙虾驱动';
+
+  @override
+  String get driver_bind_hw_id_label => '驱动编号';
+
+  @override
+  String get driver_bind_choose_device => '选择关联设备';
+
+  @override
+  String get driver_bind_submit => '绑定';
+
+  @override
+  String get driver_bind_success => '绑定成功';
+
+  @override
+  String get driver_bind_failed => '绑定失败，请重试';
+
+  @override
+  String get driver_bind_empty_devices => '暂无设备，请先扫描设备二维码完成绑定';
+
+  @override
+  String get driver_list_title => '我的龙虾';
+
+  @override
+  String get driver_list_empty => '暂无已绑定的龙虾驱动';
+
+  @override
+  String driver_list_bound_device(String name) {
+    return '关联设备：$name';
+  }
+
+  @override
+  String driver_list_device_id(String id) {
+    return '设备ID：$id';
+  }
 }

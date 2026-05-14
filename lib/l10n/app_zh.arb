@@ -418,5 +418,22 @@
   "task_pdf_retry": "重试",
   "task_pdf_download": "下载",
   "task_pdf_share": "分享",
-  "task_pdf_loading": "正在加载PDF..."
+  "task_pdf_loading": "正在加载PDF...",
+  "driver_bind_title": "绑定龙虾驱动",
+  "driver_bind_hw_id_label": "驱动编号",
+  "driver_bind_choose_device": "选择关联设备",
+  "driver_bind_submit": "绑定",
+  "driver_bind_success": "绑定成功",
+  "driver_bind_failed": "绑定失败，请重试",
+  "driver_bind_empty_devices": "暂无设备，请先扫描设备二维码完成绑定",
+  "driver_list_title": "我的龙虾",
+  "driver_list_empty": "暂无已绑定的龙虾驱动",
+  "driver_list_bound_device": "关联设备：{name}",
+  "@driver_list_bound_device": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "driver_list_device_id": "设备ID：{id}",
+  "@driver_list_device_id": {
+    "placeholders": { "id": { "type": "String" } }
+  }
 }
