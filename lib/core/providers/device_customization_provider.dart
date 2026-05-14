@@ -327,13 +327,22 @@ class DeviceCustomizationNotifier
       }
       if (!mounted || state.displayDeviceId != deviceId) return;
 
-      // 只刷新候选列表本身；customization.wakeWord 的兜底由 load() 和
-      // _refreshRemoteCustomization() 负责，避免污染 baseline 守卫。
+      // 只在当前 wakeWord 仍为空时补齐默认候选；已有本地/远端/用户选择都不覆盖。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         wakeWordCandidates,
         selectedWakeWord: state.customization.wakeWord,
       );
+      final currentWakeWord = state.customization.wakeWord.trim();
+      final nextCustomization = currentWakeWord.isEmpty
+          ? state.customization.copyWith(
+              wakeWord: _defaultWakeWordSelection(
+                currentWakeWord: currentWakeWord,
+                candidates: mergedWakeWordCandidates,
+              ),
+            )
+          : state.customization;
       state = state.copyWith(
+        customization: nextCustomization,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
     } catch (error, stackTrace) {
