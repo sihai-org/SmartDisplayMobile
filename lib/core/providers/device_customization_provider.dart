@@ -121,13 +121,10 @@ class DeviceCustomizationNotifier
         displayDeviceId,
       );
       localStopwatch.stop();
+      // 唤醒词不在客户端兜底默认值：空 = 用户未显式选择，设备固件按内置词唤醒。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         cachedWakeWordCandidates,
         selectedWakeWord: local.wakeWord,
-      );
-      final defaultWakeWordOnLoad = _defaultWakeWordSelection(
-        currentWakeWord: local.wakeWord,
-        candidates: mergedWakeWordCandidates,
       );
       AppLog.instance.info(
         'local customization loaded deviceId=$displayDeviceId localMs=${localStopwatch.elapsedMilliseconds} wallpapers=${localPaths.length} wakeWords=${cachedWakeWordCandidates.length}',
@@ -137,7 +134,7 @@ class DeviceCustomizationNotifier
       // 阻塞用户编辑直到远端 customization + 候选词都到达，避免在本地→远端
       // 合并窗口期内用户切 layout/wakeWord 触发竞态。
       state = state.copyWith(
-        customization: local.copyWith(wakeWord: defaultWakeWordOnLoad),
+        customization: local,
         localWallpaperPaths: localPaths,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
@@ -229,13 +226,8 @@ class DeviceCustomizationNotifier
         state.wakeWordCandidates,
         selectedWakeWord: remote.customization.wakeWord,
       );
-      final defaultWakeWordOnRefresh = _defaultWakeWordSelection(
-        currentWakeWord: remote.customization.wakeWord,
-        candidates: mergedWakeWordCandidates,
-      );
-      final nextCustomization = remote.customization.copyWith(
-        wakeWord: defaultWakeWordOnRefresh,
-      );
+      // 远端返回什么就是什么，不再客户端合成默认。
+      final nextCustomization = remote.customization;
       final shouldResetLocalWallpaperPaths = !_sameWallpaperCacheIdentity(
         state.customization.wallpaperInfos,
         nextCustomization.wallpaperInfos,
@@ -364,22 +356,14 @@ class DeviceCustomizationNotifier
       }
       if (!mounted || state.displayDeviceId != deviceId) return;
 
-      // 只在当前 wakeWord 仍为空时补齐默认候选；已有本地/远端/用户选择都不覆盖。
+      // 候选刷新只更新可选项；customization.wakeWord 完全由用户/服务端决定，
+      // 这里不做兜底，避免用过期候选污染显式选择。空值代表"未选"，由设备固件
+      // 自行使用内置默认词唤醒。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         wakeWordCandidates,
         selectedWakeWord: state.customization.wakeWord,
       );
-      final currentWakeWord = state.customization.wakeWord.trim();
-      final nextCustomization = currentWakeWord.isEmpty
-          ? state.customization.copyWith(
-              wakeWord: _defaultWakeWordSelection(
-                currentWakeWord: currentWakeWord,
-                candidates: mergedWakeWordCandidates,
-              ),
-            )
-          : state.customization;
       state = state.copyWith(
-        customization: nextCustomization,
         wakeWordCandidates: mergedWakeWordCandidates,
       );
     } catch (error, stackTrace) {
@@ -510,13 +494,16 @@ class DeviceCustomizationNotifier
       final currentValue = state.customization;
       final wallpaperInfos = currentValue.wallpaperInfos.toList();
 
+      // wake_word 空串语义为"未选"，按服务端约定显式发 null（让 DB 字段置空），
+      // 因此这里不再做 removeWhere — 否则 null 会被剥掉变成"不更新"。
+      final trimmedWakeWord = currentValue.wakeWord.trim();
       final payload = <String, dynamic>{
         'device_id': deviceId,
         'layout': currentValue.layout.value,
         'wallpaper': currentValue.wallpaper.value,
-        'wake_word': currentValue.wakeWord,
+        'wake_word': trimmedWakeWord.isEmpty ? null : trimmedWakeWord,
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
-      }..removeWhere((_, value) => value == null);
+      };
 
       await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions
@@ -585,15 +572,10 @@ class DeviceCustomizationNotifier
   }
 
   /// 重置为默认配置（不触发持久化）。
+  /// wakeWord 重置为空：表示"未显式选择"，由设备固件按内置默认词唤醒。
   void resetToDefault() {
-    // 当前版本中，“恢复默认”即回到服务端候选列表首项，而不是保留独立的 default 语义。
-    final defaultWakeWordOnReset = state.wakeWordCandidates.isNotEmpty
-        ? state.wakeWordCandidates.first
-        : defaultWakeWord;
     state = state.copyWith(
-      customization: const DeviceCustomization.empty().copyWith(
-        wakeWord: defaultWakeWordOnReset,
-      ),
+      customization: const DeviceCustomization.empty(),
       localWallpaperPaths: const [],
     );
   }
@@ -852,19 +834,6 @@ class DeviceCustomizationNotifier
     return merged;
   }
 
-  String _defaultWakeWordSelection({
-    required String currentWakeWord,
-    required List<String> candidates,
-  }) {
-    final selected = currentWakeWord.trim();
-    if (selected.isNotEmpty) {
-      return selected;
-    }
-    if (candidates.isNotEmpty) {
-      return candidates.first;
-    }
-    return defaultWakeWord;
-  }
 }
 
 /// 设备自定义配置的 provider，供设备编辑页消费。

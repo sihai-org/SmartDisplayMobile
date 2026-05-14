@@ -668,6 +668,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
             DropdownButtonFormField<String>(
               key: ValueKey('wake-word-$_wakeWordFieldVersion-$_wakeWord'),
               initialValue: dropdownValue,
+              hint: Text(l10n.wake_word_default),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
