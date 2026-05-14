@@ -333,13 +333,18 @@ class ProfilePage extends ConsumerWidget {
                     ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   ),
                   onTap: () async {
-                    final picked = await showDialog<Locale?>(
+                    // 用 _LocaleChoice 包装结果，区分「未选择（取消）」与
+                    // 「主动选择跟随系统」：前者为 null，后者为持有 null 的实例。
+                    final picked = await showDialog<_LocaleChoice>(
                       context: context,
                       builder: (context) => SimpleDialog(
                         title: Text(l10n.language),
                         children: [
                           SimpleDialogOption(
-                            onPressed: () => Navigator.pop(context, null),
+                            onPressed: () => Navigator.pop(
+                              context,
+                              const _LocaleChoice(null),
+                            ),
                             child: Text(l10n.language_system),
                           ),
                           const SimpleDialogOption(
@@ -347,23 +352,27 @@ class ProfilePage extends ConsumerWidget {
                             child: SizedBox.shrink(),
                           ),
                           SimpleDialogOption(
-                            onPressed: () =>
-                                Navigator.pop(context, const Locale('en')),
+                            onPressed: () => Navigator.pop(
+                              context,
+                              const _LocaleChoice(Locale('en')),
+                            ),
                             child: Text(l10n.language_en),
                           ),
                           SimpleDialogOption(
-                            onPressed: () =>
-                                Navigator.pop(context, const Locale('zh')),
+                            onPressed: () => Navigator.pop(
+                              context,
+                              const _LocaleChoice(Locale('zh')),
+                            ),
                             child: Text(l10n.language_zh),
                           ),
                         ],
                       ),
                     );
-                    if (picked != null || locale != null) {
-                      await ref
-                          .read(localeProvider.notifier)
-                          .setLocale(picked);
-                    }
+                    if (picked == null) return; // 对话框被取消
+                    if (picked.locale == locale) return; // 选择未变化
+                    await ref
+                        .read(localeProvider.notifier)
+                        .setLocale(picked.locale);
                   },
                 ),
                 ListTile(
@@ -546,4 +555,12 @@ class ProfilePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// 区分语言选择对话框的「取消」与「主动选择跟随系统」：
+/// 对话框 dismiss 时 showDialog 返回 null；用户主动点击会返回一个
+/// _LocaleChoice 实例，其中 locale==null 表示跟随系统。
+class _LocaleChoice {
+  const _LocaleChoice(this.locale);
+  final Locale? locale;
 }
