@@ -27,6 +27,8 @@ allprojects {
             // Align with AGP 8.6: avoid pulling activity 1.11 (requires AGP 8.9+)
             force "androidx.activity:activity:1.9.0"
             force "androidx.activity:activity-ktx:1.9.0"
+            // Align with AGP 8.6: avoid pulling browser 1.9.0 (requires AGP 8.9.1+)
+            force "androidx.browser:browser:1.8.0"
         }
     }
 }
