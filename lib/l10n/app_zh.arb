@@ -308,6 +308,8 @@
   "layout_default_hint": "标准内容排版",
   "layout_frame": "相框布局",
   "layout_frame_hint": "突出展示照片的相框式排版",
+  "layout_calendar": "日历布局",
+  "layout_calendar_hint": "突出日期、日程与提醒的排版",
   "wake_word_section_title": "唤醒词",
   "wake_word_default": "设备默认词",
   "wake_word_default_hint": "修改后设备将立即重启",

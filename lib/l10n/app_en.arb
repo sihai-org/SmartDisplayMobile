@@ -308,6 +308,8 @@
   "layout_default_hint": "Standard content arrangement",
   "layout_frame": "Frame layout",
   "layout_frame_hint": "Photo-forward layout like a frame",
+  "layout_calendar": "Calendar layout",
+  "layout_calendar_hint": "Date-forward layout for schedules and reminders",
   "wake_word_section_title": "Wake Word",
   "wake_word_default": "Device default",
   "wake_word_default_hint": "Changing this restarts the device immediately",
