@@ -68,10 +68,9 @@ Future<bool> checkUpdateOnce(WidgetRef ref) async {
 }
 
 /// 用户主动检查更新：所有分支都给反馈（强更跳转 / 弹普通更新对话框 / toast 已是最新 / toast 失败）。
+/// 不复用 [_checkUpdateInFlight] 锁：那把锁是 [checkUpdateOnce] 防重入用的，
+/// 这里被它挡住会导致 trailing 转圈闪一下就消失、用户没反馈。UI 层 _checking 已防连点。
 Future<void> checkUpdateManually(WidgetRef ref, BuildContext context) async {
-  if (_checkUpdateInFlight) return;
-  _checkUpdateInFlight = true;
-
   final l10n = context.l10n;
   try {
     ref.invalidate(versionUpdateCheckProvider);
@@ -124,7 +123,5 @@ Future<void> checkUpdateManually(WidgetRef ref, BuildContext context) async {
       stackTrace: st,
     );
     Fluttertoast.showToast(msg: l10n.check_update_failed_retry);
-  } finally {
-    _checkUpdateInFlight = false;
   }
 }
