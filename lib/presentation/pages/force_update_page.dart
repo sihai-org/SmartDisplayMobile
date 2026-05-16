@@ -35,70 +35,89 @@ class ForceUpdatePage extends StatelessWidget {
 
     final notes = releaseNotes?.trim();
     final hasNotes = notes != null && notes.isNotEmpty;
+    final hasFallback =
+        fallbackDownloadUrl != null && fallbackDownloadUrl!.trim().isNotEmpty;
 
     final buttonLabel = Platform.isIOS
         ? l10n.force_update_button_app_store
         : Platform.isAndroid
-            ? l10n.force_update_button_play_store
-            : l10n.force_update_button;
+        ? l10n.force_update_button_play_store
+        : l10n.force_update_button;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 24),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 120,
-                  height: 120,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                l10n.force_update_title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              if (hasNotes) ...[
-                const SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    notes,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: subColor,
-                          height: 1.5,
-                        ),
-                  ),
-                ),
-              ] else ...[
-                const SizedBox(height: 16),
-                Text(
-                  l10n.force_update_message,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: subColor,
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                  textAlign: TextAlign.center,
+                      child: IntrinsicHeight(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              l10n.force_update_title,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: textColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (hasNotes) ...[
+                              const SizedBox(height: 24),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.06)
+                                      : Colors.black.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  notes,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: subColor,
+                                        height: 1.5,
+                                      ),
+                                ),
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 16),
+                              Text(
+                                l10n.force_update_message,
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(color: subColor),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-              const SizedBox(height: 48),
+              ),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -109,9 +128,8 @@ class ForceUpdatePage extends StatelessWidget {
                   child: Text(buttonLabel),
                 ),
               ),
-              if (fallbackDownloadUrl != null &&
-                  fallbackDownloadUrl!.trim().isNotEmpty) ...[
-                const SizedBox(height: 16),
+              if (hasFallback) ...[
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => _openUrl(fallbackDownloadUrl!),
                   child: Text(l10n.force_update_download_via_web),
