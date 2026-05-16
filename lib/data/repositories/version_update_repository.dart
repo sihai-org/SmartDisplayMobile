@@ -9,7 +9,7 @@ import '../../core/network/http_timeouts.dart';
 abstract class VersionUpdateRepository {
   Future<VersionUpdateConfig?> getVersionUpdateConfig(
     PackageInfo packageInfo, {
-    String lang,
+    String lang = 'en',
   });
 }
 
