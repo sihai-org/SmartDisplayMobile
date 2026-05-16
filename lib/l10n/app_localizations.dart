@@ -2087,6 +2087,18 @@ abstract class AppLocalizations {
   /// **'Update Now'**
   String get force_update_button;
 
+  /// No description provided for @force_update_button_app_store.
+  ///
+  /// In en, this message translates to:
+  /// **'Open App Store'**
+  String get force_update_button_app_store;
+
+  /// No description provided for @force_update_button_play_store.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Google Play'**
+  String get force_update_button_play_store;
+
   /// No description provided for @force_update_download_via_web.
   ///
   /// In en, this message translates to:

@@ -380,6 +380,8 @@
   "force_update_title": "需要更新",
   "force_update_message": "请更新到最新版本后继续使用。",
   "force_update_button": "去更新",
+  "force_update_button_app_store": "前往 App Store",
+  "force_update_button_play_store": "前往 Google Play",
   "force_update_download_via_web": "通过网页下载",
   "task_menu_item": "任务",
   "environment_switch_title": "切换环境",

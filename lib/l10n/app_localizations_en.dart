@@ -1057,6 +1057,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get force_update_button => 'Update Now';
 
   @override
+  String get force_update_button_app_store => 'Open App Store';
+
+  @override
+  String get force_update_button_play_store => 'Open Google Play';
+
+  @override
   String get force_update_download_via_web => 'Download via browser';
 
   @override

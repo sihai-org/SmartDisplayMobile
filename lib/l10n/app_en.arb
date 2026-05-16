@@ -380,6 +380,8 @@
   "force_update_title": "Update Required",
   "force_update_message": "Please update to the latest version to continue.",
   "force_update_button": "Update Now",
+  "force_update_button_app_store": "Open App Store",
+  "force_update_button_play_store": "Open Google Play",
   "force_update_download_via_web": "Download via browser",
   "task_menu_item": "Tasks",
   "environment_switch_title": "Switch Environment",
