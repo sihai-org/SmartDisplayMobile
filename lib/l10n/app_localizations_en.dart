@@ -1066,6 +1066,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get force_update_download_via_web => 'Download via browser';
 
   @override
+  String get version_info => 'Version Info';
+
+  @override
+  String new_version_available(Object version) {
+    return 'New version $version available';
+  }
+
+  @override
+  String get update_generic_message => 'Bug fixes';
+
+  @override
+  String get update_now => 'Update Now';
+
+  @override
+  String get update_later => 'Later';
+
+  @override
   String get task_menu_item => 'Tasks';
 
   @override
