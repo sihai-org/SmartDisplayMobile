@@ -20,6 +20,7 @@ import '../../core/providers/package_info_provider.dart';
 import '../../core/providers/gray_key_map_provider.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/utils/app_cache_cleanup.dart';
+import '../../core/utils/check_update.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -187,7 +188,6 @@ class ProfilePage extends ConsumerWidget {
     final saved = ref.watch(savedDevicesProvider);
     final auditState = ref.watch(auditModeProvider);
     final locale = ref.watch(localeProvider);
-    final packageInfoAsync = ref.watch(packageInfoProvider);
     final devicesCount = saved.devices.length;
     final Uri helpUri = Uri.parse(
       'https://monitor.vzngpt.com/manual?from=mobile_help',
@@ -451,30 +451,7 @@ class ProfilePage extends ConsumerWidget {
             child: _whiteListSection(
               context,
               tiles: [
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 2,
-                  ),
-                  title: Text(l10n.app_name),
-                  trailing: Text(
-                    AppConstants.appName,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 2,
-                  ),
-                  title: Text(l10n.version),
-                  trailing: Text(
-                    packageInfoAsync.value?.version.isNotEmpty == true
-                        ? packageInfoAsync.value!.version
-                        : '-',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
+                const _VersionInfoTile(),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.privacy_policy_menu),
@@ -563,4 +540,68 @@ class ProfilePage extends ConsumerWidget {
 class _LocaleChoice {
   const _LocaleChoice(this.locale);
   final Locale? locale;
+}
+
+class _VersionInfoTile extends ConsumerStatefulWidget {
+  const _VersionInfoTile();
+
+  @override
+  ConsumerState<_VersionInfoTile> createState() => _VersionInfoTileState();
+}
+
+class _VersionInfoTileState extends ConsumerState<_VersionInfoTile> {
+  bool _checking = false;
+
+  Future<void> _onTap() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      await checkUpdateManually(ref, context);
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final packageInfo = ref.watch(packageInfoProvider).value;
+    final version = (packageInfo?.version.isNotEmpty ?? false)
+        ? packageInfo!.version
+        : '-';
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Text(l10n.version_info),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            version,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Center(
+              child: _checking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).iconTheme.color?.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+      onTap: _checking ? null : _onTap,
+    );
+  }
 }

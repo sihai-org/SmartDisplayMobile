@@ -1066,6 +1066,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get force_update_download_via_web => '通过网页下载';
 
   @override
+  String get version_info => '版本信息';
+
+  @override
+  String new_version_available(Object version) {
+    return '发现新版本 $version';
+  }
+
+  @override
+  String get update_generic_message => '修复已知问题';
+
+  @override
+  String get update_now => '立即更新';
+
+  @override
+  String get update_later => '稍后';
+
+  @override
   String get task_menu_item => '任务';
 
   @override

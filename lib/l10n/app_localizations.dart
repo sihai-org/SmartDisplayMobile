@@ -1808,7 +1808,7 @@ abstract class AppLocalizations {
   /// No description provided for @wake_word_default.
   ///
   /// In en, this message translates to:
-  /// **'Use device default'**
+  /// **'Device default'**
   String get wake_word_default;
 
   /// No description provided for @wake_word_default_hint.
@@ -2104,6 +2104,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download via browser'**
   String get force_update_download_via_web;
+
+  /// No description provided for @version_info.
+  ///
+  /// In en, this message translates to:
+  /// **'Version Info'**
+  String get version_info;
+
+  /// No description provided for @new_version_available.
+  ///
+  /// In en, this message translates to:
+  /// **'New version {version} available'**
+  String new_version_available(Object version);
+
+  /// No description provided for @update_generic_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Bug fixes'**
+  String get update_generic_message;
+
+  /// No description provided for @update_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Now'**
+  String get update_now;
+
+  /// No description provided for @update_later.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get update_later;
 
   /// No description provided for @task_menu_item.
   ///
