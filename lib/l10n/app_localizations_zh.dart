@@ -1057,6 +1057,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get force_update_button => '去更新';
 
   @override
+  String get force_update_button_app_store => '前往 App Store';
+
+  @override
+  String get force_update_button_play_store => '前往 Google Play';
+
+  @override
   String get force_update_download_via_web => '通过网页下载';
 
   @override

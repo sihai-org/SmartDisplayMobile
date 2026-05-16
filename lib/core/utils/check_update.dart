@@ -37,6 +37,7 @@ Future<bool> checkUpdateOnce(WidgetRef ref) async {
             extra: ForceUpdatePayload(
               storeUrl: result!.storeUrl!,
               fallbackDownloadUrl: result.fallbackDownloadUrl,
+              releaseNotes: result.releaseNotes,
             ),
           );
         });

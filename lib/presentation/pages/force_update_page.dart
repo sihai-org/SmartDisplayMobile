@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,10 +13,12 @@ class ForceUpdatePage extends StatelessWidget {
     super.key,
     required this.storeUrl,
     this.fallbackDownloadUrl,
+    this.releaseNotes,
   });
 
   final String storeUrl;
   final String? fallbackDownloadUrl;
+  final String? releaseNotes;
 
   Future<void> _openUrl(String url) async {
     if (url.isEmpty) return;
@@ -28,6 +32,15 @@ class ForceUpdatePage extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : AppTheme.textPrimaryColor;
     final subColor = isDark ? Colors.white70 : AppTheme.textSecondaryColor;
+
+    final notes = releaseNotes?.trim();
+    final hasNotes = notes != null && notes.isNotEmpty;
+
+    final buttonLabel = Platform.isIOS
+        ? l10n.force_update_button_app_store
+        : Platform.isAndroid
+            ? l10n.force_update_button_play_store
+            : l10n.force_update_button;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
@@ -56,14 +69,35 @@ class ForceUpdatePage extends StatelessWidget {
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.force_update_message,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: subColor,
-                    ),
-                textAlign: TextAlign.center,
-              ),
+              if (hasNotes) ...[
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    notes,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: subColor,
+                          height: 1.5,
+                        ),
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.force_update_message,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: subColor,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
               const SizedBox(height: 48),
               SizedBox(
                 width: double.infinity,
@@ -72,7 +106,7 @@ class ForceUpdatePage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Text(l10n.force_update_button),
+                  child: Text(buttonLabel),
                 ),
               ),
               if (fallbackDownloadUrl != null &&
