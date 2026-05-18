@@ -21,17 +21,41 @@ import '../../core/utils/wallpaper_image_util.dart';
 import '../../core/widgets/progress_dialog.dart';
 import '../../l10n/app_localizations.dart';
 
-class DeviceEditPage extends ConsumerStatefulWidget {
+class DeviceEditPage extends StatelessWidget {
   final String? displayDeviceId;
   final String? deviceName;
 
   const DeviceEditPage({super.key, this.displayDeviceId, this.deviceName});
 
   @override
-  ConsumerState<DeviceEditPage> createState() => _DeviceEditPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: Text(context.l10n.device_settings),
+      ),
+      body: DeviceCustomizationEditor(displayDeviceId: displayDeviceId),
+    );
+  }
 }
 
-class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
+class DeviceCustomizationEditor extends ConsumerStatefulWidget {
+  const DeviceCustomizationEditor({
+    super.key,
+    required this.displayDeviceId,
+    this.embedded = false,
+  });
+
+  final String? displayDeviceId;
+  final bool embedded;
+
+  @override
+  ConsumerState<DeviceCustomizationEditor> createState() =>
+      _DeviceCustomizationEditorState();
+}
+
+class _DeviceCustomizationEditorState
+    extends ConsumerState<DeviceCustomizationEditor> {
   static const double _wallpaperViewportFraction = 0.82;
   static const double _wallpaperAspectRatio = 16 / 9;
   static const int _maxWallpaperBytes = 5 * 1024 * 1024; // 最大5MB
@@ -579,53 +603,60 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     var isLoading = ref.watch(deviceCustomizationProvider).isLoading;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: Text(l10n.device_settings),
-      ),
-      body: Stack(
-        fit: StackFit.expand, // ✅ 强制撑满 body
+    final editor = Padding(
+      padding: EdgeInsets.all(widget.embedded ? 0 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildWallpaperSelector(),
-                  const SizedBox(height: 12),
-                  _buildLayoutSection(),
-                  const SizedBox(height: 12),
-                  _buildWakeWordSection(),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _resetToDefault,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.surface,
-                      foregroundColor: theme.colorScheme.onSurface,
-                      padding: const EdgeInsets.all(14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      l10n.reset_to_default,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ],
+          _buildWallpaperSelector(),
+          const SizedBox(height: 12),
+          _buildLayoutSection(),
+          const SizedBox(height: 12),
+          _buildWakeWordSection(),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _resetToDefault,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.surface,
+              foregroundColor: theme.colorScheme.onSurface,
+              padding: const EdgeInsets.all(14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              l10n.reset_to_default,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.normal,
               ),
             ),
           ),
-
-          _LoadingMask(visible: isLoading, text: l10n.loading),
         ],
       ),
     );
+
+    if (widget.embedded) {
+      return Stack(
+        children: [
+          editor,
+          if (isLoading)
+            Positioned.fill(
+              child: _LoadingMask(visible: isLoading, text: l10n.loading),
+            ),
+        ],
+      );
+    }
+
+    final content = Stack(
+      fit: StackFit.expand,
+      children: [
+        SingleChildScrollView(child: editor),
+        _LoadingMask(visible: isLoading, text: l10n.loading),
+      ],
+    );
+
+    return SafeArea(child: content);
   }
 
   Widget _buildWakeWordSection() {
