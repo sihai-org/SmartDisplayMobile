@@ -4,7 +4,6 @@ import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/router/app_router.dart';
-import 'device_edit_trigger.dart';
 
 class DeviceCard extends StatelessWidget {
   final String name;
@@ -136,64 +135,33 @@ class DeviceCard extends StatelessWidget {
                         )
                       ],
                     )),
-                Divider(height: 1, color: dividerColor),
-
+                if (enableViewDetails == true)
+                  Divider(height: 1, color: dividerColor),
                 if (enableViewDetails == true)
                   SizedBox(
                     width: double.infinity,
                     height: 48,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 左侧：编辑
-                        Expanded(
-                          child: DeviceEditTrigger(
-                            displayDeviceId: id,
-                            deviceName: name,
-                          ),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: Theme.of(context).textTheme.bodyMedium,
+                        overlayColor: Colors.transparent,
+                      ),
+                      onPressed: () {
+                        context.go(
+                          '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(id)}',
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(
+                            AppConstants.smallPadding),
+                        child: Text(
+                          context.l10n.viewDetails,
+                          style: const TextStyle(fontSize: 16),
                         ),
-
-                        VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          color: dividerColor,
-                        ),
-
-                        // 右侧：查看详情
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: Theme.of(context).textTheme.bodyMedium,
-                              overlayColor: Colors.transparent,
-                            ),
-                            onPressed: () {
-                              context.go(
-                                '${AppRoutes.home}?displayDeviceId=${Uri.encodeComponent(id)}',
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(
-                                  AppConstants.smallPadding),
-                              child: Text(
-                                context.l10n.viewDetails,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: DeviceEditTrigger(
-                      displayDeviceId: id,
-                      deviceName: name,
+                      ),
                     ),
                   )
               ],

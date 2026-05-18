@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_display_mobile/core/providers/app_state_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,10 +24,20 @@ import '../../core/utils/app_cache_cleanup.dart';
 import '../../core/utils/check_update.dart';
 
 class ProfilePage extends ConsumerWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.asDrawer = false});
+
+  final bool asDrawer;
 
   void _showTopToast(BuildContext context, String message) {
     Fluttertoast.showToast(msg: message, gravity: ToastGravity.TOP);
+  }
+
+  void _pushRoute(BuildContext context, String route) {
+    final router = GoRouter.of(context);
+    if (asDrawer) {
+      Navigator.of(context).pop();
+    }
+    router.push(route);
   }
 
   Future<void> _openFeedbackEmail(BuildContext context) async {
@@ -215,18 +226,7 @@ class ProfilePage extends ConsumerWidget {
           orElse: () => false,
         );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.profile_title),
-        actions: [
-          IconButton(
-            onPressed: () => context.push(AppRoutes.qrScanner),
-            icon: const Icon(Icons.add),
-            tooltip: l10n.scan_qr,
-          ),
-        ],
-      ),
-      body: ListView(
+    final content = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 顶部：头像 + 用户名 + 设备数量
@@ -276,14 +276,15 @@ class ProfilePage extends ConsumerWidget {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     title: Text(l10n.serial_number_stats),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push(AppRoutes.serialNumberStats),
+                    onTap: () =>
+                        _pushRoute(context, AppRoutes.serialNumberStats),
                   ),
                 if (showBalanceEntry)
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     title: Text(l10n.billing_title),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push(AppRoutes.balance),
+                    onTap: () => _pushRoute(context, AppRoutes.balance),
                   ),
               ],
             ),
@@ -300,13 +301,14 @@ class ProfilePage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.writing_tasks),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.taskList),
+                  onTap: () => _pushRoute(context, AppRoutes.taskList),
                 ),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.meeting_minutes),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.meetingMinutesList),
+                  onTap: () =>
+                      _pushRoute(context, AppRoutes.meetingMinutesList),
                 ),
               ],
             ),
@@ -379,7 +381,23 @@ class ProfilePage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   title: Text(l10n.account_security),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.accountSecurity),
+                  onTap: () => _pushRoute(context, AppRoutes.accountSecurity),
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(
+                    Localizations.localeOf(context).languageCode == 'zh'
+                        ? '相机权限'
+                        : 'Camera permission',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: openAppSettings,
+                ),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: Text(l10n.device_management),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _pushRoute(context, AppRoutes.deviceManagement),
                 ),
                 if (kDebugMode)
                   ValueListenableBuilder<AppEnvironmentStage>(
@@ -529,7 +547,15 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+    );
+
+    if (asDrawer) {
+      return SafeArea(child: content);
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.profile_title)),
+      body: content,
     );
   }
 }

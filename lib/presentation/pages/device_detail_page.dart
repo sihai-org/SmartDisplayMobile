@@ -3,6 +3,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:smart_display_mobile/core/utils/data_transformer.dart';
+import 'package:smart_display_mobile/presentation/pages/device_edit_page.dart';
+import 'package:smart_display_mobile/presentation/pages/profile_page.dart';
 import 'package:smart_display_mobile/presentation/widgets/device_card.dart';
 import '../../core/constants/enum.dart';
 import '../../core/l10n/l10n_extensions.dart';
@@ -119,20 +121,24 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
     final bleView = buildDeviceBleViewStateForCurrent(savedNotifier, connState);
 
     return Scaffold(
+      drawer: const Drawer(child: ProfilePage(asDrawer: true)),
       appBar: AppBar(
         leading: widget.onBackToList != null
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: widget.onBackToList,
               )
-            : null,
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: const CircleAvatar(
+                    radius: 14,
+                    child: Icon(Icons.person, size: 18),
+                  ),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
         title: Text(context.l10n.current_device),
         actions: [
-          if (saved.loaded && saved.devices.isNotEmpty)
-            IconButton(
-              onPressed: () => context.push(AppRoutes.deviceManagement),
-              icon: const Icon(Icons.list),
-            ),
           IconButton(
             onPressed: () => context.push(AppRoutes.qrScanner),
             icon: const Icon(Icons.add),
@@ -215,6 +221,21 @@ class _DeviceDetailState extends ConsumerState<DeviceDetailPage> {
               ),
             ] else ...[
               // 选择要展示的设备及其扩展信息
+              Builder(
+                builder: (context) {
+                  final rec = bleView.currentDevice;
+                  return DeviceCustomizationEditor(
+                    key: ValueKey(
+                      'device-customization-${rec.displayDeviceId}',
+                    ),
+                    displayDeviceId: rec.displayDeviceId,
+                    embedded: true,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+
               Builder(
                 builder: (context) {
                   final rec = bleView.currentDevice;
