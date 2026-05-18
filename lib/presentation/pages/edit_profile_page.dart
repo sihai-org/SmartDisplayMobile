@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth/auth_manager.dart';
 import '../../core/constants/app_environment.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/log/app_log.dart';
 import '../../core/network/http_timeouts.dart';
 import '../../core/providers/user_profile_refresh_provider.dart';
 import '../../core/utils/user_display_name_util.dart';
@@ -73,6 +74,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           .timeout(HttpTimeouts.business);
 
       if (response.statusCode != 200) {
+        AppLog.instance.error(
+          '[edit_profile] update_user_info http failed '
+          'status=${response.statusCode} body=${response.body}',
+          tag: 'UserProfile',
+        );
         Fluttertoast.showToast(msg: '保存失败，请重试');
         return;
       }
@@ -80,6 +86,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['code'] != 200) {
         final message = decoded is Map ? decoded['message']?.toString() : null;
+        AppLog.instance.error(
+          '[edit_profile] update_user_info biz failed '
+          'code=${decoded is Map ? decoded['code'] : 'invalid_json'} '
+          'message=$message body=${response.body}',
+          tag: 'UserProfile',
+        );
         Fluttertoast.showToast(msg: (message?.isNotEmpty ?? false) ? message! : '保存失败，请重试');
         return;
       }
@@ -105,7 +117,13 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       ref.read(userProfileRefreshProvider.notifier).state++;
 
       Fluttertoast.showToast(msg: l10n.settings_saved);
-    } catch (_) {
+    } catch (e, st) {
+      AppLog.instance.error(
+        '[edit_profile] update_user_info exception',
+        tag: 'UserProfile',
+        error: e,
+        stackTrace: st,
+      );
       Fluttertoast.showToast(msg: l10n.network_or_timeout_tip);
     } finally {
       if (mounted) {
