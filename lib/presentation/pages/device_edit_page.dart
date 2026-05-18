@@ -16,6 +16,7 @@ import '../../core/errors/network_error_util.dart';
 import '../../core/l10n/l10n_extensions.dart';
 import '../../core/models/device_customization.dart';
 import '../../core/providers/device_customization_provider.dart';
+import '../../core/providers/gray_key_map_provider.dart';
 import '../../core/utils/wallpaper_image_util.dart';
 import '../../core/widgets/progress_dialog.dart';
 import '../../l10n/app_localizations.dart';
@@ -825,6 +826,16 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
 
+    final deviceId = widget.displayDeviceId;
+    final showCalendarLayout = (deviceId != null && deviceId.isNotEmpty)
+        ? ref
+              .watch(deviceGrayKeyMapProvider(deviceId))
+              .maybeWhen(
+                data: (m) => m['layout_calendar'] == true,
+                orElse: () => false,
+              )
+        : false;
+
     final options = [
       _LayoutOption(
         value: LayoutType.defaultLayout,
@@ -838,12 +849,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         subtitle: l10n.layout_frame_hint,
         iconAsset: 'assets/images/layout_frame_icon.png', // ✅ 左侧图标
       ),
-      _LayoutOption(
-        value: LayoutType.calendar,
-        title: l10n.layout_calendar,
-        subtitle: l10n.layout_calendar_hint,
-        iconData: Icons.calendar_month,
-      ),
+      if (showCalendarLayout)
+        _LayoutOption(
+          value: LayoutType.calendar,
+          title: l10n.layout_calendar,
+          subtitle: l10n.layout_calendar_hint,
+          iconData: Icons.calendar_month,
+        ),
     ];
 
     return Card(
