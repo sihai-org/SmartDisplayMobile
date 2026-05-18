@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/models/meeting_minutes_item.dart';
 
@@ -59,6 +60,9 @@ class MeetingMinutesDetailPage extends StatelessWidget {
           : Markdown(
               data: content,
               padding: const EdgeInsets.all(16),
+              selectable: true,
+              softLineBreak: true,
+              extensionSet: md.ExtensionSet.gitHubFlavored,
             ),
     );
   }
