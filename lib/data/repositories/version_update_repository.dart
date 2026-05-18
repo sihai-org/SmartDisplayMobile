@@ -7,7 +7,10 @@ import '../../core/log/app_log.dart';
 import '../../core/network/http_timeouts.dart';
 
 abstract class VersionUpdateRepository {
-  Future<VersionUpdateConfig?> getVersionUpdateConfig(PackageInfo packageInfo);
+  Future<VersionUpdateConfig?> getVersionUpdateConfig(
+    PackageInfo packageInfo, {
+    String lang = 'en',
+  });
 }
 
 class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
@@ -15,8 +18,9 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
 
   @override
   Future<VersionUpdateConfig?> getVersionUpdateConfig(
-    PackageInfo packageInfo,
-  ) async {
+    PackageInfo packageInfo, {
+    String lang = 'en',
+  }) async {
     try {
       // platform
       final platform = Platform.isIOS
@@ -31,7 +35,7 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
 
       final response = await Supabase.instance.client.functions
           .invoke(
-            'mobile_check_update?platform=$platform&version_code=$versionCode&version_name=$versionName',
+            'mobile_check_update?platform=$platform&version_code=$versionCode&version_name=$versionName&lang=$lang',
             method: HttpMethod.get, // 一定要加
           )
           .timeout(HttpTimeouts.business);
@@ -58,6 +62,10 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
           ? storeUrlAndroid
           : "";
       final fallbackDownloadUrl = Platform.isAndroid ? storeUrlAndroidWeb : "";
+      final rawNotes = data['releaseNotes'];
+      final releaseNotes = rawNotes is String && rawNotes.trim().isNotEmpty
+          ? rawNotes
+          : null;
       return VersionUpdateConfig(
         latestVersionName: data['latestVersionName'] ?? "0.0.0",
         latestVersionCode: data['latestVersionCode'] ?? 0,
@@ -68,6 +76,7 @@ class SupabaseVersionUpdateRepository implements VersionUpdateRepository {
         storeUrlAndroidWeb: storeUrlAndroidWeb,
         storeUrl: storeUrl,
         fallbackDownloadUrl: fallbackDownloadUrl,
+        releaseNotes: releaseNotes,
       );
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.warning(

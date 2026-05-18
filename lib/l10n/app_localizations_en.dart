@@ -260,6 +260,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meeting_minutes_failed => 'Generation failed';
 
   @override
+  String get meeting_minutes_share => 'Share';
+
+  @override
+  String get meeting_minutes_share_failed => 'Share failed. Please try again.';
+
+  @override
+  String get meeting_minutes_missing_id => 'Missing meeting ID';
+
+  @override
+  String get meeting_minutes_no_pdf_link => 'No PDF link available';
+
+  @override
   String get meeting_minutes_mock_title_1 => 'Project Weekly Sync Minutes';
 
   @override
@@ -887,6 +899,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get layout_frame_hint => 'Photo-forward layout like a frame';
 
   @override
+  String get layout_calendar => 'Calendar layout';
+
+  @override
+  String get layout_calendar_hint => 'Date-forward layout for schedules and reminders';
+
+  @override
   String get wake_word_section_title => 'Wake Word';
 
   @override
@@ -1051,7 +1069,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get force_update_button => 'Update Now';
 
   @override
+  String get force_update_button_app_store => 'Open App Store';
+
+  @override
+  String get force_update_button_play_store => 'Open Google Play';
+
+  @override
   String get force_update_download_via_web => 'Download via browser';
+
+  @override
+  String get version_info => 'Version Info';
+
+  @override
+  String new_version_available(Object version) {
+    return 'New version $version available';
+  }
+
+  @override
+  String get update_generic_message => 'Bug fixes';
+
+  @override
+  String get update_now => 'Update Now';
+
+  @override
+  String get update_later => 'Later';
 
   @override
   String get task_menu_item => 'Tasks';

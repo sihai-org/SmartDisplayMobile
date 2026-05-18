@@ -593,6 +593,30 @@ abstract class AppLocalizations {
   /// **'Generation failed'**
   String get meeting_minutes_failed;
 
+  /// No description provided for @meeting_minutes_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get meeting_minutes_share;
+
+  /// No description provided for @meeting_minutes_share_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Share failed. Please try again.'**
+  String get meeting_minutes_share_failed;
+
+  /// No description provided for @meeting_minutes_missing_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing meeting ID'**
+  String get meeting_minutes_missing_id;
+
+  /// No description provided for @meeting_minutes_no_pdf_link.
+  ///
+  /// In en, this message translates to:
+  /// **'No PDF link available'**
+  String get meeting_minutes_no_pdf_link;
+
   /// No description provided for @meeting_minutes_mock_title_1.
   ///
   /// In en, this message translates to:
@@ -1787,6 +1811,18 @@ abstract class AppLocalizations {
   /// **'Photo-forward layout like a frame'**
   String get layout_frame_hint;
 
+  /// No description provided for @layout_calendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar layout'**
+  String get layout_calendar;
+
+  /// No description provided for @layout_calendar_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Date-forward layout for schedules and reminders'**
+  String get layout_calendar_hint;
+
   /// No description provided for @wake_word_section_title.
   ///
   /// In en, this message translates to:
@@ -1796,7 +1832,7 @@ abstract class AppLocalizations {
   /// No description provided for @wake_word_default.
   ///
   /// In en, this message translates to:
-  /// **'Use device default'**
+  /// **'Device default'**
   String get wake_word_default;
 
   /// No description provided for @wake_word_default_hint.
@@ -2075,11 +2111,53 @@ abstract class AppLocalizations {
   /// **'Update Now'**
   String get force_update_button;
 
+  /// No description provided for @force_update_button_app_store.
+  ///
+  /// In en, this message translates to:
+  /// **'Open App Store'**
+  String get force_update_button_app_store;
+
+  /// No description provided for @force_update_button_play_store.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Google Play'**
+  String get force_update_button_play_store;
+
   /// No description provided for @force_update_download_via_web.
   ///
   /// In en, this message translates to:
   /// **'Download via browser'**
   String get force_update_download_via_web;
+
+  /// No description provided for @version_info.
+  ///
+  /// In en, this message translates to:
+  /// **'Version Info'**
+  String get version_info;
+
+  /// No description provided for @new_version_available.
+  ///
+  /// In en, this message translates to:
+  /// **'New version {version} available'**
+  String new_version_available(Object version);
+
+  /// No description provided for @update_generic_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Bug fixes'**
+  String get update_generic_message;
+
+  /// No description provided for @update_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Now'**
+  String get update_now;
+
+  /// No description provided for @update_later.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get update_later;
 
   /// No description provided for @task_menu_item.
   ///

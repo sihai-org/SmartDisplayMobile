@@ -11,97 +11,105 @@ import 'package:smart_display_mobile/core/constants/app_environment.dart';
 import 'package:smart_display_mobile/core/errors/network_error_util.dart';
 import 'package:smart_display_mobile/core/l10n/l10n_extensions.dart';
 import 'package:smart_display_mobile/core/log/app_log.dart';
-import 'package:smart_display_mobile/core/models/task_vo.dart';
+import 'package:smart_display_mobile/core/models/meeting_minutes_item.dart';
 import 'package:smart_display_mobile/core/network/http_timeouts.dart';
 import 'package:smart_display_mobile/core/services/remote_file_cache.dart';
 import 'package:smart_display_mobile/core/utils/task_file_name_formatter.dart';
 
-class TaskFileService {
-  static const String _shareLogTag = 'TaskFileShare';
+class MeetingFileService {
+  static const String _shareLogTag = 'MeetingFileShare';
 
-  // 兼容老缓存的硬约束：目录名、文件名前缀、分享临时目录名不能改。
-  static const String _kNamespace = 'tasks';
-  static const String _kCacheFilePrefix = 'task_file_cache_';
-  static const String _kShareDirectoryName = 'task_file_share';
+  static const String _kNamespace = 'meetings';
+  static const String _kCacheFilePrefix = 'meeting_file_cache_';
+  static const String _kShareDirectoryName = 'meeting_file_share';
+  static const String _kFileExtension = 'pdf';
+  static const String _kMimeType = 'application/pdf';
 
-  static Future<void> shareTaskFile(BuildContext context, TaskVO task) async {
+  static Future<void> shareMeetingPdf(
+    BuildContext context,
+    MeetingMinutesItem item,
+  ) async {
     final l10n = context.l10n;
     final shareOrigin = RemoteFileCache.shareOriginRect(context);
     final totalStopwatch = Stopwatch()..start();
-    final taskId = task.id.trim();
-    final fileName = _buildFileName(task);
+    final meetingId = item.id.trim();
+    final fileName = _buildFileName(item);
 
     AppLog.instance.info(
-      'start taskId=$taskId type=${task.normalizedType} fileName="$fileName"',
+      'start meetingId=$meetingId fileName="$fileName"',
       tag: _shareLogTag,
     );
 
     try {
       final cacheLookupStopwatch = Stopwatch()..start();
-      final cachedFile = await readValidCachedFileForTask(task);
+      final cachedFile = await _readValidCachedFile(item);
       cacheLookupStopwatch.stop();
 
       File localFile;
       if (cachedFile != null) {
         final cachedSize = await cachedFile.length();
         AppLog.instance.info(
-          'cache hit taskId=$taskId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds} '
+          'cache hit meetingId=$meetingId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds} '
           'size=${_formatBytes(cachedSize)} path=${_fileLabel(cachedFile)}',
           tag: _shareLogTag,
         );
         localFile = cachedFile;
       } else {
         AppLog.instance.info(
-          'cache miss taskId=$taskId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds}',
+          'cache miss meetingId=$meetingId lookupMs=${cacheLookupStopwatch.elapsedMilliseconds}',
           tag: _shareLogTag,
         );
 
         final fetchUrlStopwatch = Stopwatch()..start();
-        final downloadUrl = await _fetchTaskDownloadUrl(
-          task,
+        final downloadUrl = await _fetchMeetingDownloadUrl(
+          item,
           loginExpiredMessage: l10n.login_expired,
-          missingTaskIdMessage: l10n.task_pdf_missing_task_id,
-          noAvailableLinkMessage: l10n.task_pdf_no_available_link,
+          missingIdMessage: l10n.meeting_minutes_missing_id,
+          noAvailableLinkMessage: l10n.meeting_minutes_no_pdf_link,
         );
         fetchUrlStopwatch.stop();
         AppLog.instance.info(
-          'fetch url done taskId=$taskId fetchUrlMs=${fetchUrlStopwatch.elapsedMilliseconds} '
+          'fetch url done meetingId=$meetingId fetchUrlMs=${fetchUrlStopwatch.elapsedMilliseconds} '
           'host=${_urlHost(downloadUrl)}',
           tag: _shareLogTag,
         );
 
         final downloadStopwatch = Stopwatch()..start();
-        localFile = await downloadToCacheIfNeeded(task, downloadUrl);
+        localFile = await _downloadToCacheIfNeeded(item, downloadUrl);
         downloadStopwatch.stop();
         final downloadedSize = await localFile.length();
         AppLog.instance.info(
-          'download done taskId=$taskId downloadMs=${downloadStopwatch.elapsedMilliseconds} '
+          'download done meetingId=$meetingId downloadMs=${downloadStopwatch.elapsedMilliseconds} '
           'size=${_formatBytes(downloadedSize)} path=${_fileLabel(localFile)}',
           tag: _shareLogTag,
         );
       }
 
-      unawaited(markFileAccessed(localFile));
+      unawaited(RemoteFileCache.markFileAccessed(localFile));
 
       final prepareShareStopwatch = Stopwatch()..start();
-      final shareFile = await prepareShareFile(task, localFile);
+      final shareFile = await RemoteFileCache.prepareShareFile(
+        sourceFile: localFile,
+        displayFileName: fileName,
+        shareDirectoryName: _kShareDirectoryName,
+      );
       prepareShareStopwatch.stop();
       final shareFileSize = await shareFile.length();
       AppLog.instance.info(
-        'prepare share file done taskId=$taskId prepareShareMs=${prepareShareStopwatch.elapsedMilliseconds} '
+        'prepare share file done meetingId=$meetingId prepareShareMs=${prepareShareStopwatch.elapsedMilliseconds} '
         'size=${_formatBytes(shareFileSize)} path=${_fileLabel(shareFile)}',
         tag: _shareLogTag,
       );
 
       AppLog.instance.info(
-        'invoke system share taskId=$taskId totalMs=${totalStopwatch.elapsedMilliseconds}',
+        'invoke system share meetingId=$meetingId totalMs=${totalStopwatch.elapsedMilliseconds}',
         tag: _shareLogTag,
       );
       final shareStopwatch = Stopwatch()..start();
       final shareResult = await SharePlus.instance.share(
         ShareParams(
           files: [
-            XFile(shareFile.path, mimeType: _mimeType(task), name: fileName),
+            XFile(shareFile.path, mimeType: _kMimeType, name: fileName),
           ],
           text: fileName,
           sharePositionOrigin: shareOrigin,
@@ -111,7 +119,7 @@ class TaskFileService {
       totalStopwatch.stop();
 
       AppLog.instance.info(
-        'share result taskId=$taskId shareMs=${shareStopwatch.elapsedMilliseconds} '
+        'share result meetingId=$meetingId shareMs=${shareStopwatch.elapsedMilliseconds} '
         'totalMs=${totalStopwatch.elapsedMilliseconds} status=${shareResult.status.name} '
         'raw=${_shareRaw(shareResult.raw)}',
         tag: _shareLogTag,
@@ -119,8 +127,7 @@ class TaskFileService {
     } catch (error, stackTrace) {
       totalStopwatch.stop();
       AppLog.instance.error(
-        'share failed taskId=$taskId type=${task.normalizedType} '
-        'totalMs=${totalStopwatch.elapsedMilliseconds}',
+        'share failed meetingId=$meetingId totalMs=${totalStopwatch.elapsedMilliseconds}',
         tag: _shareLogTag,
         error: error,
         stackTrace: stackTrace,
@@ -128,15 +135,15 @@ class TaskFileService {
       Fluttertoast.showToast(
         msg: NetworkErrorUtil.isNetworkOrTimeout(error)
             ? l10n.network_or_timeout_tip
-            : l10n.task_pdf_share_failed,
+            : l10n.meeting_minutes_share_failed,
       );
     }
   }
 
-  static Future<String> _fetchTaskDownloadUrl(
-    TaskVO task, {
+  static Future<String> _fetchMeetingDownloadUrl(
+    MeetingMinutesItem item, {
     required String loginExpiredMessage,
-    required String missingTaskIdMessage,
+    required String missingIdMessage,
     required String noAvailableLinkMessage,
   }) async {
     final accessToken = await AuthManager.instance.getFreshAccessToken();
@@ -144,20 +151,20 @@ class TaskFileService {
       throw HttpException(loginExpiredMessage);
     }
 
-    final taskId = task.id.trim();
-    if (taskId.isEmpty) {
-      throw HttpException(missingTaskIdMessage);
+    final meetingId = item.id.trim();
+    if (meetingId.isEmpty) {
+      throw HttpException(missingIdMessage);
     }
 
-    final parsedTaskId = int.tryParse(taskId);
+    final parsedId = int.tryParse(meetingId);
     final response = await http
         .post(
-          Uri.parse('${AppEnvironment.apiServerUrl}${_endpoint(task)}'),
+          Uri.parse('${AppEnvironment.apiServerUrl}/meeting/get_result_pdf'),
           headers: {
             'Content-Type': 'application/json',
             'X-Access-Token': accessToken,
           },
-          body: jsonEncode({'agent_task_id': parsedTaskId ?? taskId}),
+          body: jsonEncode({'meeting_task_id': parsedId ?? meetingId}),
         )
         .timeout(HttpTimeouts.business);
 
@@ -166,20 +173,14 @@ class TaskFileService {
     }
 
     final decoded = jsonDecode(response.body);
-    final downloadUrl = _extractDownloadUrl(task, decoded);
+    final downloadUrl = _extractDownloadUrl(decoded);
     if (downloadUrl == null || downloadUrl.isEmpty) {
       throw HttpException(noAvailableLinkMessage);
     }
     return downloadUrl;
   }
 
-  static String _endpoint(TaskVO task) {
-    return task.isPpt
-        ? '/agent_task/deepresearch/get_ppt'
-        : '/agent_task/deepresearch/get_pdf';
-  }
-
-  static String? _extractDownloadUrl(TaskVO task, dynamic response) {
+  static String? _extractDownloadUrl(dynamic response) {
     if (response is! Map) return null;
     final map = response.map((key, value) => MapEntry(key.toString(), value));
     final code = map['code'];
@@ -188,21 +189,15 @@ class TaskFileService {
     final data = map['data'];
     if (data is Map) {
       final dataMap = data.map((key, value) => MapEntry(key.toString(), value));
-      final nested = _pickFirstString(
-        dataMap,
-        task.isPpt
-            ? const ['ppt_url', 'url', 'download_url']
-            : const ['pdf_download_url', 'pdf_url', 'url', 'download_url'],
-      );
+      final nested = _pickFirstString(dataMap, const [
+        'pdf_url',
+        'url',
+        'download_url',
+      ]);
       if (nested != null) return nested;
     }
 
-    return _pickFirstString(
-      map,
-      task.isPpt
-          ? const ['ppt_url', 'url', 'download_url']
-          : const ['pdf_download_url', 'pdf_url', 'url', 'download_url'],
-    );
+    return _pickFirstString(map, const ['pdf_url', 'url', 'download_url']);
   }
 
   static String? _pickFirstString(Map<String, dynamic> map, List<String> keys) {
@@ -215,55 +210,34 @@ class TaskFileService {
     return null;
   }
 
-  /// 兼容老缓存的硬约束：拼装格式必须保持
-  /// `'$taskId|$createTime|$finishTime|$extension'` 字节级一致。
-  static String cacheIdentityForTask(TaskVO? task, {String? fileExtension}) {
-    final taskId = task?.id.trim() ?? '';
-    final createTime = task?.createTime.trim() ?? '';
-    final finishTime = task?.finishTime.trim() ?? '';
-    final extension = _normalizedExtension(task, fileExtension);
-    return '$taskId|$createTime|$finishTime|$extension';
+  static String _cacheIdentity(MeetingMinutesItem item) {
+    final id = item.id.trim();
+    final title = item.title.trim();
+    final date = item.date.trim();
+    final time = item.time.trim();
+    return '$id|$title|$date|$time|$_kFileExtension';
   }
 
-  static String cacheFileNameForTask(TaskVO? task, {String? fileExtension}) {
-    final extension = _normalizedExtension(task, fileExtension);
-    return RemoteFileCache.cacheFileName(
-      identity: cacheIdentityForTask(task, fileExtension: extension),
-      extension: extension,
-      filePrefix: _kCacheFilePrefix,
-    );
-  }
-
-  static Future<File?> readValidCachedFileForTask(
-    TaskVO? task, {
-    String? fileExtension,
-  }) {
-    final extension = _normalizedExtension(task, fileExtension);
+  static Future<File?> _readValidCachedFile(MeetingMinutesItem item) {
     return RemoteFileCache.readValidCachedFile(
       namespace: _kNamespace,
-      identity: cacheIdentityForTask(task, fileExtension: extension),
-      extension: extension,
+      identity: _cacheIdentity(item),
+      extension: _kFileExtension,
       filePrefix: _kCacheFilePrefix,
     );
   }
 
-  static Future<File> downloadToCacheIfNeeded(
-    TaskVO task,
-    String downloadUrl, {
-    String? fileExtension,
-  }) {
-    final extension = _normalizedExtension(task, fileExtension);
+  static Future<File> _downloadToCacheIfNeeded(
+    MeetingMinutesItem item,
+    String downloadUrl,
+  ) {
     return RemoteFileCache.downloadToCacheIfNeeded(
       namespace: _kNamespace,
-      identity: cacheIdentityForTask(task, fileExtension: extension),
-      extension: extension,
+      identity: _cacheIdentity(item),
+      extension: _kFileExtension,
       filePrefix: _kCacheFilePrefix,
       downloadUrl: downloadUrl,
     );
-  }
-
-  static Future<void> markFileAccessed(File file) {
-    return RemoteFileCache.markFileAccessed(file);
   }
 
   static Future<void> clearCurrentUserCache({String? fallbackUserId}) {
@@ -273,49 +247,23 @@ class TaskFileService {
     );
   }
 
-  static Future<File> prepareShareFile(
-    TaskVO task,
-    File sourceFile, {
-    String? displayFileName,
-  }) {
-    return RemoteFileCache.prepareShareFile(
-      sourceFile: sourceFile,
-      displayFileName: displayFileName ?? _buildFileName(task),
-      shareDirectoryName: _kShareDirectoryName,
-    );
-  }
-
-  static String _buildFileName(TaskVO task) {
-    final rawName = task.title.trim().isEmpty
-        ? 'task_${_safeTaskId(task)}'
-        : task.title.trim();
+  static String _buildFileName(MeetingMinutesItem item) {
+    final rawName = item.title.trim().isEmpty
+        ? 'meeting_${_safeId(item)}'
+        : item.title.trim();
     final safeName = rawName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
     return appendFileExtensionIfMissing(
       safeName,
-      extension: task.isPpt ? 'pptx' : 'pdf',
+      extension: _kFileExtension,
     );
   }
 
-  static String _safeTaskId(TaskVO task) {
-    final taskId = task.id.trim();
-    if (taskId.isEmpty) {
+  static String _safeId(MeetingMinutesItem item) {
+    final id = item.id.trim();
+    if (id.isEmpty) {
       return DateTime.now().millisecondsSinceEpoch.toString();
     }
-    return taskId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-  }
-
-  static String _mimeType(TaskVO task) {
-    return task.isPpt
-        ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        : 'application/pdf';
-  }
-
-  static String _normalizedExtension(TaskVO? task, String? fileExtension) {
-    final explicit = fileExtension?.trim().toLowerCase();
-    if (explicit != null && explicit.isNotEmpty) {
-      return explicit.startsWith('.') ? explicit.substring(1) : explicit;
-    }
-    return task?.isPpt == true ? 'pptx' : 'pdf';
+    return id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
   }
 
   static String _fileLabel(File file) {

@@ -97,6 +97,7 @@ final GoRouter appRouter = GoRouter(
         return ForceUpdatePage(
           storeUrl: payload?.storeUrl ?? '',
           fallbackDownloadUrl: payload?.fallbackDownloadUrl,
+          releaseNotes: payload?.releaseNotes,
         );
       },
     ),

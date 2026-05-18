@@ -260,6 +260,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meeting_minutes_failed => '生成失败';
 
   @override
+  String get meeting_minutes_share => '分享';
+
+  @override
+  String get meeting_minutes_share_failed => '分享失败，请重试。';
+
+  @override
+  String get meeting_minutes_missing_id => '会议ID缺失';
+
+  @override
+  String get meeting_minutes_no_pdf_link => '暂无可用PDF链接';
+
+  @override
   String get meeting_minutes_mock_title_1 => '项目周会纪要';
 
   @override
@@ -887,6 +899,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get layout_frame_hint => '突出展示照片的相框式排版';
 
   @override
+  String get layout_calendar => '日历布局';
+
+  @override
+  String get layout_calendar_hint => '突出日期、日程与提醒的排版';
+
+  @override
   String get wake_word_section_title => '唤醒词';
 
   @override
@@ -1051,7 +1069,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get force_update_button => '去更新';
 
   @override
+  String get force_update_button_app_store => '前往 App Store';
+
+  @override
+  String get force_update_button_play_store => '前往 Google Play';
+
+  @override
   String get force_update_download_via_web => '通过网页下载';
+
+  @override
+  String get version_info => '版本信息';
+
+  @override
+  String new_version_available(Object version) {
+    return '发现新版本 $version';
+  }
+
+  @override
+  String get update_generic_message => '修复已知问题';
+
+  @override
+  String get update_now => '立即更新';
+
+  @override
+  String get update_later => '稍后';
 
   @override
   String get task_menu_item => '任务';
