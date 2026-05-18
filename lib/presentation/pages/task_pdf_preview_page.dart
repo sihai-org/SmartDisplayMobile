@@ -475,13 +475,16 @@ class _TaskPdfPreviewPageState extends State<TaskPdfPreviewPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _isSharing
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.share),
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: _isSharing
+                      ? const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.share, size: 24),
+                ),
                 const SizedBox(width: 2),
                 Text(l10n.task_pdf_share),
               ],

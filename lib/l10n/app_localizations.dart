@@ -593,6 +593,30 @@ abstract class AppLocalizations {
   /// **'Generation failed'**
   String get meeting_minutes_failed;
 
+  /// No description provided for @meeting_minutes_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get meeting_minutes_share;
+
+  /// No description provided for @meeting_minutes_share_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Share failed. Please try again.'**
+  String get meeting_minutes_share_failed;
+
+  /// No description provided for @meeting_minutes_missing_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing meeting ID'**
+  String get meeting_minutes_missing_id;
+
+  /// No description provided for @meeting_minutes_no_pdf_link.
+  ///
+  /// In en, this message translates to:
+  /// **'No PDF link available'**
+  String get meeting_minutes_no_pdf_link;
+
   /// No description provided for @meeting_minutes_mock_title_1.
   ///
   /// In en, this message translates to:

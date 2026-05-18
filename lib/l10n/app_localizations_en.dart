@@ -260,6 +260,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meeting_minutes_failed => 'Generation failed';
 
   @override
+  String get meeting_minutes_share => 'Share';
+
+  @override
+  String get meeting_minutes_share_failed => 'Share failed. Please try again.';
+
+  @override
+  String get meeting_minutes_missing_id => 'Missing meeting ID';
+
+  @override
+  String get meeting_minutes_no_pdf_link => 'No PDF link available';
+
+  @override
   String get meeting_minutes_mock_title_1 => 'Project Weekly Sync Minutes';
 
   @override
