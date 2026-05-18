@@ -44,6 +44,46 @@
             font-size: 16px;
             margin: 0 20px 20px;
         }
+
+        .wechat-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            color: #fff;
+            box-sizing: border-box;
+            padding: 20px;
+        }
+
+        .wechat-mask.show {
+            display: block;
+        }
+
+        .wechat-arrow {
+            position: absolute;
+            top: 16px;
+            right: 24px;
+            width: 88px;
+            height: 88px;
+        }
+
+        .wechat-tip {
+            position: absolute;
+            top: 130px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 18px;
+            line-height: 1.8;
+            padding: 0 24px;
+        }
+
+        .wechat-tip .en {
+            margin-top: 12px;
+            font-size: 14px;
+            opacity: 0.7;
+        }
     </style>
 </head>
 
@@ -54,6 +94,20 @@
     <div class="actions">
         <button id="openAppBtn">Tap to Open VznGPT</button>
         <button id="downloadAndroidBtn" style="display: none;">Download APK</button>
+    </div>
+
+    <div id="wechatMask" class="wechat-mask">
+        <svg class="wechat-arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path d="M 30 88 Q 55 60, 85 18" stroke="white" stroke-width="3" stroke-linecap="round"
+                stroke-dasharray="6 6" />
+            <path d="M 72 14 L 88 14 L 88 30" stroke="white" stroke-width="3" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+        <div class="wechat-tip">
+            <div>请点击右上角 ···</div>
+            <div>选择「在浏览器中打开」</div>
+            <div class="en">Tap ··· in the top right,<br />then "Open in Browser"</div>
+        </div>
     </div>
 
     <script>
@@ -87,6 +141,12 @@
             return /^((?!chrome|crios|fxios|edgios|ucbrowser|qqbrowser|qihoobrowser).)*safari/i.test(navigator.userAgent);
         }
         function isAndroid() { return /android/i.test(navigator.userAgent); }
+        function isWechat() { return /MicroMessenger|wxwork/i.test(navigator.userAgent); }
+
+        const wechatMask = document.getElementById('wechatMask');
+        wechatMask.addEventListener('click', () => {
+            wechatMask.classList.remove('show');
+        });
 
         function openApp() {
             if (isIOS()) {
@@ -116,6 +176,11 @@
         if (isAndroid()) {
             downloadApkBtn.style.display = 'block';
             downloadApkBtn.addEventListener('click', () => {
+                // 微信内无法直接下载 apk，引导用户去浏览器打开
+                if (isWechat()) {
+                    wechatMask.classList.add('show');
+                    return;
+                }
                 window.location.href = androidDownloadLink;
             });
         }
