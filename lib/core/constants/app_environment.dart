@@ -17,9 +17,9 @@ class AppEnvironment {
   static String get apiServerUrl {
     switch (stage.value) {
       case AppEnvironmentStage.preRelease:
-        return 'https://api.smartdisplay.vzngpt.com';
+        return 'http://192.168.2.201:8000';
       case AppEnvironmentStage.production:
-        return 'https://api.smartdisplay.vzngpt.com';
+        return 'http://192.168.2.201:8000';
     }
   }
 

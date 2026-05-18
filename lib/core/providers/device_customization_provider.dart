@@ -502,13 +502,13 @@ class DeviceCustomizationNotifier
         'layout': currentValue.layout.value,
         'wallpaper': currentValue.wallpaper.value,
         'wake_word': trimmedWakeWord.isEmpty ? null : trimmedWakeWord,
-        if (deviceNick != null) 'deviceNick': deviceNick.trim(),
+        if (deviceNick != null) 'alias': deviceNick.trim(),
         'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
       };
 
       await AuthManager.instance.ensureFreshSession();
       final response = await Supabase.instance.client.functions
-          .invoke('yc-test', body: payload)
+          .invoke('device_customization_save', body: payload)
           .timeout(HttpTimeouts.business);
 
       if (response.status != 200) {
@@ -547,7 +547,7 @@ class DeviceCustomizationNotifier
       }
     } on FunctionException catch (error, stackTrace) {
       AppLog.instance.error(
-        '[yc-test] status=${error.status}, details=${error.details}',
+        '[device_customization_save] status=${error.status}, details=${error.details}',
         tag: 'Supabase',
         error: error,
         stackTrace: stackTrace,
