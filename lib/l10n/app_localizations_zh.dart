@@ -260,6 +260,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meeting_minutes_failed => '生成失败';
 
   @override
+  String get meeting_minutes_share => '分享';
+
+  @override
+  String get meeting_minutes_share_failed => '分享失败，请重试。';
+
+  @override
+  String get meeting_minutes_missing_id => '会议ID缺失';
+
+  @override
+  String get meeting_minutes_no_pdf_link => '暂无可用PDF链接';
+
+  @override
   String get meeting_minutes_mock_title_1 => '项目周会纪要';
 
   @override

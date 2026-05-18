@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:smart_display_mobile/core/services/meeting_file_service.dart';
 import 'package:smart_display_mobile/core/services/task_file_service.dart';
 import 'package:smart_display_mobile/data/repositories/device_customization_repository.dart';
 
@@ -16,9 +17,15 @@ class AppCacheCleanup {
       await TaskFileService.clearCurrentUserCache(
         fallbackUserId: fallbackUserId,
       );
+      await MeetingFileService.clearCurrentUserCache(
+        fallbackUserId: fallbackUserId,
+      );
       final tempDir = await getTemporaryDirectory();
       await _deleteDirIfExists(Directory('${tempDir.path}/task_file_cache'));
       await _deleteDirIfExists(Directory('${tempDir.path}/task_file_share'));
+      await _deleteDirIfExists(
+        Directory('${tempDir.path}/meeting_file_share'),
+      );
       await _deleteDirIfExists(
         Directory('${tempDir.path}/task_file_downloads'),
       );
