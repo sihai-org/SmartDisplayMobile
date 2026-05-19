@@ -17,7 +17,7 @@ class SavedDeviceRecord {
   final String deviceName;
   // 原始设备名（服务端 device_name）
   final String name;
-  // 设备昵称（服务端 device_nick）
+  // 设备别名（服务端 alias）
   final String nick;
   final String publicKey;
 
@@ -215,9 +215,9 @@ class SavedDevicesRepository {
         (key, value) => MapEntry(key.toString(), value),
       );
       final deviceId = (map['device_id'] ?? '').toString();
-      final deviceNick = (map['device_nick'] ?? '').toString().trim();
+      final deviceAlias = (map['alias'] ?? '').toString().trim();
       final deviceNameRaw = (map['device_name'] ?? '').toString().trim();
-      final deviceName = deviceNick.isNotEmpty ? deviceNick : deviceNameRaw;
+      final deviceName = deviceAlias.isNotEmpty ? deviceAlias : deviceNameRaw;
       final publicKey = (map['device_public_key'] ?? '').toString();
       final firmwareVersion = (map['device_firmware_version'] ?? '').toString();
       return SavedDeviceRecord(
@@ -225,7 +225,7 @@ class SavedDevicesRepository {
         versionCode: null,
         deviceName: deviceName,
         name: deviceNameRaw,
-        nick: deviceNick,
+        nick: deviceAlias,
         publicKey: publicKey,
         firmwareVersion: firmwareVersion,
         lastBleDeviceId: null,
