@@ -45,8 +45,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   Future<void> _onSave() async {
     if (_isSaving) return;
     final l10n = context.l10n;
-    final username = _usernameController.text.trim();
-    if (username.isEmpty) {
+    final userName = _usernameController.text.trim();
+    if (userName.isEmpty) {
       Fluttertoast.showToast(msg: '请输入用户名');
       return;
     }
@@ -69,7 +69,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               'Content-Type': 'application/json',
               'X-Access-Token': accessToken,
             },
-            body: jsonEncode({'username': username}),
+            body: jsonEncode({'user_name': userName}),
           )
           .timeout(HttpTimeouts.business);
 
@@ -100,7 +100,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       await Supabase.instance.client.auth.updateUser(
         UserAttributes(
           data: {
-            'username': username,
+            'user_name': userName,
             'profile_updated_at': DateTime.now().toUtc().toIso8601String(),
           },
         ),
@@ -108,9 +108,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
       // Fallback: if local auth cache is not updated yet, fetch user once.
       final cachedUsername = (Supabase.instance.client.auth.currentUser
-              ?.userMetadata?['username'] as String?)
+              ?.userMetadata?['user_name'] as String?)
           ?.trim();
-      if (cachedUsername != username) {
+      if (cachedUsername != userName) {
         await Supabase.instance.client.auth.getUser();
       }
 
