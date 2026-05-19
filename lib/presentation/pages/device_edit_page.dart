@@ -70,15 +70,15 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       ref.read(deviceCustomizationProvider).customization.wakeWord;
 
   Future<void> _saveRemoteWithProgress(
+    Map<CustomizationField, dynamic> patch,
     ProgressDialogController progress,
     AppLocalizations l10n,
-    String? deviceNick,
   ) async {
     final notifier = ref.read(deviceCustomizationProvider.notifier);
 
     progress.update(l10n.saving_ellipsis);
     try {
-      await notifier.saveRemote(deviceNick: deviceNick);
+      await notifier.savePartial(patch);
       progress.success(l10n.settings_saved);
       await Future.delayed(const Duration(milliseconds: 600));
     } catch (e) {
@@ -92,11 +92,8 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     }
   }
 
-  Future<void> _saveRemote({String? deviceNick}) async {
+  Future<void> _saveRemote(Map<CustomizationField, dynamic> patch) async {
     final l10n = context.l10n;
-    final state = ref.read(deviceCustomizationProvider);
-
-    if (state.isSaving) return;
 
     final deviceId = widget.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
@@ -109,7 +106,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       initialMessage: l10n.saving_ellipsis,
     );
     try {
-      await _saveRemoteWithProgress(progress, l10n, deviceNick);
+      await _saveRemoteWithProgress(patch, progress, l10n);
     } catch (e, st) {
       AppLog.instance.error(
         '[device_edit_page][_handleSave] error',
@@ -150,17 +147,23 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       });
     }
 
-    await _saveRemote(deviceNick: '');
+    // reset 显式清空所有自定义字段；wake_word 发 null，
+    // 由服务端 GET 接口在下次 load 时填充默认词。
+    await _saveRemote(<CustomizationField, dynamic>{
+      CustomizationField.layout: LayoutType.defaultLayout.value,
+      CustomizationField.wallpaper: WallpaperType.defaultWallpaper.value,
+      CustomizationField.wallpaperInfos: <Map<String, dynamic>>[],
+      CustomizationField.wakeWord: null,
+      CustomizationField.alias: '',
+    });
 
     final deviceId = widget.displayDeviceId;
     if (deviceId != null && deviceId.isNotEmpty) {
-      await ref
-          .read(savedDevicesProvider.notifier)
-          .updateFields(
-            displayDeviceId: deviceId,
-            deviceName: defaultName,
-            nick: '',
-          );
+      await ref.read(savedDevicesProvider.notifier).updateFields(
+        displayDeviceId: deviceId,
+        deviceName: defaultName,
+        nick: '',
+      );
     }
   }
 
@@ -349,7 +352,16 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
       if (mounted) {
         _setCurrentWallpaperLocal(1);
-        await _saveRemoteWithProgress(progress, l10n, null);
+        final infos = ref
+            .read(deviceCustomizationProvider)
+            .customization
+            .wallpaperInfos;
+        await _saveRemoteWithProgress(<CustomizationField, dynamic>{
+          CustomizationField.wallpaperInfos: infos
+              .map((i) => i.toJson())
+              .toList(),
+          CustomizationField.wallpaper: WallpaperType.custom.value,
+        }, progress, l10n);
       }
     } catch (error) {
       if (mounted) {
@@ -400,7 +412,10 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     await notifier.deleteWallpaper(deviceId);
     _setCurrentWallpaperLocal(0);
-    await _saveRemote();
+    await _saveRemote(<CustomizationField, dynamic>{
+      CustomizationField.wallpaperInfos: <Map<String, dynamic>>[],
+      CustomizationField.wallpaper: WallpaperType.defaultWallpaper.value,
+    });
   }
 
   void _setCurrentWallpaperLocal(int index) {
@@ -424,7 +439,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   /// 设为当前壁纸
   Future<void> _setCurrentWallpaper(int index) async {
     _setCurrentWallpaperLocal(index);
-    await _saveRemote();
+    final targetWallpaper = index == 1
+        ? WallpaperType.custom
+        : WallpaperType.defaultWallpaper;
+    await _saveRemote(<CustomizationField, dynamic>{
+      CustomizationField.wallpaper: targetWallpaper.value,
+    });
   }
 
   /// 设置布局
@@ -434,7 +454,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
     if (_layout == value) return;
     notifier.updateLayout(value);
 
-    await _saveRemote();
+    await _saveRemote(<CustomizationField, dynamic>{
+      CustomizationField.layout: value.value,
+    });
   }
 
   Future<void> _setWakeWord(String value) async {
@@ -451,7 +473,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     notifier.updateWakeWord(value);
 
-    await _saveRemote();
+    await _saveRemote(<CustomizationField, dynamic>{
+      CustomizationField.wakeWord: value,
+    });
   }
 
   Future<bool> _confirmWakeWordChange(String value) async {
@@ -627,7 +651,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         initialMessage: l10n.saving_ellipsis,
       );
       try {
-        await _saveRemoteWithProgress(progress, l10n, deviceName);
+        await _saveRemoteWithProgress(<CustomizationField, dynamic>{
+          CustomizationField.alias: deviceName,
+        }, progress, l10n);
       } finally {
         if (mounted) {
           progress.close();
@@ -663,7 +689,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
 
     final l10n = context.l10n;
 
-    final isLoading = ref.watch(deviceCustomizationProvider).isLoading;
+    final state = ref.watch(deviceCustomizationProvider);
+    final isLoading = state.isLoading;
+    final anyFieldLocked = state.lockedFields.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -688,7 +716,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                   _buildWakeWordSection(),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: _resetToDefault,
+                    onPressed: anyFieldLocked ? null : _resetToDefault,
                     style: FilledButton.styleFrom(
                       backgroundColor: theme.colorScheme.surface,
                       foregroundColor: theme.colorScheme.onSurface,
@@ -719,11 +747,13 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Widget _buildWakeWordSection() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final options = ref.watch(deviceCustomizationProvider).wakeWordCandidates;
+    final state = ref.watch(deviceCustomizationProvider);
+    final options = state.wakeWordCandidates;
     final selectedWakeWord = _wakeWord.trim();
     final dropdownValue = options.contains(selectedWakeWord)
         ? selectedWakeWord
         : null;
+    final wakeWordLocked = state.isFieldLocked(CustomizationField.wakeWord);
 
     return Card(
       elevation: 0,
@@ -781,10 +811,12 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                     ),
                   )
                   .toList(growable: false),
-              onChanged: (value) {
-                if (value == null) return;
-                _setWakeWord(value);
-              },
+              onChanged: wakeWordLocked
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      _setWakeWord(value);
+                    },
             ),
           ],
         ),
@@ -887,7 +919,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
         state.customization.wallpaperInfos.isNotEmpty &&
         state.localWallpaperPaths.isEmpty;
     final isWallpaperActionDisabled =
-        isWallpaperPreviewPending || state.isUploading;
+        isWallpaperPreviewPending ||
+        state.isFieldLocked(CustomizationField.wallpaper) ||
+        state.isFieldLocked(CustomizationField.wallpaperInfos);
 
     return Card(
       elevation: 0,
@@ -987,6 +1021,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
   Widget _buildLayoutSection() {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final layoutLocked = ref
+        .watch(deviceCustomizationProvider)
+        .isFieldLocked(CustomizationField.layout);
 
     final deviceId = widget.displayDeviceId;
     final showCalendarLayout = (deviceId != null && deviceId.isNotEmpty)
@@ -1043,7 +1080,9 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
                 iconAsset: options[i].iconAsset,
                 iconData: options[i].iconData,
                 selected: _layout == options[i].value,
-                onTap: () => _setLayout(options[i].value, i),
+                onTap: layoutLocked
+                    ? null
+                    : () => _setLayout(options[i].value, i),
               ),
               if (i != options.length - 1)
                 Divider(
@@ -1330,7 +1369,7 @@ class _LayoutChoiceTile extends StatelessWidget {
   final String? iconAsset;
   final IconData? iconData;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _LayoutChoiceTile({
     required this.title,
