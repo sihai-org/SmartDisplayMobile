@@ -152,7 +152,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
             ? qr.deviceName
             : current.deviceName,
         name: qr.deviceName.isNotEmpty ? qr.deviceName : current.name,
-        nick: current.nick,
+        alias: current.alias,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
         versionCode: qr.versionCode,
         lastBleDeviceId: qr.bleDeviceId.isNotEmpty
@@ -167,7 +167,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
           versionCode: qr.versionCode,
           deviceName: qr.deviceName,
           name: qr.deviceName,
-          nick: '',
+          alias: '',
           publicKey: qr.publicKey,
           lastBleDeviceId: qr.bleDeviceId,
           lastConnectedAt: now,
@@ -189,7 +189,7 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
     required String displayDeviceId,
     int? versionCode,
     String? deviceName,
-    String? nick,
+    String? alias,
     String? publicKey,
     String? lastBleDeviceId,
     DateTime? lastConnectedAt,
@@ -206,8 +206,8 @@ class SavedDevicesNotifier extends StateNotifier<SavedDevicesState> {
       return e.copyWith(
         versionCode: versionCode ?? e.versionCode,
         deviceName: deviceName ?? e.deviceName,
-        // 显式传 nick 时按 nick，同步展示名；否则兼容旧行为
-        nick: nick ?? deviceName ?? e.nick,
+        // 显式传 alias 时按 alias，同步展示名；否则兼容旧行为
+        alias: alias ?? deviceName ?? e.alias,
         publicKey: publicKey ?? e.publicKey,
         lastBleDeviceId: lastBleDeviceId ?? e.lastBleDeviceId,
         lastConnectedAt: lastConnectedAt ?? e.lastConnectedAt,

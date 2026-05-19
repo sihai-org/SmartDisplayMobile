@@ -162,7 +162,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
       await ref.read(savedDevicesProvider.notifier).updateFields(
         displayDeviceId: deviceId,
         deviceName: defaultName,
-        nick: '',
+        alias: '',
       );
     }
   }
@@ -665,7 +665,7 @@ class _DeviceEditPageState extends ConsumerState<DeviceEditPage> {
           .updateFields(
             displayDeviceId: deviceId,
             deviceName: deviceName,
-            nick: deviceName,
+            alias: deviceName,
           );
     } catch (e, st) {
       AppLog.instance.error(

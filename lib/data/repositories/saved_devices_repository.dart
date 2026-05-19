@@ -13,12 +13,12 @@ import '../../core/network/http_timeouts.dart';
 class SavedDeviceRecord {
   final String displayDeviceId;
   final int? versionCode;
-  // 展示名：优先 nick，否则 name
+  // 展示名：优先 alias，否则 name
   final String deviceName;
   // 原始设备名（服务端 device_name）
   final String name;
   // 设备别名（服务端 alias）
-  final String nick;
+  final String alias;
   final String publicKey;
 
   final String? lastBleDeviceId;
@@ -32,7 +32,7 @@ class SavedDeviceRecord {
     this.versionCode,
     required this.deviceName,
     this.name = '',
-    this.nick = '',
+    this.alias = '',
     required this.publicKey,
     this.lastBleDeviceId,
     this.lastConnectedAt,
@@ -46,7 +46,7 @@ class SavedDeviceRecord {
       versionCode = null,
       deviceName = '',
       name = '',
-      nick = '',
+      alias = '',
       publicKey = '',
       lastBleDeviceId = null,
       lastConnectedAt = null,
@@ -58,7 +58,7 @@ class SavedDeviceRecord {
     'versionCode': versionCode,
     'deviceName': deviceName,
     'name': name,
-    'nick': nick,
+    'alias': alias,
     'publicKey': publicKey,
     'lastConnectedAt': lastConnectedAt?.toIso8601String(),
     'firmwareVersion': firmwareVersion,
@@ -71,11 +71,11 @@ class SavedDeviceRecord {
         versionCode: (json['versionCode'] as num?)?.toInt(),
         deviceName:
             (json['deviceName'] as String?) ??
-            (((json['nick'] as String?)?.isNotEmpty ?? false)
-                ? (json['nick'] as String)
+            (((json['alias'] as String?)?.isNotEmpty ?? false)
+                ? (json['alias'] as String)
                 : ((json['name'] as String?) ?? '')),
         name: (json['name'] as String?) ?? (json['deviceName'] as String? ?? ''),
-        nick: (json['nick'] as String?) ?? '',
+        alias: (json['alias'] as String?) ?? '',
         publicKey: json['publicKey'] as String,
         lastBleDeviceId: json['lastBleDeviceId'] as String?,
         lastConnectedAt: json['lastConnectedAt'] != null
@@ -90,7 +90,7 @@ class SavedDeviceRecord {
     int? versionCode,
     String? deviceName,
     String? name,
-    String? nick,
+    String? alias,
     String? publicKey,
     String? lastBleDeviceId,
     DateTime? lastConnectedAt,
@@ -101,7 +101,7 @@ class SavedDeviceRecord {
     versionCode: versionCode ?? this.versionCode,
     deviceName: deviceName ?? this.deviceName,
     name: name ?? this.name,
-    nick: nick ?? this.nick,
+    alias: alias ?? this.alias,
     publicKey: publicKey ?? this.publicKey,
     lastBleDeviceId: lastBleDeviceId ?? this.lastBleDeviceId,
     lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
@@ -225,7 +225,7 @@ class SavedDevicesRepository {
         versionCode: null,
         deviceName: deviceName,
         name: deviceNameRaw,
-        nick: deviceAlias,
+        alias: deviceAlias,
         publicKey: publicKey,
         firmwareVersion: firmwareVersion,
         lastBleDeviceId: null,
@@ -272,7 +272,7 @@ class SavedDevicesRepository {
             ? qr.deviceName
             : current.deviceName,
         name: qr.deviceName.isNotEmpty ? qr.deviceName : current.name,
-        nick: current.nick,
+        alias: current.alias,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
       );
     } else {
@@ -282,7 +282,7 @@ class SavedDevicesRepository {
           versionCode: qr.versionCode,
           deviceName: qr.deviceName,
           name: qr.deviceName,
-          nick: '',
+          alias: '',
           publicKey: qr.publicKey,
           lastConnectedAt: DateTime.now(),
         ),
