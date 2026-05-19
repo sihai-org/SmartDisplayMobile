@@ -13,6 +13,7 @@ import '../../presentation/pages/bind_confirm_page.dart';
 import '../l10n/l10n_extensions.dart';
 import '../../presentation/pages/device_management_page.dart';
 import '../../presentation/pages/account_security_page.dart';
+import '../../presentation/pages/edit_profile_page.dart';
 import '../../presentation/pages/device_edit_page.dart';
 import '../../presentation/pages/meeting_minutes_detail_page.dart';
 import '../../presentation/pages/meeting_minutes_list_page.dart';
@@ -40,6 +41,7 @@ class AppRoutes {
   static const String qrCodeResult = '/qrcode_res';
   static const String deviceManagement = '/device-management';
   static const String accountSecurity = '/account-security';
+  static const String editProfile = '/edit-profile';
   static const String deviceEdit = '/device-edit';
   static const String meetingMinutesList = '/meeting-minutes';
   static const String meetingMinutesDetail = '/meeting-minutes/detail';
@@ -104,7 +106,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.login,
       name: 'login',
-      builder: (context, state) => LoginPage(),
+      builder: (context, state) => const LoginPage(),
     ),
 
     // Device Detail Page
@@ -165,6 +167,12 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.accountSecurity,
       name: 'account-security',
       builder: (context, state) => const AccountSecurityPage(),
+    ),
+
+    GoRoute(
+      path: AppRoutes.editProfile,
+      name: 'edit-profile',
+      builder: (context, state) => const EditProfilePage(),
     ),
 
     // Device Connection Page

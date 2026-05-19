@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/l10n/l10n_extensions.dart';
+import '../../core/router/app_router.dart';
 
 class AccountSecurityPage extends ConsumerWidget {
   const AccountSecurityPage({super.key});
@@ -35,9 +37,16 @@ class AccountSecurityPage extends ConsumerWidget {
               itemBuilder: (context, index) {
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: Text(l10n.delete_account),
+                  title: index == 0
+                      ? const Text('修改用户信息')
+                      : Text(l10n.delete_account),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
+                    if (index == 0) {
+                      context.push(AppRoutes.editProfile);
+                      return;
+                    }
+
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -55,6 +64,7 @@ class AccountSecurityPage extends ConsumerWidget {
                       ),
                     );
                     if (confirm == true) {
+                      if (!context.mounted) return;
                       _onDeleteAccountConfirmed(context, ref);
                     }
                   },
@@ -68,7 +78,7 @@ class AccountSecurityPage extends ConsumerWidget {
                     : Colors.grey.shade300,
                 indent: MediaQuery.of(context).size.width / 8,
               ),
-              itemCount: 1,
+              itemCount: 2,
             ),
           ),
         ],

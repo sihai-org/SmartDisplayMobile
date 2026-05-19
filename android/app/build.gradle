@@ -36,7 +36,7 @@ if (flutterVersionName == null) {
 android {
     namespace "com.datou.smart_display_mobile"
     compileSdkVersion flutter.compileSdkVersion
-    ndkVersion "26.1.10909125"
+    ndkVersion "28.2.13676358"
 
 
     // ✅ app 模块统一到 Java 11
@@ -125,6 +125,7 @@ dependencies {
     // 🔒 强制使用一个和 AGP 8.6.0 兼容的 androidx.core 版本
     implementation "androidx.core:core-ktx:1.13.1"
     implementation "androidx.core:core:1.13.1"
+    implementation 'androidx.browser:browser:1.8.0'
 
     // 1. errorprone 注解
     implementation "com.google.errorprone:error_prone_annotations:2.26.1"

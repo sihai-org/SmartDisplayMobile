@@ -1,15 +1,24 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/device_qr_data.dart';
 import 'dart:convert';
 import '../../core/audit/audit_mode.dart';
+import '../../core/auth/auth_manager.dart';
+import '../../core/constants/app_environment.dart';
 import '../../core/constants/storage_keys.dart';
 import '../../core/log/app_log.dart';
+import '../../core/network/http_timeouts.dart';
 
 class SavedDeviceRecord {
   final String displayDeviceId;
   final int? versionCode;
+  // 展示名：优先 alias，否则 name
   final String deviceName;
+  // 原始设备名（服务端 device_name）
+  final String name;
+  // 设备别名（服务端 alias）
+  final String alias;
   final String publicKey;
 
   final String? lastBleDeviceId;
@@ -22,6 +31,8 @@ class SavedDeviceRecord {
     required this.displayDeviceId,
     this.versionCode,
     required this.deviceName,
+    this.name = '',
+    this.alias = '',
     required this.publicKey,
     this.lastBleDeviceId,
     this.lastConnectedAt,
@@ -34,6 +45,8 @@ class SavedDeviceRecord {
     : displayDeviceId = '',
       versionCode = null,
       deviceName = '',
+      name = '',
+      alias = '',
       publicKey = '',
       lastBleDeviceId = null,
       lastConnectedAt = null,
@@ -44,6 +57,8 @@ class SavedDeviceRecord {
     'deviceId': displayDeviceId,
     'versionCode': versionCode,
     'deviceName': deviceName,
+    'name': name,
+    'alias': alias,
     'publicKey': publicKey,
     'lastConnectedAt': lastConnectedAt?.toIso8601String(),
     'firmwareVersion': firmwareVersion,
@@ -54,7 +69,13 @@ class SavedDeviceRecord {
       SavedDeviceRecord(
         displayDeviceId: json['deviceId'] as String,
         versionCode: (json['versionCode'] as num?)?.toInt(),
-        deviceName: json['deviceName'] as String,
+        deviceName:
+            (json['deviceName'] as String?) ??
+            (((json['alias'] as String?)?.isNotEmpty ?? false)
+                ? (json['alias'] as String)
+                : ((json['name'] as String?) ?? '')),
+        name: (json['name'] as String?) ?? (json['deviceName'] as String? ?? ''),
+        alias: (json['alias'] as String?) ?? '',
         publicKey: json['publicKey'] as String,
         lastBleDeviceId: json['lastBleDeviceId'] as String?,
         lastConnectedAt: json['lastConnectedAt'] != null
@@ -68,6 +89,8 @@ class SavedDeviceRecord {
     String? deviceId,
     int? versionCode,
     String? deviceName,
+    String? name,
+    String? alias,
     String? publicKey,
     String? lastBleDeviceId,
     DateTime? lastConnectedAt,
@@ -77,6 +100,8 @@ class SavedDeviceRecord {
     displayDeviceId: deviceId ?? displayDeviceId,
     versionCode: versionCode ?? this.versionCode,
     deviceName: deviceName ?? this.deviceName,
+    name: name ?? this.name,
+    alias: alias ?? this.alias,
     publicKey: publicKey ?? this.publicKey,
     lastBleDeviceId: lastBleDeviceId ?? this.lastBleDeviceId,
     lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
@@ -129,33 +154,56 @@ class SavedDevicesRepository {
     await _storage.write(key: key, value: jsonStr);
   }
 
-  // Fetch device list from Supabase
+  // Fetch device list from backend API
   Future<List<SavedDeviceRecord>> fetchRemote() async {
     // In audit mode, treat remote list as local cache to avoid any network
     if (AuditMode.enabled) {
       return await loadLocal();
     }
 
-    final client = Supabase.instance.client;
-    final user = client.auth.currentUser;
-    if (user == null) {
+    final accessToken = await AuthManager.instance.getFreshAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
       return [];
     }
+
     List<dynamic> rows = const [];
     try {
-      rows = await client
-          .from('account_device_binding_log')
-          .select(
-            'device_id, device_name, device_public_key, device_firmware_version',
+      final response = await http
+          .post(
+            Uri.parse('${AppEnvironment.apiServerUrl}/monitorapp/device_list'),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Access-Token': accessToken,
+            },
           )
-          .eq('user_id', user.id)
-          .eq('bind_status', 1)
-          .order('bind_time');
+          .timeout(HttpTimeouts.business);
+
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+
+      final decoded = json.decode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('Invalid response: expected JSON object');
+      }
+
+      if (decoded['code'] != 200) {
+        final message = decoded['message']?.toString().trim();
+        throw Exception(
+          message == null || message.isEmpty ? 'device_list failed' : message,
+        );
+      }
+
+      final data = decoded['data'];
+      if (data is! List) {
+        throw Exception('Invalid response: data is not a list');
+      }
+      rows = data;
     } catch (e, st) {
-      // Report Supabase query error to Sentry via AppLog
+      // Report backend request error to Sentry via AppLog
       AppLog.instance.error(
-        'Supabase fetchRemote failed',
-        tag: 'Supabase',
+        'device_list fetchRemote failed',
+        tag: 'DeviceApi',
         error: e,
         stackTrace: st,
       );
@@ -163,15 +211,21 @@ class SavedDevicesRepository {
     }
 
     return rows.map((row) {
-      final map = row as Map<String, dynamic>;
+      final map = (row as Map).map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
       final deviceId = (map['device_id'] ?? '').toString();
-      final deviceName = (map['device_name'] ?? '').toString();
+      final deviceAlias = (map['alias'] ?? '').toString().trim();
+      final deviceNameRaw = (map['device_name'] ?? '').toString().trim();
+      final deviceName = deviceAlias.isNotEmpty ? deviceAlias : deviceNameRaw;
       final publicKey = (map['device_public_key'] ?? '').toString();
       final firmwareVersion = (map['device_firmware_version'] ?? '').toString();
       return SavedDeviceRecord(
         displayDeviceId: deviceId,
         versionCode: null,
         deviceName: deviceName,
+        name: deviceNameRaw,
+        alias: deviceAlias,
         publicKey: publicKey,
         firmwareVersion: firmwareVersion,
         lastBleDeviceId: null,
@@ -217,6 +271,8 @@ class SavedDevicesRepository {
         deviceName: qr.deviceName.isNotEmpty
             ? qr.deviceName
             : current.deviceName,
+        name: qr.deviceName.isNotEmpty ? qr.deviceName : current.name,
+        alias: current.alias,
         publicKey: qr.publicKey.isNotEmpty ? qr.publicKey : current.publicKey,
       );
     } else {
@@ -225,6 +281,8 @@ class SavedDevicesRepository {
           displayDeviceId: qr.displayDeviceId,
           versionCode: qr.versionCode,
           deviceName: qr.deviceName,
+          name: qr.deviceName,
+          alias: '',
           publicKey: qr.publicKey,
           lastConnectedAt: DateTime.now(),
         ),

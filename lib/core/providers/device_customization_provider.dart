@@ -26,7 +26,8 @@ enum CustomizationField {
   layout('layout'),
   wakeWord('wake_word'),
   wallpaper('wallpaper'),
-  wallpaperInfos('wallpaper_infos');
+  wallpaperInfos('wallpaper_infos'),
+  alias('alias');
 
   const CustomizationField(this.wireName);
   final String wireName;
