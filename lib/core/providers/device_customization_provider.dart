@@ -18,37 +18,55 @@ import '../log/app_log.dart';
 import '../models/device_customization.dart';
 import '../utils/wallpaper_image_util.dart';
 
+/// 设备自定义字段（PATCH 维度）。
+///
+/// `wireName` 是发给 edge function `device_customization_save` 的 key，
+/// 同时用作 UI 锁字段标识。
+enum CustomizationField {
+  layout('layout'),
+  wakeWord('wake_word'),
+  wallpaper('wallpaper'),
+  wallpaperInfos('wallpaper_infos');
+
+  const CustomizationField(this.wireName);
+  final String wireName;
+}
+
 /// 设备自定义配置的状态（供设备编辑页使用）。
 class DeviceCustomizationState {
   final String? displayDeviceId;
   final DeviceCustomization customization;
   final bool isLoading;
-  final bool isSaving;
   final bool isUploading;
   final List<String> localWallpaperPaths;
   final List<String> wakeWordCandidates;
+  // 当前被异步操作锁定、UI 不应允许编辑的字段集合（保存中、壁纸下载中等）。
+  final Set<CustomizationField> lockedFields;
 
   const DeviceCustomizationState({
     this.displayDeviceId,
     this.customization = const DeviceCustomization.empty(),
     this.isLoading = false,
-    this.isSaving = false,
     this.isUploading = false,
     this.localWallpaperPaths = const [],
     this.wakeWordCandidates = fallbackWakeWordCandidates,
+    this.lockedFields = const <CustomizationField>{},
   });
 
-  // 👇 新增一个内部哨兵，用来区分「没传」和「传 null」
+  bool isFieldLocked(CustomizationField field) =>
+      isLoading || isUploading || lockedFields.contains(field);
+
+  // 👇 内部哨兵，用来区分「没传」和「传 null」
   static const Object _unset = Object();
 
   DeviceCustomizationState copyWith({
     Object? displayDeviceId = _unset, // 可空字段用 Object? + 默认 _unset
     DeviceCustomization? customization,
     bool? isLoading,
-    bool? isSaving,
     bool? isUploading,
     Object? localWallpaperPaths = _unset,
     Object? wakeWordCandidates = _unset,
+    Set<CustomizationField>? lockedFields,
   }) {
     return DeviceCustomizationState(
       displayDeviceId: identical(displayDeviceId, _unset)
@@ -57,9 +75,7 @@ class DeviceCustomizationState {
 
       customization: customization ?? this.customization,
 
-      // 这些是非空 bool，本身就不能设成 null，用原来的 ?? 语义就够了
       isLoading: isLoading ?? this.isLoading,
-      isSaving: isSaving ?? this.isSaving,
       isUploading: isUploading ?? this.isUploading,
 
       localWallpaperPaths: identical(localWallpaperPaths, _unset)
@@ -68,6 +84,8 @@ class DeviceCustomizationState {
       wakeWordCandidates: identical(wakeWordCandidates, _unset)
           ? this.wakeWordCandidates
           : _toStringList(wakeWordCandidates),
+
+      lockedFields: lockedFields ?? this.lockedFields,
     );
   }
 
@@ -171,9 +189,9 @@ class DeviceCustomizationNotifier
   }
 
   Future<void> _refreshRemoteCustomization(String deviceId) async {
-    // 用本地快照做幂等守卫：远程返回时若 state.customization 已被任何
-    // 本地编辑或 saveRemote 替换过，则丢弃远程结果，避免覆盖用户未持久化或刚保存的数据。
-    final baselineCustomization = state.customization;
+    // 竞态由 UI 锁切断：load 期间 isLoading=true、保存期间 lockedFields，
+    // 用户无法在 fetch 窗口里编辑同字段，所以不再需要 baseline 数据守卫。
+    // 这里只保留身份守卫（mounted + displayDeviceId）防止页面销毁/切设备。
     try {
       final remoteStopwatch = Stopwatch()..start();
       final remote = await _repo.fetchUserCustomizationRemote(
@@ -188,22 +206,7 @@ class DeviceCustomizationNotifier
       if (remote == null || !mounted || state.displayDeviceId != deviceId) {
         return;
       }
-      if (!state.customization.hasSameContent(baselineCustomization)) {
-        AppLog.instance.info(
-          'remote customization discarded staleBaseline deviceId=$deviceId',
-          tag: 'CustomizationPerf',
-        );
-        return;
-      }
 
-      // 守卫通过后再落盘，避免覆盖窗口期内的本地编辑/保存
-      // TODO(known-race): 本地写盘期间（约几十毫秒）若用户正好编辑设置，
-      // 下面的 await 会让出事件循环，导致 stale 远程数据落到本地存储。
-      // 第二次守卫只能阻止内存 state 被覆盖，无法回滚已写入的磁盘数据，
-      // 用户在该窗口内的编辑会在下次启动/离线加载时丢失。
-      // 触发概率低且后果可恢复（重新编辑即可），暂不修复；
-      // 若 saveUserCustomization 变慢或线上出现"设置被还原"反馈，
-      // 改为先同步更新 state、再异步落盘，让用户编辑路径后写后赢。
       final saveStopwatch = Stopwatch()..start();
       await _repo.saveUserCustomization(deviceId, remote.customization);
       saveStopwatch.stop();
@@ -214,19 +217,11 @@ class DeviceCustomizationNotifier
       if (!mounted || state.displayDeviceId != deviceId) {
         return;
       }
-      if (!state.customization.hasSameContent(baselineCustomization)) {
-        AppLog.instance.info(
-          'remote customization discarded staleBaselineAfterSave deviceId=$deviceId',
-          tag: 'CustomizationPerf',
-        );
-        return;
-      }
 
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         state.wakeWordCandidates,
         selectedWakeWord: remote.customization.wakeWord,
       );
-      // 远端返回什么就是什么，不再客户端合成默认。
       final nextCustomization = remote.customization;
       final shouldResetLocalWallpaperPaths = !_sameWallpaperCacheIdentity(
         state.customization.wallpaperInfos,
@@ -254,6 +249,16 @@ class DeviceCustomizationNotifier
     String deviceId,
     DeviceCustomization baselineCustomization,
   ) async {
+    // 下载期间锁住壁纸相关字段——用户无法在 UI 上换壁纸/重传，
+    // 因此不再需要 _sameWallpaperInfos 守卫。
+    const wallpaperLocks = <CustomizationField>{
+      CustomizationField.wallpaper,
+      CustomizationField.wallpaperInfos,
+    };
+    state = state.copyWith(
+      lockedFields: state.lockedFields.union(wallpaperLocks),
+    );
+
     try {
       final wallpaperStopwatch = Stopwatch()..start();
       final localPaths = await _repo.syncWallpaperListCache(
@@ -266,18 +271,6 @@ class DeviceCustomizationNotifier
         tag: 'CustomizationPerf',
       );
       if (!mounted || state.displayDeviceId != deviceId) return;
-      // 守卫粒度只对齐到 wallpaperInfos：localPaths 的有效性只由 infos 决定，
-      // layout / wakeWord / wallpaper 字段的变化不影响已下载文件，不该让结果作废。
-      if (!_sameWallpaperInfos(
-        state.customization.wallpaperInfos,
-        baselineCustomization.wallpaperInfos,
-      )) {
-        AppLog.instance.info(
-          'wallpaper cache discarded staleWallpaperInfos deviceId=$deviceId',
-          tag: 'CustomizationPerf',
-        );
-        return;
-      }
 
       state = state.copyWith(localWallpaperPaths: localPaths);
     } catch (error, stackTrace) {
@@ -287,19 +280,13 @@ class DeviceCustomizationNotifier
         error: error,
         stackTrace: stackTrace,
       );
+    } finally {
+      if (mounted) {
+        state = state.copyWith(
+          lockedFields: state.lockedFields.difference(wallpaperLocks),
+        );
+      }
     }
-  }
-
-  bool _sameWallpaperInfos(
-    List<CustomWallpaperInfo> a,
-    List<CustomWallpaperInfo> b,
-  ) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (!a[i].hasSameContent(b[i])) return false;
-    }
-    return true;
   }
 
   bool _sameWallpaperCacheIdentity(
@@ -356,9 +343,8 @@ class DeviceCustomizationNotifier
       }
       if (!mounted || state.displayDeviceId != deviceId) return;
 
-      // 候选刷新只更新可选项；customization.wakeWord 完全由用户/服务端决定，
-      // 这里不做兜底，避免用过期候选污染显式选择。空值代表"未选"，由设备固件
-      // 自行使用内置默认词唤醒。
+      // wakeWord 兜底由服务端 GET 接口（device_customization_get）统一处理，
+      // 客户端这里只更新候选列表，不再二次合成。
       final mergedWakeWordCandidates = _mergeWakeWordCandidates(
         wakeWordCandidates,
         selectedWakeWord: state.customization.wakeWord,
@@ -480,29 +466,32 @@ class DeviceCustomizationNotifier
     state = state.copyWith(customization: next, localWallpaperPaths: const []);
   }
 
-  /// 将当前状态保存到远端
-  Future<void> saveRemote() async {
+  /// 单字段（或多字段）PATCH 保存。
+  ///
+  /// 服务端约定（edge function `device_customization_save`）：
+  /// - patch 里的 key 才会被写入；未传的字段保留旧值
+  /// - 值为 null 表示显式置空
+  ///
+  /// 客户端约定：
+  /// - patch.keys 在保存期间加入 lockedFields，UI 显示为 disabled
+  /// - state.customization 已经在调用前被 `update*` 乐观更新，
+  ///   服务端响应不再二次合并；写本地缓存用当前 state。
+  Future<void> savePartial(Map<CustomizationField, dynamic> patch) async {
     final deviceId = state.displayDeviceId;
     if (deviceId == null || deviceId.isEmpty) {
       throw Exception('缺少设备 ID');
     }
-    if (state.isSaving || state.isUploading) return;
+    if (patch.isEmpty) return;
 
-    state = state.copyWith(isSaving: true);
+    final keys = patch.keys.toSet();
+    state = state.copyWith(
+      lockedFields: state.lockedFields.union(keys),
+    );
 
     try {
-      final currentValue = state.customization;
-      final wallpaperInfos = currentValue.wallpaperInfos.toList();
-
-      // wake_word 空串语义为"未选"，按服务端约定显式发 null（让 DB 字段置空），
-      // 因此这里不再做 removeWhere — 否则 null 会被剥掉变成"不更新"。
-      final trimmedWakeWord = currentValue.wakeWord.trim();
       final payload = <String, dynamic>{
         'device_id': deviceId,
-        'layout': currentValue.layout.value,
-        'wallpaper': currentValue.wallpaper.value,
-        'wake_word': trimmedWakeWord.isEmpty ? null : trimmedWakeWord,
-        'wallpaper_infos': wallpaperInfos.map((info) => info.toJson()).toList(),
+        for (final entry in patch.entries) entry.key.wireName: entry.value,
       };
 
       await AuthManager.instance.ensureFreshSession();
@@ -522,19 +511,11 @@ class DeviceCustomizationNotifier
         );
       }
 
-      final body = response.data;
-      final row = (body is Map) ? body['data'] : null;
-      if (row is Map) {
-        final next = DeviceCustomization.fromJson(
-          Map<String, dynamic>.from(row),
-        );
-
-        // 1) 先更新 UI
-        state = state.copyWith(customization: next);
-
-        // 2) 再落本地（失败不影响远端保存）
+      // 写本地缓存：state.customization 已是用户乐观更新后的最新值，
+      // 服务端 PATCH 成功就是写入这些值，所以直接用当前 state 落盘。
+      if (mounted && state.displayDeviceId == deviceId) {
         try {
-          await _repo.saveUserCustomization(deviceId, next);
+          await _repo.saveUserCustomization(deviceId, state.customization);
         } catch (e, st) {
           AppLog.instance.warning(
             'saveUserCustomization failed for $deviceId',
@@ -565,14 +546,20 @@ class DeviceCustomizationNotifier
       if (NetworkErrorUtil.isNetworkOrTimeout(error)) {
         rethrow;
       }
+      if (error is Exception) rethrow;
       throw Exception('保存失败：$error');
     } finally {
-      state = state.copyWith(isSaving: false);
+      if (mounted) {
+        state = state.copyWith(
+          lockedFields: state.lockedFields.difference(keys),
+        );
+      }
     }
   }
 
   /// 重置为默认配置（不触发持久化）。
-  /// wakeWord 重置为空：表示"未显式选择"，由设备固件按内置默认词唤醒。
+  /// wakeWord 同样清空，UI 显示由后续 savePartial → 下次 load 时
+  /// 通过服务端 GET 的 default 兜底统一填充，客户端不做任何合成。
   void resetToDefault() {
     state = state.copyWith(
       customization: const DeviceCustomization.empty(),
